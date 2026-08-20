@@ -1,0 +1,37 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    // Legacy seller records are migrated by the trusted Flask backend.
+    match /sellers/{sellerId} {
+      allow read, write: if false;
+    }
+
+    // Users may read their own backend-managed profile.
+    match /users/{userId} {
+      allow read: if signedIn() && request.auth.uid == userId;
+      allow write: if false;
+    }
+
+    // Authoritative business data is accessed through the authenticated Flask API.
+    match /businesses/{businessId}/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /shortLinks/{shortCode} {
+      allow read, write: if false;
+    }
+
+    match /publicChatSessions/{sessionId}/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,0 +1,337 @@
+/* Full-page authentication background. */
+.login-page {
+  display: grid;
+  place-items: center;
+
+  min-height: 100vh;
+  padding: 24px;
+
+  background:
+    radial-gradient(
+      circle at top right,
+      rgba(34, 145, 255, 0.35),
+      transparent 34%
+    ),
+    linear-gradient(
+      145deg,
+      #002d52,
+      #063b6a 50%,
+      #001e38
+    );
+}
+
+/* Main login and registration card. */
+.login-card {
+  width: min(100%, 440px);
+  padding: 30px;
+
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 18px;
+
+  background: rgba(255, 255, 255, 0.97);
+
+  box-shadow:
+    0 24px 60px rgba(0, 15, 35, 0.35);
+
+  animation: login-card-open 300ms ease-out;
+}
+
+/* Page heading and supporting text. */
+.login-card__heading {
+  margin-bottom: 24px;
+  text-align: center;
+}
+
+.login-card__heading h1 {
+  margin: 0 0 8px;
+
+  color: #08233f;
+  font-size: 26px;
+}
+
+.login-card__heading p {
+  margin: 0;
+  color: #64748b;
+}
+
+/* Login and Register selector. */
+.login-card__tabs {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+
+  margin-bottom: 22px;
+  padding: 4px;
+
+  border-radius: 10px;
+  background: #edf4fb;
+}
+
+.login-card__tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+
+  min-height: 42px;
+  padding: 8px 14px;
+
+  border: 0;
+  border-radius: 8px;
+
+  color: #64748b;
+  background: transparent;
+
+  font: inherit;
+  font-weight: 700;
+
+  cursor: pointer;
+}
+
+.login-card__tab:hover {
+  color: #087fee;
+}
+
+.login-card__tab--active {
+  color: white;
+  background: #087fee;
+
+  box-shadow:
+    0 6px 16px rgba(8, 127, 238, 0.25);
+}
+
+.login-card__tab--active:hover {
+  color: white;
+}
+
+/* Email and password form. */
+.login-card__form {
+  display: grid;
+  gap: 16px;
+}
+
+/* Individual label and input group. */
+.login-card__field {
+  display: grid;
+  gap: 7px;
+}
+
+.login-card__field label {
+  color: #16314d;
+
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.login-card__field input {
+  width: 100%;
+  min-height: 46px;
+  padding: 0 13px;
+
+  border: 1px solid #cbd9e7;
+  border-radius: 9px;
+  outline: 0;
+
+  color: #102a43;
+  background: white;
+
+  font: inherit;
+  font-size: 14px;
+
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.login-card__field input::placeholder {
+  color: #94a3b8;
+}
+
+.login-card__field input:focus {
+  border-color: #168cf5;
+
+  box-shadow:
+    0 0 0 3px rgba(22, 140, 245, 0.14);
+}
+
+/* Firebase authentication error message. */
+.login-card__error {
+  margin: 0;
+  padding: 10px 12px;
+
+  border: 1px solid #fca5a5;
+  border-radius: 8px;
+
+  color: #b42323;
+  background: #fff1f1;
+
+  font-size: 13px;
+}
+
+/* Successful registration and email-verification instructions. */
+.login-card__success {
+  margin: 0;
+  padding: 10px 12px;
+
+  border: 1px solid #86efac;
+  border-radius: 8px;
+
+  color: #166534;
+  background: #f0fdf4;
+
+  font-size: 13px;
+}
+
+/* Primary email login or registration button. */
+.login-card__submit {
+  min-height: 46px;
+  margin-top: 2px;
+  padding: 0 16px;
+
+  border: 1px solid #087fee;
+  border-radius: 9px;
+
+  color: white;
+  background: linear-gradient(
+    135deg,
+    #168cf5,
+    #0873d4
+  );
+
+  font: inherit;
+  font-weight: 700;
+
+  cursor: pointer;
+
+  box-shadow:
+    0 8px 20px rgba(8, 127, 238, 0.24);
+}
+
+.login-card__submit:hover:not(:disabled) {
+  background: linear-gradient(
+    135deg,
+    #087fee,
+    #0567bd
+  );
+
+  transform: translateY(-1px);
+}
+
+.login-card__submit:disabled,
+.login-card__google:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+/* Separator between email and Google login. */
+.login-card__divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  margin: 20px 0;
+  color: #94a3b8;
+
+  font-size: 12px;
+}
+
+.login-card__divider::before,
+.login-card__divider::after {
+  content: "";
+
+  flex: 1;
+  height: 1px;
+
+  background: #dbe5ef;
+}
+
+/* Google authentication button. */
+.login-card__google {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+
+  width: 100%;
+  min-height: 46px;
+  padding: 0 16px;
+
+margin: 5px;
+
+  border: 1px solid #cbd9e7;
+  border-radius: 9px;
+
+  color: #16314d;
+  background: white;
+
+  font: inherit;
+  font-weight: 700;
+
+  cursor: pointer;
+}
+
+.login-card__google:hover:not(:disabled) {
+  color: #087fee;
+  border-color: #168cf5;
+  background: #f7fbff;
+}
+
+/* Simple Google letter icon. */
+.login-card__google > span {
+  display: grid;
+  place-items: center;
+
+  width: 25px;
+  height: 25px;
+
+  border-radius: 50%;
+
+  color: white;
+  background:
+    linear-gradient(
+      135deg,
+      #4285f4,
+      #34a853
+    );
+
+  font-weight: 800;
+}
+
+/* Login-card opening animation. */
+@keyframes login-card-open {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Smaller spacing for mobile devices. */
+@media (max-width: 520px) {
+  .login-page {
+    padding: 14px;
+  }
+
+  .login-card {
+    padding: 22px 18px;
+    border-radius: 14px;
+  }
+
+  .login-card__heading h1 {
+    font-size: 23px;
+  }
+}
+
+/* Disable animation when requested by the device. */
+@media (prefers-reduced-motion: reduce) {
+  .login-card {
+    animation: none;
+  }
+
+  .login-card__submit:hover:not(:disabled) {
+    transform: none;
+  }
+}

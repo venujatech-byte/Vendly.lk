@@ -1,0 +1,67 @@
+/* Main application shell containing the sidebar and routed content. */
+.app {
+  display: flex;
+  min-height: 100vh;
+
+  color: var(--color-text);
+  background-color: var(--color-background);
+  background-image: var(--color-background-gradient);
+  background-attachment: fixed;
+
+  transition:
+    color 250ms ease,
+    background-color 250ms ease;
+}
+
+/* Shared content spacing used by every dashboard page. */
+.dashboard {
+  flex: 1;
+  padding: 1px 32px;
+}
+
+.dashboard h2 {
+  flex: 1;
+  min-width: 0;
+}
+
+.dashboard p {
+  margin: 0;
+  color: var(--color-muted);
+}
+
+/* Main content column positioned beside the fixed-width sidebar. */
+.app__content {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Shared page introduction and section heading spacing. */
+.dashboard__intro {
+  margin-bottom: 10px;
+  padding: 0px
+}
+
+.dashboard__intro h2 {
+  margin-bottom: 6px;
+}
+
+.dashboard section > h2 {
+  margin: 0 0 18px;
+  color: var(--color-text);
+  font-size: 26px;
+}
+
+/* Responsive grid used by overview and inventory statistic cards. */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 18px;
+}
+.app-loading {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  color: var(--color-text);
+  background: var(--color-background);
+  font-weight: 700;
+}

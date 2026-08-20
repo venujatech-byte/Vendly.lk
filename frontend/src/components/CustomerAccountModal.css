@@ -1,0 +1,102 @@
+.customer-account-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: grid;
+  padding: 20px;
+  place-items: center;
+  background: rgba(4, 18, 34, 0.58);
+  backdrop-filter: blur(7px);
+}
+
+.customer-account-modal {
+  width: min(680px, 100%);
+  max-height: min(760px, calc(100vh - 40px));
+  overflow: auto;
+  border: 1px solid var(--sf-border, #dfe4ec);
+  border-radius: 20px;
+  color: var(--sf-text, #142238);
+  background: var(--sf-surface, #fff);
+  box-shadow: 0 28px 80px rgba(0, 22, 48, 0.28);
+  animation: customer-modal-in 180ms ease-out;
+}
+
+@keyframes customer-modal-in {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+
+.customer-account-modal > header,
+.customer-account-modal > header > div,
+.customer-account-identity,
+.customer-account-identity > div,
+.customer-account-portal nav,
+.customer-account-list article > div,
+.customer-account-list article > div > span {
+  display: flex;
+  align-items: center;
+}
+
+.customer-account-modal > header {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  min-height: 72px;
+  padding: 14px 20px;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--sf-border, #dfe4ec);
+  background: var(--sf-surface, #fff);
+}
+
+.customer-account-modal > header > div { gap: 11px; }
+.customer-account-modal > header > div > div { display: grid; gap: 2px; }
+.customer-account-modal > header small { color: var(--sf-muted, #667386); }
+.customer-account-modal button { border: 1px solid var(--sf-border, #dfe4ec); border-radius: 10px; background: var(--sf-surface, #fff); cursor: pointer; }
+.customer-account-modal > header > button { display: grid; width: 36px; height: 36px; padding: 0; place-items: center; }
+
+.customer-account-auth { display: grid; width: min(400px, 100%); margin: auto; padding: 26px; gap: 12px; }
+.customer-account-switch { display: grid; grid-template-columns: 1fr 1fr; padding: 4px; border-radius: 12px; background: var(--sf-soft, #f2f4f8); }
+.customer-account-switch button { min-height: 38px; border: 0; background: transparent; }
+.customer-account-switch button.is-active { color: #fff; background: var(--sf-primary, #0872d9); }
+.customer-account-auth form { display: grid; gap: 12px; }
+.customer-account-auth label { display: grid; gap: 6px; font-size: 0.82rem; font-weight: 700; }
+.customer-account-auth input { height: 43px; padding: 0 12px; border: 1px solid var(--sf-border, #dfe4ec); border-radius: 9px; color: inherit; background: var(--sf-surface, #fff); }
+.customer-account-auth > button,
+.customer-account-primary { display: flex; min-height: 43px; align-items: center; justify-content: center; gap: 8px; font-weight: 750; }
+.customer-account-primary { border-color: transparent !important; color: #fff !important; background: var(--sf-primary, #0872d9) !important; }
+.customer-account-divider { position: relative; text-align: center; color: var(--sf-muted, #667386); }
+.customer-account-divider::before { position: absolute; top: 50%; right: 0; left: 0; height: 1px; content: ""; background: var(--sf-border, #dfe4ec); }
+.customer-account-divider span { position: relative; padding: 0 10px; background: var(--sf-surface, #fff); }
+.customer-account-hint { color: var(--sf-muted, #667386); text-align: center; line-height: 1.5; }
+
+.customer-account-portal { padding: 20px; }
+.customer-account-identity { gap: 12px; padding: 14px; border-radius: 14px; background: var(--sf-soft, #f2f4f8); }
+.customer-account-identity > span { display: grid; width: 43px; height: 43px; place-items: center; border-radius: 50%; color: #fff; font-weight: 800; background: var(--sf-primary, #0872d9); }
+.customer-account-identity > div { display: grid; flex: 1; gap: 2px; }
+.customer-account-identity small { color: var(--sf-muted, #667386); }
+.customer-account-identity button { display: flex; padding: 9px 12px; align-items: center; gap: 6px; color: #d73737; }
+.customer-account-portal nav { gap: 7px; margin: 18px 0 12px; border-bottom: 1px solid var(--sf-border, #dfe4ec); }
+.customer-account-portal nav button { display: flex; padding: 10px 14px; align-items: center; gap: 7px; border: 0; border-radius: 9px 9px 0 0; background: transparent; }
+.customer-account-portal nav button.is-active { color: var(--sf-primary, #0872d9); background: color-mix(in srgb, var(--sf-primary, #0872d9) 10%, transparent); }
+.customer-account-list { display: grid; gap: 11px; }
+.customer-account-list article { padding: 15px; border: 1px solid var(--sf-border, #dfe4ec); border-radius: 13px; background: var(--sf-surface, #fff); }
+.customer-account-list article > div { justify-content: space-between; gap: 10px; }
+.customer-account-list article > div > span { gap: 5px; color: var(--sf-muted, #667386); font-size: 0.76rem; }
+.customer-account-list article > p { margin: 10px 0; color: var(--sf-muted, #667386); font-size: 0.83rem; line-height: 1.45; }
+.customer-account-list dl { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 12px 0; }
+.customer-account-list dl div { display: grid; gap: 3px; }
+.customer-account-list dt { color: var(--sf-muted, #667386); font-size: 0.72rem; }
+.customer-account-list dd { margin: 0; font-size: 0.82rem; font-weight: 700; }
+.customer-order-status { padding: 5px 8px; border-radius: 999px; color: #087c58 !important; background: #e5f7f0; }
+.customer-order-progress { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.customer-order-progress span { padding-top: 8px; border-top: 3px solid var(--sf-border, #dfe4ec); color: var(--sf-muted, #667386); text-align: center; font-size: 0.67rem; }
+.customer-order-progress span.is-complete { border-color: var(--sf-primary, #0872d9); color: var(--sf-primary, #0872d9); font-weight: 750; }
+.customer-account-empty { padding: 32px; color: var(--sf-muted, #667386); text-align: center; }
+.customer-account-error { margin: 0 20px 20px; padding: 10px 12px; border-radius: 9px; color: #a32929; background: #ffeded; }
+
+@media (max-width: 600px) {
+  .customer-account-backdrop { padding: 0; align-items: end; }
+  .customer-account-modal { max-height: 92vh; border-radius: 20px 20px 0 0; }
+  .customer-account-list dl { grid-template-columns: 1fr 1fr; }
+  .customer-account-identity { align-items: flex-start; flex-wrap: wrap; }
+}

@@ -1,0 +1,177 @@
+/* Single-row grid used by the compact order statistic cards. */
+.order-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(135px, 1fr));
+  gap: 10px;
+  overflow-x: auto;
+  padding: 6px 3px;
+}
+
+/* Compact statistic card container. */
+.stat-card2 {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+  min-height: 30px;
+  padding: 6px;
+  outline: none;
+  cursor: pointer;
+}
+
+
+
+/* Hover glow and lift animation. */
+.stat-card2::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border: 2px solid var(--color-border);
+  border-radius: 15px;
+background: var(--card-background);
+box-shadow: var(--card-shadow);
+
+  transform: scale(1);
+  transition:
+    transform 500ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 500ms ease,
+    border-color 500ms ease;
+}
+
+.stat-card2:hover {
+  z-index: 10;
+}
+.stat-card2--active::before {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-primary) 18%, transparent);
+}
+
+.stat-card2:focus-visible::before {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 25%, transparent);
+}
+
+html[data-theme="dark"] .stat-card2:hover::before {
+  border-color: rgba(41, 151, 255, 0.65);
+
+  box-shadow:
+    0 10px 24px rgba(0, 0, 0, 0.36),
+    0 0 18px rgba(41, 151, 255, 0.08);
+}
+
+.stat-card2:hover::before {
+  transform: scale(1.04);
+  transition:
+    transform 500ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 500ms ease,
+    border-color 500ms ease;
+  border-color: #9cc7f5;
+  box-shadow: 0 2px 3px rgba(15, 23, 42, 0.18);
+}
+
+/* Icon tile and its hover scale. */
+.stat-card2__icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  transform: scale(1);
+  transition: transform 500ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.stat-card2:hover .stat-card2__icon {
+  transform: scale(1.1);
+}
+
+/* Disable card motion when requested by the operating system. */
+@media (prefers-reduced-motion: reduce) {
+  .stat-card2,
+  .stat-card2__icon {
+    transition: none;
+  }
+
+  .stat-card2:hover {
+    transform: none;
+  }
+}
+
+/* Compact card label and value layout. */
+.stat-card2__content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.stat-card2__label {
+  color: var(--color-text);
+  font-size: 13px;
+  font-weight: 550;
+  white-space: nowrap;
+}
+
+.stat-card2__value {
+  color: var(--color-text-strong);
+  font-size: 16px;
+  font-weight: 700;
+  margin-right: 2px;
+}
+
+/* Status tone classes. */
+.stat-card2--blue {
+  color: #1d75e8e0;
+}
+
+.stat-card2--orange {
+  color: #f59e0b;
+}
+
+.stat-card2--green {
+  color: #22a474;
+}
+
+.stat-card2--purple {
+  color: #8247e5;
+}
+
+.stat-card2--red {
+  color: #ef4444;
+}
+
+html[data-theme="dark"] .stat-card--blue .stat-card__icon,
+/* Dark-theme icon colours and backgrounds. */
+html[data-theme="dark"] .stat-card2--blue .stat-card2__icon {
+  color: #469cff;
+  background-color: rgba(41, 132, 255, 0.16);
+}
+
+html[data-theme="dark"] .stat-card--orange .stat-card__icon,
+html[data-theme="dark"] .stat-card2--orange .stat-card2__icon {
+  color: #ffad24;
+  background-color: rgba(245, 158, 11, 0.15);
+}
+
+html[data-theme="dark"] .stat-card--green .stat-card__icon,
+html[data-theme="dark"] .stat-card2--green .stat-card2__icon {
+  color: #4bd99d;
+  background-color: rgba(34, 164, 116, 0.16);
+}
+
+html[data-theme="dark"] .stat-card--purple .stat-card__icon,
+html[data-theme="dark"] .stat-card2--purple .stat-card2__icon {
+  color: #a77bff;
+  background-color: rgba(130, 71, 229, 0.17);
+}
+
+html[data-theme="dark"] .stat-card--red .stat-card__icon,
+html[data-theme="dark"] .stat-card2--red .stat-card2__icon {
+  color: #ff6262;
+  background-color: rgba(239, 68, 68, 0.16);
+}

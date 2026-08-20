@@ -1,0 +1,297 @@
+/* Expanded order panel divided into products, address, summary, and actions. */
+.order-details {
+  display: grid;
+  grid-template-columns:
+    minmax(280px, 1.5fr)
+    minmax(210px, 1fr)
+    minmax(210px, 1fr)
+    minmax(180px, 0.8fr);
+
+  gap: 18px;
+  padding: 16px;
+
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+
+  color: var(--color-text);
+  background: var(--color-surface);
+
+  animation: order-details-open 500ms ease-out;
+
+  margin-top: 5px;
+}
+
+/* Shared section borders and headings. */
+.order-details__section {
+  min-width: 0;
+  padding-right: 18px;
+  border-right: 1px solid var(--color-border);
+}
+
+.order-details__section:last-child {
+  padding-right: 0;
+  border-right: 0;
+}
+
+.order-details__section h3 {
+  margin: 0 0 12px;
+  font-size: 12px;
+}
+
+/* Product list and individual order-item rows. */
+.order-details__items {
+  display: grid;
+  gap: 8px;
+}
+
+.order-details__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.order-details__item:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.order-details__item span {
+  display: block;
+  margin-top: 3px;
+  color: var(--color-muted);
+  font-size: 10px;
+}
+
+/* Customer and delivery-address information. */
+.order-details__information {
+  display: grid;
+  gap: 12px;
+}
+
+.order-details__information > div {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  line-height: 1.5;
+}
+
+.order-details__information svg {
+  flex-shrink: 0;
+  color: var(--color-accent);
+}
+
+/* Payment summary and highlighted final total. */
+.order-details__summary {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+}
+
+.order-details__summary > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.order-details__total {
+  padding-top: 12px;
+  border-top: 1px solid var(--color-border);
+  font-size: 14px;
+}
+
+.order-details__waybill {
+  color: var(--color-accent);
+}
+
+.order-details__summary > .order-details__waybill-row {
+  display: grid;
+  gap: 7px;
+}
+
+.order-details__waybill-row label {
+  font-weight: 600;
+}
+
+.order-details__waybill-editor {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+}
+
+.order-details__waybill-editor input {
+  min-width: 0;
+  height: 34px;
+  padding: 0 9px;
+  border: 1px solid var(--color-border);
+  border-radius: 7px;
+  color: var(--color-text);
+  background: var(--color-surface);
+  font: inherit;
+  font-size: 11px;
+}
+
+.order-details__waybill-editor input:focus {
+  border-color: var(--color-accent);
+  outline: 2px solid color-mix(in srgb, var(--color-accent) 18%, transparent);
+}
+
+.order-details__waybill-editor button {
+  min-width: 52px;
+  border: 1px solid var(--color-accent);
+  border-radius: 7px;
+  color: #fff;
+  background: var(--color-accent);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.order-details__waybill-editor button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Order action buttons and their individual colour meanings. */
+.order-details__actions {
+  display: grid;
+  align-content: start;
+  gap: 9px;
+}
+
+.order-details__actions button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+
+  min-height: 36px;
+  padding: 8px 12px;
+
+  border-radius: 7px;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.order-details__status-button {
+  color: white;
+  border: 1px solid var(--color-accent);
+  background: var(--color-accent);
+}
+
+.order-details__print-button {
+  color: var(--color-accent);
+  border: 1px solid var(--color-accent);
+  background: transparent;
+}
+
+.order-details__fraud-button {
+  color: #ef4444;
+  border: 1px solid #ef4444;
+  background: transparent;
+}
+
+.order-details__item-image {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+}
+
+.order-details__actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.order-details__action-error {
+  margin: 2px 0 0;
+  color: #dc2626;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+/* Table cell that contains the expanded details component. */
+.orders-table__details-cell {
+  padding: 0 10px 12px !important;
+  background: var(--color-surface-soft);
+}
+
+.orders-table tbody .orders-table__details-row:hover {
+  background: transparent;
+}
+
+/* Opening animation for the expanded panel. */
+@keyframes order-details-open {
+  from {
+    opacity: 0;
+    transform: translateY(-7px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Dark-theme expanded order panel. */
+html[data-theme="dark"] .order-details {
+  border-color: #2b4055;
+  background: linear-gradient(
+    145deg,
+    rgba(18, 34, 51, 0.98),
+    rgba(10, 22, 35, 0.98)
+  );
+}
+
+html[data-theme="dark"] .orders-table__details-cell {
+  background: rgba(7, 17, 28, 0.72);
+}
+
+/* Two-column layout when the screen cannot fit all four sections. */
+@media (max-width: 1100px) {
+  .order-details {
+    grid-template-columns: repeat(2, minmax(250px, 1fr));
+  }
+
+  .order-details__section:nth-child(2) {
+    border-right: 0;
+  }
+}
+.order-details__status-control {
+  display: grid;
+  gap: 6px;
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+
+.order-details__status-control > div {
+  position: relative;
+}
+
+.order-details__status-control select {
+  width: 100%;
+  min-height: 38px;
+  padding: 0 34px 0 11px;
+  border: 1px solid #087cf0;
+  border-radius: 8px;
+  appearance: none;
+  color: #fff;
+  background: #087cf0;
+  cursor: pointer;
+  font: inherit;
+}
+
+.order-details__status-control svg {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  pointer-events: none;
+  transform: translateY(-50%);
+}

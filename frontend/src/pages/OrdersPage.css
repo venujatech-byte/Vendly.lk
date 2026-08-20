@@ -1,0 +1,184 @@
+/* Sales Orders title and export action alignment. */
+.orders-page__heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.orders-page__heading h2 {
+  margin: 0;
+}
+
+/* Export Orders button appearance and interaction states. */
+.orders-page__export-button,
+.orders-page__share-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+
+  min-width: 140px;
+  height: 37px;
+  padding: 0 16px;
+
+  border: 1px solid #9bb9dc;
+  border-radius: 8px;
+
+  color: var(--color-text-strong);
+  background: var(--color-surface);
+
+  font-size: 13px;
+  font-weight: 650;
+  white-space: nowrap;
+
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease,
+    transform 180ms ease;
+}
+
+.orders-page__export-button:hover,
+.orders-page__share-button:hover {
+  border-color: #168cf5;
+  background-color: #eef6ff;
+  transform: translateY(-1px);
+}
+
+.orders-page__export-button:active,
+.orders-page__share-button:active {
+  transform: translateY(0);
+}
+
+.orders-page__export-button:disabled,
+.orders-page__share-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+  transform: none;
+}
+
+/* Orders-page spacing that does not affect the Overview page. */
+.orders-page {
+  padding-top: 15px;
+}
+
+.orders-page__export-button svg,
+.orders-page__share-button svg {
+  flex-shrink: 0;
+  color: #14558f;
+}
+
+/* Dark-theme export-button colours. */
+html[data-theme="dark"] .orders-page__export-button,
+html[data-theme="dark"] .orders-page__share-button {
+  border-color: #31506d;
+  color: #c5dcf4;
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(20, 39, 58, 0.95),
+      rgba(11, 27, 43, 0.95)
+    );
+
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 5px 14px rgba(0, 0, 0, 0.16);
+}
+
+html[data-theme="dark"] .orders-page__export-button svg,
+html[data-theme="dark"] .orders-page__share-button svg {
+  color: #54aaff;
+}
+
+html[data-theme="dark"] .orders-page__export-button:hover,
+html[data-theme="dark"] .orders-page__share-button:hover {
+  border-color: #2997ff;
+  color: white;
+  background-color: rgba(41, 151, 255, 0.14);
+
+  box-shadow:
+    0 6px 16px rgba(0, 0, 0, 0.2),
+    0 0 14px rgba(41, 151, 255, 0.1);
+
+  transform: translateY(-1px);
+}
+
+html[data-theme="dark"] .orders-page__export-button:hover svg,
+html[data-theme="dark"] .orders-page__share-button:hover svg {
+  color: white;
+}
+
+.orders-page__notice {
+  margin: 12px 0;
+  padding: 11px 13px;
+  border: 1px solid var(--color-border);
+  border-radius: 9px;
+  color: var(--color-text-muted);
+  background: var(--color-surface);
+}
+
+.orders-page__notice--error {
+  border-color: rgba(220, 38, 38, 0.35);
+  color: #b91c1c;
+  background: rgba(254, 226, 226, 0.55);
+}
+
+[data-theme="dark"] .orders-page__notice--error {
+  color: #fca5a5;
+  background: rgba(127, 29, 29, 0.2);
+}
+.orders-page__heading-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.orders-page__add-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 16px;
+  border: 1px solid #087cf0;
+  border-radius: 8px;
+  color: #fff;
+  background: linear-gradient(135deg, #178ff8, #066ce1);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 650;
+}
+
+.orders-page__add-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.orders-page__export-button,
+.orders-page__share-button,
+.orders-page__add-button {
+  box-shadow: 0 4px 12px rgba(8, 54, 96, 0.08);
+}
+
+.orders-page__add-button {
+  transition: transform 180ms ease, box-shadow 180ms ease, filter 180ms ease;
+}
+
+.orders-page__add-button:hover:not(:disabled) {
+  filter: brightness(1.05);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(8, 124, 240, 0.22);
+}
+
+@media (max-width: 760px) {
+  .orders-page__heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .orders-page__heading-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+}

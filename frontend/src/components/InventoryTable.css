@@ -1,0 +1,454 @@
+/* Product image and text arrangement inside a main inventory row. */
+.inventory-table__product {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 190px;
+}
+
+/* Actions displayed when inventory rows are checkbox-selected. */
+.inventory-table__bulk-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 9px;
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--color-border);
+  background: rgba(22, 140, 245, 0.06);
+}
+
+.inventory-table__bulk-status {
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--color-primary, #1683f5);
+  border-radius: 8px;
+  color: var(--color-primary-dark, #064e9b);
+  background: var(--color-surface, #fff);
+  font: inherit;
+  cursor: pointer;
+}
+
+.inventory-table__bulk-actions strong {
+  margin-right: 8px;
+  color: var(--color-text-strong);
+  font-size: 12.5px;
+  font-weight: 650;
+}
+
+.inventory-table__bulk-actions button,
+.inventory-table__size-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 11px;
+  border: 1px solid var(--color-accent);
+  border-radius: 7px;
+  color: var(--color-accent);
+  background: var(--color-control);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.inventory-table__bulk-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+/* Shared product-photo frame and fallback icon area. */
+.inventory-table__product-image {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+
+  width: 42px;
+  height: 42px;
+
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+
+  color: var(--color-accent);
+  background: var(--color-surface-soft);
+}
+
+.inventory-table__product-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* Stock badge base style followed by its three status colours. */
+.inventory-table__status {
+  display: inline-flex;
+  align-items: center;
+
+  padding: 5px 9px;
+  border: 1px solid;
+  border-radius: 7px;
+
+  font-size: 10.5px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.inventory-table__status--in-stock {
+  color: #14835a;
+  border-color: #54c99b;
+  background: rgba(34, 164, 116, 0.1);
+}
+
+.inventory-table__status--low-stock {
+  color: #c77700;
+  border-color: #f7b84b;
+  background: rgba(245, 158, 11, 0.1);
+}
+
+.inventory-table__status--out-of-stock {
+  color: #dc3030;
+  border-color: #ff7777;
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.inventory-table__details-cell {
+  padding: 0 10px 12px !important;
+  background: var(--color-surface-soft);
+}
+
+/* Expanded panel used by products with size variants. */
+.inventory-table__size-details {
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface);
+  animation: inventory-details-open 220ms ease-out;
+}
+
+/* Size summary header and its seller action buttons. */
+.inventory-table__size-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.inventory-table__size-header h3 {
+  margin: 0 0 4px;
+  color: var(--color-text-strong);
+  font-size: 13.5px;
+  font-weight: 650;
+}
+
+.inventory-table__size-header span {
+  color: var(--color-subtle);
+  font-size: 11.5px;
+}
+
+.inventory-table__size-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.inventory-table__size-actions button:first-child {
+  color: white;
+  background: var(--color-accent);
+}
+
+/* Description and photos displayed above the size rows. */
+.inventory-table__size-overview {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(220px, 0.8fr);
+  gap: 18px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.inventory-table__size-overview section {
+  min-width: 0;
+}
+
+.inventory-table__size-overview h4 {
+  margin: 0 0 7px;
+  color: var(--color-text-strong);
+  font-size: 12.5px;
+  font-weight: 650;
+}
+
+.inventory-table__size-overview p {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.orders-table tbody .inventory-table__details-row:hover {
+  background: transparent;
+}
+
+/* Expanded four-column layout used by simple products. */
+.inventory-table__details {
+  display: grid;
+  grid-template-columns:
+    minmax(300px, 1.5fr)
+    minmax(210px, 1fr)
+    minmax(180px, 0.8fr)
+    minmax(170px, 0.7fr);
+
+  gap: 16px;
+  padding: 16px;
+
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface);
+
+  animation: inventory-details-open 220ms ease-out;
+}
+
+.inventory-table__details section {
+  padding-right: 16px;
+  border-right: 1px solid var(--color-border);
+}
+
+.inventory-table__details section:last-child {
+  padding-right: 0;
+  border-right: 0;
+}
+
+.inventory-table__details h3 {
+  margin: 0 0 8px;
+  color: var(--color-text-strong);
+  font-size: 12.5px;
+  font-weight: 650;
+}
+
+.inventory-table__description p {
+  margin: 0 0 14px;
+  color: var(--color-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* Product images, information lists, reviews, and actions. */
+.inventory-table__images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.inventory-table__information {
+  display: grid;
+  align-content: start;
+}
+
+.inventory-table__information > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+
+  padding: 9px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.inventory-table__information > div:last-child {
+  border-bottom: 0;
+}
+
+.inventory-table__information span {
+  color: var(--color-subtle);
+  font-size: 12px;
+}
+
+.inventory-table__information strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--color-text-strong);
+  font-weight: 650;
+}
+
+.inventory-table__star {
+  color: #f59e0b;
+}
+
+.inventory-table__actions {
+  display: grid;
+  align-content: start;
+  gap: 9px;
+}
+
+.inventory-table__actions button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+
+  min-height: 36px;
+  padding: 8px 12px;
+
+  border: 1px solid var(--color-accent);
+  border-radius: 7px;
+
+  color: var(--color-accent);
+  background: transparent;
+
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.inventory-table__actions button:first-child {
+  color: white;
+  background: var(--color-accent);
+}
+
+/* Dark-theme simple-product details. */
+html[data-theme="dark"] .inventory-table__details-cell {
+  background: rgba(7, 17, 28, 0.72);
+}
+
+html[data-theme="dark"] .inventory-table__details {
+  border-color: #2b4055;
+  background: linear-gradient(
+    145deg,
+    rgba(18, 34, 51, 0.98),
+    rgba(10, 22, 35, 0.98)
+  );
+}
+
+html[data-theme="dark"]
+  .inventory-table__status--in-stock {
+  color: #5cdaa8;
+}
+
+html[data-theme="dark"]
+  .inventory-table__status--low-stock {
+  color: #ffbd4a;
+}
+
+html[data-theme="dark"]
+  .inventory-table__status--out-of-stock {
+  color: #ff7777;
+}
+
+/* Opening animation shared by expanded inventory content. */
+@keyframes inventory-details-open {
+  from {
+    opacity: 0;
+    transform: translateY(-7px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Collapse the simple-product detail grid on medium screens. */
+@media (max-width: 1100px) {
+  .inventory-table__details {
+    grid-template-columns: repeat(2, minmax(250px, 1fr));
+  }
+
+  .inventory-table__details section:nth-child(2) {
+    border-right: 0;
+  }
+}
+
+/* Label showing how many sizes belong to a product. */
+.inventory-table__variant-count {
+  display: block;
+  margin-top: 3px;
+  color: var(--color-accent);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+/* Nested table containing size-level SKUs, barcodes, and stock. */
+.product-variants {
+  grid-column: 1 / -1;
+  padding: 0 !important;
+  border: 0 !important;
+}
+
+.product-variants__scroll {
+  overflow-x: auto;
+}
+
+.product-variants__table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.product-variants__table th,
+.product-variants__table td {
+  padding: 10px;
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.product-variants__table th {
+  color: var(--color-text-strong);
+  font-size: 10.5px;
+  font-weight: 650;
+  text-transform: uppercase;
+}
+
+.product-variants__actions-cell {
+  width: 92px;
+  text-align: right !important;
+}
+
+.product-variants__adjust-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 30px;
+  padding: 0 9px;
+  border: 1px solid var(--color-accent);
+  border-radius: 7px;
+  color: var(--color-accent);
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+/* Dark-theme size details and bulk selection bar. */
+html[data-theme="dark"] .inventory-table__size-details {
+  border-color: #2b4055;
+  background: linear-gradient(
+    145deg,
+    rgba(18, 34, 51, 0.98),
+    rgba(10, 22, 35, 0.98)
+  );
+}
+
+html[data-theme="dark"] .inventory-table__bulk-actions {
+  background: rgba(41, 151, 255, 0.08);
+}
+
+/* Stack size details and actions on small screens. */
+@media (max-width: 760px) {
+  .inventory-table__size-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .inventory-table__size-overview {
+    grid-template-columns: 1fr;
+  }
+
+  .inventory-table__size-actions {
+    justify-content: flex-start;
+  }
+}

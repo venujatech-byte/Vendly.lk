@@ -1,0 +1,180 @@
+/* Category table column sizing. */
+.category-table th:nth-child(2) {
+  min-width: 180px;
+}
+
+.category-table th:nth-child(3) {
+  min-width: 280px;
+}
+
+.category-table th:nth-child(4),
+.category-table th:nth-child(5) {
+  min-width: 110px;
+}
+
+/* Category status badge. */
+.category-table__status {
+  display: inline-flex;
+  align-items: center;
+
+  padding: 5px 9px;
+
+  border: 1px solid;
+  border-radius: 7px;
+
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* Active category status. */
+.category-table__status--active {
+  color: #14835a;
+  border-color: #54c99b;
+  background: rgba(34, 164, 116, 0.1);
+}
+
+/* Uncategorized or incomplete category status. */
+.category-table__status--needs-attention {
+  color: #c77700;
+  border-color: #f7b84b;
+  background: rgba(245, 158, 11, 0.1);
+}
+
+/* Prevent the expanded row from receiving a hover colour. */
+.orders-table tbody .category-table__details-row:hover {
+  background: transparent;
+}
+
+/* Table cell containing the expanded product list. */
+.category-table__details-cell {
+  padding: 0 10px 12px !important;
+  background: var(--color-surface-soft);
+}
+
+/* Expanded category container. */
+.category-table__products {
+  padding: 14px;
+
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+
+  background: var(--color-surface);
+
+  animation: category-products-open 220ms ease-out;
+}
+
+.category-table__products h3 {
+  margin: 0 0 12px;
+  font-size: 13px;
+}
+
+/* Allow the nested product table to scroll on small screens. */
+.category-table__products-scroll {
+  overflow-x: auto;
+}
+
+/* Nested products table. */
+.category-table__products-table {
+  width: 100%;
+  min-width: 750px;
+
+  border-collapse: collapse;
+}
+
+/* Nested table headings and cells. */
+.category-table__products-table th,
+.category-table__products-table td {
+  padding: 10px 12px;
+
+  border-bottom: 1px solid var(--color-border);
+
+  text-align: left;
+  white-space: nowrap;
+}
+
+.category-table__products-table th {
+  color: var(--color-muted);
+
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.category-table__products-table td {
+  color: var(--color-text);
+  font-size: 12px;
+}
+
+/* Remove the final unnecessary border. */
+.category-table__products-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+/* Product image frame. */
+.category-table__product-image {
+  display: grid;
+  place-items: center;
+
+  width: 44px;
+  height: 44px;
+
+  overflow: hidden;
+
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+
+  color: var(--color-accent);
+  background: var(--color-surface-soft);
+}
+
+/* Keep the complete product visible inside its frame. */
+.category-table__product-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* Expanded-row opening animation. */
+@keyframes category-products-open {
+  from {
+    opacity: 0;
+    transform: translateY(-7px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Dark-theme adjustments. */
+html[data-theme="dark"] .category-table__details-cell {
+  background: rgba(7, 17, 28, 0.72);
+}
+
+html[data-theme="dark"] .category-table__products {
+  border-color: #2b4055;
+
+  background: linear-gradient(
+    145deg,
+    rgba(18, 34, 51, 0.98),
+    rgba(10, 22, 35, 0.98)
+  );
+}
+
+html[data-theme="dark"] .category-table__status--active {
+  color: #5cdaa8;
+}
+
+html[data-theme="dark"]
+  .category-table__status--needs-attention {
+  color: #ffbd4a;
+}
+
+/* Remove animations for users who disable motion. */
+@media (prefers-reduced-motion: reduce) {
+  .category-table__products {
+    animation: none;
+  }
+}

@@ -1,0 +1,275 @@
+// Icons used in the customer information and order action areas.
+import {
+  ChevronDown,
+  CircleAlert,
+  Flag,
+  MapPin,
+  Phone,
+  Printer,
+  User,
+} from "lucide-react";
+import { useEffect, useState } from "react";
+import { printWaybill } from "../services/operationService";
+
+import "./OrderDetails.css";
+
+const nextStatuses = {
+  "needs-confirmation": ["confirmed", "cancelled"],
+  confirmed: ["packed", "cancelled"],
+  packed: ["shipped", "cancelled"],
+  shipped: ["delivered", "returned"],
+};
+
+function readableStatus(status) {
+  return status
+    .split("-")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+function OrderDetails({
+  order,
+  onStatusChange,
+  onGenerateWaybill,
+  onFraudReport,
+  onCourierIssue,
+  onWaybillSave,
+}) {
+  const [actionError, setActionError] = useState("");
+  const [isWorking, setIsWorking] = useState(false);
+  const [waybillNumber, setWaybillNumber] = useState(order.waybillNumber ?? "");
+
+  useEffect(() => {
+    setWaybillNumber(order.waybillNumber ?? "");
+  }, [order.id, order.waybillNumber]);
+  // Use real order items when available, otherwise show a safe placeholder row.
+  const items = order.items ?? [
+    {
+      id: `${order.id}-item`,
+      name: "Order items",
+      quantity: order.itemCount,
+      price: order.total,
+    },
+  ];
+
+  async function handlePrintWaybill() {
+    const printWindow = window.open("", "_blank", "width=900,height=700");
+    setActionError("");
+    setIsWorking(true);
+
+    try {
+      const printableOrder = order.waybillNumber
+        ? order
+        : await onGenerateWaybill?.(order.id);
+      printWaybill(printableOrder, printWindow);
+    } catch (error) {
+      printWindow?.close();
+      setActionError(error.message);
+    } finally {
+      setIsWorking(false);
+    }
+  }
+
+  async function handleFraudReport() {
+    const note = window.prompt(
+      "Add a private note explaining why this appears to be a fake order:",
+      "Customer details could not be verified.",
+    );
+
+    if (note === null) return;
+    setActionError("");
+    setIsWorking(true);
+
+    try {
+      await onFraudReport?.(order.id, note);
+    } catch (error) {
+      setActionError(error.message);
+    } finally {
+      setIsWorking(false);
+    }
+  }
+
+  async function handleCourierIssue() {
+    const note = window.prompt(
+      "Describe the courier branch problem:",
+      "Delivery was affected by a courier branch problem.",
+    );
+
+    if (note === null) return;
+    setActionError("");
+    setIsWorking(true);
+
+    try {
+      await onCourierIssue?.(order.id, note);
+    } catch (error) {
+      setActionError(error.message);
+    } finally {
+      setIsWorking(false);
+    }
+  }
+
+  async function handleWaybillSave() {
+    const trimmedWaybill = waybillNumber.trim();
+    if (!trimmedWaybill) {
+      setActionError("Enter a waybill number before saving.");
+      return;
+    }
+
+    setActionError("");
+    setIsWorking(true);
+    try {
+      await onWaybillSave?.(order.id, trimmedWaybill);
+    } catch (error) {
+      setActionError(error.message);
+      window.alert(error.message);
+    } finally {
+      setIsWorking(false);
+    }
+  }
+
+  return (
+    <div className="order-details">
+      {/* Products included in this order. */}
+      <section className="order-details__section">
+        <h3>Items in this order</h3>
+
+        <div className="order-details__items">
+          {items.map((item) => (
+            <div className="order-details__item" key={item.id}>
+              {item.imageUrl ? <img className="order-details__item-image" src={item.imageUrl} alt="" /> : null}
+              <div>
+                <strong>{item.name}</strong>
+
+                <span>
+                  Qty: {item.quantity} × {item.unitPrice ?? item.price}
+                </span>
+              </div>
+
+              <strong>{item.price}</strong>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Customer contact information and delivery address. */}
+      <section className="order-details__section">
+        <h3>Delivery Address</h3>
+
+        <div className="order-details__information">
+          <div>
+            <User size={17} />
+            <span>{order.customerName}</span>
+          </div>
+
+          <div>
+            <Phone size={17} />
+            <span>{order.phoneNumber}</span>
+          </div>
+
+          <div>
+            <MapPin size={17} />
+            <span>{order.deliveryAddress ?? "Address not available"}</span>
+          </div>
+        </div>
+      </section>
+
+      {/* Product subtotal, delivery fee, final total, and waybill number. */}
+      <section className="order-details__section order-details__summary">
+        <div>
+          <span>Subtotal</span>
+          <strong>{order.subtotal ?? order.total}</strong>
+        </div>
+
+        <div>
+          <span>Delivery Fee</span>
+          <strong>{order.deliveryFee ?? "Not calculated"}</strong>
+        </div>
+
+        <div className="order-details__total">
+          <span>Total</span>
+          <strong>{order.total}</strong>
+        </div>
+
+        <div className="order-details__waybill-row">
+          <label htmlFor={`waybill-${order.id}`}>Waybill No</label>
+          <div className="order-details__waybill-editor">
+            <input
+              id={`waybill-${order.id}`}
+              type="text"
+              value={waybillNumber}
+              onChange={(event) => setWaybillNumber(event.target.value)}
+              placeholder="Enter waybill number"
+              disabled={isWorking}
+            />
+            <button type="button" onClick={handleWaybillSave} disabled={isWorking}>
+              Save
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* Seller actions for status, waybill printing, and fraud reporting. */}
+      <section className="order-details__section order-details__actions">
+        <h3>Order Actions</h3>
+
+        <label className="order-details__status-control">
+          <span>Update Status</span>
+          <div>
+            <select
+              defaultValue=""
+              onChange={(event) => {
+                if (event.target.value) {
+                  onStatusChange?.(order.id, event.target.value);
+                  event.target.value = "";
+                }
+              }}
+              disabled={(nextStatuses[order.fulfilmentStatus] ?? []).length === 0}
+            >
+              <option value="">Choose next status</option>
+              {(nextStatuses[order.fulfilmentStatus] ?? []).map((status) => (
+                <option key={status} value={status}>{readableStatus(status)}</option>
+              ))}
+            </select>
+            <ChevronDown size={17} aria-hidden="true" />
+          </div>
+        </label>
+
+        <button
+          className="order-details__print-button"
+          type="button"
+          onClick={handlePrintWaybill}
+          disabled={isWorking}
+        >
+          <Printer size={17} />
+          Print Waybill
+        </button>
+
+        <button
+          className="order-details__print-button"
+          type="button"
+          onClick={handleCourierIssue}
+          disabled={isWorking}
+        >
+          <CircleAlert size={17} />
+          Report Courier Issue
+        </button>
+
+        <button
+          className="order-details__fraud-button"
+          type="button"
+          onClick={handleFraudReport}
+          disabled={isWorking || Boolean(order.fraudReport)}
+        >
+          <Flag size={17} />
+          {order.fraudReport ? "Fraud Reported" : "Report Fake Order"}
+        </button>
+
+        {actionError && (
+          <p className="order-details__action-error" role="alert">{actionError}</p>
+        )}
+      </section>
+    </div>
+  );
+}
+
+export default OrderDetails;

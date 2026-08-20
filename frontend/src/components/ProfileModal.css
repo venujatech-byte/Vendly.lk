@@ -1,0 +1,70 @@
+.profile-modal {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.profile-modal__identity {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface-soft);
+  grid-column: 1 / -1;
+}
+
+.profile-modal__identity-icon {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  flex: 0 0 46px;
+  border-radius: 50%;
+  color: #fff;
+  background: linear-gradient(145deg, #087cf0, #0759ba);
+}
+
+.profile-modal__identity > div { display: grid; gap: 2px; min-width: 0; }
+.profile-modal__identity span, .profile-modal__identity small { color: var(--color-text-muted); }
+.profile-modal__verified { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; color: #13865d !important; font-size: 0.78rem; font-weight: 700; }
+
+.profile-modal__section { display: grid; gap: 12px; padding: 16px; border: 1px solid var(--color-border); border-radius: 12px; }
+.profile-modal__section-title { display: flex; align-items: flex-start; gap: 10px; }
+.profile-modal__section-title svg { margin-top: 2px; color: var(--color-accent); }
+.profile-modal__section-title h3, .profile-modal__section-title p { margin: 0; }
+.profile-modal__section-title h3 { font-size: 0.96rem; }
+.profile-modal__section-title p { margin-top: 3px; color: var(--color-text-muted); font-size: 0.78rem; }
+
+.profile-modal label { display: grid; gap: 6px; color: var(--color-text); font-size: 0.8rem; font-weight: 650; }
+.profile-modal input { width: 100%; min-height: 40px; padding: 0 11px; border: 1px solid var(--color-border); border-radius: 8px; color: var(--color-text); background: var(--color-surface); font: inherit; box-sizing: border-box; }
+.profile-modal input:focus { border-color: var(--color-accent); outline: 3px solid color-mix(in srgb, var(--color-accent) 15%, transparent); }
+.profile-modal__password-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 11px; }
+.profile-modal__password-grid label:first-child { grid-column: 1 / -1; }
+.profile-modal__hint, .profile-modal__provider-note { margin: 0; padding: 10px 12px; border-radius: 8px; color: var(--color-text-muted); background: var(--color-surface-soft); font-size: 0.78rem; line-height: 1.5; }
+.profile-modal__message { margin: 0; padding: 9px 11px; border-radius: 8px; font-size: 0.78rem; line-height: 1.45; }
+.profile-modal__message--success { color: #08734f; background: #e7f8f1; }
+.profile-modal__message--error { color: #b42318; background: #fff0ef; }
+.profile-modal__button-row { display: flex; justify-content: flex-end; gap: 8px; }
+.profile-modal button { min-height: 38px; padding: 0 14px; border-radius: 8px; font: inherit; font-size: 0.8rem; font-weight: 700; cursor: pointer; }
+.profile-modal button:disabled { cursor: wait; opacity: 0.62; }
+.profile-modal__primary { justify-self: end; border: 1px solid var(--color-accent); color: #fff; background: var(--color-accent); }
+.profile-modal__secondary { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--color-border); color: var(--color-text); background: var(--color-surface); }
+
+html[data-theme="dark"] .profile-modal__message--success { color: #75e1ba; background: rgba(18, 134, 93, 0.18); }
+html[data-theme="dark"] .profile-modal__message--error { color: #ffaaa3; background: rgba(180, 35, 24, 0.2); }
+
+@media (max-width: 800px) {
+  .profile-modal { grid-template-columns: 1fr; }
+  .profile-modal__identity { grid-column: auto; }
+}
+
+@media (max-width: 620px) {
+  .profile-modal__password-grid { grid-template-columns: 1fr; }
+  .profile-modal__password-grid label:first-child { grid-column: auto; }
+  .profile-modal__identity { align-items: flex-start; flex-wrap: wrap; }
+  .profile-modal__verified { margin-left: 59px; }
+  .profile-modal__button-row { flex-direction: column-reverse; }
+  .profile-modal__button-row button, .profile-modal__primary { width: 100%; justify-self: stretch; justify-content: center; }
+}

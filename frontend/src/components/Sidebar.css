@@ -1,0 +1,263 @@
+/* Full-width sidebar with the Vendly blue gradient. */
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  width: 200px;
+  min-height: 100vh;
+  padding: 4px 14px 24px;
+  color: white;
+  background: linear-gradient(
+  to bottom right,
+  #002d52 0%,
+  #063b6a 50%,
+  #00315c 100%
+);
+  overflow: hidden;
+  transition:
+    width 240ms cubic-bezier(0.22, 1, 0.36, 1),
+    padding 240ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Narrow sidebar state used after pressing the toggle button. */
+.sidebar--collapsed {
+  width: 76px;
+  padding-right: 10px;
+  padding-left: 10px;
+}
+
+.sidebar--collapsed .sidebar__logo {
+  height: 72px;
+  margin-bottom: 12px;
+}
+
+.sidebar--collapsed .sidebar__logo-image {
+  opacity: 0;
+}
+
+.sidebar--collapsed .sidebar__link,
+.sidebar--collapsed .sidebar__assistant {
+  justify-content: center;
+  gap: 0;
+}
+
+.sidebar--collapsed .sidebar__label {
+  display: none;
+}
+
+/* Logo sizing in expanded and collapsed states. */
+.sidebar__logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100px;
+  margin-bottom: 4px;
+  padding: 0;
+  overflow: hidden;
+}
+
+.sidebar__logo-image {
+  display: block;
+  width: 140px;
+  max-width: none;
+  height: auto;
+  object-fit: contain;
+}
+
+/* Main navigation link layout and spacing. */
+.sidebar__navigation {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sidebar__link,
+.sidebar__assistant {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  border: 0;
+  border-radius: 8px;
+  padding: 12px;
+  color: white;
+  background: transparent;
+  text-align: left;
+  text-decoration: none;
+}
+
+/* Hover and active-page link styles. */
+.sidebar__link:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.sidebar__link--active {
+  background:
+    linear-gradient(
+      135deg,
+      #0879dd 0%,
+      #075da9 100%
+    );
+
+
+}
+
+.sidebar__assistant {
+  margin-top: 0;
+  border: 1px solid var(--color-accent);
+  justify-content: center;
+}
+/* Bottom area containing the assistant and current business. */
+.sidebar__footer {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  margin-top: auto;
+}
+
+/* Current business/store button. */
+.sidebar__business {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+
+  width: 100%;
+  padding: 12px 6px 0;
+
+  border: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.14);
+
+  color: white;
+  background-color: transparent;
+
+  text-align: left;
+}
+
+.sidebar__business-icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+
+  width: 32px;
+  height: 32px;
+
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 9px;
+
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.sidebar__business-details {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.sidebar__business-details strong {
+  overflow: hidden;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar__business-details small {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 9px;
+}
+
+.sidebar__business-arrow {
+  flex-shrink: 0;
+}
+
+.sidebar__business:hover {
+  color: #7fc5ff;
+}
+
+.sidebar--collapsed .sidebar__business {
+  justify-content: center;
+  padding-right: 0;
+  padding-left: 0;
+}
+
+.sidebar--collapsed .sidebar__business-arrow {
+  display: none;
+}
+
+/* Top logo-and-toggle row. */
+.sidebar__top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 60px;
+  margin-bottom: 12px;
+}
+
+.sidebar__top .sidebar__logo {
+  flex: 1;
+  height: auto;
+  margin: 0;
+}
+
+/* Button used to expand or collapse the sidebar. */
+.sidebar__toggle {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  color: white;
+  background-color: rgba(59, 138, 202, 0);
+  transition:
+    background-color 180ms ease,
+    transform 180ms ease;
+}
+
+.Panel_icon{
+border-radius: 7px;
+}
+
+.sidebar__toggle:hover {
+  background-color: #0879dd;
+  transform: scale(1.06);
+}
+
+.sidebar--collapsed .sidebar__top {
+  justify-content: center;
+  min-height: 60px;
+}
+
+.sidebar--collapsed .sidebar__logo {
+  display: none;
+}
+
+/* Dark-theme sidebar background and active-link adjustment. */
+html[data-theme="dark"] .sidebar {
+  background:
+    radial-gradient(
+      circle at 100% 0%,
+      rgba(20, 126, 220, 0.25),
+      transparent 38%
+    ),
+    linear-gradient(
+      145deg,
+      #052d50 0%,
+      #073d6d 52%,
+      #031e37 100%
+    );
+
+  box-shadow: 8px 0 28px rgba(0, 0, 0, 0.22);
+}
+
+html[data-theme="dark"] .sidebar__link--active {
+  background:
+    linear-gradient(
+      135deg,
+      #075fae 0%,
+      #064b89 100%
+    );
+}

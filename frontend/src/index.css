@@ -1,0 +1,133 @@
+/* Global light-theme design tokens reused by every component stylesheet. */
+:root {
+ font-family:
+  "Inter Variable",
+  "Inter",
+  "Noto Sans Sinhala",
+  "Noto Sans Tamil",
+  "Segoe UI",
+  sans-serif;
+
+  font-optical-sizing: auto;
+  font-synthesis: none;
+
+  --color-primary: #0b3b6e;
+  --color-accent: #168cf5;
+
+  --color-background: #f8fafc;
+  --color-background-gradient:
+    linear-gradient(
+      135deg,
+      #f8fafc 0%,
+      #f5f9ff 50%,
+      #edf5ff 100%
+    );
+
+  --color-surface: #ffffff;
+  --color-surface-soft: #f1f5f9;
+
+  --color-text-strong: #08213f;
+  --color-text: #102f50;
+  --color-muted: #526b87;
+  --color-subtle: #71849a;
+  --color-border: #dbe4ee;
+
+  --color-header: rgba(245, 247, 250, 0.88);
+  --color-control: #ffffff;
+
+  --card-background: #ffffff;
+  --card-shadow: 0 3px 8px rgba(15, 23, 42, 0.08);
+
+  color: var(--color-text);
+  background-color: var(--color-background);
+  color-scheme: light;
+}
+
+/* Dark-theme token values replace the light values when data-theme is dark. */
+html[data-theme="dark"] {
+  --color-primary: #0d477d;
+  --color-accent: #2997ff;
+
+  --color-background: #07111c;
+
+  --color-background-gradient:
+    radial-gradient(
+      circle at 85% 0%,
+      rgba(27, 112, 197, 0.2) 0%,
+      transparent 34%
+    ),
+    radial-gradient(
+      circle at 10% 100%,
+      rgba(0, 82, 145, 0.16) 0%,
+      transparent 36%
+    ),
+    linear-gradient(
+      135deg,
+      #050b12 0%,
+      #08131f 48%,
+      #0a1c2d 100%
+    );
+
+  --color-surface: #101b28;
+  --color-surface-soft: #172536;
+
+  --color-text: #f4f7fb;
+  --color-text-strong: #f8fbff;
+  --color-muted: #b0c0d2;
+  --color-subtle: #8ea1b6;
+  --color-border: #25374a;
+
+  --color-header: rgba(7, 15, 25, 0.82);
+  --color-control: #111e2d;
+
+  --card-background:
+    linear-gradient(
+      145deg,
+      rgba(18, 31, 46, 0.96),
+      rgba(10, 20, 32, 0.96)
+    );
+
+  --card-shadow:
+    0 12px 30px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.025);
+
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+}
+
+/* Browser-wide defaults and page background. */
+body {
+  min-height: 100vh;
+  line-height: 1.45;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+/* Smooth visual transition when changing between light and dark themes. */
+.app__content {
+  flex: 1;
+  min-width: 0;
+}

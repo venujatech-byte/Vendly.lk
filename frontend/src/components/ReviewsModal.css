@@ -1,0 +1,109 @@
+.reviews-modal__list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.reviews-modal__review {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface-soft);
+}
+
+.reviews-modal__review header,
+.reviews-modal__review footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.reviews-modal__review header > div {
+  display: grid;
+  gap: 3px;
+}
+
+.reviews-modal__review header span,
+.reviews-modal__review small,
+.reviews-modal__review p {
+  color: var(--color-muted);
+}
+
+.reviews-modal__review p {
+  margin: 0;
+  line-height: 1.55;
+}
+
+.reviews-modal__stars {
+  display: flex;
+  color: #f59e0b;
+}
+
+.reviews-modal__status {
+  padding: 4px 8px;
+  border-radius: 999px;
+  color: #9a5b00;
+  background: rgba(245, 158, 11, 0.14);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.reviews-modal__status--approved {
+  color: #067647;
+  background: rgba(16, 185, 129, 0.14);
+}
+
+.reviews-modal__status--rejected {
+  color: #b42318;
+  background: rgba(239, 68, 68, 0.14);
+}
+
+.reviews-modal__review footer {
+  justify-content: flex-end;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-border);
+}
+
+.reviews-modal__review footer button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  color: var(--color-text);
+  background: var(--color-surface);
+  cursor: pointer;
+  font: inherit;
+  font-weight: 650;
+}
+
+.reviews-modal__review footer .reviews-modal__approve {
+  border-color: #087cf0;
+  color: white;
+  background: #087cf0;
+}
+
+.reviews-modal__notice,
+.reviews-modal__empty {
+  padding: 18px;
+  border-radius: 10px;
+  color: var(--color-muted);
+  background: var(--color-surface-soft);
+  text-align: center;
+}
+
+.reviews-modal__notice--error {
+  color: #b42318;
+  background: rgba(239, 68, 68, 0.12);
+}
+
+@media (max-width: 760px) {
+  .reviews-modal__list {
+    grid-template-columns: 1fr;
+  }
+}

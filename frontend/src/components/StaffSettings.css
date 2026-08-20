@@ -1,0 +1,108 @@
+.staff-settings {
+  display: grid;
+  gap: 14px;
+}
+
+.staff-settings h2,
+.staff-settings p {
+  margin: 0;
+}
+
+.staff-settings header p,
+.staff-settings__members span {
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.staff-settings form {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) 170px auto;
+  gap: 8px;
+}
+
+.staff-settings input,
+.staff-settings select,
+.staff-settings button {
+  min-height: 38px;
+  padding: 0 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  color: var(--color-text);
+  background: var(--color-control);
+  font: inherit;
+}
+
+.staff-settings form button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-color: var(--color-accent);
+  color: white;
+  background: var(--color-accent);
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.staff-settings__members {
+  display: grid;
+  gap: 7px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.staff-settings__members article {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 170px 80px;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 9px;
+}
+
+.staff-settings__members article > div {
+  display: grid;
+  gap: 2px;
+}
+
+.staff-settings__members button {
+  cursor: pointer;
+}
+
+.staff-settings__owner {
+  grid-column: span 2;
+  color: var(--color-accent);
+  text-align: right;
+}
+
+.staff-settings__notice {
+  padding: 11px;
+  border-radius: 8px;
+  color: var(--color-muted);
+  background: var(--color-surface-soft);
+}
+
+.staff-settings__notice--error {
+  color: #b42318;
+  background: rgba(239, 68, 68, 0.12);
+}
+
+.staff-settings__role-description {
+  margin-top: -7px !important;
+  color: var(--color-muted);
+  font-size: 11px;
+}
+
+.staff-settings__member-permissions {
+  grid-column: 1 / -1;
+  color: var(--color-muted);
+  font-size: 10px;
+}
+
+@media (max-width: 700px) {
+  .staff-settings form,
+  .staff-settings__members article {
+    grid-template-columns: 1fr;
+  }
+}
