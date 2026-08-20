@@ -5,6 +5,7 @@ import { BrowserRouter } from "react-router-dom";
 import "@fontsource-variable/inter";
 import './index.css'
 import App from './App.jsx'
+import './mobile.css'
 import { AuthProvider } from "./context/AuthContext.jsx";
 
 // Mount the React application inside the <div id="root"> from index.html.
