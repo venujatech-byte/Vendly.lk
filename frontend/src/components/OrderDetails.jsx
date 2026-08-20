@@ -129,6 +129,24 @@ function OrderDetails({
 
   return (
     <div className="order-details">
+      {/* These values replace the columns hidden from the compact phone row. */}
+      <section className="order-details__mobile-meta" aria-label="Order summary details">
+        <div>
+          <span>Courier</span>
+          <strong>{order.courier || "Not assigned"}</strong>
+        </div>
+        <div>
+          <span>Status</span>
+          <strong>
+            {readableStatus(order.status || order.fulfilmentStatus || "pending")}
+          </strong>
+        </div>
+        <div>
+          <span>Order date</span>
+          <strong>{order.date} {order.time}</strong>
+        </div>
+      </section>
+
       {/* Products included in this order. */}
       <section className="order-details__section">
         <h3>Items in this order</h3>

@@ -2,6 +2,7 @@
 import { useState } from "react";
 import {
   CalendarDays,
+  ChevronDown,
   Funnel,
   RotateCcw,
   X,
@@ -23,6 +24,7 @@ const initialFilters = {
 function OrderFilters({ couriers = [], onApply, onReset }) {
   // One state object keeps all order-filter values together.
   const [filters, setFilters] = useState(initialFilters);
+  const [areMobileFiltersOpen, setAreMobileFiltersOpen] = useState(false);
 
   // Use the input name to update only the field that changed.
   function handleInputChange(event) {
@@ -45,18 +47,42 @@ function OrderFilters({ couriers = [], onApply, onReset }) {
     event.preventDefault();
 
     onApply?.(filters);
+    setAreMobileFiltersOpen(false);
   }
 
   // Clear all filters at once.
   function handleReset() {
     setFilters(initialFilters);
     onReset?.();
+    setAreMobileFiltersOpen(false);
   }
 
   return (
     <section className="order-filters" aria-label="Order filters">
+      <button
+        className="order-filters__mobile-toggle"
+        type="button"
+        onClick={() => setAreMobileFiltersOpen((isOpen) => !isOpen)}
+        aria-expanded={areMobileFiltersOpen}
+        aria-controls="order-filter-fields"
+      >
+        <span>
+          <Funnel size={17} aria-hidden="true" />
+          {areMobileFiltersOpen ? "Hide filters" : "Show filters"}
+        </span>
+        <ChevronDown
+          className={areMobileFiltersOpen ? "is-open" : ""}
+          size={18}
+          aria-hidden="true"
+        />
+      </button>
+
       {/* All fields below are controlled by the filters state object. */}
-      <form className="order-filters__form" onSubmit={handleSubmit}>
+      <form
+        id="order-filter-fields"
+        className={`order-filters__form ${areMobileFiltersOpen ? "is-open" : ""}`}
+        onSubmit={handleSubmit}
+      >
         {/* Start and end date range. */}
         <div className="order-filters__field order-filters__date-field">
           <label htmlFor="date-from">Order date</label>

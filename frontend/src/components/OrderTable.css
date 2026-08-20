@@ -365,3 +365,101 @@ html[data-theme="dark"] .orders-table__status--shipped {
     flex-direction: column;
   }
 }
+
+/* Compact order list used on phones. Full information remains in the expanded row. */
+@media (max-width: 700px) {
+  .orders-table-section {
+    margin-top: 10px;
+  }
+
+  .orders-table__scroll {
+    overflow-x: hidden;
+  }
+
+  .orders-table--orders {
+    min-width: 0;
+    table-layout: fixed;
+    font-size: 11px;
+  }
+
+  .orders-table--orders th:nth-child(1),
+  .orders-table--orders th:nth-child(6),
+  .orders-table--orders th:nth-child(7),
+  .orders-table--orders th:nth-child(8),
+  .orders-table--orders th:nth-child(9),
+  .orders-table--orders th:nth-child(10),
+  .orders-table--orders tbody tr:not(.orders-table__details-row) > td:nth-child(1),
+  .orders-table--orders tbody tr:not(.orders-table__details-row) > td:nth-child(6),
+  .orders-table--orders tbody tr:not(.orders-table__details-row) > td:nth-child(7),
+  .orders-table--orders tbody tr:not(.orders-table__details-row) > td:nth-child(8),
+  .orders-table--orders tbody tr:not(.orders-table__details-row) > td:nth-child(9),
+  .orders-table--orders tbody tr:not(.orders-table__details-row) > td:nth-child(10) {
+    display: none;
+  }
+
+  .orders-table--orders th:nth-child(2) {
+    width: 34px;
+  }
+
+  .orders-table--orders th:nth-child(3) {
+    width: 27%;
+  }
+
+  .orders-table--orders th:nth-child(4) {
+    width: 38%;
+  }
+
+  .orders-table--orders th:nth-child(5) {
+    width: 35%;
+  }
+
+  .orders-table th,
+  .orders-table td {
+    padding: 9px 5px;
+  }
+
+  .orders-table__expand-button {
+    width: 28px;
+    height: 32px;
+  }
+
+  .orders-table__order-number,
+  .orders-table td > strong {
+    overflow: hidden;
+    font-size: 11px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .orders-table__secondary {
+    overflow: hidden;
+    font-size: 9.5px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .orders-table__item-count {
+    padding: 1px 5px;
+    font-size: 9px;
+  }
+
+  .orders-table__items {
+    gap: 3px;
+  }
+
+  .orders-table__product-preview {
+    width: 28px;
+    height: 28px;
+  }
+
+  .orders-table__product-more {
+    min-width: 24px;
+    height: 24px;
+    font-size: 10px;
+  }
+
+  .orders-table__details-cell {
+    display: table-cell;
+    padding: 0 6px 8px !important;
+  }
+}

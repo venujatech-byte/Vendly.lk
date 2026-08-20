@@ -452,3 +452,74 @@ html[data-theme="dark"] .inventory-table__bulk-actions {
     justify-content: flex-start;
   }
 }
+
+/* Phone rows show only expand, product, SKU/barcode, and stock. */
+@media (max-width: 700px) {
+  .inventory-table {
+    min-width: 0;
+    table-layout: fixed;
+    font-size: 11px;
+  }
+
+  .inventory-table th:nth-child(1),
+  .inventory-table th:nth-child(5),
+  .inventory-table th:nth-child(6),
+  .inventory-table th:nth-child(7),
+  .inventory-table th:nth-child(9),
+  .inventory-table th:nth-child(10),
+  .inventory-table tbody tr:not(.inventory-table__details-row) > td:nth-child(1),
+  .inventory-table tbody tr:not(.inventory-table__details-row) > td:nth-child(5),
+  .inventory-table tbody tr:not(.inventory-table__details-row) > td:nth-child(6),
+  .inventory-table tbody tr:not(.inventory-table__details-row) > td:nth-child(7),
+  .inventory-table tbody tr:not(.inventory-table__details-row) > td:nth-child(9),
+  .inventory-table tbody tr:not(.inventory-table__details-row) > td:nth-child(10) {
+    display: none;
+  }
+
+  .inventory-table th:nth-child(2) {
+    width: 34px;
+  }
+
+  .inventory-table th:nth-child(3) {
+    width: 44%;
+  }
+
+  .inventory-table th:nth-child(4) {
+    width: 36%;
+  }
+
+  .inventory-table th:nth-child(8) {
+    width: 20%;
+  }
+
+  .inventory-table__product {
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .inventory-table__product-image {
+    width: 32px;
+    height: 32px;
+  }
+
+  .inventory-table__details-cell {
+    display: table-cell;
+    padding: 0 6px 8px !important;
+  }
+
+  .inventory-table__details {
+    grid-template-columns: 1fr;
+    gap: 0;
+    padding: 12px;
+  }
+
+  .inventory-table__details section {
+    padding: 12px 0;
+    border-right: 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .inventory-table__details section:last-child {
+    border-bottom: 0;
+  }
+}

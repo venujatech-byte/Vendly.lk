@@ -2184,11 +2184,36 @@
   }
 
   .storefront-chat-messages {
-    padding: 18px 12px 25px;
+    padding: 14px 10px 20px;
   }
 
   .storefront-chat-message__content {
-    max-width: 82%;
+    max-width: 86%;
+  }
+
+  .storefront-chat-message__content > p,
+  .storefront-typing {
+    padding: 10px 12px;
+    font-size: 0.76rem;
+    line-height: 1.42;
+  }
+
+  .storefront-chat-message__avatar {
+    width: 29px;
+    height: 29px;
+    border-radius: 9px;
+  }
+
+  .storefront-chat-panel__header,
+  .storefront-draft > header {
+    height: 50px;
+    padding: 0 13px;
+    font-size: 0.82rem;
+  }
+
+  .storefront-chat-panel__header small {
+    padding: 4px 8px;
+    font-size: 0.67rem;
   }
 
   .storefront-chat-catalog {
@@ -2210,11 +2235,75 @@
 
   .storefront-chat-catalog strong {
     display: block;
-    font-size: 0.82rem;
+    font-size: 0.74rem;
   }
 
   .storefront-chat-catalog small {
-    font-size: 0.73rem;
+    font-size: 0.66rem;
+  }
+
+  .storefront-chat-catalog-card > button,
+  .storefront-chat-catalog-card__select {
+    min-height: 32px;
+    padding: 6px 7px;
+    font-size: 0.68rem;
+  }
+
+  .storefront-chat-catalog-card__quantity button {
+    width: 32px;
+    height: 32px;
+    font-size: 1rem;
+  }
+
+  .storefront-chat-product {
+    padding: 10px;
+    font-size: 0.76rem;
+  }
+
+  .storefront-chat-product__description,
+  .storefront-chat-product small {
+    font-size: 0.68rem;
+  }
+
+  .storefront-chat-quick-actions button,
+  .storefront-chat-confirmation,
+  .storefront-draft {
+    font-size: 0.7rem;
+  }
+
+  .storefront-chat-input {
+    padding: 10px;
+    grid-template-columns: 1fr 39px;
+    gap: 7px;
+  }
+
+  .storefront .storefront-chat-input input {
+    height: 39px;
+    min-height: 39px;
+    padding: 0 11px;
+    border-radius: 10px;
+    font-size: 0.8rem;
+  }
+
+  .storefront-chat-input button {
+    border-radius: 10px;
+  }
+
+  .storefront-draft > section,
+  .storefront-draft__bottom > section {
+    padding: 15px 13px;
+  }
+
+  .storefront-draft__field > strong,
+  .storefront-draft__items article strong {
+    font-size: 0.74rem;
+  }
+
+  .storefront-draft__field > span,
+  .storefront-draft__items article span,
+  .storefront-draft__items article small,
+  .storefront-draft__items > p {
+    font-size: 0.66rem;
   }
 
   .storefront-checkout-modal__body {

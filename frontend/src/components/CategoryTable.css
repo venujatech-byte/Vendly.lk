@@ -178,3 +178,70 @@ html[data-theme="dark"]
     animation: none;
   }
 }
+
+/* Keep the category summary readable without inheriting Orders column widths. */
+@media (max-width: 700px) {
+  .category-table {
+    min-width: 0;
+    table-layout: fixed;
+    font-size: 11px;
+  }
+
+  .category-table th:nth-child(6),
+  .category-table th:nth-child(7),
+  .category-table tbody tr:not(.category-table__details-row) > td:nth-child(6),
+  .category-table tbody tr:not(.category-table__details-row) > td:nth-child(7) {
+    display: none;
+  }
+
+  .category-table th:nth-child(1) {
+    width: 31px;
+  }
+
+  .category-table th:nth-child(2) {
+    width: 24%;
+    min-width: 0;
+  }
+
+  .category-table th:nth-child(3) {
+    width: 32%;
+    min-width: 0;
+  }
+
+  .category-table th:nth-child(4) {
+    width: 17%;
+    min-width: 0;
+  }
+
+  .category-table th:nth-child(5) {
+    width: 20%;
+    min-width: 0;
+  }
+
+  .category-table th,
+  .category-table td {
+    overflow: hidden;
+    padding: 9px 4px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .category-table th {
+    font-size: 9.5px;
+  }
+
+  .category-table tbody tr:not(.category-table__details-row) > td:nth-child(2),
+  .category-table tbody tr:not(.category-table__details-row) > td:nth-child(3) {
+    text-overflow: ellipsis;
+  }
+
+  .category-table__details-cell {
+    display: table-cell;
+    padding: 0 6px 8px !important;
+    white-space: normal;
+  }
+
+  .category-table__products {
+    padding: 10px;
+  }
+}

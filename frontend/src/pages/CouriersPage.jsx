@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Plus, Truck } from "lucide-react";
+import { Fragment, useEffect, useState } from "react";
+import { ChevronDown, ChevronRight, Plus, Truck } from "lucide-react";
 
 import AddCourierModal from "../components/AddCourierModal";
 import { useAuth } from "../context/authContextValue";
@@ -17,6 +17,7 @@ function CouriersPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
   const [isAddCourierOpen, setIsAddCourierOpen] = useState(false);
+  const [expandedCourierId, setExpandedCourierId] = useState(null);
 
   useEffect(() => {
     if (!business?.id) {
@@ -46,20 +47,49 @@ function CouriersPage() {
       {errorMessage && <p className="management-page__notice" role="alert">{errorMessage}</p>}
 
       <table className="management-table">
-        <thead><tr><th>Courier</th><th>First 1 kg</th><th>Extra 1 kg</th><th>Success</th><th>Returns</th><th>Delivery</th><th>Status</th></tr></thead>
+        <thead><tr><th className="management-table__expand-heading"></th><th>Courier</th><th>First 1 kg</th><th>Extra 1 kg</th><th>Success</th><th>Returns</th><th>Delivery</th><th>Status</th></tr></thead>
         <tbody>
-          {couriers.map((courier) => (
-            <tr key={courier.id}>
-              <td><Truck size={17} aria-hidden="true" /> <strong>{courier.name}</strong> ({courier.code})</td>
-              <td>{money(courier.firstKgPriceMinor)}</td>
-              <td>{money(courier.extraKgPriceMinor)}</td>
-              <td>{Math.round((courier.successRate ?? 0) * 100)}%</td>
-              <td>{Math.round((courier.returnRate ?? 0) * 100)}%</td>
-              <td>{courier.averageDeliveryDays} days</td>
-              <td><span className="management-table__badge">{courier.status}</span></td>
-            </tr>
-          ))}
-          {!isLoading && couriers.length === 0 && <tr><td colSpan={7}>No couriers configured yet.</td></tr>}
+          {couriers.map((courier) => {
+            const isExpanded = expandedCourierId === courier.id;
+
+            return (
+              <Fragment key={courier.id}>
+                <tr>
+                  <td className="management-table__expand-cell">
+                    <button
+                      type="button"
+                      onClick={() => setExpandedCourierId(isExpanded ? null : courier.id)}
+                      aria-expanded={isExpanded}
+                      aria-label={`${isExpanded ? "Collapse" : "Expand"} ${courier.name}`}
+                    >
+                      {isExpanded ? <ChevronDown size={17} /> : <ChevronRight size={17} />}
+                    </button>
+                  </td>
+                  <td><Truck size={17} aria-hidden="true" /> <strong>{courier.name}</strong> ({courier.code})</td>
+                  <td>{money(courier.firstKgPriceMinor)}</td>
+                  <td>{money(courier.extraKgPriceMinor)}</td>
+                  <td>{Math.round((courier.successRate ?? 0) * 100)}%</td>
+                  <td>{Math.round((courier.returnRate ?? 0) * 100)}%</td>
+                  <td>{courier.averageDeliveryDays} days</td>
+                  <td><span className="management-table__badge">{courier.status}</span></td>
+                </tr>
+                {isExpanded && (
+                  <tr className="management-table__mobile-details-row">
+                    <td colSpan={8}>
+                      <div className="management-table__mobile-details">
+                        <div><span>First 1 kg</span><strong>{money(courier.firstKgPriceMinor)}</strong></div>
+                        <div><span>Extra 1 kg</span><strong>{money(courier.extraKgPriceMinor)}</strong></div>
+                        <div><span>Success rate</span><strong>{Math.round((courier.successRate ?? 0) * 100)}%</strong></div>
+                        <div><span>Return rate</span><strong>{Math.round((courier.returnRate ?? 0) * 100)}%</strong></div>
+                        <div><span>Delivery time</span><strong>{courier.averageDeliveryDays} days</strong></div>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
+            );
+          })}
+          {!isLoading && couriers.length === 0 && <tr><td colSpan={8}>No couriers configured yet.</td></tr>}
         </tbody>
       </table>
 

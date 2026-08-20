@@ -103,7 +103,7 @@ function OrderTable({
       )}
       {/* Horizontal scrolling protects the table layout on narrow screens. */}
       <div className="orders-table__scroll">
-        <table className="orders-table">
+        <table className="orders-table orders-table--orders">
           <thead>
             <tr>
               <th className="orders-table__checkbox-column">

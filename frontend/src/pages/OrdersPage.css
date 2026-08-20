@@ -178,7 +178,24 @@ html[data-theme="dark"] .orders-page__share-button:hover svg {
   }
 
   .orders-page__heading-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
     width: 100%;
-    flex-wrap: wrap;
+  }
+
+  .orders-page__heading-actions button,
+  .orders-page__heading-actions a {
+    width: 100%;
+    min-width: 0;
+    min-height: 34px;
+    height: 34px;
+    padding: 0 7px;
+    font-size: 10.5px;
+  }
+
+  .orders-page__heading-actions svg {
+    width: 14px;
+    height: 14px;
   }
 }

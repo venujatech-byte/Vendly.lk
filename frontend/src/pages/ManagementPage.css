@@ -82,14 +82,110 @@
   background: rgba(239, 68, 68, 0.14);
 }
 
+.management-table__expand-heading,
+.management-table__expand-cell,
+.management-table__mobile-details-row {
+  display: none;
+}
+
 @media (max-width: 760px) {
   .management-page__heading {
     align-items: flex-start;
     flex-direction: column;
   }
 
+  .management-page__heading {
+    gap: 10px;
+  }
+
+  .management-page__primary-button {
+    min-height: 34px;
+    padding: 0 11px;
+    font-size: 11px;
+  }
+
   .management-table {
-    display: block;
-    overflow-x: auto;
+    display: table;
+    table-layout: fixed;
+    overflow: hidden;
+  }
+
+  .management-table th,
+  .management-table td {
+    padding: 10px 7px;
+    font-size: 11px;
+  }
+
+  .management-table__expand-heading,
+  .management-table__expand-cell {
+    display: table-cell;
+    width: 36px;
+  }
+
+  .management-table__expand-cell button {
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 30px;
+    padding: 0;
+    border: 0;
+    border-radius: 7px;
+    color: var(--color-text-muted);
+    background: transparent;
+  }
+
+  .management-table th:nth-child(3),
+  .management-table th:nth-child(4),
+  .management-table th:nth-child(5),
+  .management-table th:nth-child(6),
+  .management-table th:nth-child(7),
+  .management-table tbody tr:not(.management-table__mobile-details-row) > td:nth-child(3),
+  .management-table tbody tr:not(.management-table__mobile-details-row) > td:nth-child(4),
+  .management-table tbody tr:not(.management-table__mobile-details-row) > td:nth-child(5),
+  .management-table tbody tr:not(.management-table__mobile-details-row) > td:nth-child(6),
+  .management-table tbody tr:not(.management-table__mobile-details-row) > td:nth-child(7) {
+    display: none;
+  }
+
+  .management-table th:nth-child(2) {
+    width: auto;
+  }
+
+  .management-table th:nth-child(8) {
+    width: 82px;
+  }
+
+  .management-table__mobile-details-row {
+    display: table-row;
+  }
+
+  .management-table__mobile-details-row > td {
+    padding: 7px !important;
+    background: var(--color-surface-muted);
+  }
+
+  .management-table__mobile-details {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    padding: 10px;
+    border: 1px solid var(--color-border);
+    border-radius: 9px;
+    background: var(--color-surface);
+  }
+
+  .management-table__mobile-details > div {
+    display: grid;
+    gap: 3px;
+  }
+
+  .management-table__mobile-details span {
+    color: var(--color-text-muted);
+    font-size: 10px;
+  }
+
+  .management-table__mobile-details strong {
+    color: var(--color-text-strong);
+    font-size: 11px;
   }
 }

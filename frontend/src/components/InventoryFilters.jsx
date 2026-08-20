@@ -1,6 +1,7 @@
 // React state stores the current filter values entered by the user.
 import { useState } from "react";
 import {
+  ChevronDown,
   Funnel,
   RotateCcw,
   X,
@@ -18,6 +19,7 @@ const initialFilters = {
 function InventoryFilters({ categories = [], onApply, onReset }) {
   // All inventory filter fields are stored together in one state object.
   const [filters, setFilters] = useState(initialFilters);
+  const [areMobileFiltersOpen, setAreMobileFiltersOpen] = useState(false);
 
   // Update the field whose name matches the changed input or select element.
   function handleInputChange(event) {
@@ -39,18 +41,42 @@ function InventoryFilters({ categories = [], onApply, onReset }) {
   function handleSubmit(event) {
     event.preventDefault();
     onApply?.(filters);
+    setAreMobileFiltersOpen(false);
   }
 
   // Restore every filter to its original empty value.
   function handleReset() {
     setFilters(initialFilters);
     onReset?.();
+    setAreMobileFiltersOpen(false);
   }
 
   return (
     <section className="inventory-filters" aria-label="inventory filters">
+      <button
+        className="inventory-filters__mobile-toggle"
+        type="button"
+        onClick={() => setAreMobileFiltersOpen((isOpen) => !isOpen)}
+        aria-expanded={areMobileFiltersOpen}
+        aria-controls="inventory-filter-fields"
+      >
+        <span>
+          <Funnel size={17} aria-hidden="true" />
+          {areMobileFiltersOpen ? "Hide filters" : "Show filters"}
+        </span>
+        <ChevronDown
+          className={areMobileFiltersOpen ? "is-open" : ""}
+          size={18}
+          aria-hidden="true"
+        />
+      </button>
+
       {/* Controlled form: every value comes from the filters state object. */}
-      <form className="inventory-filters__form" onSubmit={handleSubmit}>
+      <form
+        id="inventory-filter-fields"
+        className={`inventory-filters__form ${areMobileFiltersOpen ? "is-open" : ""}`}
+        onSubmit={handleSubmit}
+      >
     
 
 

@@ -138,7 +138,8 @@
   }
 
   .header__profile-dropdown,
-  .header__notification-dropdown {
+  .header__notification-dropdown,
+  .header__settings-dropdown {
     position: fixed;
     top: 62px;
     right: 10px;
@@ -147,8 +148,9 @@
     max-width: none;
   }
 
-  .header__notification-dropdown {
-    max-height: min(68vh, 520px);
+  .header__notification-dropdown,
+  .header__settings-dropdown {
+    max-height: min(72dvh, 540px);
     overflow-y: auto;
   }
 
@@ -202,16 +204,23 @@
     display: grid;
     width: 100%;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
+    gap: 6px;
   }
 
   .inventory-page__actions button,
   .orders-page__heading-actions button,
   .orders-page__heading-actions a {
     width: 100%;
-    min-height: 42px;
-    padding: 0 10px;
-    font-size: 12px;
+    min-height: 34px;
+    padding: 0 8px;
+    font-size: 11px;
+  }
+
+  .inventory-page__actions button svg,
+  .orders-page__heading-actions button svg,
+  .orders-page__heading-actions a svg {
+    width: 15px;
+    height: 15px;
   }
 
   .inventory-tabs {
@@ -341,7 +350,7 @@
 
   .inventory-page__actions,
   .orders-page__heading-actions {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .sidebar__link,

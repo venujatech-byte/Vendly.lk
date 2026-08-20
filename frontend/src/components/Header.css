@@ -520,3 +520,19 @@ html[data-theme="dark"] .header__avatar {
     animation: none;
   }
 }
+
+/* Keep the staff settings panel inside the phone viewport. */
+@media (max-width: 760px) {
+  .header__settings-dropdown {
+    position: fixed;
+    top: 62px;
+    right: 10px;
+    left: 10px;
+    width: auto;
+    max-width: none;
+    max-height: min(72dvh, 540px);
+    padding: 11px;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+}
