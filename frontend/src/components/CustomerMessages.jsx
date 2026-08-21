@@ -1,11 +1,20 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, MessageCircle, Search, Send, UserRound } from "lucide-react";
+import {
+  ArrowLeft,
+  Bot,
+  MessageCircle,
+  PhoneCall,
+  Search,
+  Send,
+  UserRound,
+} from "lucide-react";
 
 import {
   getChatMessages,
   getChatSessions,
   markChatRead,
   sendSellerMessage,
+  setChatAiPaused,
 } from "../services/messageService";
 
 import "./CustomerMessages.css";
@@ -27,7 +36,11 @@ function formatTime(value) {
     : date.toLocaleString("en-LK", { dateStyle: "medium", timeStyle: "short" });
 }
 
-export default function CustomerMessages({ businessId, onSummaryChange }) {
+export default function CustomerMessages({
+  businessId,
+  onSummaryChange,
+  initialSessionId = "",
+}) {
   const [sessions, setSessions] = useState([]);
   const [selectedId, setSelectedId] = useState("");
   const [conversation, setConversation] = useState(null);
@@ -35,6 +48,7 @@ export default function CustomerMessages({ businessId, onSummaryChange }) {
   const [reply, setReply] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
+  const [isUpdatingAi, setIsUpdatingAi] = useState(false);
   const [error, setError] = useState("");
 
   const loadSessions = useCallback(async () => {
@@ -46,13 +60,22 @@ export default function CustomerMessages({ businessId, onSummaryChange }) {
         count: rows.length,
         unread: rows.reduce((sum, row) => sum + (row.unreadCount || 0), 0),
       });
-      setSelectedId((current) => current || rows[0]?.id || "");
+      setSelectedId((current) =>
+        current ||
+        (initialSessionId && rows.some((row) => row.id === initialSessionId)
+          ? initialSessionId
+          : rows[0]?.id || ""),
+      );
     } catch (requestError) {
       setError(requestError.message);
     } finally {
       setIsLoading(false);
     }
-  }, [businessId, onSummaryChange]);
+  }, [businessId, initialSessionId, onSummaryChange]);
+
+  useEffect(() => {
+    if (initialSessionId) setSelectedId(initialSessionId);
+  }, [initialSessionId]);
 
   useEffect(() => {
     loadSessions();
@@ -120,8 +143,39 @@ export default function CustomerMessages({ businessId, onSummaryChange }) {
     }
   }
 
+  async function handleAiToggle() {
+    if (!selectedId || isUpdatingAi) return;
+    const nextPaused = !(
+      conversation?.session?.aiPaused ?? selectedSession?.aiPaused
+    );
+    setIsUpdatingAi(true);
+    setError("");
+    try {
+      await setChatAiPaused(businessId, selectedId, nextPaused);
+      setConversation((current) => ({
+        ...current,
+        session: { ...current?.session, aiPaused: nextPaused },
+      }));
+      setSessions((current) =>
+        current.map((session) =>
+          session.id === selectedId
+            ? { ...session, aiPaused: nextPaused }
+            : session,
+        ),
+      );
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setIsUpdatingAi(false);
+    }
+  }
+
   const selectedSession = sessions.find((session) => session.id === selectedId);
   const customer = conversation?.session?.customer || selectedSession?.customer;
+  const isAiPaused = Boolean(
+    conversation?.session?.aiPaused ?? selectedSession?.aiPaused,
+  );
+  const callPhone = String(customer?.phoneNumber || "").replace(/[^+\d]/g, "");
 
   return (
     <section className={`customer-messages ${selectedId ? "customer-messages--selected" : ""}`}>
@@ -173,7 +227,30 @@ export default function CustomerMessages({ businessId, onSummaryChange }) {
                 <strong>{customer.name || "Guest customer"}</strong>
                 <span>{customer.phoneNumber || customer.email || "Storefront visitor"}</span>
               </div>
-              <span className="customer-messages__channel"><MessageCircle size={15} /> Chatbot</span>
+              <div className="customer-messages__header-actions">
+                <button
+                  className={`customer-messages__ai-toggle ${isAiPaused ? "is-paused" : ""}`}
+                  type="button"
+                  onClick={handleAiToggle}
+                  disabled={isUpdatingAi}
+                  aria-pressed={isAiPaused}
+                  title={isAiPaused ? "Resume automatic replies" : "Pause automatic replies"}
+                >
+                  <Bot size={15} />
+                  {isAiPaused ? "Resume AI" : "Pause AI"}
+                </button>
+                {callPhone && (
+                  <a
+                    className="customer-messages__call"
+                    href={`tel:${callPhone}`}
+                    aria-label={`Call ${customer.name || "customer"}`}
+                    title={`Call ${customer.phoneNumber}`}
+                  >
+                    <PhoneCall size={16} />
+                  </a>
+                )}
+                <span className="customer-messages__channel"><MessageCircle size={15} /> Chatbot</span>
+              </div>
             </header>
 
             <div className="customer-messages__messages" aria-live="polite">

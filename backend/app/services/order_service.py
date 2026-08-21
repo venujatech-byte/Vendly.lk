@@ -1,4 +1,5 @@
 from collections import defaultdict
+import logging
 from datetime import datetime, timezone
 
 from firebase_admin import firestore
@@ -18,9 +19,13 @@ from app.services.fraud_service import (
     global_fraud_summary,
     global_registry_increment,
 )
+from app.services.chat_event_service import send_order_status_chat_message
 from app.services.numbers import money_to_minor_units, non_negative_integer
 from app.services.product_service import stock_status
 from app.services.text import optional_text, required_text
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 ALLOWED_PAYMENT_METHODS = {"cod", "paid", "deposit"}
@@ -986,6 +991,21 @@ def update_order_status(database, business_id, order_id, uid, payload):
             )
 
     update_in_transaction(transaction)
+    # The order update is already committed; chat delivery is a separate
+    # best-effort event so a temporary chat problem cannot roll back stock.
+    try:
+        send_order_status_chat_message(
+            database,
+            business_id,
+            order_id,
+            order_reference.get().to_dict() or {},
+            new_status,
+            note,
+        )
+    except Exception:
+        # Status and inventory changes must remain successful even if the
+        # optional customer chat channel is temporarily unavailable.
+        LOGGER.exception("Order status chat update could not be delivered.")
     return get_order(database, business_id, order_id)
 
 

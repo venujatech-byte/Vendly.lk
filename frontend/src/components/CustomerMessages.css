@@ -1,8 +1,8 @@
-.customer-messages { display: grid; grid-template-columns: 310px minmax(0, 1fr); min-height: 600px; overflow: hidden; border: 1px solid var(--color-border); border-radius: 14px; background: var(--color-surface); box-shadow: var(--shadow-sm); }
-.customer-messages__sidebar { min-width: 0; border-right: 1px solid var(--color-border); background: var(--color-surface); }
+.customer-messages { display: grid; grid-template-columns: 310px minmax(0, 1fr); height: clamp(560px, calc(100dvh - 190px), 760px); min-height: 0; overflow: hidden; border: 1px solid var(--color-border); border-radius: 14px; background: var(--color-surface); box-shadow: var(--shadow-sm); }
+.customer-messages__sidebar { display: grid; grid-template-rows: auto minmax(0, 1fr); min-width: 0; min-height: 0; overflow: hidden; border-right: 1px solid var(--color-border); background: var(--color-surface); }
 .customer-messages__search { display: flex; align-items: center; gap: 8px; margin: 12px; padding: 0 11px; border: 1px solid var(--color-border); border-radius: 9px; color: var(--color-muted); background: var(--color-control); }
 .customer-messages__search input { width: 100%; min-width: 0; min-height: 40px; border: 0; outline: 0; color: var(--color-text); background: transparent; font: inherit; font-size: .8rem; }
-.customer-messages__conversation-list { max-height: 600px; overflow-y: auto; }
+.customer-messages__conversation-list { min-height: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
 .customer-messages__conversation { display: grid; grid-template-columns: 38px minmax(0, 1fr) auto; gap: 9px; width: 100%; padding: 12px; border: 0; border-top: 1px solid var(--color-border); color: var(--color-text); background: transparent; text-align: left; cursor: pointer; }
 .customer-messages__conversation:hover, .customer-messages__conversation.is-active { background: color-mix(in srgb, var(--color-accent) 9%, var(--color-surface)); }
 .customer-messages__avatar { display: inline-grid; width: 38px; height: 38px; flex: 0 0 38px; place-items: center; border-radius: 50%; color: #1269ae; background: #e4f1ff; font-size: .72rem; font-weight: 800; }
@@ -12,14 +12,20 @@
 .customer-messages__conversation-meta { display: grid; justify-items: end; align-content: space-between; gap: 7px; }
 .customer-messages__conversation-meta time { max-width: 68px; color: var(--color-muted); font-size: .6rem; text-align: right; }
 .customer-messages__conversation-meta b { display: grid; min-width: 19px; height: 19px; padding: 0 5px; place-items: center; border-radius: 999px; color: white; background: #16a361; font-size: .62rem; }
-.customer-messages__chat { position: relative; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; min-width: 0; background: color-mix(in srgb, var(--color-surface-muted) 55%, var(--color-surface)); }
+.customer-messages__chat { position: relative; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; min-width: 0; min-height: 0; overflow: hidden; background: color-mix(in srgb, var(--color-surface-muted) 55%, var(--color-surface)); }
 .customer-messages__header { display: flex; align-items: center; gap: 10px; min-height: 68px; padding: 10px 16px; border-bottom: 1px solid var(--color-border); background: var(--color-surface); }
 .customer-messages__header > div { display: grid; gap: 2px; }
 .customer-messages__header strong { color: var(--color-text-strong); font-size: .86rem; }
 .customer-messages__header span { color: var(--color-muted); font-size: .7rem; }
+.customer-messages__header-actions { display: flex !important; align-items: center; gap: 7px !important; margin-left: auto; }
+.customer-messages__ai-toggle, .customer-messages__call { display: inline-flex; min-height: 32px; align-items: center; justify-content: center; gap: 5px; border: 1px solid color-mix(in srgb, #178b5b 32%, var(--color-border)); border-radius: 999px; color: #087443; background: color-mix(in srgb, #dcf8e8 70%, var(--color-surface)); font: inherit; font-size: .69rem; font-weight: 750; cursor: pointer; }
+.customer-messages__ai-toggle { padding: 0 10px; }
+.customer-messages__ai-toggle.is-paused { border-color: rgba(224, 132, 19, .35); color: #a65d00; background: color-mix(in srgb, #fff1d6 75%, var(--color-surface)); }
+.customer-messages__ai-toggle:disabled { opacity: .55; cursor: wait; }
+.customer-messages__call { width: 32px; text-decoration: none; }
 .customer-messages__channel { display: inline-flex; align-items: center; gap: 5px; margin-left: auto; padding: 6px 9px; border-radius: 999px; color: #087443 !important; background: rgba(16, 185, 129, .12); font-weight: 700; }
 .customer-messages__back { display: none; border: 0; color: var(--color-text); background: transparent; }
-.customer-messages__messages { display: flex; flex-direction: column; gap: 10px; min-height: 0; padding: 18px; overflow-y: auto; background-image: radial-gradient(color-mix(in srgb, var(--color-border) 55%, transparent) 1px, transparent 1px); background-size: 16px 16px; }
+.customer-messages__messages { display: flex; flex-direction: column; gap: 10px; min-height: 0; padding: 18px; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; background-image: radial-gradient(color-mix(in srgb, var(--color-border) 55%, transparent) 1px, transparent 1px); background-size: 16px 16px; }
 .customer-messages__bubble { max-width: min(72%, 560px); padding: 9px 11px 6px; border: 1px solid var(--color-border); border-radius: 12px 12px 12px 3px; background: var(--color-surface); box-shadow: var(--shadow-sm); }
 .customer-messages__bubble.is-outgoing { align-self: flex-end; border-color: rgba(16, 163, 97, .22); border-radius: 12px 12px 3px 12px; background: color-mix(in srgb, #dcf8e8 72%, var(--color-surface)); }
 .customer-messages__bubble p { margin: 0; color: var(--color-text); font-size: .8rem; line-height: 1.45; white-space: pre-wrap; }
@@ -34,12 +40,15 @@
 .customer-messages__error { position: absolute; right: 12px; bottom: 66px; left: 12px; border-radius: 8px; color: #b42318; background: #fff0ef; }
 
 @media (max-width: 700px) {
-  .customer-messages { display: block; min-height: 520px; }
-  .customer-messages__chat { display: none; min-height: 520px; }
+  .customer-messages { display: block; height: clamp(500px, calc(100dvh - 175px), 700px); min-height: 0; }
+  .customer-messages__sidebar { height: 100%; }
+  .customer-messages__chat { display: none; height: 100%; min-height: 0; }
   .customer-messages--selected .customer-messages__sidebar { display: none; }
   .customer-messages--selected .customer-messages__chat { display: grid; }
   .customer-messages__back { display: inline-grid; width: 32px; height: 32px; place-items: center; }
-  .customer-messages__conversation-list { max-height: 530px; }
+  .customer-messages__conversation-list { max-height: none; }
   .customer-messages__bubble { max-width: 88%; }
   .customer-messages__channel { display: none; }
+  .customer-messages__header-actions { margin-left: auto; }
+  .customer-messages__ai-toggle { width: 32px; padding: 0; font-size: 0; }
 }

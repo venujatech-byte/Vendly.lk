@@ -25,3 +25,10 @@ export async function markChatRead(businessId, sessionId) {
     { method: "PATCH" },
   );
 }
+
+export async function setChatAiPaused(businessId, sessionId, paused) {
+  return apiRequest(
+    `/businesses/${businessId}/chat-sessions/${sessionId}/ai`,
+    { method: "PATCH", body: { paused } },
+  );
+}

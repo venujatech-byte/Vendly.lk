@@ -411,18 +411,20 @@ function StorefrontPage({ linkType }) {
         ...current,
         state: response.state,
       }));
-      setMessages((current) => [
-        ...current,
-        {
-          role: "assistant",
-          text: response.message,
-          action: response.action,
-          product: response.product,
-          products: response.products,
-          cartSummary: response.cartSummary,
-          customerDraft: response.customerDraft,
-        },
-      ]);
+      if (response.message) {
+        setMessages((current) => [
+          ...current,
+          {
+            role: "assistant",
+            text: response.message,
+            action: response.action,
+            product: response.product,
+            products: response.products,
+            cartSummary: response.cartSummary,
+            customerDraft: response.customerDraft,
+          },
+        ]);
+      }
     } catch (error) {
       setErrorMessage(error.message);
     } finally {

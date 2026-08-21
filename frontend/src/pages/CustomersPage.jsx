@@ -32,6 +32,8 @@ function CustomersPage() {
   const routeSearch = (searchParameters.get("search") ?? "")
     .trim()
     .toLowerCase();
+  const requestedTab = searchParameters.get("tab");
+  const requestedSessionId = searchParameters.get("session") ?? "";
   const { business } = useAuth();
   const [customers, setCustomers] = useState([]);
   const [reviews, setReviews] = useState([]);
@@ -44,6 +46,12 @@ function CustomersPage() {
   const [areMobileFiltersOpen, setAreMobileFiltersOpen] = useState(false);
   const [fraudFilters, setFraudFilters] = useState({ search: "", risk: "all", reason: "all", score: "all" });
   const [filters, setFilters] = useState({ search: "", risk: "all", rating: "all", location: "all" });
+
+  useEffect(() => {
+    if (["all", "messages", "reviews", "fraud"].includes(requestedTab)) {
+      setActiveCustomerTab(requestedTab);
+    }
+  }, [requestedTab]);
 
   const searchedCustomers = routeSearch
     ? customers.filter((customer) =>
@@ -323,6 +331,7 @@ function CustomersPage() {
         <CustomerMessages
           businessId={business?.id}
           onSummaryChange={setChatSummary}
+          initialSessionId={requestedSessionId}
         />
       ) : activeCustomerTab === "fraud" ? (
         <>

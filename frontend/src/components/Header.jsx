@@ -25,6 +25,11 @@ import { searchBusiness } from "../services/searchService";
 import ProfileModal from "./ProfileModal";
 
 function getNotificationPath(notification) {
+  if (notification.chatSessionId || notification.type === "chat-needs-attention") {
+    const query = new URLSearchParams({ tab: "messages" });
+    if (notification.chatSessionId) query.set("session", notification.chatSessionId);
+    return `/customers?${query.toString()}`;
+  }
   if (notification.orderId || ["new-order", "fraud-report"].includes(notification.type)) {
     const orderNumber =
       notification.orderNumber ||

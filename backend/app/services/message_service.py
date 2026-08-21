@@ -63,6 +63,10 @@ def list_chat_sessions(database, business_id):
                 "lastMessageRole": session.get("lastMessageRole") or last_message.get("role", ""),
                 "lastMessageAt": session.get("updatedAt") or last_message.get("createdAt"),
                 "unreadCount": int(session.get("unreadBySeller") or 0),
+                "aiPaused": bool(session.get("aiPaused", False)),
+                "needsSellerAttention": bool(
+                    session.get("needsSellerAttention", False)
+                ),
             }
         )
     return sorted(sessions, key=lambda item: item.get("lastMessageAt") or "", reverse=True)
@@ -77,6 +81,10 @@ def get_chat_messages(database, business_id, session_id):
             "orderId": session.get("orderId"),
             "state": session.get("state", "browsing"),
             "status": session.get("status", "active"),
+            "aiPaused": bool(session.get("aiPaused", False)),
+            "needsSellerAttention": bool(
+                session.get("needsSellerAttention", False)
+            ),
         },
         "messages": _message_rows(reference),
     }
@@ -114,8 +122,25 @@ def mark_chat_read(database, business_id, session_id):
     reference.set(
         {
             "unreadBySeller": 0,
+            "needsSellerAttention": False,
             "sellerLastReadAt": firestore.SERVER_TIMESTAMP,
         },
         merge=True,
     )
     return {"sessionId": session_id, "unreadCount": 0}
+
+
+def set_chat_ai_paused(database, business_id, session_id, is_paused):
+    """Enable or pause automated replies for one customer conversation."""
+    reference, _session = _session_reference(database, business_id, session_id)
+    reference.set(
+        {
+            "aiPaused": bool(is_paused),
+            "aiPausedAt": (
+                firestore.SERVER_TIMESTAMP if is_paused else None
+            ),
+            "updatedAt": firestore.SERVER_TIMESTAMP,
+        },
+        merge=True,
+    )
+    return {"sessionId": session_id, "aiPaused": bool(is_paused)}

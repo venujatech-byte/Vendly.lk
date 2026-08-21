@@ -14,6 +14,7 @@ from app.services.customer_service import (
     normalize_sri_lankan_phone,
 )
 from app.services.ai_service import generate_product_answer
+from app.services.chat_event_service import notify_seller_attention
 from app.services.order_service import create_order
 from app.services.public_catalog_service import (
     get_public_product,
@@ -311,6 +312,8 @@ def create_public_chat_session(database, payload, customer_uid=None):
             "customerUid": customer_uid,
             "status": "active",
             "unreadBySeller": 0,
+            "aiPaused": False,
+            "needsSellerAttention": False,
             "createdAt": now,
             "updatedAt": now,
             "expiresAt": now + timedelta(hours=24),
@@ -487,6 +490,21 @@ def answer_public_message(database, session_id, provided_token, payload):
         raise ApiError("validation_error", str(error), 422) from error
 
     save_chat_message(session_snapshot.reference, "customer", message)
+
+    if session.get("aiPaused", False):
+        notify_seller_attention(
+            database,
+            session_snapshot.reference,
+            session["businessId"],
+            message,
+            reason="ai-paused",
+        )
+        return {
+            "message": "",
+            "action": "waiting-for-seller",
+            "state": session.get("state", "browsing"),
+            "aiPaused": True,
+        }
     business_snapshot = (
         database.collection("businesses").document(session["businessId"]).get()
     )
@@ -831,11 +849,30 @@ def answer_public_message(database, session_id, provided_token, payload):
                 "or ask for other options in this category."
             )
         else:
-            response_message = generate_product_answer(message, selected_product) or (
+            generated_answer = generate_product_answer(message, selected_product)
+            answer_is_uncertain = not generated_answer or any(
+                phrase in generated_answer.casefold()
+                for phrase in (
+                    "i don't know",
+                    "i do not know",
+                    "not enough information",
+                    "cannot answer",
+                    "can't answer",
+                    "seller has not provided",
+                )
+            )
+            response_message = generated_answer or (
                 f"Based on the seller's information: {deterministic_description} "
                 "If that does not answer the specific feature you asked about, the "
                 "seller has not provided that detail yet."
             )
+            if answer_is_uncertain:
+                notify_seller_attention(
+                    database,
+                    session_snapshot.reference,
+                    session["businessId"],
+                    message,
+                )
 
         return respond(
             response_message,
@@ -843,6 +880,17 @@ def answer_public_message(database, session_id, provided_token, payload):
             next_state="browsing",
             product=selected_product,
             selected_product_id=selected_product["id"],
+        )
+
+    is_simple_greeting = normalized_phrase(message) in {
+        "hi", "hello", "hey", "goodmorning", "goodafternoon", "goodevening"
+    }
+    if not is_simple_greeting:
+        notify_seller_attention(
+            database,
+            session_snapshot.reference,
+            session["businessId"],
+            message,
         )
 
     return respond(

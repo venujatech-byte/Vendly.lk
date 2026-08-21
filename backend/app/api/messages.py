@@ -8,6 +8,7 @@ from app.services.message_service import (
     get_chat_messages,
     list_chat_sessions,
     mark_chat_read,
+    set_chat_ai_paused,
     send_seller_message,
 )
 
@@ -49,3 +50,29 @@ def add_business_chat_message(business_id, session_id):
 @require_business_member(permission="customers:read")
 def read_business_chat(business_id, session_id):
     return jsonify(mark_chat_read(get_firestore_client(), business_id, session_id))
+
+
+@messages_blueprint.patch(
+    "/businesses/<business_id>/chat-sessions/<session_id>/ai",
+)
+@require_firebase_user
+@require_business_member(permission="customers:manage")
+def update_business_chat_ai(business_id, session_id):
+    payload = get_json_object()
+    if not isinstance(payload.get("paused"), bool):
+        return jsonify(
+            {
+                "error": {
+                    "code": "validation_error",
+                    "message": "Paused must be true or false.",
+                }
+            }
+        ), 422
+    return jsonify(
+        set_chat_ai_paused(
+            get_firestore_client(),
+            business_id,
+            session_id,
+            payload["paused"],
+        )
+    )
