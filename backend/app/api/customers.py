@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, g, jsonify, request
 
 from app.core.auth import require_firebase_user
 from app.core.authorization import require_business_member
@@ -10,7 +10,7 @@ from app.services.customer_service import (
     list_customers,
     update_customer,
 )
-from app.services.fraud_service import list_seller_fraud_customers
+from app.services.fraud_service import list_seller_fraud_customers, report_customer
 
 
 customers_blueprint = Blueprint("customers", __name__, url_prefix="/api/v1")
@@ -71,3 +71,25 @@ def edit_customer(business_id, customer_id):
         get_json_object(),
     )
     return jsonify({"customer": customer})
+
+
+@customers_blueprint.post(
+    "/businesses/<business_id>/customers/<customer_id>/fraud-report",
+)
+@require_firebase_user
+@require_business_member(
+    "owner",
+    "admin",
+    "order_manager",
+    "support",
+    permission="customers:manage",
+)
+def add_customer_fraud_report(business_id, customer_id):
+    report = report_customer(
+        get_firestore_client(),
+        business_id,
+        customer_id,
+        g.current_user["uid"],
+        get_json_object(),
+    )
+    return jsonify({"fraudReport": report}), 201

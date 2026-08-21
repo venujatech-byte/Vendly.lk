@@ -1,9 +1,13 @@
 import hashlib
 
 from firebase_admin import firestore
+from google.cloud import firestore as google_firestore
 
+from app.core.errors import ApiError
+from app.core.serialization import serialize_snapshot
 from app.core.serialization import serialize_value
 from app.services.customer_service import normalize_sri_lankan_phone
+from app.services.text import optional_text
 
 
 def fraud_phone_hash(phone_number):
@@ -51,6 +55,75 @@ def global_registry_increment(report_count=0, returned_count=0):
         "status": "active",
         "updatedAt": firestore.SERVER_TIMESTAMP,
     }
+
+
+def report_customer(database, business_id, customer_id, uid, payload):
+    """Report a customer directly while keeping the shared registry anonymous."""
+    business_reference = database.collection("businesses").document(business_id)
+    customer_reference = business_reference.collection("customers").document(customer_id)
+    report_reference = business_reference.collection("fraudReports").document(
+        f"customer-{customer_id}",
+    )
+    transaction = database.transaction()
+
+    try:
+        reason = optional_text(payload.get("reason"), 80) or "seller-reported"
+        note = optional_text(payload.get("note"), 1000)
+    except ValueError as error:
+        raise ApiError("validation_error", str(error), 422) from error
+
+    @google_firestore.transactional
+    def report_in_transaction(current_transaction):
+        customer_snapshot = customer_reference.get(transaction=current_transaction)
+        report_snapshot = report_reference.get(transaction=current_transaction)
+
+        if not customer_snapshot.exists:
+            raise ApiError("customer_not_found", "Customer not found.", 404)
+        if report_snapshot.exists:
+            raise ApiError(
+                "fraud_report_exists",
+                "This customer has already been reported by your business.",
+                409,
+            )
+
+        customer = customer_snapshot.to_dict()
+        phone = customer.get("normalizedPhone", "")
+        registry_reference = global_fraud_reference(database, phone) if phone else None
+        timestamp = firestore.SERVER_TIMESTAMP
+        report = {
+            "customerId": customer_id,
+            "customerSnapshot": {
+                "name": customer.get("name", ""),
+                "normalizedPhone": phone,
+                "email": customer.get("email", ""),
+            },
+            "reason": reason,
+            "note": note,
+            "source": "customer-management",
+            "status": "active",
+            "reportedBy": uid,
+            "createdAt": timestamp,
+            "updatedAt": timestamp,
+        }
+        current_transaction.set(report_reference, report)
+        if registry_reference:
+            current_transaction.set(
+                registry_reference,
+                global_registry_increment(report_count=1),
+                merge=True,
+            )
+        current_transaction.update(
+            customer_reference,
+            {
+                "fraudReportCount": int(customer.get("fraudReportCount") or 0) + 1,
+                "riskLevel": "high",
+                "tags": firestore.ArrayUnion(["fraud-reported"]),
+                "updatedAt": timestamp,
+            },
+        )
+
+    report_in_transaction(transaction)
+    return serialize_snapshot(report_reference.get())
 
 
 def list_seller_fraud_customers(database, business_id):

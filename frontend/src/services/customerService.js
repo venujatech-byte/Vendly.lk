@@ -25,6 +25,20 @@ export async function updateCustomer(businessId, customerId, changes) {
   return response.customer;
 }
 
+export async function reportCustomer(businessId, customerId) {
+  const response = await apiRequest(
+    `/businesses/${businessId}/customers/${customerId}/fraud-report`,
+    {
+      method: "POST",
+      body: {
+        reason: "seller-reported",
+        note: "Customer reported from the customer management page.",
+      },
+    },
+  );
+  return response.fraudReport;
+}
+
 export async function getFraudCustomers(businessId) {
   const response = await apiRequest(
     `/businesses/${businessId}/fraud-customers`,

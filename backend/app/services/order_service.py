@@ -1028,9 +1028,16 @@ def update_order(database, business_id, order_id, uid, payload):
         phone = required_text(payload.get("phoneNumber"), "Phone number", 40)
         customer_snapshot["normalizedPhone"] = phone
         customer_snapshot["phoneNumber"] = phone
+    if "secondaryPhoneNumber" in payload:
+        secondary_phone = optional_text(payload.get("secondaryPhoneNumber"), 40)
+        customer_snapshot["secondaryPhoneNumber"] = secondary_phone
+        customer_snapshot["normalizedSecondaryPhone"] = secondary_phone
     if "email" in payload:
         customer_snapshot["email"] = optional_text(payload.get("email"), 160)
-    if any(field in payload for field in ("customerName", "phoneNumber", "email")):
+    if any(
+        field in payload
+        for field in ("customerName", "phoneNumber", "secondaryPhoneNumber", "email")
+    ):
         changes["customerSnapshot"] = customer_snapshot
     if "deliveryAddress" in payload:
         address = payload.get("deliveryAddress")

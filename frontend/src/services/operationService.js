@@ -88,7 +88,7 @@ export function printWaybill(order, printWindow = window.open("", "_blank")) {
       <header><div><h1>Vendly.lk Waybill</h1><div class="muted">${escapeHtml(order.orderNumber)}</div></div>
       <strong>${escapeHtml(order.waybillNumber)}</strong></header>
       <section><h2>Delivery</h2><strong>${escapeHtml(order.customerName)}</strong><br>
-      ${escapeHtml(order.phoneNumber)}<br>${escapeHtml(order.deliveryAddress)}</section>
+      ${escapeHtml(order.phoneNumber)}${order.secondaryPhoneNumber ? `<br>${escapeHtml(order.secondaryPhoneNumber)}` : ""}<br>${escapeHtml(order.deliveryAddress)}</section>
       <section><h2>Courier</h2>${escapeHtml(order.courier)}</section>
       <section><table><thead><tr><th>Item</th><th>Size</th><th>Qty</th></tr></thead>
       <tbody>${itemRows}</tbody></table></section>

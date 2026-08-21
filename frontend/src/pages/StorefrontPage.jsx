@@ -52,6 +52,7 @@ import "./StorefrontPage.css";
 const EMPTY_CUSTOMER = {
   name: "",
   phoneNumber: "",
+  secondaryPhoneNumber: "",
   email: "",
   deliveryNote: "",
   address: {
@@ -479,6 +480,7 @@ function StorefrontPage({ linkType }) {
           customer: {
             name: customer.name,
             phoneNumber: customer.phoneNumber,
+            secondaryPhoneNumber: customer.secondaryPhoneNumber,
             email: customer.email,
             address: customer.address,
           },
@@ -1308,6 +1310,9 @@ function ChatbotView({
           <h3>Customer details</h3>
           <DraftField label="Customer Name" value={customer.name} />
           <DraftField label="Phone No" value={customer.phoneNumber} />
+          {customer.secondaryPhoneNumber && (
+            <DraftField label="2nd Phone No" value={customer.secondaryPhoneNumber} />
+          )}
           <DraftField
             label="Address"
             value={[
@@ -1593,6 +1598,18 @@ function CheckoutModal({
                 onChange={onCustomerChange}
                 placeholder="077 123 4567"
                 required
+              />
+            </div>
+          </label>
+          <label>
+            <span>2nd Phone Number (Optional)</span>
+            <div>
+              <Phone size={17} />
+              <input
+                name="secondaryPhoneNumber"
+                value={customer.secondaryPhoneNumber}
+                onChange={onCustomerChange}
+                placeholder="071 234 5678"
               />
             </div>
           </label>

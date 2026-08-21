@@ -15,7 +15,7 @@ const nextStatuses = {
 
 function EditOrderModal({ isOpen, businessId, order, onClose, onUpdated }) {
   const [couriers, setCouriers] = useState([]);
-  const [form, setForm] = useState({ customerName: "", phoneNumber: "", email: "", deliveryAddress: emptyAddress, courierId: "", paymentMethod: "cod", privateNote: "", status: "" });
+  const [form, setForm] = useState({ customerName: "", phoneNumber: "", secondaryPhoneNumber: "", email: "", deliveryAddress: emptyAddress, courierId: "", paymentMethod: "cod", privateNote: "", status: "" });
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -24,6 +24,7 @@ function EditOrderModal({ isOpen, businessId, order, onClose, onUpdated }) {
     setForm({
       customerName: order.customerName ?? "",
       phoneNumber: order.phoneNumber ?? "",
+      secondaryPhoneNumber: order.secondaryPhoneNumber ?? "",
       email: order.email ?? "",
       deliveryAddress: { ...emptyAddress, ...(order.deliveryAddressObject ?? {}) },
       courierId: order.courierId ?? "",
@@ -54,6 +55,7 @@ function EditOrderModal({ isOpen, businessId, order, onClose, onUpdated }) {
       let updated = await updateOrder(businessId, order.id, {
         customerName: form.customerName,
         phoneNumber: form.phoneNumber,
+        secondaryPhoneNumber: form.secondaryPhoneNumber,
         email: form.email,
         deliveryAddress: form.deliveryAddress,
         courierId: form.courierId,
@@ -78,7 +80,8 @@ function EditOrderModal({ isOpen, businessId, order, onClose, onUpdated }) {
     <ModalShell isOpen={isOpen} title={`Edit Order ${order?.orderNumber ?? ""}`} description="Update customer, delivery, payment, courier, status, and internal notes." onClose={onClose} size="wide">
       <form className="inventory-form" onSubmit={submit}>
         <section className="inventory-form__panel"><h3>Customer details</h3>
-          <div className="inventory-form__two-columns"><label>Customer name<input name="customerName" value={form.customerName} onChange={change} required /></label><label>Phone number<input name="phoneNumber" value={form.phoneNumber} onChange={change} required /></label></div>
+          <div className="inventory-form__two-columns"><label>Customer name<input name="customerName" value={form.customerName} onChange={change} required /></label><label>1st phone number<input name="phoneNumber" value={form.phoneNumber} onChange={change} required /></label></div>
+          <label>2nd phone number (optional)<input name="secondaryPhoneNumber" value={form.secondaryPhoneNumber} onChange={change} /></label>
           <label>Email<input name="email" type="email" value={form.email} onChange={change} /></label>
         </section>
         <section className="inventory-form__panel"><h3>Delivery address</h3>

@@ -2,7 +2,12 @@ import { Fragment, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import { useAuth } from "../context/authContextValue";
-import { getCustomers, getFraudCustomers } from "../services/customerService";
+import {
+  getCustomers,
+  getFraudCustomers,
+  reportCustomer,
+  updateCustomer,
+} from "../services/customerService";
 import { getChatSessions } from "../services/messageService";
 import { getReviews, moderateReview } from "../services/reviewService";
 
@@ -12,17 +17,21 @@ import {
   CheckCircle2,
   Clock3,
   Filter,
+  Flag,
   Mail,
   MessageSquare,
   Repeat2,
   ShieldAlert,
   UsersRound,
   RotateCcw,
+  Trash2,
   XCircle,
 } from "lucide-react";
 
 import StatCard from "../components/StatCard";
 import CustomerMessages from "../components/CustomerMessages";
+import ActionMenu from "../components/ActionMenu";
+import ConfirmDialog from "../components/ConfirmDialog";
 
 import "./ManagementPage.css";
 import "./CustomersPage.css";
@@ -46,6 +55,8 @@ function CustomersPage() {
   const [areMobileFiltersOpen, setAreMobileFiltersOpen] = useState(false);
   const [fraudFilters, setFraudFilters] = useState({ search: "", risk: "all", reason: "all", score: "all" });
   const [filters, setFilters] = useState({ search: "", risk: "all", rating: "all", location: "all" });
+  const [customerAction, setCustomerAction] = useState(null);
+  const [isCustomerActionWorking, setIsCustomerActionWorking] = useState(false);
 
   useEffect(() => {
     if (["all", "messages", "reviews", "fraud"].includes(requestedTab)) {
@@ -219,6 +230,39 @@ function CustomersPage() {
     }
   }
 
+  async function handleCustomerAction() {
+    if (!business?.id || !customerAction?.customer) return;
+
+    const { type, customer } = customerAction;
+    setIsCustomerActionWorking(true);
+    setErrorMessage("");
+
+    try {
+      if (type === "remove") {
+        await updateCustomer(business.id, customer.id, { status: "archived" });
+        setCustomers((current) =>
+          current.filter((item) => item.id !== customer.id),
+        );
+        if (expandedCustomerId === customer.id) setExpandedCustomerId(null);
+      } else {
+        await reportCustomer(business.id, customer.id);
+        setCustomers((current) =>
+          current.map((item) =>
+            item.id === customer.id
+              ? { ...item, riskLevel: "high", fraudReportCount: 1 }
+              : item,
+          ),
+        );
+        setFraudCustomers(await getFraudCustomers(business.id));
+      }
+      setCustomerAction(null);
+    } catch (error) {
+      setErrorMessage(error.message);
+    } finally {
+      setIsCustomerActionWorking(false);
+    }
+  }
+
   return (
     <main className="dashboard customers-page">
       <div className="dashboard__intro">
@@ -368,7 +412,22 @@ function CustomersPage() {
             onModerate={handleModerateReview}
           />
         </>
-      ) : <table className="management-table">
+      ) : <section className="customer-table-card" aria-label="Customers list">
+      <div className="customer-table-scroll">
+      <table className="management-table all-customers-table">
+        <colgroup>
+          <col className="customer-column--expand" />
+          <col className="customer-column--select" />
+          <col className="customer-column--name" />
+          <col className="customer-column--phone" />
+          <col className="customer-column--email" />
+          <col className="customer-column--address" />
+          <col className="customer-column--orders" />
+          <col className="customer-column--spent" />
+          <col className="customer-column--rating" />
+          <col className="customer-column--risk" />
+          <col className="customer-column--actions" />
+        </colgroup>
         <thead>
           <tr>
             <th className="management-table__expand-heading" aria-label="Expand" />
@@ -379,7 +438,6 @@ function CustomersPage() {
             <th>Address</th>
             <th>Orders</th>
             <th>Total Spent</th>
-            <th>Last Order</th>
             <th>Rating</th>
             <th>Risk Level</th>
             <th>Actions</th>
@@ -408,7 +466,6 @@ function CustomersPage() {
                   "en-LK",
                 )}
               </td>
-              <td>{customer.lastOrderDate || "—"}</td>
               <td><span className="customer-rating">{customer.rating ? `${customer.rating} ★` : "—"}</span></td>
               <td>
                 <span
@@ -417,14 +474,31 @@ function CustomersPage() {
                   {customer.riskLevel}
                 </span>
               </td>
-              <td><button type="button" className="customer-action-button" aria-label={`Open actions for ${customer.name}`}>•••</button></td>
+              <td>
+                <ActionMenu
+                  label={`Open actions for ${customer.name}`}
+                  items={[
+                    {
+                      label: "Report customer",
+                      icon: <Flag size={16} aria-hidden="true" />,
+                      onClick: () => setCustomerAction({ type: "report", customer }),
+                    },
+                    {
+                      label: "Remove customer",
+                      icon: <Trash2 size={16} aria-hidden="true" />,
+                      danger: true,
+                      onClick: () => setCustomerAction({ type: "remove", customer }),
+                    },
+                  ]}
+                />
+              </td>
             </tr>
             {expandedCustomerId === customer.id && (
               <tr key={`${customer.id}-details`} className="management-table__expanded-row">
-                <td colSpan={12}>
+                <td colSpan={11}>
                   <div className="customer-expanded-details">
                     <div><strong>{customer.name}</strong><span>Customer ID: {customer.id}</span><span>Joined: {customer.createdAt ? new Date(customer.createdAt).toLocaleDateString("en-LK") : "—"}</span></div>
-                    <div><strong>Contact</strong><span>☎ +{customer.normalizedPhone}</span><span>✉ {customer.email || "No email"}</span></div>
+                    <div><strong>Contact</strong><span>☎ +{customer.normalizedPhone}</span>{customer.normalizedSecondaryPhone && <span>☎ +{customer.normalizedSecondaryPhone}</span>}<span>✉ {customer.email || "No email"}</span></div>
                     <div><strong>Delivery Address</strong><span>{[customer.defaultAddress?.line1, customer.defaultAddress?.line2, customer.defaultAddress?.city, customer.defaultAddress?.district, customer.defaultAddress?.postalCode, customer.defaultAddress?.country].filter(Boolean).join(", ") || "No address saved"}</span></div>
                     <div><strong>Recent orders</strong><span>{customer.completedOrderCount ?? 0} completed · {customer.returnedOrderCount ?? 0} returned</span><span>Preferred contact: Phone</span></div>
                   </div>
@@ -435,17 +509,37 @@ function CustomersPage() {
           ))}
           {!isLoading && visibleCustomers.length === 0 && (
             <tr>
-              <td colSpan={12}>No matching customers found.</td>
+              <td colSpan={11}>No matching customers found.</td>
             </tr>
           )}
         </tbody>
-      </table>}
+      </table>
+      </div>
+      <CustomerTableFooter count={visibleCustomers.length} label="customers" />
+      </section>}
+
+      <ConfirmDialog
+        isOpen={Boolean(customerAction)}
+        title={customerAction?.type === "report" ? "Report customer" : "Remove customer"}
+        message={
+          customerAction?.type === "report"
+            ? `Report ${customerAction?.customer?.name || "this customer"} as a fraud risk? This warning will be added to the shared fraud registry.`
+            : `Remove ${customerAction?.customer?.name || "this customer"} from your customer list? Existing orders will be kept.`
+        }
+        confirmLabel={customerAction?.type === "report" ? "Report customer" : "Remove customer"}
+        workingLabel={customerAction?.type === "report" ? "Reporting..." : "Removing..."}
+        isWorking={isCustomerActionWorking}
+        onCancel={() => !isCustomerActionWorking && setCustomerAction(null)}
+        onConfirm={handleCustomerAction}
+      />
     </main>
   );
 }
 
 function ReviewsTable({ reviews, isLoading, onModerate }) {
   return (
+    <section className="customer-table-card" aria-label="Customer reviews list">
+    <div className="customer-table-scroll">
     <table className="management-table customer-reviews-table">
       <thead>
         <tr>
@@ -493,6 +587,9 @@ function ReviewsTable({ reviews, isLoading, onModerate }) {
         {!isLoading && reviews.length === 0 && <tr><td colSpan={10}>No reviews found.</td></tr>}
       </tbody>
     </table>
+    </div>
+    <CustomerTableFooter count={reviews.length} label="reviews" />
+    </section>
   );
 }
 
@@ -516,7 +613,7 @@ function FraudFilters({ filters, setFilters }) {
 }
 
 function FraudTable({ customers, isLoading }) {
-  return <table className="management-table fraud-table"><thead><tr><th>Customer</th><th>Phone</th><th>Email</th><th>Address</th><th>Returned Orders</th><th>Total Orders</th><th>Return Rate</th><th>Fraud Score</th><th>Last Returned</th><th>Reason</th><th>Risk Status</th><th>Actions</th></tr></thead><tbody>
+  return <section className="customer-table-card" aria-label="Fraud reports list"><div className="customer-table-scroll"><table className="management-table fraud-table"><thead><tr><th>Customer</th><th>Phone</th><th>Email</th><th>Address</th><th>Returned Orders</th><th>Total Orders</th><th>Return Rate</th><th>Fraud Score</th><th>Last Returned</th><th>Reason</th><th>Risk Status</th><th>Actions</th></tr></thead><tbody>
     {customers.map((customer) => {
       const returned = customer.returnedOrderCount ?? 0;
       const total = customer.totalOrderCount ?? customer.completedOrderCount ?? returned;
@@ -526,7 +623,24 @@ function FraudTable({ customers, isLoading }) {
       return <tr key={customer.id}><td><strong>{customer.name}</strong></td><td>+{customer.normalizedPhone || "—"}</td><td>{customer.email || "—"}</td><td>{[address.line1, address.city].filter(Boolean).join(", ") || "—"}</td><td>{returned}</td><td>{total}</td><td>{total ? `${Math.round((returned / total) * 100)}%` : "0%"}</td><td><span className={`fraud-score fraud-score--${risk}`}>{score}</span></td><td>{customer.lastReturnedOrderDate || "—"}</td><td>{customer.returnReason || customer.fraudReason || "Unspecified"}</td><td><span className={`management-table__badge management-table__badge--${risk}`}>{risk} risk</span></td><td><button type="button" className="customer-action-button" aria-label={`Open ${customer.name} fraud actions`}>•••</button></td></tr>;
     })}
     {!isLoading && customers.length === 0 && <tr><td colSpan={12}>No fraud reports found.</td></tr>}
-  </tbody></table>;
+  </tbody></table></div><CustomerTableFooter count={customers.length} label="reports" /></section>;
+}
+
+function CustomerTableFooter({ count, label }) {
+  return (
+    <footer className="customer-table-footer">
+      <span>
+        Showing {count === 0 ? 0 : 1} to {count} of {count} {label}
+      </span>
+      <div className="customer-table-pagination" aria-label={`${label} pagination`}>
+        <button type="button" disabled>Previous</button>
+        <button className="is-active" type="button" aria-current="page">1</button>
+        <button type="button" disabled={count === 0}>2</button>
+        <button type="button" disabled={count === 0}>3</button>
+        <button type="button" disabled={count === 0}>Next</button>
+      </div>
+    </footer>
+  );
 }
 
 export default CustomersPage;

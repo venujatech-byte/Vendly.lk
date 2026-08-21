@@ -87,6 +87,11 @@ def list_customers(database, business_id, phone=None, search=None):
         serialize_snapshot(snapshot)
         for snapshot in collection.order_by("name").limit(200).stream()
     ]
+    customers = [
+        customer
+        for customer in customers
+        if customer.get("status", "active") != "archived"
+    ]
 
     if search:
         search_text = search.strip().casefold()

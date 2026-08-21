@@ -18,6 +18,10 @@ export function mapOrderForTable(order) {
     ...order,
     customerName: order.customerSnapshot?.name ?? "Customer",
     phoneNumber: order.customerSnapshot?.normalizedPhone ?? "",
+    secondaryPhoneNumber:
+      order.customerSnapshot?.secondaryPhoneNumber
+      ?? order.customerSnapshot?.normalizedSecondaryPhone
+      ?? "",
     email: order.customerSnapshot?.email ?? "",
     courier: order.courierSnapshot?.name ?? "Not assigned",
     status: displayStatus(order.fulfilmentStatus),

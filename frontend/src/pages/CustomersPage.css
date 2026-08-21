@@ -154,6 +154,194 @@
   table-layout: fixed;
 }
 
+/* This table has expand and select controls before the customer data. The
+   shared table styles hide expand controls on desktop, so this page opts in. */
+.customer-table-scroll {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.customer-table-card {
+  width: 100%;
+  margin-top: 14px;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface);
+  box-shadow: 0 5px 18px rgba(15, 59, 110, 0.06);
+}
+
+.customers-page .customer-table-card .management-table {
+  margin-top: 0;
+  border: 0;
+  border-radius: 0;
+  color: var(--color-text);
+  font-size: 13px;
+  font-weight: 450;
+  line-height: 1.4;
+}
+
+.customers-page .customer-table-card .management-table th,
+.customers-page .customer-table-card .management-table td {
+  padding: 12px 10px;
+  border-bottom: 1px solid var(--color-border);
+  text-align: center;
+  vertical-align: middle;
+  font-size: 13px;
+  font-weight: 450;
+}
+
+.customers-page .customer-table-card .customer-cell,
+.customers-page .customer-table-card .review-product-cell,
+.customers-page .customer-table-card .review-moderation-actions {
+  justify-content: center;
+}
+
+/* Only the first information column is left aligned. All Customers has two
+   utility columns before Customer; Reviews and Fraud Reports do not. */
+.customers-page .all-customers-table th:nth-child(3),
+.customers-page .all-customers-table td:nth-child(3),
+.customers-page .customer-reviews-table th:first-child,
+.customers-page .customer-reviews-table td:first-child,
+.customers-page .fraud-table th:first-child,
+.customers-page .fraud-table td:first-child {
+  text-align: left;
+}
+
+.customers-page .all-customers-table .customer-cell {
+  justify-content: flex-start;
+}
+
+.customers-page .customer-table-card .action-menu {
+  display: flex;
+  justify-content: center;
+}
+
+.customers-page .customer-table-card .orders-table__more-button {
+  margin-right: auto;
+  margin-left: auto;
+}
+
+/* Expanded records contain longer addresses and notes, so retain readable
+   left-aligned text inside those detail panels. */
+.customers-page .customer-table-card .management-table__expanded-row td,
+.customers-page .customer-table-card .customer-expanded-details {
+  text-align: left;
+}
+
+.customers-page .customer-table-card .management-table th {
+  color: var(--color-text-strong);
+  background: var(--color-surface-soft);
+  font-size: 12px;
+  font-weight: 650;
+  text-transform: none;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.customers-page .customer-table-card .management-table tbody tr:not(.management-table__expanded-row) {
+  transition: background-color 150ms ease;
+}
+
+.customers-page .customer-table-card .management-table tbody tr:not(.management-table__expanded-row):hover {
+  background: color-mix(in srgb, var(--color-accent) 4%, var(--color-surface));
+}
+
+.customer-table-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  min-height: 58px;
+  padding: 10px 13px;
+  color: var(--color-text-muted);
+  border-top: 1px solid var(--color-border);
+  background: var(--color-surface);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.customer-table-pagination {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.customer-table-pagination button {
+  min-width: 34px;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 7px;
+  color: var(--color-text);
+  background: var(--color-control);
+  font: inherit;
+  cursor: pointer;
+}
+
+.customer-table-pagination button:hover:not(:disabled),
+.customer-table-pagination button.is-active {
+  color: #fff;
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+}
+
+.customer-table-pagination button:disabled {
+  color: var(--color-muted);
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.customers-page .all-customers-table {
+  min-width: 1080px;
+}
+
+.customers-page .customer-reviews-table {
+  min-width: 1180px;
+}
+
+.customers-page .fraud-table {
+  min-width: 1320px;
+}
+
+.customers-page .all-customers-table .management-table__expand-heading,
+.customers-page .all-customers-table .management-table__expand-cell {
+  display: table-cell;
+  width: 34px;
+  padding-right: 4px;
+  padding-left: 8px;
+}
+
+.customers-page .all-customers-table .management-table__expand-cell button {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  border-radius: 7px;
+  color: var(--color-text-muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+.customers-page .all-customers-table .management-table__expand-cell button:hover {
+  color: var(--color-accent);
+  background: var(--color-surface-muted);
+}
+
+.customer-column--expand { width: 34px; }
+.customer-column--select { width: 36px; }
+.customer-column--name { width: 145px; }
+.customer-column--phone { width: 112px; }
+.customer-column--email { width: 145px; }
+.customer-column--address { width: 180px; }
+.customer-column--orders { width: 64px; }
+.customer-column--spent { width: 90px; }
+.customer-column--rating { width: 78px; }
+.customer-column--risk { width: 82px; }
+.customer-column--actions { width: 54px; }
+
 @media (max-width: 700px) {
   .customers-page {
     width: 100%;
@@ -209,6 +397,25 @@
 }
 
 @media (max-width: 700px) {
+  .customer-table-card {
+    margin-top: 12px;
+  }
+
+  .customer-table-footer {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .customer-table-pagination {
+    width: 100%;
+    justify-content: flex-end;
+    overflow-x: auto;
+  }
+
+  .customers-page .all-customers-table {
+    min-width: 0;
+  }
+
   .customers-page .customer-tabs {
     display: grid;
     grid-template-columns: repeat(5, minmax(max-content, 1fr));
@@ -297,13 +504,11 @@
   .customers-page .management-table th:nth-child(8),
   .customers-page .management-table th:nth-child(9),
   .customers-page .management-table th:nth-child(10),
-  .customers-page .management-table th:nth-child(11),
   .customers-page .management-table tbody tr:not(.management-table__expanded-row) > td:nth-child(6),
   .customers-page .management-table tbody tr:not(.management-table__expanded-row) > td:nth-child(7),
   .customers-page .management-table tbody tr:not(.management-table__expanded-row) > td:nth-child(8),
   .customers-page .management-table tbody tr:not(.management-table__expanded-row) > td:nth-child(9),
-  .customers-page .management-table tbody tr:not(.management-table__expanded-row) > td:nth-child(10),
-  .customers-page .management-table tbody tr:not(.management-table__expanded-row) > td:nth-child(11) {
+  .customers-page .management-table tbody tr:not(.management-table__expanded-row) > td:nth-child(10) {
     display: none;
   }
 
@@ -363,8 +568,8 @@
     min-width: 0;
   }
 
-  .customers-page .management-table th:nth-child(12),
-  .customers-page .management-table tbody tr:not(.management-table__expanded-row) > td:nth-child(12) {
+  .customers-page .management-table th:nth-child(11),
+  .customers-page .management-table tbody tr:not(.management-table__expanded-row) > td:nth-child(11) {
     width: 42px;
   }
 
@@ -372,8 +577,14 @@
   .customers-page .customer-cell strong { overflow: hidden; text-overflow: ellipsis; }
 }
 .customer-cell { display: flex; align-items: center; gap: 9px; }
+.customer-cell strong,
+.customers-page .customer-table-card .management-table td > strong {
+  color: var(--color-text-strong);
+  font-size: 13px;
+  font-weight: 650;
+}
 .customer-cell__avatar { display: inline-grid; width: 30px; height: 30px; place-items: center; border-radius: 50%; color: #1769b0; background: #e7f1ff; font-size: .72rem; font-weight: 800; }
-.customer-rating { color: #e99600; font-weight: 700; white-space: nowrap; }
+.customer-rating { color: #e99600; font-size: 12px; font-weight: 650; white-space: nowrap; }
 .review-product-cell { display: flex; align-items: center; gap: 8px; min-width: 130px; }
 .review-product-cell img { width: 38px; height: 38px; flex: 0 0 38px; object-fit: cover; border: 1px solid var(--color-border); border-radius: 6px; }
 .review-moderation-actions { display: inline-flex; gap: 5px; }
@@ -383,6 +594,11 @@
 .management-table__badge--pending { color: #9a6500; background: rgba(245, 158, 11, 0.15); }
 .management-table__badge--approved { color: #087443; background: rgba(16, 185, 129, 0.13); }
 .management-table__badge--rejected { color: #b91c1c; background: rgba(239, 68, 68, 0.14); }
+.customers-page .customer-table-card .management-table__badge {
+  padding: 5px 9px;
+  font-size: 10.5px;
+  font-weight: 650;
+}
 .fraud-score { display: inline-flex; min-width: 38px; justify-content: center; padding: 5px 8px; border-radius: 6px; font-weight: 700; }
 .fraud-score--high, .fraud-score--fraud { color: #b91c1c; background: rgba(239, 68, 68, .12); }
 .fraud-score--medium { color: #9a6500; background: rgba(245, 158, 11, .14); }

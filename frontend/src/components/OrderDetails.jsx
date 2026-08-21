@@ -184,6 +184,13 @@ function OrderDetails({
             <span>{order.phoneNumber}</span>
           </div>
 
+          {order.secondaryPhoneNumber && (
+            <div>
+              <Phone size={17} />
+              <span>{order.secondaryPhoneNumber}</span>
+            </div>
+          )}
+
           <div>
             <MapPin size={17} />
             <span>{order.deliveryAddress ?? "Address not available"}</span>
