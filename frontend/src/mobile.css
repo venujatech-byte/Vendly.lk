@@ -168,10 +168,12 @@
     font-size: 21px;
   }
 
+@media (max-width: 420px) {
   .stats-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
+    gap: 8px;
   }
+}
 
   .order-stats-grid {
     grid-template-columns: none;
@@ -344,9 +346,9 @@
     display: none;
   }
 
-  .stats-grid {
-    grid-template-columns: 1fr;
-  }
+.stats-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
 
   .inventory-page__actions,
   .orders-page__heading-actions {
@@ -410,5 +412,35 @@
     width: 100%;
     max-height: 94dvh;
     border-radius: 18px 18px 0 0;
+  }
+}
+
+
+@media (max-width: 600px) {
+  .stats-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 5px !important;
+    width: 100%;
+  }
+
+  .stats-grid .stat-card {
+    min-width: 0;
+    width: 100%;
+  }
+
+}
+
+@media (max-width: 600px) {
+  .stat-card__content {
+    gap: 2px;
+  }
+
+  .stat-card__label {
+    font-size: 14px;
+  }
+
+  .stat-card__value {
+    font-size: 20px;
   }
 }

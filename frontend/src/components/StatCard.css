@@ -19,7 +19,7 @@
   border-radius: 8px;
 background: var(--card-background);
 box-shadow: var(--card-shadow);
-
+cursor: pointer;
   transform: scale(1);
   transition:
     transform 500ms cubic-bezier(0.22, 1, 0.36, 1),
@@ -151,4 +151,30 @@ html[data-theme="dark"] .stat-card--red .stat-card__icon,
 html[data-theme="dark"] .stat-card2--red .stat-card2__icon {
   color: #ff6262;
   background-color: rgba(239, 68, 68, 0.16);
+}
+
+/* Mobile-only styles */
+@media (max-width: 600px) {
+  .stat-card__content {
+    gap: 1px;
+  }
+
+  .stat-card__label {
+    font-size: 14px;
+  }
+
+  .stat-card__value {
+    font-size: 20px;
+  }
+
+  .stat-card__icon {
+  display: grid;
+  place-items: center;
+  width: 50px;
+  height: 50px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  transform: scale(1);
+  transition: transform 500ms cubic-bezier(0.22, 1, 0.36, 1);
+}
 }

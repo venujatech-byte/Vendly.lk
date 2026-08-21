@@ -1,0 +1,9 @@
+.customers-summary {
+  margin-top: 28px;
+}
+
+.customers-summary > h2 {
+  margin-bottom: 16px;
+  color: var(--color-text);
+  font-size: 1.5rem;
+}
