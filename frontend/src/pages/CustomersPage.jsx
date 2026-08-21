@@ -4,7 +4,15 @@ import { useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/authContextValue";
 import { getCustomers } from "../services/customerService";
 
-import { Mail, Repeat2, ShieldAlert, UsersRound } from "lucide-react";
+import {
+  Mail,
+  MessageSquare,
+  Repeat2,
+  ShieldAlert,
+  Star,
+  UsersRound,
+} from "lucide-react";
+
 
 import StatCard from "../components/StatCard";
 
@@ -30,7 +38,7 @@ function CustomersPage() {
         ),
       )
     : customers;
-
+  const [activeCustomerTab, setActiveCustomerTab] = useState("all");
   const customerStats = [
     {
       label: "Total Customers",
@@ -62,6 +70,34 @@ function CustomersPage() {
     },
   ];
 
+  const customerTabs = [
+  {
+    id: "all",
+    label: "All Customers",
+    icon: UsersRound,
+  },
+  {
+    id: "messages",
+    label: "Messages",
+    icon: MessageSquare,
+  },
+  {
+    id: "ratings",
+    label: "Ratings",
+    icon: Star,
+  },
+  {
+    id: "reviews",
+    label: "Reviews",
+    icon: Mail,
+  },
+  {
+    id: "fraud",
+    label: "Fraud Reports",
+    icon: ShieldAlert,
+  },
+];
+
   useEffect(() => {
     if (!business?.id) {
       setIsLoading(false);
@@ -75,7 +111,7 @@ function CustomersPage() {
   }, [business?.id]);
 
   return (
-    <main className="dashboard">
+    <main className="dashboard customers-page">
       <div className="dashboard__intro">
         <h2>Customer Management</h2>
         <p>Review customer loyalty, order history and return risk.</p>
@@ -98,6 +134,32 @@ function CustomersPage() {
           ))}
         </div>
       </section>
+
+
+      <nav
+  className="customer-tabs"
+  aria-label="Customer sections"
+>
+  {customerTabs.map((tab) => {
+    const Icon = tab.icon;
+    const isActive = activeCustomerTab === tab.id;
+
+    return (
+      <button
+        key={tab.id}
+        className={`customer-tabs__button ${
+          isActive ? "customer-tabs__button--active" : ""
+        }`}
+        type="button"
+        onClick={() => setActiveCustomerTab(tab.id)}
+        aria-current={isActive ? "page" : undefined}
+      >
+        <Icon size={17} aria-hidden="true" />
+        <span>{tab.label}</span>
+      </button>
+    );
+  })}
+</nav>
 
       {isLoading && (
         <p className="management-page__notice">Loading customers...</p>
