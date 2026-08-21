@@ -1,0 +1,39 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+.codex-build-check*
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Local environment files
+.env
+.env.*
+!.env.example
+
+BACKEND_API_FROM_SCRATCH.md
+COMPLETE_SOURCE_CODE.md
+FEATURE_BY_FEATURE_IMPLEMENTATION_GUIDE.md
+FIREBASE_DATABASE_GUIDE.md
+MOBILE_FRIENDLY_GUIDE.md
+PROGRAMMING_FROM_SCRATCH_GUIDE.md
+PROGRAMMING_LEARNING_PATH.md
+VENDLY_PROJECT_PROPOSAL.md
