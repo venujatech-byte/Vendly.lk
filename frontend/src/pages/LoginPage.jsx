@@ -113,7 +113,11 @@ function LoginPage() {
       // Reload once after login so the dashboard starts with the latest
       // Firebase account, business, and membership state.  This is placed
       // only after a successful login, never during component rendering.
-      window.location.replace("/");
+    setTimeout(() => {
+    console.log("This runs after 2 seconds");
+    window.location.replace("/");
+  }, 2000);
+
     } catch (error) {
       setErrorMessage(getAuthErrorMessage(error));
     } finally {
@@ -132,7 +136,10 @@ function LoginPage() {
       await refreshSellerProfile();
 
       // Google login uses the same one-time fresh dashboard load.
-      window.location.replace("/");
+       setTimeout(() => {
+    console.log("This runs after 2 seconds");
+    window.location.replace("/");
+  }, 2000);
     } catch (error) {
       setErrorMessage(getAuthErrorMessage(error));
     } finally {
