@@ -618,6 +618,101 @@
 .order-summary__courier { display: grid; gap: 6px; }
 .order-summary footer { display: flex; justify-content: flex-end; gap: 12px; padding: 16px 24px; border-top: 1px solid #dbe2ea; background: #fafbfc; }
 
+/* Keep the Add Order dialog readable when the application uses dark mode. */
+[data-theme="dark"] .modal-shell:has(.order-dialog) {
+  color: #e5edf7;
+  background: #0f1b2a;
+}
+
+[data-theme="dark"] .modal-shell:has(.order-dialog) .modal-shell__header,
+[data-theme="dark"] .order-dialog__footer {
+  border-color: #263b52;
+  background: #142438;
+}
+
+[data-theme="dark"] .modal-shell:has(.order-dialog) .modal-shell__header h2,
+[data-theme="dark"] .modal-shell:has(.order-dialog) .modal-shell__header button,
+[data-theme="dark"] .order-dialog,
+[data-theme="dark"] .order-dialog strong,
+[data-theme="dark"] .order-dialog label,
+[data-theme="dark"] .order-dialog__items > strong {
+  color: #e5edf7;
+}
+
+[data-theme="dark"] .order-dialog__customer {
+  border-color: #263b52;
+}
+
+[data-theme="dark"] .order-dialog input,
+[data-theme="dark"] .order-dialog select,
+[data-theme="dark"] .order-dialog textarea,
+[data-theme="dark"] .order-dialog__quantity,
+[data-theme="dark"] .order-dialog__results > button,
+[data-theme="dark"] .order-dialog__table,
+[data-theme="dark"] .order-dialog__picker,
+[data-theme="dark"] .order-dialog__customer > header button {
+  border-color: #38516d;
+  color: #e5edf7;
+  background: #172a40;
+}
+
+[data-theme="dark"] .order-dialog input::placeholder,
+[data-theme="dark"] .order-dialog textarea::placeholder,
+[data-theme="dark"] .order-dialog__results > p,
+[data-theme="dark"] .order-dialog__table-head,
+[data-theme="dark"] .order-dialog__table-row small {
+  color: #9db0c7;
+}
+
+[data-theme="dark"] .order-dialog__results,
+[data-theme="dark"] .order-dialog__table-head,
+[data-theme="dark"] .order-dialog__error,
+[data-theme="dark"] .order-dialog__footer button,
+[data-theme="dark"] .order-summary,
+[data-theme="dark"] .order-summary fieldset,
+[data-theme="dark"] .order-summary fieldset > label,
+[data-theme="dark"] .order-summary footer {
+  border-color: #38516d;
+  background: #172a40;
+}
+
+[data-theme="dark"] .order-dialog__table-row,
+[data-theme="dark"] .order-dialog__items hr,
+[data-theme="dark"] .order-dialog__footer,
+[data-theme="dark"] .order-summary > header,
+[data-theme="dark"] .order-summary__total,
+[data-theme="dark"] .order-summary footer {
+  border-color: #263b52;
+}
+
+[data-theme="dark"] .order-dialog__picker > button,
+[data-theme="dark"] .order-dialog__footer .order-dialog__checkout,
+[data-theme="dark"] .order-summary footer button:last-child {
+  color: #fff;
+  background: #1686f7;
+}
+
+[data-theme="dark"] .order-summary {
+  color: #e5edf7;
+  background: #0f1b2a;
+}
+
+[data-theme="dark"] .order-summary header button,
+[data-theme="dark"] .order-summary__body,
+[data-theme="dark"] .order-summary legend,
+[data-theme="dark"] .order-summary fieldset > label,
+[data-theme="dark"] .order-summary__total strong:first-child {
+  color: #e5edf7;
+}
+
+[data-theme="dark"] .order-summary__discount input,
+[data-theme="dark"] .order-summary__deposit input,
+[data-theme="dark"] .order-summary__courier select {
+  border-color: #38516d;
+  color: #e5edf7;
+  background: #172a40;
+}
+
 @media (max-width: 800px) {
   .order-dialog { grid-template-columns: 1fr; }
   .order-dialog__customer { border-right: 0; border-bottom: 1px solid #d9e0e8; }
