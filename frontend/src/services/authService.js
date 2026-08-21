@@ -94,14 +94,14 @@ export async function logoutUser() {
 }
 
 // Generate a token that can be sent to the Flask backend.
-export async function getCurrentUserToken() {
+export async function getCurrentUserToken(forceRefresh = false) {
   const currentUser = auth.currentUser;
 
   if (!currentUser) {
     return null;
   }
 
-  return getIdToken(currentUser);
+  return getIdToken(currentUser, forceRefresh);
 }
 
 export async function loginAsGuest() {

@@ -41,20 +41,40 @@ export async function apiRequest(
     requestBody = JSON.stringify(body);
   }
 
-  const response = await fetch(
-    `${apiBaseUrl}/${path.replace(/^\//, "")}`,
-    {
+  const requestUrl = `${apiBaseUrl}/${path.replace(/^\//, "")}`;
+
+  async function sendRequest() {
+    const response = await fetch(requestUrl, {
       method,
       headers: requestHeaders,
       body: requestBody,
       signal,
-    },
-  );
+    });
+    const responseType = response.headers.get("content-type") ?? "";
+    const responseData = responseType.includes("application/json")
+      ? await response.json()
+      : null;
 
-  const responseType = response.headers.get("content-type") ?? "";
-  const responseData = responseType.includes("application/json")
-    ? await response.json()
-    : null;
+    return { response, responseData };
+  }
+
+  let { response, responseData } = await sendRequest();
+
+  // Immediately after Firebase sign-in, its cached token can briefly be the
+  // token from the previous auth state. Refresh it once and repeat only the
+  // request that the backend explicitly rejected as an invalid token.
+  if (
+    requiresAuthentication &&
+    response.status === 401 &&
+    responseData?.error?.code === "invalid_authentication_token"
+  ) {
+    const refreshedToken = await getCurrentUserToken(true);
+
+    if (refreshedToken) {
+      requestHeaders.set("Authorization", `Bearer ${refreshedToken}`);
+      ({ response, responseData } = await sendRequest());
+    }
+  }
 
   if (!response.ok) {
     const error = new Error(
