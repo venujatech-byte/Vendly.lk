@@ -393,3 +393,41 @@
 .customer-expanded-details > div { display: grid; gap: 6px; align-content: start; }
 .customer-expanded-details strong { color: var(--color-text-strong); font-size: .8rem; }
 .customer-expanded-details span { color: var(--color-text-muted); font-size: .78rem; line-height: 1.45; }
+
+/* Expanded customer details must use the phone width, not the desktop grid. */
+@media (max-width: 700px) {
+  .customers-page .management-table__expanded-row > td {
+    width: auto;
+    padding: 8px;
+    overflow: visible;
+    white-space: normal;
+  }
+
+  .customers-page .customer-expanded-details {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+    width: 100%;
+    min-width: 0;
+    padding: 12px;
+  }
+
+  .customers-page .customer-expanded-details > div {
+    min-width: 0;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .customers-page .customer-expanded-details > div:last-child {
+    padding-bottom: 0;
+    border-bottom: 0;
+  }
+
+  .customers-page .customer-expanded-details strong,
+  .customers-page .customer-expanded-details span {
+    max-width: 100%;
+    overflow: visible;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-overflow: clip;
+  }
+}
