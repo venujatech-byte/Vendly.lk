@@ -7,6 +7,8 @@ import { getCustomers } from "../services/customerService";
 import {
   ChevronDown,
   ChevronUp,
+  CheckCircle2,
+  Clock3,
   Filter,
   Mail,
   MessageSquare,
@@ -14,6 +16,7 @@ import {
   ShieldAlert,
   UsersRound,
   RotateCcw,
+  XCircle,
 } from "lucide-react";
 
 import StatCard from "../components/StatCard";
@@ -270,7 +273,21 @@ function CustomersPage() {
       )}
 
       {activeCustomerTab === "reviews" ? (
-        <ReviewsTable reviews={reviewRows} isLoading={isLoading} />
+        <>
+          <section className="customers-summary customers-review-summary" aria-label="Review summary">
+            <div className="stats-grid">
+              {[
+                { label: "Total Reviews", value: reviewRows.length, icon: MessageSquare, tone: "blue" },
+                { label: "Approved", value: reviewRows.filter((review) => review.status === "approved").length, icon: CheckCircle2, tone: "green" },
+                { label: "Pending", value: reviewRows.filter((review) => !review.status || review.status === "pending").length, icon: Clock3, tone: "orange" },
+                { label: "Rejected", value: reviewRows.filter((review) => review.status === "rejected").length, icon: XCircle, tone: "red" },
+              ].map((stat) => (
+                <StatCard key={stat.label} label={stat.label} value={String(stat.value)} icon={stat.icon} tone={stat.tone} />
+              ))}
+            </div>
+          </section>
+          <ReviewsTable reviews={reviewRows} isLoading={isLoading} />
+        </>
       ) : <table className="management-table">
         <thead>
           <tr>
