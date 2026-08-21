@@ -9,6 +9,7 @@ from app.api.couriers import couriers_blueprint
 from app.api.health import health_blueprint
 from app.api.me import me_blueprint
 from app.api.members import members_blueprint
+from app.api.messages import messages_blueprint
 from app.api.orders import orders_blueprint
 from app.api.operations import operations_blueprint
 from app.api.products import products_blueprint
@@ -79,6 +80,7 @@ def create_app(test_config=None):
     app.register_blueprint(analytics_blueprint)
     app.register_blueprint(me_blueprint)
     app.register_blueprint(members_blueprint)
+    app.register_blueprint(messages_blueprint)
     app.register_blueprint(businesses_blueprint)
     app.register_blueprint(categories_blueprint)
     app.register_blueprint(customers_blueprint)

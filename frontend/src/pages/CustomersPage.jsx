@@ -2,7 +2,9 @@ import { Fragment, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import { useAuth } from "../context/authContextValue";
-import { getCustomers } from "../services/customerService";
+import { getCustomers, getFraudCustomers } from "../services/customerService";
+import { getChatSessions } from "../services/messageService";
+import { getReviews, moderateReview } from "../services/reviewService";
 
 import {
   ChevronDown,
@@ -20,6 +22,7 @@ import {
 } from "lucide-react";
 
 import StatCard from "../components/StatCard";
+import CustomerMessages from "../components/CustomerMessages";
 
 import "./ManagementPage.css";
 import "./CustomersPage.css";
@@ -31,11 +34,15 @@ function CustomersPage() {
     .toLowerCase();
   const { business } = useAuth();
   const [customers, setCustomers] = useState([]);
+  const [reviews, setReviews] = useState([]);
+  const [fraudCustomers, setFraudCustomers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+  const [chatSummary, setChatSummary] = useState({ count: 0, unread: 0 });
   const [activeCustomerTab, setActiveCustomerTab] = useState("all");
   const [expandedCustomerId, setExpandedCustomerId] = useState(null);
   const [areMobileFiltersOpen, setAreMobileFiltersOpen] = useState(false);
+  const [fraudFilters, setFraudFilters] = useState({ search: "", risk: "all", reason: "all", score: "all" });
   const [filters, setFilters] = useState({ search: "", risk: "all", rating: "all", location: "all" });
 
   const searchedCustomers = routeSearch
@@ -81,12 +88,19 @@ function CustomersPage() {
     return true;
   });
 
-  const reviewRows = visibleCustomers.flatMap((customer) => {
-    const reviews = Array.isArray(customer.reviews) ? customer.reviews : [];
-    if (reviews.length === 0 && customer.reviewText) {
-      return [{ ...customer, reviewText: customer.reviewText }];
-    }
-    return reviews.map((review) => ({ ...customer, ...review }));
+  const reviewRows = reviews;
+
+  const fraudRows = fraudCustomers.filter((customer) => {
+    const address = customer.defaultAddress || customer.address || {};
+    const text = fraudFilters.search.trim().toLowerCase();
+    const risk = String(customer.riskLevel || "low").toLowerCase();
+    const score = Number(customer.fraudScore ?? customer.returnedOrderCount ?? 0);
+    const reason = customer.returnReason || customer.fraudReason || "Unspecified";
+    return (risk !== "low" || (customer.returnedOrderCount ?? 0) > 0)
+      && (!text || [customer.name, customer.normalizedPhone, customer.email, address.line1, address.city].some((value) => String(value ?? "").toLowerCase().includes(text)))
+      && (fraudFilters.risk === "all" || risk === fraudFilters.risk)
+      && (fraudFilters.reason === "all" || reason === fraudFilters.reason)
+      && (fraudFilters.score === "all" || (fraudFilters.score === "high" ? score >= 70 : fraudFilters.score === "medium" ? score >= 40 && score < 70 : score < 40));
   });
 
   const customerStats = [
@@ -106,15 +120,13 @@ function CustomersPage() {
     },
     {
       label: "Unread Messages",
-      value: "0",
+      value: chatSummary.unread.toLocaleString("en-LK"),
       icon: Mail,
       tone: "orange",
     },
     {
       label: "Fraud Reports",
-      value: customers
-        .filter((customer) => customer.riskLevel === "fraud")
-        .length.toLocaleString("en-LK"),
+      value: fraudCustomers.length.toLocaleString("en-LK"),
       icon: ShieldAlert,
       tone: "red",
     },
@@ -131,24 +143,19 @@ function CustomersPage() {
       id: "messages",
       label: "Messages",
       icon: MessageSquare,
-      count: customers.filter(
-        (customer) => (customer.unreadMessageCount ?? 0) > 0,
-      ).length,
+      count: chatSummary.unread,
     },
     {
       id: "reviews",
       label: "Reviews",
       icon: Mail,
-      count: customers.filter((customer) => (customer.reviewCount ?? 0) > 0)
-        .length,
+      count: reviews.length,
     },
     {
       id: "fraud",
       label: "Fraud Reports",
       icon: ShieldAlert,
-      count: customers.filter((customer) =>
-        ["medium", "high", "fraud"].includes(customer.riskLevel),
-      ).length,
+      count: fraudCustomers.length,
     },
   ];
 
@@ -163,6 +170,46 @@ function CustomersPage() {
       .catch((error) => setErrorMessage(error.message))
       .finally(() => setIsLoading(false));
   }, [business?.id]);
+
+  useEffect(() => {
+    if (!business?.id) return;
+    getChatSessions(business.id)
+      .then((sessions) =>
+        setChatSummary({
+          count: sessions.length,
+          unread: sessions.reduce(
+            (sum, session) => sum + (session.unreadCount || 0),
+            0,
+          ),
+        }),
+      )
+      .catch(() => {
+        // Customer records should still load if this staff role cannot read chats.
+      });
+  }, [business?.id]);
+
+  useEffect(() => {
+    if (!business?.id) return;
+    Promise.all([getReviews(business.id), getFraudCustomers(business.id)])
+      .then(([reviewRowsResponse, fraudRowsResponse]) => {
+        setReviews(reviewRowsResponse);
+        setFraudCustomers(fraudRowsResponse);
+      })
+      .catch((error) => setErrorMessage(error.message));
+  }, [business?.id]);
+
+  async function handleModerateReview(reviewId, status) {
+    try {
+      const updated = await moderateReview(business.id, reviewId, status);
+      setReviews((current) =>
+        current.map((review) =>
+          review.id === reviewId ? { ...review, ...updated } : review,
+        ),
+      );
+    } catch (error) {
+      setErrorMessage(error.message);
+    }
+  }
 
   return (
     <main className="dashboard customers-page">
@@ -272,7 +319,27 @@ function CustomersPage() {
         </p>
       )}
 
-      {activeCustomerTab === "reviews" ? (
+      {activeCustomerTab === "messages" ? (
+        <CustomerMessages
+          businessId={business?.id}
+          onSummaryChange={setChatSummary}
+        />
+      ) : activeCustomerTab === "fraud" ? (
+        <>
+          <section className="customers-summary" aria-label="Fraud report summary">
+            <div className="stats-grid">
+              {[
+                { label: "High Risk Customers", value: fraudCustomers.filter((customer) => ["high", "fraud"].includes(customer.riskLevel)).length, icon: ShieldAlert, tone: "red" },
+                { label: "Medium Risk Customers", value: fraudCustomers.filter((customer) => customer.riskLevel === "medium").length, icon: ShieldAlert, tone: "orange" },
+                { label: "Low Risk Customers", value: fraudCustomers.filter((customer) => customer.riskLevel === "low").length, icon: ShieldAlert, tone: "green" },
+                { label: "Total Returns", value: fraudCustomers.reduce((sum, customer) => sum + (customer.returnedOrderCount ?? 0), 0), icon: RotateCcw, tone: "blue" },
+              ].map((stat) => <StatCard key={stat.label} label={stat.label} value={String(stat.value)} icon={stat.icon} tone={stat.tone} />)}
+            </div>
+          </section>
+          <FraudFilters filters={fraudFilters} setFilters={setFraudFilters} />
+          <FraudTable customers={fraudRows} isLoading={isLoading} />
+        </>
+      ) : activeCustomerTab === "reviews" ? (
         <>
           <section className="customers-summary customers-review-summary" aria-label="Review summary">
             <div className="stats-grid">
@@ -286,7 +353,11 @@ function CustomersPage() {
               ))}
             </div>
           </section>
-          <ReviewsTable reviews={reviewRows} isLoading={isLoading} />
+          <ReviewsTable
+            reviews={reviewRows}
+            isLoading={isLoading}
+            onModerate={handleModerateReview}
+          />
         </>
       ) : <table className="management-table">
         <thead>
@@ -364,7 +435,7 @@ function CustomersPage() {
   );
 }
 
-function ReviewsTable({ reviews, isLoading }) {
+function ReviewsTable({ reviews, isLoading, onModerate }) {
   return (
     <table className="management-table customer-reviews-table">
       <thead>
@@ -382,11 +453,11 @@ function ReviewsTable({ reviews, isLoading }) {
         </tr>
       </thead>
       <tbody>
-        {reviews.map((review, index) => (
-          <tr key={`${review.id || review.customerId || review.name}-${index}`}>
-            <td><strong>{review.name || "Customer"}</strong></td>
-            <td>+{review.normalizedPhone || "—"}</td>
-            <td>{review.email || "—"}</td>
+        {reviews.map((review) => (
+          <tr key={review.id}>
+            <td><strong>{review.customerName || "Customer"}</strong></td>
+            <td>{review.customerPhone ? `+${review.customerPhone}` : "—"}</td>
+            <td>{review.customerEmail || "—"}</td>
             <td>
               <div className="review-product-cell">
                 {review.productImageUrl && <img src={review.productImageUrl} alt="" />}
@@ -395,16 +466,58 @@ function ReviewsTable({ reviews, isLoading }) {
             </td>
             <td><span className="customer-rating">{"★".repeat(Math.max(0, Math.min(5, Number(review.rating) || 0)))}{"☆".repeat(Math.max(0, 5 - (Number(review.rating) || 0)))}</span></td>
             <td>{review.reviewText || review.comment || "No written review"}</td>
-            <td>{(review.images || review.reviewImages || []).length ? `${(review.images || review.reviewImages).length} image(s)` : "—"}</td>
+            <td>{review.media?.length ? `${review.media.length} image(s)` : "—"}</td>
             <td>{review.createdAt ? new Date(review.createdAt).toLocaleDateString("en-LK") : "—"}</td>
             <td><span className={`management-table__badge management-table__badge--${review.status || "pending"}`}>{review.status || "pending"}</span></td>
-            <td><button type="button" className="customer-action-button" aria-label="Review actions">•••</button></td>
+            <td>
+              {review.status === "pending" ? (
+                <span className="review-moderation-actions">
+                  <button type="button" onClick={() => onModerate(review.id, "approved")}>Approve</button>
+                  <button type="button" onClick={() => onModerate(review.id, "rejected")}>Reject</button>
+                </span>
+              ) : (
+                <span className="review-moderated-label">Moderated</span>
+              )}
+            </td>
           </tr>
         ))}
         {!isLoading && reviews.length === 0 && <tr><td colSpan={10}>No reviews found.</td></tr>}
       </tbody>
     </table>
   );
+}
+
+function FraudFilters({ filters, setFilters }) {
+  const [areMobileFiltersOpen, setAreMobileFiltersOpen] = useState(false);
+
+  return <section className="customers-filters fraud-filters" aria-label="Fraud report filters">
+    <button className="customers-filters__mobile-toggle" type="button" onClick={() => setAreMobileFiltersOpen((isOpen) => !isOpen)} aria-expanded={areMobileFiltersOpen} aria-controls="fraud-filter-fields">
+      <span><Filter size={17} /> {areMobileFiltersOpen ? "Hide filters" : "Show filters"}</span>
+      {areMobileFiltersOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+    </button>
+    <div id="fraud-filter-fields" className={`fraud-filters__form ${areMobileFiltersOpen ? "is-open" : ""}`}>
+    <label className="customers-filters__search"><span className="sr-only">Search fraud reports</span><input value={filters.search} onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))} placeholder="Search customers by name, phone or email..." /></label>
+    <select value={filters.risk} onChange={(event) => setFilters((current) => ({ ...current, risk: event.target.value }))} aria-label="Risk status"><option value="all">All Risk Levels</option><option value="high">High Risk</option><option value="medium">Medium Risk</option><option value="low">Low Risk</option></select>
+    <select value={filters.reason} onChange={(event) => setFilters((current) => ({ ...current, reason: event.target.value }))} aria-label="Return reason"><option value="all">All Ratings</option><option value="Unreachable">Unreachable</option><option value="Refused Delivery">Refused Delivery</option><option value="Change of Mind">Change of Mind</option><option value="Address Incomplete">Address Incomplete</option></select>
+    <select value={filters.score} onChange={(event) => setFilters((current) => ({ ...current, score: event.target.value }))} aria-label="Fraud score"><option value="all">All Locations</option><option value="high">High score</option><option value="medium">Medium score</option><option value="low">Low score</option></select>
+    <button type="button" className="customers-filters__button"><Filter size={15} /> More Filters</button>
+    <button type="button" className="customers-filters__reset" onClick={() => setFilters({ search: "", risk: "all", reason: "all", score: "all" })}><RotateCcw size={15} /> Reset</button>
+    </div>
+  </section>;
+}
+
+function FraudTable({ customers, isLoading }) {
+  return <table className="management-table fraud-table"><thead><tr><th>Customer</th><th>Phone</th><th>Email</th><th>Address</th><th>Returned Orders</th><th>Total Orders</th><th>Return Rate</th><th>Fraud Score</th><th>Last Returned</th><th>Reason</th><th>Risk Status</th><th>Actions</th></tr></thead><tbody>
+    {customers.map((customer) => {
+      const returned = customer.returnedOrderCount ?? 0;
+      const total = customer.totalOrderCount ?? customer.completedOrderCount ?? returned;
+      const score = customer.fraudScore ?? Math.min(99, returned * 15);
+      const risk = customer.riskLevel || "low";
+      const address = customer.defaultAddress || customer.address || {};
+      return <tr key={customer.id}><td><strong>{customer.name}</strong></td><td>+{customer.normalizedPhone || "—"}</td><td>{customer.email || "—"}</td><td>{[address.line1, address.city].filter(Boolean).join(", ") || "—"}</td><td>{returned}</td><td>{total}</td><td>{total ? `${Math.round((returned / total) * 100)}%` : "0%"}</td><td><span className={`fraud-score fraud-score--${risk}`}>{score}</span></td><td>{customer.lastReturnedOrderDate || "—"}</td><td>{customer.returnReason || customer.fraudReason || "Unspecified"}</td><td><span className={`management-table__badge management-table__badge--${risk}`}>{risk} risk</span></td><td><button type="button" className="customer-action-button" aria-label={`Open ${customer.name} fraud actions`}>•••</button></td></tr>;
+    })}
+    {!isLoading && customers.length === 0 && <tr><td colSpan={12}>No fraud reports found.</td></tr>}
+  </tbody></table>;
 }
 
 export default CustomersPage;

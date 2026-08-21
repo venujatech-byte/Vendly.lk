@@ -38,6 +38,7 @@ import {
   getPublicProductReviews,
   getPublicStore,
   getCustomerChats,
+  getPublicChatMessages,
   sendPublicChatMessage,
   submitPublicReview,
 } from "../services/publicService";
@@ -87,6 +88,7 @@ function StorefrontPage({ linkType }) {
   const [products, setProducts] = useState([]);
   const [session, setSession] = useState(null);
   const [messages, setMessages] = useState([]);
+  const receivedSellerMessageIds = useRef(new Set());
   const [messageText, setMessageText] = useState("");
   const [cart, setCart] = useState([]);
   const [customer, setCustomer] = useState(EMPTY_CUSTOMER);
@@ -152,7 +154,7 @@ function StorefrontPage({ linkType }) {
           chat.sessionId !== chatSession.sessionId && chat.messages?.length > 1,
         );
         const previousMessages = previousChat?.messages?.map((message) => ({
-          role: message.role,
+          role: message.role === "seller" ? "assistant" : message.role,
           text: message.message,
           action: message.metadata?.action,
         })) ?? [];
@@ -183,6 +185,48 @@ function StorefrontPage({ linkType }) {
       setErrorMessage(error.message);
     });
   }, [session?.sessionId, session?.sessionToken, user]);
+
+  // Seller replies are written to the same Firestore chat. Poll the protected
+  // session endpoint so a storefront customer sees those replies without a
+  // page refresh; only unseen seller messages are appended to local UI state.
+  useEffect(() => {
+    if (!session?.sessionId || !session?.sessionToken) return undefined;
+
+    let isCurrent = true;
+    async function loadSellerReplies() {
+      try {
+        const response = await getPublicChatMessages(
+          session.sessionId,
+          session.sessionToken,
+        );
+        const unseen = (response.messages || []).filter(
+          (message) =>
+            message.role === "seller" &&
+            !receivedSellerMessageIds.current.has(message.id),
+        );
+        if (!isCurrent || unseen.length === 0) return;
+        unseen.forEach((message) => receivedSellerMessageIds.current.add(message.id));
+        setMessages((current) => [
+          ...current,
+          ...unseen.map((message) => ({
+            id: message.id,
+            role: "assistant",
+            text: message.message,
+          })),
+        ]);
+      } catch {
+        // The normal send flow reports errors. Silent polling should not cover
+        // the storefront with an error if the network briefly disconnects.
+      }
+    }
+
+    loadSellerReplies();
+    const timer = window.setInterval(loadSellerReplies, 5000);
+    return () => {
+      isCurrent = false;
+      window.clearInterval(timer);
+    };
+  }, [session?.sessionId, session?.sessionToken]);
 
   useEffect(() => {
     localStorage.setItem("vendly-storefront-theme", theme);

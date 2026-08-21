@@ -8,6 +8,10 @@ from openpyxl.styles import Font, PatternFill
 from app.core.errors import ApiError
 from app.core.serialization import serialize_snapshot
 from app.services.order_service import get_order, list_orders
+from app.services.fraud_service import (
+    global_fraud_reference,
+    global_registry_increment,
+)
 from app.services.text import optional_text, required_text
 
 
@@ -74,6 +78,12 @@ def create_fraud_report(database, business_id, order_id, uid, payload):
             order.get("customerId", ""),
         )
         customer_snapshot = customer_reference.get(transaction=current_transaction)
+        customer_phone = order.get("customerSnapshot", {}).get("normalizedPhone", "")
+        registry_reference = (
+            global_fraud_reference(database, customer_phone)
+            if customer_phone
+            else None
+        )
         timestamp = firestore.SERVER_TIMESTAMP
         report = {
             "orderId": order_id,
@@ -88,6 +98,12 @@ def create_fraud_report(database, business_id, order_id, uid, payload):
             "updatedAt": timestamp,
         }
         current_transaction.set(report_reference, report)
+        if registry_reference:
+            current_transaction.set(
+                registry_reference,
+                global_registry_increment(report_count=1),
+                merge=True,
+            )
         current_transaction.update(
             order_reference,
             {

@@ -10,6 +10,7 @@ from app.services.public_chat_service import (
     create_public_chat_order,
     create_public_chat_session,
     claim_public_chat_session,
+    get_public_chat_messages,
 )
 from app.services.customer_portal_service import (
     get_customer_order,
@@ -55,6 +56,17 @@ def public_chat_message(session_id):
         get_json_object(),
     )
     return jsonify(response)
+
+
+@public_blueprint.get("/chat/sessions/<session_id>/messages")
+@limiter.limit("120 per minute", key_func=public_chat_key)
+def public_chat_messages(session_id):
+    messages = get_public_chat_messages(
+        get_firestore_client(),
+        session_id,
+        request.headers.get("X-Chat-Session-Token", ""),
+    )
+    return jsonify({"messages": messages})
 
 
 @public_blueprint.post("/chat/sessions/<session_id>/orders")

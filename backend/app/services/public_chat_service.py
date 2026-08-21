@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 from firebase_admin import firestore
 
 from app.core.errors import ApiError
+from app.core.serialization import serialize_snapshot
 from app.services.customer_service import (
     create_customer,
     list_customers,
@@ -309,6 +310,7 @@ def create_public_chat_session(database, payload, customer_uid=None):
             "customerDraft": {},
             "customerUid": customer_uid,
             "status": "active",
+            "unreadBySeller": 0,
             "createdAt": now,
             "updatedAt": now,
             "expiresAt": now + timedelta(hours=24),
@@ -369,6 +371,21 @@ def authorize_public_chat_session(
     return snapshot, session
 
 
+def get_public_chat_messages(database, session_id, provided_token):
+    """Return one customer's own chat messages after token verification."""
+    snapshot, _session = authorize_public_chat_session(
+        database,
+        session_id,
+        provided_token,
+        allow_closed=True,
+    )
+    messages = [
+        serialize_snapshot(item)
+        for item in snapshot.reference.collection("messages").stream()
+    ]
+    return sorted(messages, key=lambda item: item.get("createdAt") or "")
+
+
 def save_chat_message(session_reference, role, message, metadata=None):
     session_reference.collection("messages").document().set(
         {
@@ -378,6 +395,16 @@ def save_chat_message(session_reference, role, message, metadata=None):
             "createdAt": firestore.SERVER_TIMESTAMP,
         },
     )
+    # Keep a small conversation summary on the parent document. The seller
+    # inbox can list chats without downloading every message in every session.
+    session_changes = {
+        "lastMessage": message,
+        "lastMessageRole": role,
+        "updatedAt": firestore.SERVER_TIMESTAMP,
+    }
+    if role == "customer":
+        session_changes["unreadBySeller"] = firestore.Increment(1)
+    session_reference.set(session_changes, merge=True)
 
 
 def claim_public_chat_session(database, session_id, provided_token, customer_uid):

@@ -100,6 +100,11 @@ def create_verified_review(database, store_code, payload):
             "productId": product_id,
             "customerId": order.get("customerId", ""),
             "customerName": order.get("customerSnapshot", {}).get("name", "Customer"),
+            "customerPhone": order.get("customerSnapshot", {}).get(
+                "normalizedPhone",
+                "",
+            ),
+            "customerEmail": order.get("customerSnapshot", {}).get("email", ""),
             "rating": review["rating"],
             "reviewText": review["reviewText"],
             "media": [],
@@ -113,15 +118,53 @@ def create_verified_review(database, store_code, payload):
 
 
 def list_reviews(database, business_id, status=None, product_id=None):
+    business_reference = database.collection("businesses").document(business_id)
     snapshots = (
-        database.collection("businesses")
-        .document(business_id)
+        business_reference
         .collection("reviews")
         .order_by("createdAt", direction="DESCENDING")
         .limit(200)
         .stream()
     )
     reviews = [serialize_snapshot(snapshot) for snapshot in snapshots]
+
+    customer_cache = {}
+    product_cache = {}
+    enriched_reviews = []
+    for review in reviews:
+        customer_id = review.get("customerId")
+        if customer_id and customer_id not in customer_cache:
+            snapshot = business_reference.collection("customers").document(customer_id).get()
+            customer_cache[customer_id] = snapshot.to_dict() if snapshot.exists else {}
+        customer = customer_cache.get(customer_id, {})
+
+        current_product_id = review.get("productId")
+        if current_product_id and current_product_id not in product_cache:
+            snapshot = business_reference.collection("products").document(
+                current_product_id,
+            ).get()
+            product_cache[current_product_id] = snapshot.to_dict() if snapshot.exists else {}
+        product = product_cache.get(current_product_id, {})
+        media = product.get("media") or []
+        variants = product.get("variantSummaries") or []
+        enriched_reviews.append(
+            {
+                **review,
+                "customerName": review.get("customerName")
+                or customer.get("name")
+                or "Customer",
+                "customerPhone": review.get("customerPhone")
+                or customer.get("normalizedPhone", ""),
+                "customerEmail": review.get("customerEmail")
+                or customer.get("email", ""),
+                "productName": product.get("name")
+                if current_product_id
+                else "Seller review",
+                "productImageUrl": media[0].get("url", "") if media else "",
+                "productSku": variants[0].get("sku", "") if variants else "",
+            }
+        )
+    reviews = enriched_reviews
 
     if status:
         reviews = [review for review in reviews if review.get("status") == status]

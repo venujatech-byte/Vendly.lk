@@ -10,6 +10,7 @@ from app.services.customer_service import (
     list_customers,
     update_customer,
 )
+from app.services.fraud_service import list_seller_fraud_customers
 
 
 customers_blueprint = Blueprint("customers", __name__, url_prefix="/api/v1")
@@ -24,6 +25,17 @@ def get_customers(business_id):
         business_id,
         phone=request.args.get("phone"),
         search=request.args.get("search"),
+    )
+    return jsonify({"customers": customers})
+
+
+@customers_blueprint.get("/businesses/<business_id>/fraud-customers")
+@require_firebase_user
+@require_business_member(permission="customers:read")
+def get_fraud_customers(business_id):
+    customers = list_seller_fraud_customers(
+        get_firestore_client(),
+        business_id,
     )
     return jsonify({"customers": customers})
 

@@ -261,6 +261,19 @@
 .customers-filters__button { color: var(--color-text); background: var(--color-surface-muted); }
 .customers-filters__reset { border-color: transparent; }
 
+/* Fraud reports use the same single-line filter bar as All Customers. */
+.fraud-filters { display: grid; grid-template-columns: minmax(250px, 1.8fr) repeat(3, minmax(130px, 1fr)) auto auto; align-items: center; gap: 12px; }
+.fraud-filters__form { display: grid; grid-template-columns: minmax(250px, 1.8fr) repeat(3, minmax(130px, 1fr)) auto auto; align-items: center; gap: 12px; width: 100%; }
+.fraud-filters > .customers-filters__mobile-toggle { display: none; }
+.fraud-filters .customers-filters__search { min-width: 0; }
+.fraud-filters select { min-width: 0; }
+
+@media (max-width: 900px) and (min-width: 701px) {
+  .fraud-filters { grid-template-columns: minmax(220px, 1fr) repeat(2, minmax(130px, 1fr)); }
+  .fraud-filters__form { grid-template-columns: minmax(220px, 1fr) repeat(2, minmax(130px, 1fr)); }
+  .fraud-filters .customers-filters__button, .fraud-filters .customers-filters__reset { justify-self: start; }
+}
+
 @media (max-width: 700px) {
   .customers-filters { padding: 8px; }
   .customers-filters__mobile-toggle { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 38px; padding: 0 10px; border: 1px solid var(--color-border); border-radius: 8px; color: var(--color-text-strong); background: var(--color-control); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
@@ -269,6 +282,12 @@
   .customers-filters__form.is-open { display: grid; }
   .customers-filters__search { grid-column: 1 / -1; }
   .customers-filters__search, .customers-filters select, .customers-filters__button, .customers-filters__reset { width: 100%; min-width: 0; }
+  .fraud-filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .fraud-filters { display: block; }
+  .fraud-filters > .customers-filters__mobile-toggle { display: flex; }
+  .fraud-filters__form { display: none; grid-template-columns: repeat(2, minmax(0, 1fr)); padding-top: 9px; }
+  .fraud-filters__form.is-open { display: grid; }
+  .fraud-filters .customers-filters__search { grid-column: 1 / -1; }
 }
 
 /* Keep the collapsed customer row compact on phones. */
@@ -357,9 +376,17 @@
 .customer-rating { color: #e99600; font-weight: 700; white-space: nowrap; }
 .review-product-cell { display: flex; align-items: center; gap: 8px; min-width: 130px; }
 .review-product-cell img { width: 38px; height: 38px; flex: 0 0 38px; object-fit: cover; border: 1px solid var(--color-border); border-radius: 6px; }
+.review-moderation-actions { display: inline-flex; gap: 5px; }
+.review-moderation-actions button { padding: 5px 8px; border: 1px solid var(--color-accent); border-radius: 6px; color: var(--color-accent); background: var(--color-surface); font: inherit; font-size: .68rem; font-weight: 700; cursor: pointer; }
+.review-moderation-actions button:last-child { border-color: rgba(239, 68, 68, .45); color: #c92a2a; }
+.review-moderated-label { color: var(--color-muted); font-size: .72rem; }
 .management-table__badge--pending { color: #9a6500; background: rgba(245, 158, 11, 0.15); }
 .management-table__badge--approved { color: #087443; background: rgba(16, 185, 129, 0.13); }
 .management-table__badge--rejected { color: #b91c1c; background: rgba(239, 68, 68, 0.14); }
+.fraud-score { display: inline-flex; min-width: 38px; justify-content: center; padding: 5px 8px; border-radius: 6px; font-weight: 700; }
+.fraud-score--high, .fraud-score--fraud { color: #b91c1c; background: rgba(239, 68, 68, .12); }
+.fraud-score--medium { color: #9a6500; background: rgba(245, 158, 11, .14); }
+.fraud-score--low { color: #087443; background: rgba(16, 185, 129, .12); }
 .customer-action-button { border: 1px solid var(--color-border); border-radius: 7px; padding: 5px 8px; color: var(--color-text); background: var(--color-surface); cursor: pointer; }
 .management-table__expanded-row td { padding: 12px 16px; background: var(--color-surface-muted); }
 .customer-expanded-details { display: grid; grid-template-columns: 1fr 1fr 1.5fr 1fr; gap: 18px; padding: 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface); }

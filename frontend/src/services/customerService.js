@@ -24,3 +24,10 @@ export async function updateCustomer(businessId, customerId, changes) {
   );
   return response.customer;
 }
+
+export async function getFraudCustomers(businessId) {
+  const response = await apiRequest(
+    `/businesses/${businessId}/fraud-customers`,
+  );
+  return response.customers;
+}

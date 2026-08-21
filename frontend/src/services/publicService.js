@@ -44,6 +44,13 @@ export function sendPublicChatMessage(sessionId, sessionToken, message, orderDra
   });
 }
 
+export function getPublicChatMessages(sessionId, sessionToken) {
+  return apiRequest(`/public/chat/sessions/${sessionId}/messages`, {
+    headers: { "X-Chat-Session-Token": sessionToken },
+    requiresAuthentication: false,
+  });
+}
+
 export function createPublicChatOrder(sessionId, sessionToken, orderData) {
   return apiRequest(`/public/chat/sessions/${sessionId}/orders`, {
     method: "POST",

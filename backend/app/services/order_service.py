@@ -13,6 +13,11 @@ from app.services.courier_service import (
     recommend_couriers,
 )
 from app.services.customer_service import get_customer, validate_address
+from app.services.fraud_service import (
+    global_fraud_reference,
+    global_fraud_summary,
+    global_registry_increment,
+)
 from app.services.numbers import money_to_minor_units, non_negative_integer
 from app.services.product_service import stock_status
 from app.services.text import optional_text, required_text
@@ -290,6 +295,11 @@ def create_order(database, business_id, uid, payload):
     order_reference = business_reference.collection("orders").document()
     waybill_reference = business_reference.collection("waybills").document(order_reference.id)
     notification_reference = business_reference.collection("notifications").document()
+    fraud_notification_reference = business_reference.collection("notifications").document()
+    registry_reference = global_fraud_reference(
+        database,
+        customer.get("normalizedPhone", ""),
+    )
     transaction = database.transaction()
 
     @google_firestore.transactional
@@ -297,6 +307,7 @@ def create_order(database, business_id, uid, payload):
         business_snapshot = business_reference.get(transaction=current_transaction)
         customer_snapshot = customer_reference.get(transaction=current_transaction)
         courier_snapshot = courier_reference.get(transaction=current_transaction)
+        registry_snapshot = registry_reference.get(transaction=current_transaction)
 
         if not business_snapshot.exists:
             raise ApiError("business_not_found", "Business not found.", 404)
@@ -352,6 +363,10 @@ def create_order(database, business_id, uid, payload):
         business = business_snapshot.to_dict()
         customer_data = customer_snapshot.to_dict()
         courier_data = courier_snapshot.to_dict()
+        registry_summary = global_fraud_summary(
+            registry_snapshot.to_dict() if registry_snapshot.exists else {},
+        )
+        has_global_fraud_warning = registry_summary["score"] > 0
         sequence = business.get("nextOrderSequence", 1)
         order_prefix = business.get("orderPrefix", "VD")
         order_number = f"{order_prefix}-{sequence:06d}"
@@ -563,6 +578,11 @@ def create_order(database, business_id, uid, payload):
                 "stockReservationStatus": "reserved",
                 "createdBy": uid,
                 "customerUid": request_data["customerUid"],
+                "fraudRiskSnapshot": {
+                    **registry_summary,
+                    "matched": has_global_fraud_warning,
+                    "checkedAt": datetime.now(timezone.utc),
+                },
                 "createdAt": timestamp,
                 "updatedAt": timestamp,
             },
@@ -574,6 +594,30 @@ def create_order(database, business_id, uid, payload):
                 "updatedAt": timestamp,
             },
         )
+        customer_changes = {
+            "totalOrderCount": customer_data.get("totalOrderCount", 0) + 1,
+            "lastOrderId": order_reference.id,
+            "lastOrderNumber": order_number,
+            "lastOrderDate": datetime.now(timezone.utc),
+            "updatedAt": timestamp,
+        }
+        if has_global_fraud_warning:
+            customer_changes.update(
+                {
+                    "globalFraudWarning": {
+                        **registry_summary,
+                        "matched": True,
+                        "checkedAt": datetime.now(timezone.utc),
+                    },
+                    "fraudScore": max(
+                        int(customer_data.get("fraudScore") or 0),
+                        registry_summary["score"],
+                    ),
+                    "riskLevel": registry_summary["riskLevel"],
+                    "tags": firestore.ArrayUnion(["global-fraud-warning"]),
+                },
+            )
+        current_transaction.update(customer_reference, customer_changes)
         current_transaction.update(
             courier_reference,
             {
@@ -614,6 +658,26 @@ def create_order(database, business_id, uid, payload):
                 "createdAt": timestamp,
             },
         )
+        if has_global_fraud_warning:
+            current_transaction.set(
+                fraud_notification_reference,
+                {
+                    "type": "fraud-warning",
+                    "title": f"Fraud warning for {order_number}",
+                    "message": (
+                        f"{customer_data.get('name', 'Customer')} matches the global "
+                        f"fraud registry ({registry_summary['reportCount']} report(s), "
+                        f"{registry_summary['returnedOrderCount']} return(s))."
+                    ),
+                    "orderId": order_reference.id,
+                    "orderNumber": order_number,
+                    "customerId": customer_snapshot.id,
+                    "riskLevel": registry_summary["riskLevel"],
+                    "fraudScore": registry_summary["score"],
+                    "isRead": False,
+                    "createdAt": timestamp,
+                },
+            )
 
     create_in_transaction(transaction)
     return get_order(database, business_id, order_reference.id)
@@ -877,15 +941,27 @@ def update_order_status(database, business_id, order_id, uid, payload):
             customer = customer_snapshot.to_dict()
             returned_count = customer.get("returnedOrderCount", 0) + 1
             risk_level, return_tag = returned_customer_risk(returned_count)
+            customer_phone = order.get("customerSnapshot", {}).get(
+                "normalizedPhone",
+                "",
+            )
             current_transaction.update(
                 customer_snapshot.reference,
                 {
                     "returnedOrderCount": returned_count,
                     "riskLevel": risk_level,
+                    "lastReturnedOrderDate": datetime.now(timezone.utc),
+                    "lastReturnReason": note or "returned-order",
                     "tags": firestore.ArrayUnion([return_tag]),
                     "updatedAt": timestamp,
                 },
             )
+            if customer_phone:
+                current_transaction.set(
+                    global_fraud_reference(database, customer_phone),
+                    global_registry_increment(returned_count=1),
+                    merge=True,
+                )
 
         if courier_snapshot and courier_snapshot.exists and new_status in {"delivered", "returned"}:
             courier = courier_snapshot.to_dict()
