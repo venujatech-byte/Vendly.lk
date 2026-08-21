@@ -36,7 +36,7 @@ function BusinessSetupPage() {
     } catch (error) {
       console.error(error);
       setErrorMessage(
-        "Business details could not be saved. Please try again.",
+        error.message || "Business details could not be saved. Please try again.",
       );
     } finally {
       setIsSubmitting(false);

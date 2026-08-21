@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import {
   LogIn,
   UserPlus,
@@ -45,7 +44,6 @@ function getAuthErrorMessage(error) {
 }
 
 function LoginPage() {
-  const navigate = useNavigate();
   const { refreshSellerProfile } = useAuth();
 
   // The same page handles both login and registration.
@@ -112,9 +110,10 @@ function LoginPage() {
         await refreshSellerProfile();
       }
 
-      navigate("/", {
-        replace: true,
-      });
+      // Reload once after login so the dashboard starts with the latest
+      // Firebase account, business, and membership state.  This is placed
+      // only after a successful login, never during component rendering.
+      window.location.replace("/");
     } catch (error) {
       setErrorMessage(getAuthErrorMessage(error));
     } finally {
@@ -132,9 +131,8 @@ function LoginPage() {
       await loginWithGoogle();
       await refreshSellerProfile();
 
-      navigate("/", {
-        replace: true,
-      });
+      // Google login uses the same one-time fresh dashboard load.
+      window.location.replace("/");
     } catch (error) {
       setErrorMessage(getAuthErrorMessage(error));
     } finally {

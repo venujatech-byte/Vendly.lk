@@ -2339,3 +2339,16 @@
     grid-template-columns: 1fr;
   }
 }
+
+@media (max-width: 640px) {
+  .storefront-chat-page {
+    width: calc(100% - 20px);
+    margin: 0 auto 16px;
+    padding-top: 0;
+  }
+
+  .storefront-chat-panel {
+    height: calc(100dvh - 80px);
+    min-height: 0;
+  }
+}

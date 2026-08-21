@@ -29,6 +29,9 @@ function ProtectedRoute({
     isAuthenticated,
     isAuthLoading,
     sellerProfile,
+    business,
+    account,
+    accountError,
     membership,
   } = useAuth();
 
@@ -53,7 +56,15 @@ function ProtectedRoute({
   }
 
   // Google users and older accounts complete their business profile once.
-  if (requireSellerProfile && !sellerProfile) {
+  // A business record is the source of truth after login.  sellerProfile is a
+  // derived display object and may be rebuilt a moment later on a fresh login.
+  if (
+    requireSellerProfile
+    && account
+    && !accountError
+    && !sellerProfile
+    && !business
+  ) {
     return <Navigate to="/setup-business" replace />;
   }
 

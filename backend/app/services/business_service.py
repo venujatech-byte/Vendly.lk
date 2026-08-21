@@ -22,6 +22,52 @@ def create_or_get_business(database, firebase_user, payload):
     user_reference = database.collection("users").document(uid)
     existing_user = user_reference.get()
 
+    # Recover accounts created before defaultBusinessId was saved.  This keeps
+    # an existing seller from being asked to create a second business after
+    # logging in on another device or browser.
+    owner_businesses = list(
+        database.collection("businesses")
+        .where("ownerUid", "==", uid)
+        .limit(1)
+        .stream()
+    )
+
+    if owner_businesses:
+        existing_business = owner_businesses[0]
+        timestamp = firestore.SERVER_TIMESTAMP
+        membership_reference = (
+            database.collection("businesses")
+            .document(existing_business.id)
+            .collection("members")
+            .document(uid)
+        )
+
+        # Repair the two small references that the dashboard needs.  merge=True
+        # preserves any profile fields that already exist.
+        user_reference.set(
+            {
+                "uid": uid,
+                "displayName": firebase_user.get("name") or "Business owner",
+                "email": firebase_user.get("email") or "",
+                "defaultBusinessId": existing_business.id,
+                "businessIds": firestore.ArrayUnion([existing_business.id]),
+                "status": "active",
+                "updatedAt": timestamp,
+            },
+            merge=True,
+        )
+        membership_reference.set(
+            {
+                "uid": uid,
+                "role": "owner",
+                "permissions": ["*"],
+                "status": "active",
+                "joinedAt": timestamp,
+            },
+            merge=True,
+        )
+        return serialize_snapshot(existing_business), False
+
     if existing_user.exists:
         default_business_id = existing_user.to_dict().get("defaultBusinessId")
 
