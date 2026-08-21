@@ -2,6 +2,7 @@ import hashlib
 
 from firebase_admin import firestore
 from google.cloud import firestore as google_firestore
+from google.cloud.firestore_v1.base_query import FieldFilter
 
 from app.core.errors import ApiError
 from app.core.serialization import serialize_snapshot
@@ -23,8 +24,8 @@ def global_fraud_reference(database, phone_number):
 
 
 def fraud_score(registry_data):
-    report_count = int(registry_data.get("reportCount") or 0)
-    returned_count = int(registry_data.get("returnedOrderCount") or 0)
+    report_count = max(0, int(registry_data.get("reportCount") or 0))
+    returned_count = max(0, int(registry_data.get("returnedOrderCount") or 0))
     return min(100, report_count * 45 + returned_count * 20)
 
 
@@ -40,8 +41,8 @@ def fraud_risk(registry_data):
 def global_fraud_summary(registry_data):
     data = registry_data or {}
     return {
-        "reportCount": int(data.get("reportCount") or 0),
-        "returnedOrderCount": int(data.get("returnedOrderCount") or 0),
+        "reportCount": max(0, int(data.get("reportCount") or 0)),
+        "returnedOrderCount": max(0, int(data.get("returnedOrderCount") or 0)),
         "score": fraud_score(data),
         "riskLevel": fraud_risk(data),
     }
@@ -117,6 +118,7 @@ def report_customer(database, business_id, customer_id, uid, payload):
             {
                 "fraudReportCount": int(customer.get("fraudReportCount") or 0) + 1,
                 "riskLevel": "high",
+                "fraudListStatus": "active",
                 "tags": firestore.ArrayUnion(["fraud-reported"]),
                 "updatedAt": timestamp,
             },
@@ -124,6 +126,75 @@ def report_customer(database, business_id, customer_id, uid, payload):
 
     report_in_transaction(transaction)
     return serialize_snapshot(report_reference.get())
+
+
+def change_customer_fraud_risk(database, business_id, customer_id, payload):
+    """Set the risk level used by this seller's fraud-management screen."""
+    risk_level = str(payload.get("riskLevel") or "").strip().lower()
+    if risk_level not in {"low", "medium", "high"}:
+        raise ApiError(
+            "validation_error",
+            "Risk level must be low, medium or high.",
+            422,
+        )
+
+    customer_reference = (
+        database.collection("businesses")
+        .document(business_id)
+        .collection("customers")
+        .document(customer_id)
+    )
+    if not customer_reference.get().exists:
+        raise ApiError("customer_not_found", "Customer not found.", 404)
+
+    customer_reference.update(
+        {
+            "manualFraudRiskLevel": risk_level,
+            "riskLevel": risk_level,
+            "fraudListStatus": "active",
+            "updatedAt": firestore.SERVER_TIMESTAMP,
+        },
+    )
+    return serialize_snapshot(customer_reference.get())
+
+
+def remove_customer_from_fraud_list(database, business_id, customer_id):
+    """Remove this seller's reports without deleting shared evidence from others."""
+    business_reference = database.collection("businesses").document(business_id)
+    customer_reference = business_reference.collection("customers").document(customer_id)
+    customer_snapshot = customer_reference.get()
+    if not customer_snapshot.exists:
+        raise ApiError("customer_not_found", "Customer not found.", 404)
+
+    reports = list(
+        business_reference.collection("fraudReports")
+        .where(filter=FieldFilter("customerId", "==", customer_id))
+        .stream()
+    )
+    customer = customer_snapshot.to_dict()
+    phone = customer.get("normalizedPhone", "")
+    batch = database.batch()
+    for report in reports:
+        batch.delete(report.reference)
+
+    batch.update(
+        customer_reference,
+        {
+            "fraudReportCount": 0,
+            "fraudListStatus": "removed",
+            "manualFraudRiskLevel": firestore.DELETE_FIELD,
+            "tags": firestore.ArrayRemove(["fraud-reported"]),
+            "updatedAt": firestore.SERVER_TIMESTAMP,
+        },
+    )
+    if phone and reports:
+        batch.set(
+            global_fraud_reference(database, phone),
+            global_registry_increment(report_count=-len(reports)),
+            merge=True,
+        )
+    batch.commit()
+    return {"customerId": customer_id, "removed": True}
 
 
 def list_seller_fraud_customers(database, business_id):
@@ -142,6 +213,8 @@ def list_seller_fraud_customers(database, business_id):
 
     rows = []
     for customer_id, customer in customers.items():
+        if customer.get("fraudListStatus") == "removed":
+            continue
         reports = reports_by_customer.get(customer_id, [])
         returned_count = int(customer.get("returnedOrderCount") or 0)
         global_warning = customer.get("globalFraudWarning") or {}
@@ -159,7 +232,7 @@ def list_seller_fraud_customers(database, business_id):
             min(100, local_report_count * 45 + returned_count * 20),
             int(global_warning.get("score") or 0),
         )
-        risk_level = (
+        risk_level = customer.get("manualFraudRiskLevel") or (
             "high" if score >= 60 else "medium" if score >= 20 else "low"
         )
         latest_report = max(

@@ -10,7 +10,12 @@ from app.services.customer_service import (
     list_customers,
     update_customer,
 )
-from app.services.fraud_service import list_seller_fraud_customers, report_customer
+from app.services.fraud_service import (
+    change_customer_fraud_risk,
+    list_seller_fraud_customers,
+    remove_customer_from_fraud_list,
+    report_customer,
+)
 
 
 customers_blueprint = Blueprint("customers", __name__, url_prefix="/api/v1")
@@ -93,3 +98,44 @@ def add_customer_fraud_report(business_id, customer_id):
         get_json_object(),
     )
     return jsonify({"fraudReport": report}), 201
+
+
+@customers_blueprint.patch(
+    "/businesses/<business_id>/customers/<customer_id>/fraud-risk",
+)
+@require_firebase_user
+@require_business_member(
+    "owner",
+    "admin",
+    "order_manager",
+    "support",
+    permission="customers:manage",
+)
+def change_fraud_risk(business_id, customer_id):
+    customer = change_customer_fraud_risk(
+        get_firestore_client(),
+        business_id,
+        customer_id,
+        get_json_object(),
+    )
+    return jsonify({"customer": customer})
+
+
+@customers_blueprint.delete(
+    "/businesses/<business_id>/customers/<customer_id>/fraud-profile",
+)
+@require_firebase_user
+@require_business_member(
+    "owner",
+    "admin",
+    "order_manager",
+    "support",
+    permission="customers:manage",
+)
+def remove_fraud_profile(business_id, customer_id):
+    result = remove_customer_from_fraud_list(
+        get_firestore_client(),
+        business_id,
+        customer_id,
+    )
+    return jsonify(result)

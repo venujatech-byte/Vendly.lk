@@ -447,6 +447,119 @@
   font-weight: 700;
 }
 
+/* Reviews and fraud reports have different columns from All Customers.
+   Give each table its own compact phone layout instead of inheriting the
+   generic nth-child rules intended for the customer list. */
+@media (max-width: 700px) {
+  .customers-page .customer-reviews-table,
+  .customers-page .fraud-table {
+    width: 100%;
+    min-width: 0;
+    table-layout: fixed !important;
+  }
+
+  .customers-page .customer-reviews-table th,
+  .customers-page .customer-reviews-table td,
+  .customers-page .fraud-table th,
+  .customers-page .fraud-table td {
+    display: none !important;
+    min-width: 0 !important;
+    padding: 9px 6px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .customers-page .customer-reviews-table th:nth-child(1),
+  .customers-page .customer-reviews-table td:nth-child(1),
+  .customers-page .customer-reviews-table th:nth-child(2),
+  .customers-page .customer-reviews-table td:nth-child(2),
+  .customers-page .customer-reviews-table th:nth-child(5),
+  .customers-page .customer-reviews-table td:nth-child(5),
+  .customers-page .customer-reviews-table th:nth-child(6),
+  .customers-page .customer-reviews-table td:nth-child(6),
+  .customers-page .customer-reviews-table th:nth-child(11),
+  .customers-page .customer-reviews-table td:nth-child(11) {
+    display: table-cell !important;
+  }
+
+  .customers-page .customer-reviews-table th:nth-child(1),
+  .customers-page .customer-reviews-table td:nth-child(1) { width: 10%; }
+  .customers-page .customer-reviews-table th:nth-child(2),
+  .customers-page .customer-reviews-table td:nth-child(2) { width: 27%; }
+  .customers-page .customer-reviews-table th:nth-child(5),
+  .customers-page .customer-reviews-table td:nth-child(5) { width: 30%; }
+  .customers-page .customer-reviews-table th:nth-child(6),
+  .customers-page .customer-reviews-table td:nth-child(6) { width: 18%; }
+  .customers-page .customer-reviews-table th:nth-child(11),
+  .customers-page .customer-reviews-table td:nth-child(11) { width: 15%; }
+
+  .customers-page .review-product-cell {
+    min-width: 0;
+    gap: 5px;
+    overflow: hidden;
+  }
+
+  .customers-page .review-product-cell img {
+    width: 26px;
+    height: 26px;
+    flex-basis: 26px;
+  }
+
+  .customers-page .review-product-cell span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .customers-page .review-moderation-actions {
+    display: grid;
+    gap: 3px;
+  }
+
+  .customers-page .review-moderation-actions button {
+    padding: 3px 4px;
+    font-size: 8px;
+  }
+
+  .customers-page .fraud-table th:nth-child(1),
+  .customers-page .fraud-table td:nth-child(1),
+  .customers-page .fraud-table th:nth-child(2),
+  .customers-page .fraud-table td:nth-child(2),
+  .customers-page .fraud-table th:nth-child(6),
+  .customers-page .fraud-table td:nth-child(6),
+  .customers-page .fraud-table th:nth-child(11),
+  .customers-page .fraud-table td:nth-child(11),
+  .customers-page .fraud-table th:nth-child(12),
+  .customers-page .fraud-table td:nth-child(12) {
+    display: table-cell !important;
+  }
+
+  .customers-page .fraud-table th:nth-child(1),
+  .customers-page .fraud-table td:nth-child(1) { width: 10%; }
+  .customers-page .fraud-table th:nth-child(2),
+  .customers-page .fraud-table td:nth-child(2) { width: 35%; }
+  .customers-page .fraud-table th:nth-child(6),
+  .customers-page .fraud-table td:nth-child(6) { width: 20%; }
+  .customers-page .fraud-table th:nth-child(11),
+  .customers-page .fraud-table td:nth-child(11) { width: 20%; }
+  .customers-page .fraud-table th:nth-child(12),
+  .customers-page .fraud-table td:nth-child(12) { width: 15%; }
+
+  .customers-page .customer-reviews-table td[colspan],
+  .customers-page .fraud-table td[colspan] {
+    display: table-cell !important;
+    width: auto !important;
+    padding: 16px 10px;
+    text-align: center;
+  }
+
+  .customers-page .customer-table-footer {
+    gap: 8px;
+    padding: 9px 10px;
+    font-size: 10px;
+  }
+}
+
 @media (max-width: 700px) {
   .customers-filters { padding: 8px; }
   .customers-filters__mobile-toggle { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 38px; padding: 0 10px; border: 1px solid var(--color-border); border-radius: 8px; color: var(--color-text-strong); background: var(--color-control); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
@@ -604,6 +717,39 @@
 .fraud-score--medium { color: #9a6500; background: rgba(245, 158, 11, .14); }
 .fraud-score--low { color: #087443; background: rgba(16, 185, 129, .12); }
 .customer-action-button { border: 1px solid var(--color-border); border-radius: 7px; padding: 5px 8px; color: var(--color-text); background: var(--color-surface); cursor: pointer; }
+.customers-page .customer-reviews-table .management-table__expand-heading,
+.customers-page .customer-reviews-table .management-table__expand-cell,
+.customers-page .fraud-table .management-table__expand-heading,
+.customers-page .fraud-table .management-table__expand-cell {
+  display: table-cell;
+  width: 38px;
+  text-align: center;
+}
+
+.customers-page .customer-reviews-table .management-table__expand-cell button,
+.customers-page .fraud-table .management-table__expand-cell button {
+  display: inline-grid;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  border-radius: 7px;
+  color: var(--color-text);
+  background: transparent;
+  cursor: pointer;
+}
+
+.customers-page .customer-reviews-table .management-table__expand-cell button:hover,
+.customers-page .fraud-table .management-table__expand-cell button:hover {
+  color: var(--color-accent);
+  background: var(--color-surface-muted);
+}
+.fraud-risk-dialog label { display: grid; gap: 7px; color: var(--color-text); font-size: .8rem; font-weight: 650; }
+.fraud-risk-dialog select { min-height: 42px; padding: 0 11px; border: 1px solid var(--color-border); border-radius: 8px; color: var(--color-text); background: var(--color-surface); font: inherit; }
+.fraud-risk-dialog footer { display: flex; justify-content: flex-end; gap: 9px; margin-top: 22px; }
+.fraud-risk-dialog footer button { min-height: 40px; padding: 0 15px; border: 1px solid var(--color-border); border-radius: 8px; color: var(--color-text); background: var(--color-surface); font-weight: 700; cursor: pointer; }
+.fraud-risk-dialog footer .is-primary { border-color: var(--color-accent); color: #fff; background: var(--color-accent); }
 .management-table__expanded-row td { padding: 12px 16px; background: var(--color-surface-muted); }
 .customer-expanded-details { display: grid; grid-template-columns: 1fr 1fr 1.5fr 1fr; gap: 18px; padding: 14px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface); }
 .customer-expanded-details > div { display: grid; gap: 6px; align-content: start; }
@@ -646,4 +792,29 @@
     overflow-wrap: anywhere;
     text-overflow: clip;
   }
+}
+
+/* Final widths must follow the shared All Customers mobile rules above. */
+@media (max-width: 700px) {
+  .customers-page .customer-reviews-table th:nth-child(1),
+  .customers-page .customer-reviews-table td:nth-child(1) { width: 10% !important; }
+  .customers-page .customer-reviews-table th:nth-child(2),
+  .customers-page .customer-reviews-table td:nth-child(2) { width: 27% !important; }
+  .customers-page .customer-reviews-table th:nth-child(5),
+  .customers-page .customer-reviews-table td:nth-child(5) { width: 30% !important; }
+  .customers-page .customer-reviews-table th:nth-child(6),
+  .customers-page .customer-reviews-table td:nth-child(6) { width: 18% !important; }
+  .customers-page .customer-reviews-table th:nth-child(11),
+  .customers-page .customer-reviews-table td:nth-child(11) { width: 15% !important; }
+
+  .customers-page .fraud-table th:nth-child(1),
+  .customers-page .fraud-table td:nth-child(1) { width: 10% !important; }
+  .customers-page .fraud-table th:nth-child(2),
+  .customers-page .fraud-table td:nth-child(2) { width: 35% !important; }
+  .customers-page .fraud-table th:nth-child(6),
+  .customers-page .fraud-table td:nth-child(6) { width: 20% !important; }
+  .customers-page .fraud-table th:nth-child(11),
+  .customers-page .fraud-table td:nth-child(11) { width: 20% !important; }
+  .customers-page .fraud-table th:nth-child(12),
+  .customers-page .fraud-table td:nth-child(12) { width: 15% !important; }
 }

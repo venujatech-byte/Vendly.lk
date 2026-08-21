@@ -3,8 +3,10 @@ import { useSearchParams } from "react-router-dom";
 
 import { useAuth } from "../context/authContextValue";
 import {
+  changeFraudRiskLevel,
   getCustomers,
   getFraudCustomers,
+  removeFromFraudList,
   reportCustomer,
   updateCustomer,
 } from "../services/customerService";
@@ -13,6 +15,7 @@ import { getReviews, moderateReview } from "../services/reviewService";
 
 import {
   ChevronDown,
+  ChevronRight,
   ChevronUp,
   CheckCircle2,
   Clock3,
@@ -20,6 +23,7 @@ import {
   Flag,
   Mail,
   MessageSquare,
+  Pencil,
   Repeat2,
   ShieldAlert,
   UsersRound,
@@ -32,6 +36,7 @@ import StatCard from "../components/StatCard";
 import CustomerMessages from "../components/CustomerMessages";
 import ActionMenu from "../components/ActionMenu";
 import ConfirmDialog from "../components/ConfirmDialog";
+import ModalShell from "../components/ModalShell";
 
 import "./ManagementPage.css";
 import "./CustomersPage.css";
@@ -57,6 +62,9 @@ function CustomersPage() {
   const [filters, setFilters] = useState({ search: "", risk: "all", rating: "all", location: "all" });
   const [customerAction, setCustomerAction] = useState(null);
   const [isCustomerActionWorking, setIsCustomerActionWorking] = useState(false);
+  const [fraudAction, setFraudAction] = useState(null);
+  const [fraudRiskLevel, setFraudRiskLevel] = useState("low");
+  const [isFraudActionWorking, setIsFraudActionWorking] = useState(false);
 
   useEffect(() => {
     if (["all", "messages", "reviews", "fraud"].includes(requestedTab)) {
@@ -263,6 +271,43 @@ function CustomersPage() {
     }
   }
 
+  async function handleFraudRiskChange() {
+    if (!business?.id || !fraudAction?.customer) return;
+    setIsFraudActionWorking(true);
+    setErrorMessage("");
+    try {
+      await changeFraudRiskLevel(business.id, fraudAction.customer.id, fraudRiskLevel);
+      const applyRisk = (customer) =>
+        customer.id === fraudAction.customer.id
+          ? { ...customer, riskLevel: fraudRiskLevel }
+          : customer;
+      setFraudCustomers((current) => current.map(applyRisk));
+      setCustomers((current) => current.map(applyRisk));
+      setFraudAction(null);
+    } catch (error) {
+      setErrorMessage(error.message);
+    } finally {
+      setIsFraudActionWorking(false);
+    }
+  }
+
+  async function handleFraudRemoval() {
+    if (!business?.id || !fraudAction?.customer) return;
+    setIsFraudActionWorking(true);
+    setErrorMessage("");
+    try {
+      await removeFromFraudList(business.id, fraudAction.customer.id);
+      setFraudCustomers((current) =>
+        current.filter((customer) => customer.id !== fraudAction.customer.id),
+      );
+      setFraudAction(null);
+    } catch (error) {
+      setErrorMessage(error.message);
+    } finally {
+      setIsFraudActionWorking(false);
+    }
+  }
+
   return (
     <main className="dashboard customers-page">
       <div className="dashboard__intro">
@@ -390,7 +435,17 @@ function CustomersPage() {
             </div>
           </section>
           <FraudFilters filters={fraudFilters} setFilters={setFraudFilters} />
-          <FraudTable customers={fraudRows} isLoading={isLoading} />
+          <FraudTable
+            customers={fraudRows}
+            isLoading={isLoading}
+            onChangeRisk={(customer) => {
+              setFraudRiskLevel(customer.riskLevel || "low");
+              setFraudAction({ type: "risk", customer });
+            }}
+            onRemove={(customer) =>
+              setFraudAction({ type: "remove-fraud", customer })
+            }
+          />
         </>
       ) : activeCustomerTab === "reviews" ? (
         <>
@@ -532,17 +587,41 @@ function CustomersPage() {
         onCancel={() => !isCustomerActionWorking && setCustomerAction(null)}
         onConfirm={handleCustomerAction}
       />
+
+      <FraudRiskDialog
+        isOpen={fraudAction?.type === "risk"}
+        customer={fraudAction?.customer}
+        riskLevel={fraudRiskLevel}
+        isWorking={isFraudActionWorking}
+        onRiskLevelChange={setFraudRiskLevel}
+        onCancel={() => !isFraudActionWorking && setFraudAction(null)}
+        onConfirm={handleFraudRiskChange}
+      />
+
+      <ConfirmDialog
+        isOpen={fraudAction?.type === "remove-fraud"}
+        title="Remove from fraud list"
+        message={`Remove ${fraudAction?.customer?.name || "this customer"} from your fraud list? Other sellers' reports and shared fraud evidence will not be deleted.`}
+        confirmLabel="Remove from list"
+        workingLabel="Removing..."
+        isWorking={isFraudActionWorking}
+        onCancel={() => !isFraudActionWorking && setFraudAction(null)}
+        onConfirm={handleFraudRemoval}
+      />
     </main>
   );
 }
 
 function ReviewsTable({ reviews, isLoading, onModerate }) {
+  const [expandedReviewId, setExpandedReviewId] = useState(null);
+
   return (
     <section className="customer-table-card" aria-label="Customer reviews list">
     <div className="customer-table-scroll">
     <table className="management-table customer-reviews-table">
       <thead>
         <tr>
+          <th className="management-table__expand-heading" aria-label="Expand" />
           <th>Customer</th>
           <th>Phone</th>
           <th>Email</th>
@@ -557,7 +636,13 @@ function ReviewsTable({ reviews, isLoading, onModerate }) {
       </thead>
       <tbody>
         {reviews.map((review) => (
-          <tr key={review.id}>
+          <Fragment key={review.id}>
+          <tr>
+            <td className="management-table__expand-cell">
+              <button type="button" aria-label={`${expandedReviewId === review.id ? "Collapse" : "Expand"} review`} aria-expanded={expandedReviewId === review.id} onClick={() => setExpandedReviewId((current) => current === review.id ? null : review.id)}>
+                {expandedReviewId === review.id ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+              </button>
+            </td>
             <td><strong>{review.customerName || "Customer"}</strong></td>
             <td>{review.customerPhone ? `+${review.customerPhone}` : "—"}</td>
             <td>{review.customerEmail || "—"}</td>
@@ -583,8 +668,21 @@ function ReviewsTable({ reviews, isLoading, onModerate }) {
               )}
             </td>
           </tr>
+          {expandedReviewId === review.id && (
+            <tr className="management-table__expanded-row review-expanded-row">
+              <td colSpan={11}>
+                <div className="customer-expanded-details">
+                  <div><strong>Customer</strong><span>{review.customerName || "Customer"}</span><span>{review.customerPhone ? `+${review.customerPhone}` : "No phone"}</span><span>{review.customerEmail || "No email"}</span></div>
+                  <div><strong>Product</strong><span>{review.productName || review.itemName || "Product review"}</span><span>Rating: {review.rating || 0}/5</span></div>
+                  <div><strong>Review</strong><span>{review.reviewText || review.comment || "No written review"}</span><span>{review.media?.length ? `${review.media.length} review image(s)` : "No review images"}</span></div>
+                  <div><strong>Review status</strong><span>{review.status || "pending"}</span><span>{review.createdAt ? new Date(review.createdAt).toLocaleDateString("en-LK") : "No date"}</span></div>
+                </div>
+              </td>
+            </tr>
+          )}
+          </Fragment>
         ))}
-        {!isLoading && reviews.length === 0 && <tr><td colSpan={10}>No reviews found.</td></tr>}
+        {!isLoading && reviews.length === 0 && <tr><td colSpan={11}>No reviews found.</td></tr>}
       </tbody>
     </table>
     </div>
@@ -612,18 +710,41 @@ function FraudFilters({ filters, setFilters }) {
   </section>;
 }
 
-function FraudTable({ customers, isLoading }) {
-  return <section className="customer-table-card" aria-label="Fraud reports list"><div className="customer-table-scroll"><table className="management-table fraud-table"><thead><tr><th>Customer</th><th>Phone</th><th>Email</th><th>Address</th><th>Returned Orders</th><th>Total Orders</th><th>Return Rate</th><th>Fraud Score</th><th>Last Returned</th><th>Reason</th><th>Risk Status</th><th>Actions</th></tr></thead><tbody>
+function FraudTable({ customers, isLoading, onChangeRisk, onRemove }) {
+  const [expandedFraudCustomerId, setExpandedFraudCustomerId] = useState(null);
+
+  return <section className="customer-table-card" aria-label="Fraud reports list"><div className="customer-table-scroll"><table className="management-table fraud-table"><thead><tr><th className="management-table__expand-heading" aria-label="Expand" /><th>Customer</th><th>Phone</th><th>Email</th><th>Address</th><th>Returned Orders</th><th>Total Orders</th><th>Return Rate</th><th>Fraud Score</th><th>Reason</th><th>Risk Status</th><th>Actions</th></tr></thead><tbody>
     {customers.map((customer) => {
       const returned = customer.returnedOrderCount ?? 0;
       const total = customer.totalOrderCount ?? customer.completedOrderCount ?? returned;
       const score = customer.fraudScore ?? Math.min(99, returned * 15);
       const risk = customer.riskLevel || "low";
       const address = customer.defaultAddress || customer.address || {};
-      return <tr key={customer.id}><td><strong>{customer.name}</strong></td><td>+{customer.normalizedPhone || "—"}</td><td>{customer.email || "—"}</td><td>{[address.line1, address.city].filter(Boolean).join(", ") || "—"}</td><td>{returned}</td><td>{total}</td><td>{total ? `${Math.round((returned / total) * 100)}%` : "0%"}</td><td><span className={`fraud-score fraud-score--${risk}`}>{score}</span></td><td>{customer.lastReturnedOrderDate || "—"}</td><td>{customer.returnReason || customer.fraudReason || "Unspecified"}</td><td><span className={`management-table__badge management-table__badge--${risk}`}>{risk} risk</span></td><td><button type="button" className="customer-action-button" aria-label={`Open ${customer.name} fraud actions`}>•••</button></td></tr>;
+      return <Fragment key={customer.id}><tr><td className="management-table__expand-cell"><button type="button" aria-label={`${expandedFraudCustomerId === customer.id ? "Collapse" : "Expand"} fraud details`} aria-expanded={expandedFraudCustomerId === customer.id} onClick={() => setExpandedFraudCustomerId((current) => current === customer.id ? null : customer.id)}>{expandedFraudCustomerId === customer.id ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</button></td><td><strong>{customer.name}</strong></td><td>+{customer.normalizedPhone || "—"}</td><td>{customer.email || "—"}</td><td>{[address.line1, address.city].filter(Boolean).join(", ") || "—"}</td><td>{returned}</td><td>{total}</td><td>{total ? `${Math.round((returned / total) * 100)}%` : "0%"}</td><td><span className={`fraud-score fraud-score--${risk}`}>{score}</span></td><td>{customer.returnReason || customer.fraudReason || "Unspecified"}</td><td><span className={`management-table__badge management-table__badge--${risk}`}>{risk} risk</span></td><td><ActionMenu label={`Open ${customer.name} fraud actions`} items={[{ label: "Change risk level", icon: <Pencil size={16} aria-hidden="true" />, onClick: () => onChangeRisk(customer) }, { label: "Remove from fraud list", icon: <Trash2 size={16} aria-hidden="true" />, danger: true, onClick: () => onRemove(customer) }]} /></td></tr>{expandedFraudCustomerId === customer.id && <tr className="management-table__expanded-row fraud-expanded-row"><td colSpan={12}><div className="customer-expanded-details"><div><strong>Customer</strong><span>{customer.name}</span><span>+{customer.normalizedPhone || "—"}</span><span>{customer.email || "No email"}</span></div><div><strong>Address</strong><span>{[address.line1, address.line2, address.city, address.district].filter(Boolean).join(", ") || "No address"}</span></div><div><strong>Order history</strong><span>{returned} returned of {total} orders</span><span>Return rate: {total ? `${Math.round((returned / total) * 100)}%` : "0%"}</span></div><div><strong>Fraud assessment</strong><span>Score: {score}</span><span>Risk: {risk}</span><span>Reason: {customer.returnReason || customer.fraudReason || "Unspecified"}</span></div></div></td></tr>}</Fragment>;
     })}
     {!isLoading && customers.length === 0 && <tr><td colSpan={12}>No fraud reports found.</td></tr>}
   </tbody></table></div><CustomerTableFooter count={customers.length} label="reports" /></section>;
+}
+
+function FraudRiskDialog({ isOpen, customer, riskLevel, isWorking, onRiskLevelChange, onCancel, onConfirm }) {
+  return (
+    <ModalShell isOpen={isOpen} title="Change risk level" description={`Choose the risk level for ${customer?.name || "this customer"}.`} onClose={onCancel}>
+      <div className="fraud-risk-dialog">
+        <label>
+          <span>Risk level</span>
+          <select value={riskLevel} onChange={(event) => onRiskLevelChange(event.target.value)}>
+            <option value="low">Low risk</option>
+            <option value="medium">Medium risk</option>
+            <option value="high">High risk</option>
+          </select>
+        </label>
+        <footer>
+          <button type="button" onClick={onCancel} disabled={isWorking}>Cancel</button>
+          <button className="is-primary" type="button" onClick={onConfirm} disabled={isWorking}>{isWorking ? "Saving..." : "Save risk level"}</button>
+        </footer>
+      </div>
+    </ModalShell>
+  );
 }
 
 function CustomerTableFooter({ count, label }) {

@@ -45,3 +45,18 @@ export async function getFraudCustomers(businessId) {
   );
   return response.customers;
 }
+
+export async function changeFraudRiskLevel(businessId, customerId, riskLevel) {
+  const response = await apiRequest(
+    `/businesses/${businessId}/customers/${customerId}/fraud-risk`,
+    { method: "PATCH", body: { riskLevel } },
+  );
+  return response.customer;
+}
+
+export async function removeFromFraudList(businessId, customerId) {
+  return apiRequest(
+    `/businesses/${businessId}/customers/${customerId}/fraud-profile`,
+    { method: "DELETE" },
+  );
+}
