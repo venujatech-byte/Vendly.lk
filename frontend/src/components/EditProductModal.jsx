@@ -85,7 +85,7 @@ function EditProductModal({ isOpen, businessId, product, categories = [], onClos
           <label>Colour<input className="inventory-form__colour" name="colourHex" type="color" value={form.colourHex} onChange={change} /></label>
         </div>
         <div className="inventory-form__two-columns">
-          <label>Category<select name="categoryId" value={form.categoryId} onChange={change} required><option value="">Choose category</option>{categories.filter((category) => category.status === "active").map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
+          <label>Category <small>(optional)</small><select name="categoryId" value={form.categoryId} onChange={change}><option value="">Uncategorized - assign later</option>{categories.filter((category) => category.status === "active").map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
           <label>Brand<input name="brand" value={form.brand} onChange={change} /></label>
         </div>
         <div className="inventory-form__two-columns">

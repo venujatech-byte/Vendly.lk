@@ -408,7 +408,7 @@ function InventoryTable({ products = [], categories = [], onViewReviews, onAdjus
                       </span>
                     </td>
 
-                    <td>{product.category}</td>
+                    <td>{product.category || "Uncategorized"}</td>
                     <td className="orders-table__total">
                       {formatCurrency(product.sellingPrice)}
                     </td>

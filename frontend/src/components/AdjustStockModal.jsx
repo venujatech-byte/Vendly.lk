@@ -80,7 +80,7 @@ function AdjustStockModal({ businessId, product, initialVariantId, onClose, onUp
         <form className="inventory-form adjust-stock" onSubmit={handleSubmit}>
           <div className="adjust-stock__product">
             <span><PackagePlus size={22} aria-hidden="true" /></span>
-            <div><strong>{product.name}</strong><small>{product.category}</small></div>
+            <div><strong>{product.name}</strong><small>{product.category || "Uncategorized"}</small></div>
             <b>{product.stock} total units</b>
           </div>
 

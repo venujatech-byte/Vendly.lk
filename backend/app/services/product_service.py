@@ -39,7 +39,9 @@ def validate_product(payload):
         ai_description = optional_text(payload.get("aiDescription"), 4000)
         sku_prefix = optional_text(payload.get("skuPrefix"), 60).upper()
         colour_hex = optional_text(payload.get("colourHex"), 20)
-        category_id = required_text(payload.get("categoryId"), "Category", 120)
+        # Category is optional when a product is first created. Sellers can
+        # assign an uncategorized product later from the inventory page.
+        category_id = optional_text(payload.get("categoryId"), 120)
         cost_price_minor = money_to_minor_units(
             payload.get("costPrice"),
             "Cost price",
@@ -253,17 +255,22 @@ def get_product(database, business_id, product_id):
 def create_product(database, business_id, uid, payload):
     product = validate_product(payload)
     business_reference = database.collection("businesses").document(business_id)
-    category_reference = business_reference.collection("categories").document(
-        product["categoryId"],
-    )
-    category_snapshot = category_reference.get()
+    category_name = "Uncategorized"
+    if product["categoryId"]:
+        category_snapshot = business_reference.collection("categories").document(
+            product["categoryId"],
+        ).get()
 
-    if not category_snapshot.exists or category_snapshot.to_dict().get("status") != "active":
-        raise ApiError(
-            "invalid_category",
-            "Choose an active product category.",
-            422,
-        )
+        if (
+            not category_snapshot.exists
+            or category_snapshot.to_dict().get("status") != "active"
+        ):
+            raise ApiError(
+                "invalid_category",
+                "Choose an active product category.",
+                422,
+            )
+        category_name = category_snapshot.to_dict().get("name", "")
 
     product_reference = business_reference.collection("products").document()
     variant_collection = business_reference.collection("productVariants")
@@ -367,7 +374,6 @@ def create_product(database, business_id, uid, payload):
                     },
                 )
 
-        category = category_snapshot.to_dict()
         current_transaction.set(
             product_reference,
             {
@@ -378,7 +384,7 @@ def create_product(database, business_id, uid, payload):
                 "productType": product["productType"],
                 "productSize": product["productSize"],
                 "categoryId": product["categoryId"],
-                "categoryName": category.get("name", ""),
+                "categoryName": category_name,
                 "brand": product["brand"],
                 "supplierId": product["supplierId"],
                 "description": product["description"],
@@ -512,21 +518,25 @@ def update_product(database, business_id, product_id, payload):
 
     if "categoryId" in payload:
         try:
-            category_id = required_text(payload.get("categoryId"), "Category", 120)
+            category_id = optional_text(payload.get("categoryId"), 120)
         except ValueError as error:
             raise ApiError("validation_error", str(error), 422) from error
-        category_snapshot = business_reference.collection("categories").document(
-            category_id,
-        ).get()
+        if category_id:
+            category_snapshot = business_reference.collection("categories").document(
+                category_id,
+            ).get()
 
-        if (
-            not category_snapshot.exists
-            or category_snapshot.to_dict().get("status") != "active"
-        ):
-            raise ApiError("invalid_category", "Choose an active category.", 422)
+            if (
+                not category_snapshot.exists
+                or category_snapshot.to_dict().get("status") != "active"
+            ):
+                raise ApiError("invalid_category", "Choose an active category.", 422)
 
-        changes["categoryId"] = category_id
-        changes["categoryName"] = category_snapshot.to_dict().get("name", "")
+            changes["categoryId"] = category_id
+            changes["categoryName"] = category_snapshot.to_dict().get("name", "")
+        else:
+            changes["categoryId"] = ""
+            changes["categoryName"] = "Uncategorized"
 
     variants = list(
         business_reference.collection("productVariants")

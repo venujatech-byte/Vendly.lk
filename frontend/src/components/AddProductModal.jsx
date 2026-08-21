@@ -231,9 +231,9 @@ function AddProductModal({ isOpen, businessId, categories, product = null, onClo
             <label>Product Size
               <input name="productSize" value={formData.productSize} onChange={updateField} placeholder="Select size..." />
             </label>
-            <label>Category
-              <select name="categoryId" value={formData.categoryId} onChange={updateField} required>
-                <option value="">None</option>
+            <label>Category <small>(optional)</small>
+              <select name="categoryId" value={formData.categoryId} onChange={updateField}>
+                <option value="">Uncategorized - assign later</option>
                 {activeCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
               </select>
             </label>
@@ -306,7 +306,7 @@ function AddProductModal({ isOpen, businessId, categories, product = null, onClo
         </section>
 
         {errorMessage && <p className="inventory-form__error">{errorMessage}</p>}
-        <footer className="stitch-product__footer"><button type="button" onClick={onClose}>Cancel</button><button className="stitch-product__save" type="submit" disabled={isSaving || activeCategories.length === 0}>{isSaving ? "Saving..." : product ? "Save Product" : "Add Product"}</button></footer>
+        <footer className="stitch-product__footer"><button type="button" onClick={onClose}>Cancel</button><button className="stitch-product__save" type="submit" disabled={isSaving}>{isSaving ? "Saving..." : product ? "Save Product" : "Add Product"}</button></footer>
       </form>
     </ModalShell>
   );

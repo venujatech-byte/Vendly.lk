@@ -12,7 +12,7 @@ export function mapProductForInventory(product) {
   return {
     ...product,
     colour: product.colourName,
-    category: product.categoryName,
+    category: product.categoryName || "Uncategorized",
     sku: firstVariant.sku ?? product.skuPrefix,
     barcode: firstVariant.barcode ?? "",
     costPrice: minorUnitsToAmount(product.costPriceMinor),
