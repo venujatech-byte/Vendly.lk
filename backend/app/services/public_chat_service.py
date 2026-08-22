@@ -1243,12 +1243,23 @@ def create_public_chat_order(database, session_id, provided_token, payload):
         f"public-chat:{session_id}",
         order_payload,
     )
+    customer_summary = {
+        "customerId": customer["id"],
+        "name": customer_payload.get("name") or customer.get("name") or "Customer",
+        "phoneNumber": customer_payload.get("phoneNumber") or customer.get("normalizedPhone", ""),
+        "secondaryPhoneNumber": customer_payload.get("secondaryPhoneNumber", "")
+        or customer.get("normalizedSecondaryPhone", ""),
+        "email": customer_payload.get("email", "") or customer.get("email", ""),
+        "address": customer_payload.get("address") or customer.get("defaultAddress") or {},
+    }
     session_snapshot.reference.update(
         {
             "status": "completed",
             "state": "completed",
             "cart": [],
             "orderId": order["id"],
+            "customerDraft": customer_summary,
+            "customerSummary": customer_summary,
             "updatedAt": firestore.SERVER_TIMESTAMP,
         },
     )

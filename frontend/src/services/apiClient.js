@@ -1,9 +1,26 @@
 import { getCurrentUserToken } from "./authService";
 
-const apiBaseUrl = (
+const configuredApiBaseUrl = (
   import.meta.env.VITE_API_BASE_URL ??
   "http://127.0.0.1:5000/api/v1"
 ).replace(/\/$/, "");
+
+// During development, use the same hostname that opened the Vite page.
+// localhost therefore calls localhost:5000, while a phone using the PC's
+// Wi-Fi address calls that same Wi-Fi address on port 5000.
+function developmentApiBaseUrl(configuredUrl) {
+  if (!import.meta.env.DEV || typeof window === "undefined") return configuredUrl;
+
+  try {
+    const url = new URL(configuredUrl);
+    url.hostname = window.location.hostname;
+    return url.toString().replace(/\/$/, "");
+  } catch {
+    return configuredUrl;
+  }
+}
+
+const apiBaseUrl = developmentApiBaseUrl(configuredApiBaseUrl);
 
 /**
  * Send one request to the Vendly Flask API.

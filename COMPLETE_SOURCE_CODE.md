@@ -10,7 +10,7 @@ Included files: 161
 
 ### `frontend/.env.local` (replace placeholders)
 
-````dotenv
+```dotenv
 VITE_FIREBASE_API_KEY=your-web-api-key
 VITE_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
 VITE_FIREBASE_PROJECT_ID=your-project-id
@@ -18,11 +18,11 @@ VITE_FIREBASE_STORAGE_BUCKET=your-project.firebasestorage.app
 VITE_FIREBASE_MESSAGING_SENDER_ID=your-sender-id
 VITE_FIREBASE_APP_ID=your-app-id
 VITE_API_BASE_URL=http://127.0.0.1:5000/api/v1
-````
+```
 
 ### `backend/.env` (replace placeholders)
 
-````dotenv
+```dotenv
 FLASK_DEBUG=true
 FIREBASE_PROJECT_ID=your-project-id
 FIREBASE_SERVICE_ACCOUNT_PATH=D:\secure\vendly-firebase-admin.json
@@ -36,7 +36,7 @@ AI_MODEL=
 AI_API_BASE_URL=
 AI_TIMEOUT_SECONDS=15
 RATE_LIMIT_STORAGE_URI=memory://
-````
+```
 
 ## File index
 
@@ -49,8 +49,8 @@ RATE_LIMIT_STORAGE_URI=memory://
 - [firestore.rules](#firestore-rules)
 - [firestore.indexes.json](#firestore-indexes-json)
 - [storage.rules](#storage-rules)
-- [backend/app/__init__.py](#backend-app-init-py)
-- [backend/app/api/__init__.py](#backend-app-api-init-py)
+- [backend/app/**init**.py](#backend-app-init-py)
+- [backend/app/api/**init**.py](#backend-app-api-init-py)
 - [backend/app/api/analytics.py](#backend-app-api-analytics-py)
 - [backend/app/api/businesses.py](#backend-app-api-businesses-py)
 - [backend/app/api/categories.py](#backend-app-api-categories-py)
@@ -65,7 +65,7 @@ RATE_LIMIT_STORAGE_URI=memory://
 - [backend/app/api/public.py](#backend-app-api-public-py)
 - [backend/app/api/reviews.py](#backend-app-api-reviews-py)
 - [backend/app/api/search.py](#backend-app-api-search-py)
-- [backend/app/core/__init__.py](#backend-app-core-init-py)
+- [backend/app/core/**init**.py](#backend-app-core-init-py)
 - [backend/app/core/auth.py](#backend-app-core-auth-py)
 - [backend/app/core/authorization.py](#backend-app-core-authorization-py)
 - [backend/app/core/config.py](#backend-app-core-config-py)
@@ -74,7 +74,7 @@ RATE_LIMIT_STORAGE_URI=memory://
 - [backend/app/core/rate_limit.py](#backend-app-core-rate-limit-py)
 - [backend/app/core/requests.py](#backend-app-core-requests-py)
 - [backend/app/core/serialization.py](#backend-app-core-serialization-py)
-- [backend/app/services/__init__.py](#backend-app-services-init-py)
+- [backend/app/services/**init**.py](#backend-app-services-init-py)
 - [backend/app/services/ai_service.py](#backend-app-services-ai-service-py)
 - [backend/app/services/analytics_service.py](#backend-app-services-analytics-service-py)
 - [backend/app/services/business_service.py](#backend-app-services-business-service-py)
@@ -206,7 +206,7 @@ RATE_LIMIT_STORAGE_URI=memory://
 
 ### `frontend/package.json`
 
-````json
+```json
 {
   "name": "frontend",
   "private": true,
@@ -239,13 +239,13 @@ RATE_LIMIT_STORAGE_URI=memory://
     "protobufjs@7.6.5": true
   }
 }
-````
+```
 
 ### `frontend/vite.config.js`
 
-````javascript
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+```javascript
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -276,12 +276,12 @@ export default defineConfig({
       },
     },
   },
-})
-````
+});
+```
 
 ### `frontend/index.html`
 
-````html
+```html
 <!doctype html>
 <html lang="en">
   <head>
@@ -295,11 +295,11 @@ export default defineConfig({
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
-````
+```
 
 ### `backend/requirements.txt`
 
-````text
+```text
 Flask>=3.1,<4
 flask-cors>=6,<7
 Flask-Limiter>=4,<5
@@ -310,11 +310,11 @@ openpyxl>=3.1,<4
 python-dotenv>=1.1,<2
 gunicorn>=23,<24
 pytest>=8,<10
-````
+```
 
 ### `backend/run.py`
 
-````python
+```python
 import os
 
 from app import create_app
@@ -330,11 +330,11 @@ if __name__ == "__main__":
         debug=app.config["DEBUG"],
     )
 
-````
+```
 
 ### `firebase.json`
 
-````json
+```json
 {
   "firestore": {
     "rules": "firestore.rules",
@@ -344,11 +344,11 @@ if __name__ == "__main__":
     "rules": "storage.rules"
   }
 }
-````
+```
 
 ### `firestore.rules`
 
-````javascript
+```javascript
 rules_version = '2';
 
 service cloud.firestore {
@@ -386,20 +386,20 @@ service cloud.firestore {
     }
   }
 }
-````
+```
 
 ### `firestore.indexes.json`
 
-````json
+```json
 {
   "indexes": [],
   "fieldOverrides": []
 }
-````
+```
 
 ### `storage.rules`
 
-````javascript
+```javascript
 rules_version = '2';
 
 service firebase.storage {
@@ -410,11 +410,11 @@ service firebase.storage {
     }
   }
 }
-````
+```
 
 ### `backend/app/__init__.py`
 
-````python
+```python
 from flask import Flask, jsonify
 from flask_cors import CORS
 
@@ -549,17 +549,17 @@ def create_app(test_config=None):
         ), 500
 
     return app
-````
+```
 
 ### `backend/app/api/__init__.py`
 
-````python
+```python
 """HTTP API blueprints for Vendly."""
-````
+```
 
 ### `backend/app/api/analytics.py`
 
-````python
+```python
 from flask import Blueprint, jsonify
 
 from app.core.auth import require_firebase_user
@@ -578,11 +578,11 @@ def analytics_overview(business_id):
     return jsonify(
         {"analytics": get_business_analytics(get_firestore_client(), business_id)},
     )
-````
+```
 
 ### `backend/app/api/businesses.py`
 
-````python
+```python
 from flask import Blueprint, g, jsonify
 
 from app.core.auth import require_firebase_user
@@ -606,11 +606,11 @@ def create_business():
     )
 
     return jsonify({"business": business}), 201 if was_created else 200
-````
+```
 
 ### `backend/app/api/categories.py`
 
-````python
+```python
 from flask import Blueprint, jsonify
 
 from app.core.auth import require_firebase_user
@@ -675,11 +675,11 @@ def remove_category(business_id, category_id):
         {"status": "archived"},
     )
     return jsonify({"category": category})
-````
+```
 
 ### `backend/app/api/couriers.py`
 
-````python
+```python
 from flask import Blueprint, jsonify, request
 
 from app.core.auth import require_firebase_user
@@ -761,11 +761,11 @@ def recommend_for_order(business_id):
         payload.get("district"),
     )
     return jsonify({"recommendations": recommendations})
-````
+```
 
 ### `backend/app/api/customers.py`
 
-````python
+```python
 from flask import Blueprint, jsonify, request
 
 from app.core.auth import require_firebase_user
@@ -827,11 +827,11 @@ def edit_customer(business_id, customer_id):
         get_json_object(),
     )
     return jsonify({"customer": customer})
-````
+```
 
 ### `backend/app/api/health.py`
 
-````python
+```python
 from flask import Blueprint, jsonify
 
 
@@ -842,11 +842,11 @@ health_blueprint = Blueprint("health", __name__, url_prefix="/api/v1")
 def health_check():
     """Public liveness endpoint used by local development and hosting."""
     return jsonify({"status": "ok", "service": "vendly-api"})
-````
+```
 
 ### `backend/app/api/me.py`
 
-````python
+```python
 from flask import Blueprint, g, jsonify
 
 from app.core.auth import require_firebase_user
@@ -914,11 +914,11 @@ def get_current_user():
             "membership": membership,
         },
     )
-````
+```
 
 ### `backend/app/api/members.py`
 
-````python
+```python
 from flask import Blueprint, g, jsonify
 
 from app.core.auth import require_firebase_user
@@ -964,11 +964,11 @@ def edit_member(business_id, member_uid):
         get_json_object(),
     )
     return jsonify({"member": member})
-````
+```
 
 ### `backend/app/api/operations.py`
 
-````python
+```python
 from datetime import datetime, timezone
 
 from flask import Blueprint, g, jsonify, request, send_file
@@ -1082,11 +1082,11 @@ def read_notification(business_id, notification_id):
         notification_id,
     )
     return jsonify({"notification": notification})
-````
+```
 
 ### `backend/app/api/orders.py`
 
-````python
+```python
 from flask import Blueprint, g, jsonify, request
 
 from app.core.auth import require_firebase_user
@@ -1181,11 +1181,11 @@ def remove_order(business_id, order_id):
         {"status": "cancelled", "note": "Removed by seller"},
     )
     return jsonify({"order": order})
-````
+```
 
 ### `backend/app/api/products.py`
 
-````python
+```python
 from flask import Blueprint, current_app, g, jsonify, request
 
 from app.core.auth import require_firebase_user
@@ -1340,11 +1340,11 @@ def add_variant_image(business_id, product_id, variant_id):
         cloudinary_config={"cloud_name": current_app.config.get("CLOUDINARY_CLOUD_NAME"), "api_key": current_app.config.get("CLOUDINARY_API_KEY"), "api_secret": current_app.config.get("CLOUDINARY_API_SECRET")},
     )
     return jsonify({"product": product}), 201
-````
+```
 
 ### `backend/app/api/public.py`
 
-````python
+```python
 from flask import Blueprint, g, jsonify, request
 
 from app.core.auth import optional_firebase_user, require_firebase_user
@@ -1459,11 +1459,11 @@ def customer_chats(store_code):
     return jsonify(
         {"chats": list_customer_chats(get_firestore_client(), store_code, g.current_user["uid"])}
     )
-````
+```
 
 ### `backend/app/api/reviews.py`
 
-````python
+```python
 from flask import Blueprint, g, jsonify, request
 
 from app.core.auth import require_firebase_user
@@ -1531,11 +1531,11 @@ def update_review(business_id, review_id):
         get_json_object(),
     )
     return jsonify({"review": review})
-````
+```
 
 ### `backend/app/api/search.py`
 
-````python
+```python
 from flask import Blueprint, jsonify, request
 
 from app.core.auth import require_firebase_user
@@ -1560,17 +1560,17 @@ def search_business(business_id):
             ),
         },
     )
-````
+```
 
 ### `backend/app/core/__init__.py`
 
-````python
+```python
 """Configuration, authentication, and Firebase infrastructure."""
-````
+```
 
 ### `backend/app/core/auth.py`
 
-````python
+```python
 from functools import wraps
 
 from firebase_admin import auth as firebase_auth
@@ -1667,11 +1667,11 @@ def optional_firebase_user(view_function):
         return view_function(*args, **kwargs)
 
     return wrapped_view
-````
+```
 
 ### `backend/app/core/authorization.py`
 
-````python
+```python
 from functools import wraps
 
 from flask import g
@@ -1759,11 +1759,11 @@ def require_business_member(*allowed_roles, permission=None):
         return wrapped_view
 
     return decorator
-````
+```
 
 ### `backend/app/core/config.py`
 
-````python
+```python
 import os
 from dataclasses import dataclass
 
@@ -1837,11 +1837,11 @@ class Settings:
                 or "memory://"
             ),
         )
-````
+```
 
 ### `backend/app/core/errors.py`
 
-````python
+```python
 class ApiError(Exception):
     """An expected API error that can be safely returned to the client."""
 
@@ -1865,11 +1865,11 @@ def api_error_payload(error):
         payload["error"]["details"] = error.details
 
     return payload
-````
+```
 
 ### `backend/app/core/firebase.py`
 
-````python
+```python
 from pathlib import Path
 
 import firebase_admin
@@ -1908,11 +1908,11 @@ def initialize_firebase(settings):
 def get_firestore_client():
     """Return the Firestore Admin client for repository and service code."""
     return firestore.client()
-````
+```
 
 ### `backend/app/core/rate_limit.py`
 
-````python
+```python
 import hashlib
 
 from flask import request
@@ -1932,11 +1932,11 @@ def public_chat_key():
 
 
 limiter = Limiter(key_func=get_remote_address)
-````
+```
 
 ### `backend/app/core/requests.py`
 
-````python
+```python
 from flask import request
 
 from app.core.errors import ApiError
@@ -1957,11 +1957,11 @@ def get_json_object():
         )
 
     return payload
-````
+```
 
 ### `backend/app/core/serialization.py`
 
-````python
+```python
 from datetime import date, datetime
 
 
@@ -1984,17 +1984,17 @@ def serialize_snapshot(snapshot):
         "id": snapshot.id,
         **serialize_value(snapshot.to_dict()),
     }
-````
+```
 
 ### `backend/app/services/__init__.py`
 
-````python
+```python
 """Application services that implement Vendly business workflows."""
-````
+```
 
 ### `backend/app/services/ai_service.py`
 
-````python
+```python
 import json
 
 import httpx
@@ -2143,11 +2143,11 @@ def generate_product_description(product_details):
         return None
 
     return None
-````
+```
 
 ### `backend/app/services/analytics_service.py`
 
-````python
+```python
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 
@@ -2343,11 +2343,11 @@ def get_business_analytics(database, business_id):
             not notification.get("isRead") for notification in notifications
         ),
     )
-````
+```
 
 ### `backend/app/services/business_service.py`
 
-````python
+```python
 import secrets
 import string
 
@@ -2470,11 +2470,11 @@ def create_or_get_business(database, firebase_user, payload):
     create_in_transaction(transaction)
 
     return serialize_snapshot(business_reference.get()), True
-````
+```
 
 ### `backend/app/services/category_service.py`
 
-````python
+```python
 from firebase_admin import firestore
 from google.cloud.firestore_v1.base_query import FieldFilter
 
@@ -2596,11 +2596,11 @@ def update_category(database, business_id, category_id, payload):
     category_reference.update(changes)
 
     return serialize_snapshot(category_reference.get())
-````
+```
 
 ### `backend/app/services/courier_service.py`
 
-````python
+```python
 from decimal import Decimal, ROUND_CEILING
 
 from firebase_admin import firestore
@@ -2833,11 +2833,11 @@ def recommend_couriers(database, business_id, total_weight_grams, district):
         )
 
     return sorted(recommendations, key=lambda item: item["score"], reverse=True)
-````
+```
 
 ### `backend/app/services/customer_service.py`
 
-````python
+```python
 import re
 
 from firebase_admin import firestore
@@ -3052,11 +3052,11 @@ def update_customer(database, business_id, customer_id, payload):
 
     customer_reference.update(changes)
     return get_customer(database, business_id, customer_id)
-````
+```
 
 ### `backend/app/services/media_service.py`
 
-````python
+```python
 import hashlib
 import time
 from pathlib import Path
@@ -3277,11 +3277,11 @@ def upload_variant_image(database, business_id, product_id, variant_id, upload, 
     summaries = [{**summary, "imageUrl": media["url"]} if summary.get("id") == variant_id else summary for summary in product.get("variantSummaries", [])]
     database.collection("businesses").document(business_id).collection("products").document(product_id).update({"variantSummaries": summaries, "updatedAt": firestore.SERVER_TIMESTAMP})
     return get_product(database, business_id, product_id)
-````
+```
 
 ### `backend/app/services/member_service.py`
 
-````python
+```python
 from firebase_admin import auth, firestore
 
 from app.core.errors import ApiError
@@ -3467,11 +3467,11 @@ def update_member(database, business_id, member_uid, payload):
         for member in list_members(database, business_id)
         if member["id"] == member_uid
     )
-````
+```
 
 ### `backend/app/services/numbers.py`
 
-````python
+```python
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 
@@ -3534,11 +3534,11 @@ def integer_value(value, field_name):
         raise ValueError(f"{field_name} must be a whole number.")
 
     return number
-````
+```
 
 ### `backend/app/services/operations_service.py`
 
-````python
+```python
 from io import BytesIO
 
 from firebase_admin import firestore
@@ -3923,11 +3923,11 @@ def mark_notification_read(database, business_id, notification_id):
 
     reference.update({"isRead": True, "readAt": firestore.SERVER_TIMESTAMP})
     return serialize_snapshot(reference.get())
-````
+```
 
 ### `backend/app/services/order_service.py`
 
-````python
+```python
 from collections import defaultdict
 from datetime import datetime, timezone
 
@@ -4938,11 +4938,11 @@ def update_order(database, business_id, order_id, uid, payload):
             merge=True,
         )
     return get_order(database, business_id, order_id)
-````
+```
 
 ### `backend/app/services/product_service.py`
 
-````python
+```python
 from firebase_admin import firestore
 from google.cloud import firestore as google_firestore
 from google.cloud.firestore_v1.base_query import FieldFilter
@@ -5723,11 +5723,11 @@ def adjust_variant_stock(
 
     adjust_in_transaction(transaction)
     return get_product(database, business_id, product_id)
-````
+```
 
 ### `backend/app/services/public_catalog_service.py`
 
-````python
+```python
 from app.core.errors import ApiError
 from app.services.product_service import get_product, list_products
 
@@ -5842,11 +5842,11 @@ def get_public_product(database, short_code):
         "business": public_business(business_snapshot),
         "product": public_product(product),
     }
-````
+```
 
 ### `backend/app/services/public_chat_service.py`
 
-````python
+```python
 import hashlib
 import hmac
 import re
@@ -6119,6 +6119,22 @@ def parse_delivery_address(message):
         "district": parts[-1],
         "postalCode": "",
     }
+
+
+def is_optional_phone_skip(message):
+    """Return True when the customer intentionally has no second number."""
+    return str(message).strip().lower() in {
+        "skip", "no", "none", "n/a", "na", "no second number",
+        "i don't have one", "i do not have one", "continue",
+    }
+
+
+def parse_required_location(message, field_name):
+    """Validate a single free-text location field collected by the chatbot."""
+    value = str(message).strip()
+    if len(value) < 2 or not any(character.isalpha() for character in value):
+        raise ValueError(f"Please enter a valid {field_name}.")
+    return required_text(value, field_name, 120)
 
 
 def token_hash(token):
@@ -6395,21 +6411,67 @@ def answer_public_message(database, session_id, provided_token, payload):
 
         customer_draft["phoneNumber"] = message.strip()
         return respond(
-            "Please send the street address, nearest city and district separated "
-            "by commas. Example: No. 45 Park Road, Dehiwala, Colombo.",
+            "Do you have a second phone number? Send it, or type 'skip' if you "
+            "only have one number.",
+            "collect-secondary-phone",
+            next_state="collecting-secondary-phone",
+        )
+
+    if current_state == "collecting-secondary-phone":
+        if is_optional_phone_skip(message):
+            customer_draft["secondaryPhoneNumber"] = ""
+        else:
+            try:
+                normalize_sri_lankan_phone(message)
+            except ValueError as error:
+                return respond(
+                    f"{error} Send a valid second number, or type 'skip' to continue with one number.",
+                    "collect-secondary-phone",
+                    next_state="collecting-secondary-phone",
+                )
+            customer_draft["secondaryPhoneNumber"] = message.strip()
+        return respond(
+            "Please send your street address (for example: No. 45 Park Road).",
             "collect-address",
             next_state="collecting-address",
         )
 
     if current_state == "collecting-address":
         try:
-            customer_draft["address"] = parse_delivery_address(message)
+            address_line = required_text(message.strip(), "Street address", 200)
         except ValueError as error:
             return respond(
                 str(error),
                 "collect-address",
                 next_state="collecting-address",
             )
+
+        customer_draft["address"] = {
+            "line1": address_line, "line2": "", "city": "",
+            "district": "", "postalCode": "",
+        }
+        return respond("Which district should we deliver to?", "collect-district", next_state="collecting-district")
+
+    if current_state == "collecting-district":
+        try:
+            customer_draft["address"]["district"] = parse_required_location(message, "district")
+        except ValueError as error:
+            return respond(str(error), "collect-district", next_state="collecting-district")
+        return respond("What is the nearest city?", "collect-nearest-city", next_state="collecting-nearest-city")
+
+    if current_state == "collecting-nearest-city":
+        try:
+            customer_draft["address"]["city"] = parse_required_location(message, "nearest city")
+        except ValueError as error:
+            return respond(str(error), "collect-nearest-city", next_state="collecting-nearest-city")
+        return respond(
+            "Do you have any extra delivery note? Type it, or type 'skip' if there is no note.",
+            "collect-delivery-note",
+            next_state="collecting-delivery-note",
+        )
+
+    if current_state == "collecting-delivery-note":
+        customer_draft["deliveryNote"] = "" if is_optional_phone_skip(message) else message.strip()
 
         item_text = ", ".join(
             f"{item['quantity']} Ã— {item['productName']}"
@@ -6419,10 +6481,13 @@ def answer_public_message(database, session_id, provided_token, payload):
         address = customer_draft["address"]
         response_message = (
             f"Please confirm your order: {item_text}. Customer: "
-            f"{customer_draft['name']}, {customer_draft['phoneNumber']}. Delivery: "
+            f"{customer_draft['name']}, {customer_draft['phoneNumber']}"
+            + (f" / {customer_draft['secondaryPhoneNumber']}" if customer_draft.get("secondaryPhoneNumber") else "")
+            + ". Delivery: "
             f"{address['line1']}, {address['city']}, {address['district']}. "
-            "The delivery fee will be calculated from the district and total weight. "
-            "Reply 'confirm order' to submit, or 'change order' to edit the details."
+            + (f"Note: {customer_draft['deliveryNote']}. " if customer_draft.get("deliveryNote") else "")
+            + "The delivery fee will be calculated from the district and total weight. "
+            + "Reply 'confirm order' to submit, or 'change order' to edit the details."
         )
         return respond(
             response_message,
@@ -6449,6 +6514,7 @@ def answer_public_message(database, session_id, provided_token, payload):
                     "customer": {
                         "name": customer_draft.get("name"),
                         "phoneNumber": customer_draft.get("phoneNumber"),
+                        "secondaryPhoneNumber": customer_draft.get("secondaryPhoneNumber", ""),
                         "email": customer_draft.get("email", ""),
                         "address": customer_draft.get("address"),
                     },
@@ -6753,11 +6819,11 @@ def create_public_chat_order(database, session_id, provided_token, payload):
         },
     )
     return public_order_confirmation(order)
-````
+```
 
 ### `backend/app/services/review_service.py`
 
-````python
+```python
 from firebase_admin import firestore
 from google.cloud import firestore as google_firestore
 from google.cloud.firestore_v1.base_query import FieldFilter
@@ -6977,11 +7043,11 @@ def moderate_review(database, business_id, review_id, uid, payload):
 
     update_in_transaction(transaction)
     return serialize_snapshot(review_reference.get())
-````
+```
 
 ### `backend/app/services/search_service.py`
 
-````python
+```python
 from app.services.customer_service import list_customers
 from app.services.order_service import list_orders
 from app.services.product_service import list_products
@@ -7084,11 +7150,11 @@ def global_search(database, business_id, query):
         list_customers(database, business_id),
         query,
     )
-````
+```
 
 ### `backend/app/services/text.py`
 
-````python
+```python
 import re
 import unicodedata
 
@@ -7120,11 +7186,11 @@ def slugify(value):
     normalized = unicodedata.normalize("NFKD", value)
     ascii_text = normalized.encode("ascii", "ignore").decode("ascii")
     return re.sub(r"[^a-z0-9]+", "-", ascii_text.lower()).strip("-")
-````
+```
 
 ### `backend/tests/test_ai_prompt.py`
 
-````python
+```python
 from app.services.ai_service import product_prompt
 
 
@@ -7142,11 +7208,11 @@ def test_product_prompt_contains_guardrails_and_seller_facts():
     assert "IP67 water resistance" in prompt
     assert "Never invent features" in prompt
     assert "Is it waterproof?" in prompt
-````
+```
 
 ### `backend/tests/test_analytics.py`
 
-````python
+```python
 from datetime import datetime, timezone
 
 from app.services.analytics_service import calculate_analytics, recent_months
@@ -7194,11 +7260,11 @@ def test_analytics_uses_only_delivered_orders_for_revenue_and_profit():
 def test_recent_months_crosses_year_boundary():
     months = recent_months(datetime(2026, 2, 1, tzinfo=timezone.utc), count=4)
     assert months == ["2025-11", "2025-12", "2026-01", "2026-02"]
-````
+```
 
 ### `backend/tests/test_auth.py`
 
-````python
+```python
 from unittest.mock import patch
 
 from app import create_app
@@ -7227,11 +7293,11 @@ def test_password_account_must_verify_email(verify_id_token):
 
     assert response.status_code == 403
     assert response.get_json()["error"]["code"] == "email_not_verified"
-````
+```
 
 ### `backend/tests/test_customer_validation.py`
 
-````python
+```python
 import pytest
 
 from app.services.customer_service import (
@@ -7260,11 +7326,11 @@ def test_invalid_phone_is_rejected():
 def test_address_requires_district_and_city():
     with pytest.raises(ValueError, match="City is required"):
         validate_address({"line1": "45 Park Road", "district": "Colombo"})
-````
+```
 
 ### `backend/tests/test_delivery.py`
 
-````python
+```python
 from app.services.courier_service import (
     calculate_delivery_fee,
     courier_recommendation_score,
@@ -7301,11 +7367,11 @@ def test_more_branch_issues_reduce_recommendation_score():
     issue_score = courier_recommendation_score(courier, 45000, "Kandy")
 
     assert issue_score < normal_score
-````
+```
 
 ### `backend/tests/test_health.py`
 
-````python
+```python
 from app import create_app
 
 
@@ -7320,11 +7386,11 @@ def test_health_endpoint():
         "status": "ok",
         "service": "vendly-api",
     }
-````
+```
 
 ### `backend/tests/test_media.py`
 
-````python
+```python
 from io import BytesIO
 
 import pytest
@@ -7364,11 +7430,11 @@ def test_download_url_encodes_storage_path():
     url = firebase_download_url("bucket", "businesses/one/image 1.png", "token")
 
     assert "businesses%2Fone%2Fimage%201.png" in url
-````
+```
 
 ### `backend/tests/test_members.py`
 
-````python
+```python
 import pytest
 
 from app.core.errors import ApiError
@@ -7400,11 +7466,11 @@ def test_role_wildcard_grants_resource_permission():
 
 def test_owner_always_has_permission():
     assert membership_has_permission({"role": "owner", "permissions": ["*"]}, "staff:manage")
-````
+```
 
 ### `backend/tests/test_numbers.py`
 
-````python
+```python
 import pytest
 
 from app.services.numbers import (
@@ -7430,11 +7496,11 @@ def test_stock_rejects_fractional_values():
 
 def test_stock_adjustment_allows_negative_whole_numbers():
     assert integer_value("-3", "Quantity change") == -3
-````
+```
 
 ### `backend/tests/test_operations.py`
 
-````python
+```python
 import pytest
 from openpyxl import load_workbook
 
@@ -7482,11 +7548,11 @@ def test_order_export_creates_real_excel_workbook():
     assert sheet["A2"].value == "VD-000001"
     assert sheet["C2"].value == "Kamal"
     assert sheet["K2"].value == 2450
-````
+```
 
 ### `backend/tests/test_order_status.py`
 
-````python
+```python
 from app.services.order_service import STATUS_TRANSITIONS, returned_customer_risk
 
 
@@ -7505,11 +7571,11 @@ def test_returned_customer_risk_increases_after_three_returns():
     assert returned_customer_risk(1) == ("medium", "returned-order")
     assert returned_customer_risk(2) == ("medium", "returned-order")
     assert returned_customer_risk(3) == ("high", "high-return-rate")
-````
+```
 
 ### `backend/tests/test_order_validation.py`
 
-````python
+```python
 import pytest
 
 from app.core.errors import ApiError
@@ -7576,11 +7642,11 @@ def test_order_filters_apply_date_courier_and_waybill_search():
         courier_id="courier-one",
         search="vwb-123",
     ) == [orders[0]]
-````
+```
 
 ### `backend/tests/test_product_validation.py`
 
-````python
+```python
 import pytest
 
 from app.core.errors import ApiError
@@ -7640,11 +7706,11 @@ def test_product_without_sizes_requires_one_stock_row():
         validate_product(payload)
 
     assert error.value.code == "validation_error"
-````
+```
 
 ### `backend/tests/test_public_catalog.py`
 
-````python
+```python
 from app.services.public_catalog_service import public_product
 from app.services.public_chat_service import (
     find_category_request,
@@ -7777,11 +7843,11 @@ def test_chat_delivery_address_requires_street_city_and_district():
     assert address["line1"] == "No. 45 Park Road"
     assert address["city"] == "Dehiwala"
     assert address["district"] == "Colombo"
-````
+```
 
 ### `backend/tests/test_reviews.py`
 
-````python
+```python
 import pytest
 
 from app.core.errors import ApiError
@@ -7812,11 +7878,11 @@ def test_review_normalizes_phone_and_order_number():
 
     assert review["orderNumber"] == "VD-000001"
     assert review["normalizedPhone"] == "94771234567"
-````
+```
 
 ### `backend/tests/test_search.py`
 
-````python
+```python
 from app.services.search_service import search_records
 
 
@@ -7853,11 +7919,11 @@ def test_global_search_waits_for_two_characters():
         "products": [],
         "customers": [],
     }
-````
+```
 
 ### `backend/tests/test_text.py`
 
-````python
+```python
 import pytest
 
 from app.services.text import optional_text, required_text, slugify
@@ -7878,11 +7944,11 @@ def test_optional_text_allows_blank_value():
 
 def test_slugify_creates_url_safe_slug():
     assert slugify("Smart Watches & Wearables") == "smart-watches-wearables"
-````
+```
 
 ### `frontend/src/App.css`
 
-````css
+```css
 /* Main application shell containing the sidebar and routed content. */
 .app {
   display: flex;
@@ -7923,7 +7989,7 @@ def test_slugify_creates_url_safe_slug():
 /* Shared page introduction and section heading spacing. */
 .dashboard__intro {
   margin-bottom: 10px;
-  padding: 0px
+  padding: 0px;
 }
 
 .dashboard__intro h2 {
@@ -7950,11 +8016,11 @@ def test_slugify_creates_url_safe_slug():
   background: var(--color-background);
   font-weight: 700;
 }
-````
+```
 
 ### `frontend/src/App.jsx`
 
-````jsx
+```jsx
 // React state and effect hooks manage the sidebar and colour theme.
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
@@ -7993,16 +8059,16 @@ function getInitialTheme() {
   return "light";
 }
 
-function App() {  
+function App() {
   // Application-wide UI state shared by the sidebar and header.
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [theme, setTheme] = useState(getInitialTheme);
 
   // Apply the selected theme to the HTML element and remember the choice.
   useEffect(() => {
-  document.documentElement.dataset.theme = theme;
-  localStorage.setItem("vendly-theme", theme);
-}, [theme]);
+    document.documentElement.dataset.theme = theme;
+    localStorage.setItem("vendly-theme", theme);
+  }, [theme]);
 
   // Expand or collapse the left sidebar.
   function toggleSidebar() {
@@ -8011,179 +8077,202 @@ function App() {
 
   // Change between the light and dark themes.
   function toggleTheme() {
-  setTheme((currentTheme) => {
-    if (currentTheme === "light") {
-      return "dark";
-    }
+    setTheme((currentTheme) => {
+      if (currentTheme === "light") {
+        return "dark";
+      }
 
-    return "light";
-  });
-}
+      return "light";
+    });
+  }
 
   return (
-  <Suspense fallback={<main className="app-loading">Loading Vendly...</main>}>
-  <Routes>
-    {/* Login remains publicly accessible. */}
-    <Route
-      path="/login"
-      element={<LoginPage />}
-    />
+    <Suspense fallback={<main className="app-loading">Loading Vendly...</main>}>
+      <Routes>
+        {/* Login remains publicly accessible. */}
+        <Route path="/login" element={<LoginPage />} />
 
-    <Route
-      path="/s/:storeCode"
-      element={<StorefrontPage linkType="store" />}
-    />
+        <Route
+          path="/s/:storeCode"
+          element={<StorefrontPage linkType="store" />}
+        />
 
-    <Route
-      path="/p/:productCode"
-      element={<StorefrontPage linkType="product" />}
-    />
+        <Route
+          path="/p/:productCode"
+          element={<StorefrontPage linkType="product" />}
+        />
 
-    {/* Google users enter their business name after their first login. */}
-    <Route
-      path="/setup-business"
-      element={
-        <ProtectedRoute requireSellerProfile={false}>
-          <BusinessSetupPage />
-        </ProtectedRoute>
-      }
-    />
+        {/* Google users enter their business name after their first login. */}
+        <Route
+          path="/setup-business"
+          element={
+            <ProtectedRoute requireSellerProfile={false}>
+              <BusinessSetupPage />
+            </ProtectedRoute>
+          }
+        />
 
-    {/* Every dashboard route requires authentication. */}
-    <Route
-      path="/*"
-      element={
-        <ProtectedRoute>
-          <div className="app">
-            <Sidebar
-              isCollapsed={isSidebarCollapsed}
-              onToggleSidebar={toggleSidebar}
-            />
-
-            <div className="app__content">
-              <Routes>
-                <Route
-                  path="/"
-                  element={
-                    <>
-                      <Header
-                        title="Overview"
-                        theme={theme}
-                        onToggleTheme={toggleTheme}
-                      />
-
-                      <OverviewPage />
-                    </>
-                  }
+        {/* Every dashboard route requires authentication. */}
+        <Route
+          path="/*"
+          element={
+            <ProtectedRoute>
+              <div className="app">
+                <Sidebar
+                  isCollapsed={isSidebarCollapsed}
+                  onToggleSidebar={toggleSidebar}
                 />
 
-                <Route
-                  path="/orders"
-                  element={
-                    <ProtectedRoute permission="orders:read">
-                      <Header
-                        title="Orders"
-                        theme={theme}
-                        onToggleTheme={toggleTheme}
-                      />
+                <div className="app__content">
+                  <Routes>
+                    <Route
+                      path="/"
+                      element={
+                        <>
+                          <Header
+                            title="Overview"
+                            theme={theme}
+                            onToggleTheme={toggleTheme}
+                          />
 
-                      <OrdersPage />
-                    </ProtectedRoute>
-                  }
-                />
+                          <OverviewPage />
+                        </>
+                      }
+                    />
 
-                <Route
-                  path="/inventory"
-                  element={
-                    <ProtectedRoute permission="inventory:read">
-                      <Header
-                        title="Inventory"
-                        theme={theme}
-                        onToggleTheme={toggleTheme}
-                      />
+                    <Route
+                      path="/orders"
+                      element={
+                        <ProtectedRoute permission="orders:read">
+                          <Header
+                            title="Orders"
+                            theme={theme}
+                            onToggleTheme={toggleTheme}
+                          />
 
-                      <InventoryPage />
-                    </ProtectedRoute>
-                  }
-                />
+                          <OrdersPage />
+                        </ProtectedRoute>
+                      }
+                    />
 
-                <Route
-                  path="/couriers"
-                  element={
-                    <ProtectedRoute permission="couriers:read">
-                      <Header
-                        title="Couriers"
-                        theme={theme}
-                        onToggleTheme={toggleTheme}
-                      />
+                    <Route
+                      path="/inventory"
+                      element={
+                        <ProtectedRoute permission="inventory:read">
+                          <Header
+                            title="Inventory"
+                            theme={theme}
+                            onToggleTheme={toggleTheme}
+                          />
 
-                      <CouriersPage />
-                    </ProtectedRoute>
-                  }
-                />
+                          <InventoryPage />
+                        </ProtectedRoute>
+                      }
+                    />
 
-                <Route
-                  path="/customers"
-                  element={
-                    <ProtectedRoute permission="customers:read">
-                      <Header
-                        title="Customers"
-                        theme={theme}
-                        onToggleTheme={toggleTheme}
-                      />
+                    <Route
+                      path="/couriers"
+                      element={
+                        <ProtectedRoute permission="couriers:read">
+                          <Header
+                            title="Couriers"
+                            theme={theme}
+                            onToggleTheme={toggleTheme}
+                          />
 
-                      <CustomersPage />
-                    </ProtectedRoute>
-                  }
-                />
+                          <CouriersPage />
+                        </ProtectedRoute>
+                      }
+                    />
 
-                <Route
-                  path="/analytics"
-                  element={
-                    <ProtectedRoute permission="analytics:read">
-                      <Header
-                        title="Analytics"
-                        theme={theme}
-                        onToggleTheme={toggleTheme}
-                      />
+                    <Route
+                      path="/customers"
+                      element={
+                        <ProtectedRoute permission="customers:read">
+                          <Header
+                            title="Customers"
+                            theme={theme}
+                            onToggleTheme={toggleTheme}
+                          />
 
-                      <AnalyticsPage />
-                    </ProtectedRoute>
-                  }
-                />
+                          <CustomersPage />
+                        </ProtectedRoute>
+                      }
+                    />
 
-                {/* Unknown dashboard links return to Overview. */}
-                <Route
-                  path="*"
-                  element={<Navigate to="/" replace />}
-                />
-              </Routes>
-            </div>
-          </div>
-        </ProtectedRoute>
-      }
-    />
-  </Routes>
-  </Suspense>
-);
+                    <Route
+                      path="/analytics"
+                      element={
+                        <ProtectedRoute permission="analytics:read">
+                          <Header
+                            title="Analytics"
+                            theme={theme}
+                            onToggleTheme={toggleTheme}
+                          />
+
+                          <AnalyticsPage />
+                        </ProtectedRoute>
+                      }
+                    />
+
+                    {/* Unknown dashboard links return to Overview. */}
+                    <Route path="*" element={<Navigate to="/" replace />} />
+                  </Routes>
+                </div>
+              </div>
+            </ProtectedRoute>
+          }
+        />
+      </Routes>
+    </Suspense>
+  );
 }
 
 export default App;
-````
+```
 
 ### `frontend/src/components/ActionMenu.css`
 
-````css
-.action-menu { position: relative; display: inline-flex; }
-.action-menu__list { position: fixed; z-index: 1000; min-width: 170px; padding: 6px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface); box-shadow: 0 14px 30px rgba(0, 30, 60, .18); }
-.action-menu__item { display: flex; align-items: center; gap: 8px; width: 100%; border: 0; border-radius: 7px; padding: 9px 10px; background: transparent; color: var(--color-text); text-align: left; cursor: pointer; font-size: .86rem; }
-.action-menu__item:hover { background: var(--color-surface-muted); }
-.action-menu__item--danger { color: #dc2626; }
-````
+```css
+.action-menu {
+  position: relative;
+  display: inline-flex;
+}
+.action-menu__list {
+  position: fixed;
+  z-index: 1000;
+  min-width: 170px;
+  padding: 6px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface);
+  box-shadow: 0 14px 30px rgba(0, 30, 60, 0.18);
+}
+.action-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  border: 0;
+  border-radius: 7px;
+  padding: 9px 10px;
+  background: transparent;
+  color: var(--color-text);
+  text-align: left;
+  cursor: pointer;
+  font-size: 0.86rem;
+}
+.action-menu__item:hover {
+  background: var(--color-surface-muted);
+}
+.action-menu__item--danger {
+  color: #dc2626;
+}
+```
 
 ### `frontend/src/components/ActionMenu.jsx`
 
-````jsx
+```jsx
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { MoreVertical } from "lucide-react";
@@ -8214,7 +8303,8 @@ function ActionMenu({ label = "More actions", items = [] }) {
       if (
         !buttonReference.current?.contains(event.target) &&
         !menuReference.current?.contains(event.target)
-      ) setIsOpen(false);
+      )
+        setIsOpen(false);
     }
 
     function closeMenu() {
@@ -8233,30 +8323,57 @@ function ActionMenu({ label = "More actions", items = [] }) {
 
   return (
     <div className="action-menu">
-      <button ref={buttonReference} className="orders-table__more-button" type="button" aria-label={label} aria-expanded={isOpen} onClick={openMenu}>
+      <button
+        ref={buttonReference}
+        className="orders-table__more-button"
+        type="button"
+        aria-label={label}
+        aria-expanded={isOpen}
+        onClick={openMenu}
+      >
         <MoreVertical size={19} aria-hidden="true" />
       </button>
-      {isOpen && createPortal(
-        <div ref={menuReference} className="action-menu__list" style={position} role="menu">
-          {items.map((item) => (
-            <button key={item.label} type="button" className={item.danger ? "action-menu__item action-menu__item--danger" : "action-menu__item"} onClick={() => { setIsOpen(false); item.onClick?.(); }} role="menuitem" disabled={item.disabled}>
-              {item.icon}
-              {item.label}
-            </button>
-          ))}
-        </div>,
-        document.body,
-      )}
+      {isOpen &&
+        createPortal(
+          <div
+            ref={menuReference}
+            className="action-menu__list"
+            style={position}
+            role="menu"
+          >
+            {items.map((item) => (
+              <button
+                key={item.label}
+                type="button"
+                className={
+                  item.danger
+                    ? "action-menu__item action-menu__item--danger"
+                    : "action-menu__item"
+                }
+                onClick={() => {
+                  setIsOpen(false);
+                  item.onClick?.();
+                }}
+                role="menuitem"
+                disabled={item.disabled}
+              >
+                {item.icon}
+                {item.label}
+              </button>
+            ))}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
 
 export default ActionMenu;
-````
+```
 
 ### `frontend/src/components/AddCategoryModal.jsx`
 
-````jsx
+```jsx
 import { useEffect, useState } from "react";
 
 import { createCategory, updateCategory } from "../services/categoryService";
@@ -8264,7 +8381,14 @@ import ModalShell from "./ModalShell";
 
 import "./InventoryForm.css";
 
-function AddCategoryModal({ isOpen, businessId, category = null, onClose, onCreated, onUpdated }) {
+function AddCategoryModal({
+  isOpen,
+  businessId,
+  category = null,
+  onClose,
+  onCreated,
+  onUpdated,
+}) {
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -8275,7 +8399,15 @@ function AddCategoryModal({ isOpen, businessId, category = null, onClose, onCrea
 
   useEffect(() => {
     if (isOpen) {
-      setFormData(category ? { name: category.name ?? "", description: category.description ?? "", sortOrder: String(category.sortOrder ?? 0) } : { name: "", description: "", sortOrder: "0" });
+      setFormData(
+        category
+          ? {
+              name: category.name ?? "",
+              description: category.description ?? "",
+              sortOrder: String(category.sortOrder ?? 0),
+            }
+          : { name: "", description: "", sortOrder: "0" },
+      );
       setErrorMessage("");
     }
   }, [isOpen, category]);
@@ -8291,13 +8423,15 @@ function AddCategoryModal({ isOpen, businessId, category = null, onClose, onCrea
     setIsSaving(true);
 
     try {
-      const response = category ? await updateCategory(businessId, category.id, {
-        ...formData,
-        sortOrder: Number(formData.sortOrder),
-      }) : await createCategory(businessId, {
-        ...formData,
-        sortOrder: Number(formData.sortOrder),
-      });
+      const response = category
+        ? await updateCategory(businessId, category.id, {
+            ...formData,
+            sortOrder: Number(formData.sortOrder),
+          })
+        : await createCategory(businessId, {
+            ...formData,
+            sortOrder: Number(formData.sortOrder),
+          });
       if (category) onUpdated?.(response.category);
       else onCreated?.(response.category);
       onClose();
@@ -8353,12 +8487,24 @@ function AddCategoryModal({ isOpen, businessId, category = null, onClose, onCrea
           />
         </label>
 
-        {errorMessage && <p className="inventory-form__error">{errorMessage}</p>}
+        {errorMessage && (
+          <p className="inventory-form__error">{errorMessage}</p>
+        )}
 
         <footer className="inventory-form__footer">
-          <button type="button" onClick={onClose}>Cancel</button>
-          <button className="inventory-form__primary" type="submit" disabled={isSaving}>
-            {isSaving ? "Saving..." : category ? "Save changes" : "Add Category"}
+          <button type="button" onClick={onClose}>
+            Cancel
+          </button>
+          <button
+            className="inventory-form__primary"
+            type="submit"
+            disabled={isSaving}
+          >
+            {isSaving
+              ? "Saving..."
+              : category
+                ? "Save changes"
+                : "Add Category"}
           </button>
         </footer>
       </form>
@@ -8367,11 +8513,11 @@ function AddCategoryModal({ isOpen, businessId, category = null, onClose, onCrea
 }
 
 export default AddCategoryModal;
-````
+```
 
 ### `frontend/src/components/AddCourierModal.jsx`
 
-````jsx
+```jsx
 import { useEffect, useState } from "react";
 
 import { createCourier } from "../services/courierService";
@@ -8444,28 +8590,141 @@ function AddCourierModal({ isOpen, businessId, onClose, onCreated }) {
     >
       <form className="inventory-form" onSubmit={handleSubmit}>
         <div className="inventory-form__two-columns">
-          <label>Courier name<input name="name" value={formData.name} onChange={updateField} required /></label>
-          <label>Courier code<input name="code" value={formData.code} onChange={updateField} placeholder="KMB" required /></label>
+          <label>
+            Courier name
+            <input
+              name="name"
+              value={formData.name}
+              onChange={updateField}
+              required
+            />
+          </label>
+          <label>
+            Courier code
+            <input
+              name="code"
+              value={formData.code}
+              onChange={updateField}
+              placeholder="KMB"
+              required
+            />
+          </label>
         </div>
         <div className="inventory-form__two-columns">
-          <label>First 1 kg price (LKR)<input name="firstKgPrice" type="number" min="0.01" step="0.01" value={formData.firstKgPrice} onChange={updateField} required /></label>
-          <label>Each extra 1 kg (LKR)<input name="extraKgPrice" type="number" min="0" step="0.01" value={formData.extraKgPrice} onChange={updateField} required /></label>
+          <label>
+            First 1 kg price (LKR)
+            <input
+              name="firstKgPrice"
+              type="number"
+              min="0.01"
+              step="0.01"
+              value={formData.firstKgPrice}
+              onChange={updateField}
+              required
+            />
+          </label>
+          <label>
+            Each extra 1 kg (LKR)
+            <input
+              name="extraKgPrice"
+              type="number"
+              min="0"
+              step="0.01"
+              value={formData.extraKgPrice}
+              onChange={updateField}
+              required
+            />
+          </label>
         </div>
-        <label>Average delivery days<input name="averageDeliveryDays" type="number" min="0" step="1" value={formData.averageDeliveryDays} onChange={updateField} required /></label>
-        <label>Tracking URL template (optional)<input name="trackingUrlTemplate" value={formData.trackingUrlTemplate} onChange={updateField} placeholder="https://courier.lk/track/{waybill}" /></label>
+        <label>
+          Average delivery days
+          <input
+            name="averageDeliveryDays"
+            type="number"
+            min="0"
+            step="1"
+            value={formData.averageDeliveryDays}
+            onChange={updateField}
+            required
+          />
+        </label>
+        <label>
+          Tracking URL template (optional)
+          <input
+            name="trackingUrlTemplate"
+            value={formData.trackingUrlTemplate}
+            onChange={updateField}
+            placeholder="https://courier.lk/track/{waybill}"
+          />
+        </label>
         <div className="inventory-form__two-columns">
-          <label>Waybill prefix<input name="waybillPrefix" value={formData.waybillPrefix} onChange={updateField} placeholder="VWB" /></label>
-          <label>Waybill range<input name="waybillStart" type="number" min="1" value={formData.waybillStart} onChange={updateField} placeholder="Start" /></label>
+          <label>
+            Waybill prefix
+            <input
+              name="waybillPrefix"
+              value={formData.waybillPrefix}
+              onChange={updateField}
+              placeholder="VWB"
+            />
+          </label>
+          <label>
+            Waybill range
+            <input
+              name="waybillStart"
+              type="number"
+              min="1"
+              value={formData.waybillStart}
+              onChange={updateField}
+              placeholder="Start"
+            />
+          </label>
         </div>
-        <label>Waybill range end<input name="waybillEnd" type="number" min="1" value={formData.waybillEnd} onChange={updateField} /></label>
+        <label>
+          Waybill range end
+          <input
+            name="waybillEnd"
+            type="number"
+            min="1"
+            value={formData.waybillEnd}
+            onChange={updateField}
+          />
+        </label>
         <div className="inventory-form__two-columns">
-          <label>District surcharge (optional)<input name="surchargeDistrict" value={formData.surchargeDistrict} onChange={updateField} placeholder="Jaffna" /></label>
-          <label>Surcharge amount (LKR)<input name="surchargeAmount" type="number" min="0" step="0.01" value={formData.surchargeAmount} onChange={updateField} /></label>
+          <label>
+            District surcharge (optional)
+            <input
+              name="surchargeDistrict"
+              value={formData.surchargeDistrict}
+              onChange={updateField}
+              placeholder="Jaffna"
+            />
+          </label>
+          <label>
+            Surcharge amount (LKR)
+            <input
+              name="surchargeAmount"
+              type="number"
+              min="0"
+              step="0.01"
+              value={formData.surchargeAmount}
+              onChange={updateField}
+            />
+          </label>
         </div>
-        {errorMessage && <p className="inventory-form__error">{errorMessage}</p>}
+        {errorMessage && (
+          <p className="inventory-form__error">{errorMessage}</p>
+        )}
         <footer className="inventory-form__footer">
-          <button type="button" onClick={onClose}>Cancel</button>
-          <button className="inventory-form__primary" type="submit" disabled={isSaving}>{isSaving ? "Saving..." : "Add Courier"}</button>
+          <button type="button" onClick={onClose}>
+            Cancel
+          </button>
+          <button
+            className="inventory-form__primary"
+            type="submit"
+            disabled={isSaving}
+          >
+            {isSaving ? "Saving..." : "Add Courier"}
+          </button>
         </footer>
       </form>
     </ModalShell>
@@ -8473,11 +8732,11 @@ function AddCourierModal({ isOpen, businessId, onClose, onCreated }) {
 }
 
 export default AddCourierModal;
-````
+```
 
 ### `frontend/src/components/AddOrderModal.css`
 
-````css
+```css
 .add-order {
   gap: 12px;
 }
@@ -8677,7 +8936,10 @@ export default AddCourierModal;
   background: var(--color-surface);
   cursor: pointer;
   text-align: left;
-  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
 }
 
 .add-order__product-card:hover:not(:disabled) {
@@ -8810,7 +9072,10 @@ export default AddCourierModal;
 .add-order__items-head,
 .add-order__item {
   display: grid;
-  grid-template-columns: minmax(190px, 1.5fr) 0.48fr 0.75fr 0.38fr 0.7fr 0.75fr 34px;
+  grid-template-columns: minmax(
+      190px,
+      1.5fr
+    ) 0.48fr 0.75fr 0.38fr 0.7fr 0.75fr 34px;
   align-items: center;
   gap: 8px;
   min-width: 760px;
@@ -9012,104 +9277,477 @@ export default AddCourierModal;
 }
 
 /* Two-stage Add Order dialog based on the approved reference. */
-.modal-shell:has(.order-dialog) { width: min(1150px, calc(100vw - 32px)); max-height: calc(100vh - 28px); border-radius: 10px; }
-.modal-shell:has(.order-dialog) .modal-shell__header { padding: 17px 24px; background: #fafbfc; }
-.modal-shell:has(.order-dialog) .modal-shell__header h2 { font-size: 1.1rem; }
-.modal-shell:has(.order-dialog) .modal-shell__header p { display: none; }
-.modal-shell:has(.order-dialog) .modal-shell__content { padding: 0; }
-.order-dialog { display: grid; grid-template-columns: 1fr 1fr; color: #344054; font-size: 12px; }
-.order-dialog > section { min-width: 0; padding: 24px; }
-.order-dialog__customer { border-right: 1px solid #d9e0e8; }
-.order-dialog__customer > header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; }
+.modal-shell:has(.order-dialog) {
+  width: min(1150px, calc(100vw - 32px));
+  max-height: calc(100vh - 28px);
+  border-radius: 10px;
+}
+.modal-shell:has(.order-dialog) .modal-shell__header {
+  padding: 17px 24px;
+  background: #fafbfc;
+}
+.modal-shell:has(.order-dialog) .modal-shell__header h2 {
+  font-size: 1.1rem;
+}
+.modal-shell:has(.order-dialog) .modal-shell__header p {
+  display: none;
+}
+.modal-shell:has(.order-dialog) .modal-shell__content {
+  padding: 0;
+}
+.order-dialog {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  color: #344054;
+  font-size: 12px;
+}
+.order-dialog > section {
+  min-width: 0;
+  padding: 24px;
+}
+.order-dialog__customer {
+  border-right: 1px solid #d9e0e8;
+}
+.order-dialog__customer > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 15px;
+}
 .order-dialog__customer > header > strong,
-.order-dialog__items > strong { letter-spacing: .06em; }
-.order-dialog__customer > header button { display: inline-flex; align-items: center; gap: 4px; padding: 7px 11px; border: 1px solid #9bd5fa; border-radius: 5px; color: #087abc; background: #eef8ff; cursor: pointer; }
-.order-dialog label { display: grid; gap: 5px; font-weight: 500; }
-.order-dialog em { color: #ef4444; font-style: normal; }
+.order-dialog__items > strong {
+  letter-spacing: 0.06em;
+}
+.order-dialog__customer > header button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 7px 11px;
+  border: 1px solid #9bd5fa;
+  border-radius: 5px;
+  color: #087abc;
+  background: #eef8ff;
+  cursor: pointer;
+}
+.order-dialog label {
+  display: grid;
+  gap: 5px;
+  font-weight: 500;
+}
+.order-dialog em {
+  color: #ef4444;
+  font-style: normal;
+}
 .order-dialog input,
 .order-dialog select,
-.order-dialog textarea { width: 100%; min-width: 0; min-height: 38px; padding: 8px 11px; border: 1px solid #cbd6e4; border-radius: 6px; color: #344054; background: #fff; font: inherit; outline: none; }
+.order-dialog textarea {
+  width: 100%;
+  min-width: 0;
+  min-height: 38px;
+  padding: 8px 11px;
+  border: 1px solid #cbd6e4;
+  border-radius: 6px;
+  color: #344054;
+  background: #fff;
+  font: inherit;
+  outline: none;
+}
 .order-dialog input:focus,
 .order-dialog select:focus,
-.order-dialog textarea:focus { border-color: #21a9e8; box-shadow: 0 0 0 2px rgba(33,169,232,.1); }
-.order-dialog__search { position: relative; display: flex !important; align-items: center; }
-.order-dialog__search svg { position: absolute; left: 11px; z-index: 1; color: #8da0b8; }
+.order-dialog textarea:focus {
+  border-color: #21a9e8;
+  box-shadow: 0 0 0 2px rgba(33, 169, 232, 0.1);
+}
+.order-dialog__search {
+  position: relative;
+  display: flex !important;
+  align-items: center;
+}
+.order-dialog__search svg {
+  position: absolute;
+  left: 11px;
+  z-index: 1;
+  color: #8da0b8;
+}
 .order-dialog__search input,
-.order-dialog__search select { padding-left: 39px; }
-.order-dialog__customer-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 24px; padding: 24px 0 26px; border-top: 1px solid #e7ebf0; border-bottom: 1px solid #e7ebf0; }
-.order-dialog__wide { grid-column: 1 / -1; }
-.order-dialog__wide textarea { min-height: 78px; resize: vertical; }
-.order-dialog__details { display: grid; grid-template-columns: 1fr; gap: 14px; padding-top: 28px; }
-.order-dialog__details label { grid-template-columns: 70px 1fr; align-items: center; }
-.order-dialog__filters { display: grid; grid-template-columns: 1fr 145px; gap: 12px; margin: 14px 0; }
-.order-dialog__results { display: flex; gap: 8px; min-height: 160px; padding: 12px; overflow-x: auto; border: 1px dashed #cbd6e4; border-radius: 7px; background: #fbfcfe; }
-.order-dialog__results > p { margin: auto; color: #8da0b8; line-height: 1.45; text-align: center; }
-.order-dialog__results > button { display: grid; grid-template-columns: 42px 115px; align-items: center; gap: 8px; flex: 0 0 auto; height: 66px; padding: 8px; border: 1px solid #dbe2ea; border-radius: 6px; color: #344054; background: #fff; text-align: left; cursor: pointer; }
-.order-dialog__results > button.is-selected { border-color: #21a9e8; box-shadow: 0 0 0 1px #21a9e8; }
-.order-dialog__results img { width: 42px; height: 42px; border-radius: 5px; object-fit: cover; }
-.order-dialog__results button span { display: grid; gap: 4px; min-width: 0; }
-.order-dialog__results button strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
-.order-dialog__results button small { color: #168451; }
-.order-dialog__picker { display: grid; grid-template-columns: 1fr 100px 60px; gap: 12px; margin-top: 15px; padding: 12px; border: 1px solid #dbe2ea; border-radius: 7px; box-shadow: 0 2px 5px rgba(23,43,77,.05); }
-.order-dialog__picker > button { border: 0; border-radius: 5px; color: #fff; background: #1d2939; cursor: pointer; }
-.order-dialog__quantity { display: grid; grid-template-columns: 28px 1fr 28px; align-items: center; min-height: 36px; border: 1px solid #d5dee9; border-radius: 6px; background: #fff; }
-.order-dialog__quantity button { display: grid; place-items: center; padding: 0; border: 0; color: #8da0b8; background: transparent; cursor: pointer; }
-.order-dialog__quantity b { text-align: center; }
-.order-dialog__items hr { margin: 25px 0; border: 0; border-top: 1px solid #e1e6ec; }
-.order-dialog__table { margin-top: 14px; overflow: hidden; border: 1px solid #dbe2ea; border-radius: 7px; }
+.order-dialog__search select {
+  padding-left: 39px;
+}
+.order-dialog__customer-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-top: 24px;
+  padding: 24px 0 26px;
+  border-top: 1px solid #e7ebf0;
+  border-bottom: 1px solid #e7ebf0;
+}
+.order-dialog__wide {
+  grid-column: 1 / -1;
+}
+.order-dialog__wide textarea {
+  min-height: 78px;
+  resize: vertical;
+}
+.order-dialog__details {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+  padding-top: 28px;
+}
+.order-dialog__details label {
+  grid-template-columns: 70px 1fr;
+  align-items: center;
+}
+.order-dialog__filters {
+  display: grid;
+  grid-template-columns: 1fr 145px;
+  gap: 12px;
+  margin: 14px 0;
+}
+.order-dialog__results {
+  display: flex;
+  gap: 8px;
+  min-height: 160px;
+  padding: 12px;
+  overflow-x: auto;
+  border: 1px dashed #cbd6e4;
+  border-radius: 7px;
+  background: #fbfcfe;
+}
+.order-dialog__results > p {
+  margin: auto;
+  color: #8da0b8;
+  line-height: 1.45;
+  text-align: center;
+}
+.order-dialog__results > button {
+  display: grid;
+  grid-template-columns: 42px 115px;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  height: 66px;
+  padding: 8px;
+  border: 1px solid #dbe2ea;
+  border-radius: 6px;
+  color: #344054;
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+}
+.order-dialog__results > button.is-selected {
+  border-color: #21a9e8;
+  box-shadow: 0 0 0 1px #21a9e8;
+}
+.order-dialog__results img {
+  width: 42px;
+  height: 42px;
+  border-radius: 5px;
+  object-fit: cover;
+}
+.order-dialog__results button span {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.order-dialog__results button strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+}
+.order-dialog__results button small {
+  color: #168451;
+}
+.order-dialog__picker {
+  display: grid;
+  grid-template-columns: 1fr 100px 60px;
+  gap: 12px;
+  margin-top: 15px;
+  padding: 12px;
+  border: 1px solid #dbe2ea;
+  border-radius: 7px;
+  box-shadow: 0 2px 5px rgba(23, 43, 77, 0.05);
+}
+.order-dialog__picker > button {
+  border: 0;
+  border-radius: 5px;
+  color: #fff;
+  background: #1d2939;
+  cursor: pointer;
+}
+.order-dialog__quantity {
+  display: grid;
+  grid-template-columns: 28px 1fr 28px;
+  align-items: center;
+  min-height: 36px;
+  border: 1px solid #d5dee9;
+  border-radius: 6px;
+  background: #fff;
+}
+.order-dialog__quantity button {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  color: #8da0b8;
+  background: transparent;
+  cursor: pointer;
+}
+.order-dialog__quantity b {
+  text-align: center;
+}
+.order-dialog__items hr {
+  margin: 25px 0;
+  border: 0;
+  border-top: 1px solid #e1e6ec;
+}
+.order-dialog__table {
+  margin-top: 14px;
+  overflow: hidden;
+  border: 1px solid #dbe2ea;
+  border-radius: 7px;
+}
 .order-dialog__table-head,
-.order-dialog__table-row { display: grid; grid-template-columns: minmax(0,1fr) 100px 110px 28px; align-items: center; gap: 10px; padding: 10px 14px; }
-.order-dialog__table-head { color: #65758b; background: #f6f8fa; font-size: 10px; letter-spacing: .06em; }
-.order-dialog__table-row { border-top: 1px solid #e3e8ef; }
-.order-dialog__table-row > div { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.order-dialog__table-row img { width: 38px; height: 38px; border-radius: 5px; object-fit: cover; }
-.order-dialog__table-row div span { display: grid; gap: 3px; min-width: 0; }
-.order-dialog__table-row div strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.order-dialog__table-row small { color: #718096; }
-.order-dialog__table-row > button { border: 0; color: #ef4444; background: transparent; cursor: pointer; }
-.order-dialog__subtotal { display: flex; justify-content: space-between; margin-top: 18px; }
-.order-dialog__error { grid-column: 1 / -1; margin: 0 24px 10px; padding: 9px 12px; border: 1px solid #fecaca; border-radius: 6px; color: #b91c1c; background: #fff1f2; }
-.order-dialog__footer { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 10px; padding: 13px 24px; border-top: 1px solid #dbe2ea; background: #fafbfc; }
+.order-dialog__table-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 100px 110px 28px;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+}
+.order-dialog__table-head {
+  color: #65758b;
+  background: #f6f8fa;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+}
+.order-dialog__table-row {
+  border-top: 1px solid #e3e8ef;
+}
+.order-dialog__table-row > div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.order-dialog__table-row img {
+  width: 38px;
+  height: 38px;
+  border-radius: 5px;
+  object-fit: cover;
+}
+.order-dialog__table-row div span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.order-dialog__table-row div strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.order-dialog__table-row small {
+  color: #718096;
+}
+.order-dialog__table-row > button {
+  border: 0;
+  color: #ef4444;
+  background: transparent;
+  cursor: pointer;
+}
+.order-dialog__subtotal {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 18px;
+}
+.order-dialog__error {
+  grid-column: 1 / -1;
+  margin: 0 24px 10px;
+  padding: 9px 12px;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  color: #b91c1c;
+  background: #fff1f2;
+}
+.order-dialog__footer {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 13px 24px;
+  border-top: 1px solid #dbe2ea;
+  background: #fafbfc;
+}
 .order-dialog__footer button,
-.order-summary footer button { min-height: 38px; padding: 0 18px; border: 1px solid #d1dae5; border-radius: 6px; background: #fff; cursor: pointer; }
+.order-summary footer button {
+  min-height: 38px;
+  padding: 0 18px;
+  border: 1px solid #d1dae5;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+}
 .order-dialog__footer .order-dialog__checkout,
-.order-summary footer button:last-child { border-color: #0ea5e9; color: #fff; background: #0ea5e9; }
-.order-dialog__loading { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 420px; color: #718096; }
+.order-summary footer button:last-child {
+  border-color: #0ea5e9;
+  color: #fff;
+  background: #0ea5e9;
+}
+.order-dialog__loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 420px;
+  color: #718096;
+}
 
-.order-summary__backdrop { position: fixed; inset: 0; z-index: 1200; display: grid; place-items: center; padding: 20px; background: rgba(25,35,49,.48); backdrop-filter: blur(1px); }
-.order-summary { width: min(448px, 100%); overflow: hidden; border-radius: 11px; color: #1d2939; background: #fff; box-shadow: 0 28px 70px rgba(16,24,40,.3); animation: modal-panel-in 190ms cubic-bezier(.22,1,.36,1); }
-.order-summary > header { display: flex; align-items: center; justify-content: space-between; padding: 18px 24px; border-bottom: 1px solid #dbe2ea; }
-.order-summary h2 { margin: 0; font-size: 1.12rem; }
-.order-summary header button { border: 0; color: #94a3b8; background: transparent; cursor: pointer; }
-.order-summary__body { display: grid; gap: 19px; padding: 25px 24px; }
+.order-summary__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(25, 35, 49, 0.48);
+  backdrop-filter: blur(1px);
+}
+.order-summary {
+  width: min(448px, 100%);
+  overflow: hidden;
+  border-radius: 11px;
+  color: #1d2939;
+  background: #fff;
+  box-shadow: 0 28px 70px rgba(16, 24, 40, 0.3);
+  animation: modal-panel-in 190ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.order-summary > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 24px;
+  border-bottom: 1px solid #dbe2ea;
+}
+.order-summary h2 {
+  margin: 0;
+  font-size: 1.12rem;
+}
+.order-summary header button {
+  border: 0;
+  color: #94a3b8;
+  background: transparent;
+  cursor: pointer;
+}
+.order-summary__body {
+  display: grid;
+  gap: 19px;
+  padding: 25px 24px;
+}
 .order-summary__body > div,
-.order-summary__body > label:not(.order-summary__courier) { display: flex; align-items: center; justify-content: space-between; }
-.order-summary__discount { display: grid; grid-template-columns: 20px 90px; align-items: center; }
-.order-summary__discount input { width: 90px; height: 38px; border: 1px solid #d5dee9; border-radius: 6px; text-align: right; }
-.order-summary__total { padding-top: 18px; border-top: 1px solid #dbe2ea; font-size: 1rem; }
-.order-summary__total strong:last-child { color: #0ea5e9; font-size: 1.13rem; }
-.order-summary fieldset { display: grid; align-content: start; gap: 15px; min-height: 250px; padding: 34px 16px 16px; border: 1px solid #d5dee9; border-radius: 7px; background: #fbfcfe; }
-.order-summary legend { padding: 0 8px; font-weight: 700; }
-.order-summary fieldset > label { display: flex; align-items: center; gap: 10px; min-height: 46px; padding: 0 12px; border: 1px solid #dbe2ea; border-radius: 6px; background: #fff; }
-.order-summary fieldset input[type="radio"] { width: 17px; height: 17px; accent-color: #0ea5e9; }
-.order-summary fieldset .order-summary__deposit { display: grid; grid-template-columns: 1fr 120px; }
+.order-summary__body > label:not(.order-summary__courier) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.order-summary__discount {
+  display: grid;
+  grid-template-columns: 20px 90px;
+  align-items: center;
+}
+.order-summary__discount input {
+  width: 90px;
+  height: 38px;
+  border: 1px solid #d5dee9;
+  border-radius: 6px;
+  text-align: right;
+}
+.order-summary__total {
+  padding-top: 18px;
+  border-top: 1px solid #dbe2ea;
+  font-size: 1rem;
+}
+.order-summary__total strong:last-child {
+  color: #0ea5e9;
+  font-size: 1.13rem;
+}
+.order-summary fieldset {
+  display: grid;
+  align-content: start;
+  gap: 15px;
+  min-height: 250px;
+  padding: 34px 16px 16px;
+  border: 1px solid #d5dee9;
+  border-radius: 7px;
+  background: #fbfcfe;
+}
+.order-summary legend {
+  padding: 0 8px;
+  font-weight: 700;
+}
+.order-summary fieldset > label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 46px;
+  padding: 0 12px;
+  border: 1px solid #dbe2ea;
+  border-radius: 6px;
+  background: #fff;
+}
+.order-summary fieldset input[type="radio"] {
+  width: 17px;
+  height: 17px;
+  accent-color: #0ea5e9;
+}
+.order-summary fieldset .order-summary__deposit {
+  display: grid;
+  grid-template-columns: 1fr 120px;
+}
 .order-summary__deposit input,
-.order-summary__courier select { min-height: 36px; border: 1px solid #d5dee9; border-radius: 6px; padding: 7px 9px; }
-.order-summary__courier { display: grid; gap: 6px; }
-.order-summary footer { display: flex; justify-content: flex-end; gap: 12px; padding: 16px 24px; border-top: 1px solid #dbe2ea; background: #fafbfc; }
+.order-summary__courier select {
+  min-height: 36px;
+  border: 1px solid #d5dee9;
+  border-radius: 6px;
+  padding: 7px 9px;
+}
+.order-summary__courier {
+  display: grid;
+  gap: 6px;
+}
+.order-summary footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 24px;
+  border-top: 1px solid #dbe2ea;
+  background: #fafbfc;
+}
 
 @media (max-width: 800px) {
-  .order-dialog { grid-template-columns: 1fr; }
-  .order-dialog__customer { border-right: 0; border-bottom: 1px solid #d9e0e8; }
-  .order-dialog__customer-fields { grid-template-columns: 1fr; }
-  .order-dialog__wide { grid-column: auto; }
-  .order-dialog__picker { grid-template-columns: 1fr 100px 60px; }
+  .order-dialog {
+    grid-template-columns: 1fr;
+  }
+  .order-dialog__customer {
+    border-right: 0;
+    border-bottom: 1px solid #d9e0e8;
+  }
+  .order-dialog__customer-fields {
+    grid-template-columns: 1fr;
+  }
+  .order-dialog__wide {
+    grid-column: auto;
+  }
+  .order-dialog__picker {
+    grid-template-columns: 1fr 100px 60px;
+  }
 }
-````
+```
 
 ### `frontend/src/components/AddOrderModal.jsx`
 
-````jsx
+```jsx
 import { useEffect, useMemo, useState } from "react";
 import { Minus, Package, Plus, Search, Trash2, X } from "lucide-react";
 
@@ -9121,8 +9759,20 @@ import ModalShell from "./ModalShell";
 import OrderReceipt from "./OrderReceipt";
 import "./AddOrderModal.css";
 
-const emptyAddress = { line1: "", line2: "", city: "", district: "", postalCode: "" };
-const emptyCustomer = { name: "", phoneNumber: "", secondaryPhoneNumber: "", email: "", address: { ...emptyAddress } };
+const emptyAddress = {
+  line1: "",
+  line2: "",
+  city: "",
+  district: "",
+  postalCode: "",
+};
+const emptyCustomer = {
+  name: "",
+  phoneNumber: "",
+  secondaryPhoneNumber: "",
+  email: "",
+  address: { ...emptyAddress },
+};
 
 function money(amount) {
   return `LKR ${Number(amount || 0).toLocaleString("en-LK", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -9156,57 +9806,125 @@ function AddOrderModal({ isOpen, businessId, business, onClose, onCreated }) {
     if (!isOpen || !businessId) return undefined;
     let current = true;
     setIsLoading(true);
-    setCustomerId(""); setCustomer(emptyCustomer); setItems([]); setSearch("");
-    setCategoryId(""); setSelectedProductId(""); setSelectedVariantId("");
-    setSource("dashboard"); setPrivateNote(""); setCourierId("");
-    setDiscountAmount("0"); setPaymentMethod("cod"); setDepositAmount("0");
-    setIsCheckoutOpen(false); setReceiptOrder(null); setErrorMessage("");
+    setCustomerId("");
+    setCustomer(emptyCustomer);
+    setItems([]);
+    setSearch("");
+    setCategoryId("");
+    setSelectedProductId("");
+    setSelectedVariantId("");
+    setSource("dashboard");
+    setPrivateNote("");
+    setCourierId("");
+    setDiscountAmount("0");
+    setPaymentMethod("cod");
+    setDepositAmount("0");
+    setIsCheckoutOpen(false);
+    setReceiptOrder(null);
+    setErrorMessage("");
 
-    Promise.all([getCustomers(businessId), getProducts(businessId), getCouriers(businessId)])
+    Promise.all([
+      getCustomers(businessId),
+      getProducts(businessId),
+      getCouriers(businessId),
+    ])
       .then(([customerRows, productRows, courierRows]) => {
         if (!current) return;
         setCustomers(customerRows);
         setProducts(productRows);
-        const activeCouriers = courierRows.filter((courier) => courier.status === "active");
+        const activeCouriers = courierRows.filter(
+          (courier) => courier.status === "active",
+        );
         setCouriers(activeCouriers);
         setCourierId(activeCouriers[0]?.id || "");
       })
       .catch((error) => current && setErrorMessage(error.message))
       .finally(() => current && setIsLoading(false));
-    return () => { current = false; };
+    return () => {
+      current = false;
+    };
   }, [businessId, isOpen]);
 
-  const variants = useMemo(() => products.flatMap((product) =>
-    (product.sizes || []).map((variant) => ({
-      ...variant,
-      productId: product.id,
-      productName: product.name,
-      colour: product.colourName || product.colour || "",
-      sellingPrice: variant.sellingPrice ?? product.sellingPrice,
-      weightKg: product.weightKg,
-      image: product.images?.[0] || "",
-    }))), [products]);
+  const variants = useMemo(
+    () =>
+      products.flatMap((product) =>
+        (product.sizes || []).map((variant) => ({
+          ...variant,
+          productId: product.id,
+          productName: product.name,
+          colour: product.colourName || product.colour || "",
+          sellingPrice: variant.sellingPrice ?? product.sellingPrice,
+          weightKg: product.weightKg,
+          image: product.images?.[0] || "",
+        })),
+      ),
+    [products],
+  );
 
-  const categories = useMemo(() => Array.from(new Map(products.filter((product) => product.categoryId)
-    .map((product) => [product.categoryId, product.categoryName || product.category]))), [products]);
+  const categories = useMemo(
+    () =>
+      Array.from(
+        new Map(
+          products
+            .filter((product) => product.categoryId)
+            .map((product) => [
+              product.categoryId,
+              product.categoryName || product.category,
+            ]),
+        ),
+      ),
+    [products],
+  );
   const matchingProducts = useMemo(() => {
     const query = search.trim().toLowerCase();
-    return products.filter((product) => !categoryId || product.categoryId === categoryId)
-      .filter((product) => !query || [product.name, product.sku, product.barcode, ...(product.sizes || []).flatMap((variant) => [variant.sku, variant.barcode])]
-        .some((value) => String(value || "").toLowerCase().includes(query))).slice(0, 5);
+    return products
+      .filter((product) => !categoryId || product.categoryId === categoryId)
+      .filter(
+        (product) =>
+          !query ||
+          [
+            product.name,
+            product.sku,
+            product.barcode,
+            ...(product.sizes || []).flatMap((variant) => [
+              variant.sku,
+              variant.barcode,
+            ]),
+          ].some((value) =>
+            String(value || "")
+              .toLowerCase()
+              .includes(query),
+          ),
+      )
+      .slice(0, 5);
   }, [products, search, categoryId]);
 
-  const selectedProduct = products.find((product) => product.id === selectedProductId);
-  const selectedVariant = variants.find((variant) => variant.id === selectedVariantId);
-  const subtotal = items.reduce((sum, item) => sum + item.sellingPrice * item.quantity, 0);
+  const selectedProduct = products.find(
+    (product) => product.id === selectedProductId,
+  );
+  const selectedVariant = variants.find(
+    (variant) => variant.id === selectedVariantId,
+  );
+  const subtotal = items.reduce(
+    (sum, item) => sum + item.sellingPrice * item.quantity,
+    0,
+  );
   const discount = Math.max(0, Number(discountAmount) || 0);
-  const totalWeightKg = items.reduce((sum, item) => sum + item.weightKg * item.quantity, 0);
-  const selectedCourier = couriers.find((courier) => courier.id === courierId) || couriers[0];
+  const totalWeightKg = items.reduce(
+    (sum, item) => sum + item.weightKg * item.quantity,
+    0,
+  );
+  const selectedCourier =
+    couriers.find((courier) => courier.id === courierId) || couriers[0];
   const extraKg = Math.max(0, Math.ceil(totalWeightKg) - 1);
-  const districtKey = customer.address.district.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-");
+  const districtKey = customer.address.district
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-");
   const deliveryFee = selectedCourier
-    ? (selectedCourier.firstKgPriceMinor || 0) / 100 + extraKg * (selectedCourier.extraKgPriceMinor || 0) / 100
-      + ((selectedCourier.districtSurchargesMinor || {})[districtKey] || 0) / 100
+    ? (selectedCourier.firstKgPriceMinor || 0) / 100 +
+      (extraKg * (selectedCourier.extraKgPriceMinor || 0)) / 100 +
+      ((selectedCourier.districtSurchargesMinor || {})[districtKey] || 0) / 100
     : 0;
   const estimatedTotal = Math.max(0, subtotal - discount + deliveryFee);
 
@@ -9218,7 +9936,10 @@ function AddOrderModal({ isOpen, businessId, business, onClose, onCreated }) {
     setCustomer({
       name: selected.name || "",
       phoneNumber: selected.phoneNumber || selected.normalizedPhone || "",
-      secondaryPhoneNumber: selected.secondaryPhoneNumber || selected.normalizedSecondaryPhone || "",
+      secondaryPhoneNumber:
+        selected.secondaryPhoneNumber ||
+        selected.normalizedSecondaryPhone ||
+        "",
       email: selected.email || "",
       address: { ...emptyAddress, ...(selected.defaultAddress || {}) },
     });
@@ -9233,39 +9954,84 @@ function AddOrderModal({ isOpen, businessId, business, onClose, onCreated }) {
     const { name, value } = event.target;
     if (name.startsWith("address.")) {
       const field = name.slice(8);
-      setCustomer((current) => ({ ...current, address: { ...current.address, [field]: value } }));
+      setCustomer((current) => ({
+        ...current,
+        address: { ...current.address, [field]: value },
+      }));
     } else setCustomer((current) => ({ ...current, [name]: value }));
   }
 
   function chooseProduct(product) {
-    const first = variants.find((variant) => variant.productId === product.id && variant.stock > 0);
+    const first = variants.find(
+      (variant) => variant.productId === product.id && variant.stock > 0,
+    );
     setSelectedProductId(product.id);
     setSelectedVariantId(first?.id || "");
     setQuantity(1);
   }
 
   function addItem() {
-    if (!selectedVariant) return setErrorMessage("Choose an available product variant.");
+    if (!selectedVariant)
+      return setErrorMessage("Choose an available product variant.");
     const amount = Math.max(1, Number(quantity) || 1);
-    const existing = items.find((item) => item.variantId === selectedVariant.id);
-    if ((existing?.quantity || 0) + amount > selectedVariant.stock) return setErrorMessage(`Only ${selectedVariant.stock} unit(s) are available.`);
-    setItems((current) => existing
-      ? current.map((item) => item.variantId === selectedVariant.id ? { ...item, quantity: item.quantity + amount } : item)
-      : [...current, { ...selectedVariant, variantId: selectedVariant.id, quantity: amount }]);
+    const existing = items.find(
+      (item) => item.variantId === selectedVariant.id,
+    );
+    if ((existing?.quantity || 0) + amount > selectedVariant.stock)
+      return setErrorMessage(
+        `Only ${selectedVariant.stock} unit(s) are available.`,
+      );
+    setItems((current) =>
+      existing
+        ? current.map((item) =>
+            item.variantId === selectedVariant.id
+              ? { ...item, quantity: item.quantity + amount }
+              : item,
+          )
+        : [
+            ...current,
+            {
+              ...selectedVariant,
+              variantId: selectedVariant.id,
+              quantity: amount,
+            },
+          ],
+    );
     setErrorMessage("");
   }
 
   function changeItemQuantity(variantId, amount) {
-    setItems((current) => current.map((item) => item.variantId === variantId
-      ? { ...item, quantity: Math.max(1, Math.min(item.stock, item.quantity + amount)) }
-      : item));
+    setItems((current) =>
+      current.map((item) =>
+        item.variantId === variantId
+          ? {
+              ...item,
+              quantity: Math.max(
+                1,
+                Math.min(item.stock, item.quantity + amount),
+              ),
+            }
+          : item,
+      ),
+    );
   }
 
   function openCheckout(event) {
     event.preventDefault();
-    if (!customer.name || !customer.phoneNumber || !customer.address.line1 || !customer.address.city || !customer.address.district) return setErrorMessage("Complete the required customer and delivery fields.");
-    if (!items.length) return setErrorMessage("Add at least one item to the order.");
-    if (!couriers.length) return setErrorMessage("Add an active courier before creating an order.");
+    if (
+      !customer.name ||
+      !customer.phoneNumber ||
+      !customer.address.line1 ||
+      !customer.address.city ||
+      !customer.address.district
+    )
+      return setErrorMessage(
+        "Complete the required customer and delivery fields.",
+      );
+    if (!items.length)
+      return setErrorMessage("Add at least one item to the order.");
+    if (!couriers.length)
+      return setErrorMessage("Add an active courier before creating an order.");
     setErrorMessage("");
     setIsCheckoutOpen(true);
   }
@@ -9282,7 +10048,10 @@ function AddOrderModal({ isOpen, businessId, business, onClose, onCreated }) {
       const order = await createOrder(businessId, {
         customerId: finalCustomerId,
         secondaryPhoneNumber: customer.secondaryPhoneNumber,
-        items: items.map((item) => ({ variantId: item.variantId, quantity: item.quantity })),
+        items: items.map((item) => ({
+          variantId: item.variantId,
+          quantity: item.quantity,
+        })),
         deliveryAddress: customer.address,
         courierId,
         paymentMethod,
@@ -9297,78 +10066,415 @@ function AddOrderModal({ isOpen, businessId, business, onClose, onCreated }) {
     } catch (error) {
       setErrorMessage(error.message);
       setIsCheckoutOpen(false);
-    } finally { setIsSaving(false); }
+    } finally {
+      setIsSaving(false);
+    }
   }
 
-  return <>
-    <ModalShell isOpen={isOpen && !isCheckoutOpen && !receiptOrder} title="Add Order" onClose={onClose} size="wide">
-      {isLoading ? <div className="order-dialog__loading"><Package /><span>Loading order data...</span></div> :
-        <form className="order-dialog" onSubmit={openCheckout}>
-          <section className="order-dialog__customer">
-            <header><strong>CUSTOMER DETAILS</strong><button type="button" onClick={startNewCustomer}><Plus size={14} /> New Customer</button></header>
-            <label className="order-dialog__search"><Search size={15} /><select value={customerId} onChange={chooseCustomer}><option value="">Search or choose customer...</option>{customers.map((row) => <option key={row.id} value={row.id}>{row.name} â€” {row.normalizedPhone}</option>)}</select></label>
-            <div className="order-dialog__customer-fields">
-              <label>Name <em>*</em><input name="name" value={customer.name} onChange={updateCustomer} required /></label>
-              <label>1st Phone No. <em>*</em><input name="phoneNumber" value={customer.phoneNumber} onChange={updateCustomer} required /></label>
-              <label>Email Address<input name="email" type="email" value={customer.email} onChange={updateCustomer} /></label>
-              <label>2nd Phone No.<input name="secondaryPhoneNumber" value={customer.secondaryPhoneNumber} onChange={updateCustomer} /></label>
-              <label className="order-dialog__wide">Address <em>*</em><textarea name="address.line1" value={customer.address.line1} onChange={updateCustomer} required /></label>
-              <label>City <em>*</em><input name="address.city" value={customer.address.city} onChange={updateCustomer} required /></label>
-              <label>District <em>*</em><input name="address.district" value={customer.address.district} onChange={updateCustomer} required /></label>
-            </div>
-            <div className="order-dialog__details">
-              <label>Source<select value={source} onChange={(event) => setSource(event.target.value)}><option value="dashboard">Select Source</option><option value="phone">Phone</option><option value="whatsapp">WhatsApp</option><option value="facebook">Facebook</option><option value="chatbot">Chatbot</option></select></label>
-              <label>Note<input value={privateNote} onChange={(event) => setPrivateNote(event.target.value)} placeholder="Add internal notes..." /></label>
-            </div>
-          </section>
+  return (
+    <>
+      <ModalShell
+        isOpen={isOpen && !isCheckoutOpen && !receiptOrder}
+        title="Add Order"
+        onClose={onClose}
+        size="wide"
+      >
+        {isLoading ? (
+          <div className="order-dialog__loading">
+            <Package />
+            <span>Loading order data...</span>
+          </div>
+        ) : (
+          <form className="order-dialog" onSubmit={openCheckout}>
+            <section className="order-dialog__customer">
+              <header>
+                <strong>CUSTOMER DETAILS</strong>
+                <button type="button" onClick={startNewCustomer}>
+                  <Plus size={14} /> New Customer
+                </button>
+              </header>
+              <label className="order-dialog__search">
+                <Search size={15} />
+                <select value={customerId} onChange={chooseCustomer}>
+                  <option value="">Search or choose customer...</option>
+                  {customers.map((row) => (
+                    <option key={row.id} value={row.id}>
+                      {row.name} â€” {row.normalizedPhone}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="order-dialog__customer-fields">
+                <label>
+                  Name <em>*</em>
+                  <input
+                    name="name"
+                    value={customer.name}
+                    onChange={updateCustomer}
+                    required
+                  />
+                </label>
+                <label>
+                  1st Phone No. <em>*</em>
+                  <input
+                    name="phoneNumber"
+                    value={customer.phoneNumber}
+                    onChange={updateCustomer}
+                    required
+                  />
+                </label>
+                <label>
+                  Email Address
+                  <input
+                    name="email"
+                    type="email"
+                    value={customer.email}
+                    onChange={updateCustomer}
+                  />
+                </label>
+                <label>
+                  2nd Phone No.
+                  <input
+                    name="secondaryPhoneNumber"
+                    value={customer.secondaryPhoneNumber}
+                    onChange={updateCustomer}
+                  />
+                </label>
+                <label className="order-dialog__wide">
+                  Address <em>*</em>
+                  <textarea
+                    name="address.line1"
+                    value={customer.address.line1}
+                    onChange={updateCustomer}
+                    required
+                  />
+                </label>
+                <label>
+                  City <em>*</em>
+                  <input
+                    name="address.city"
+                    value={customer.address.city}
+                    onChange={updateCustomer}
+                    required
+                  />
+                </label>
+                <label>
+                  District <em>*</em>
+                  <input
+                    name="address.district"
+                    value={customer.address.district}
+                    onChange={updateCustomer}
+                    required
+                  />
+                </label>
+              </div>
+              <div className="order-dialog__details">
+                <label>
+                  Source
+                  <select
+                    value={source}
+                    onChange={(event) => setSource(event.target.value)}
+                  >
+                    <option value="dashboard">Select Source</option>
+                    <option value="phone">Phone</option>
+                    <option value="whatsapp">WhatsApp</option>
+                    <option value="facebook">Facebook</option>
+                    <option value="chatbot">Chatbot</option>
+                  </select>
+                </label>
+                <label>
+                  Note
+                  <input
+                    value={privateNote}
+                    onChange={(event) => setPrivateNote(event.target.value)}
+                    placeholder="Add internal notes..."
+                  />
+                </label>
+              </div>
+            </section>
 
-          <section className="order-dialog__items">
-            <strong>ADD ITEM</strong>
-            <div className="order-dialog__filters"><label className="order-dialog__search"><Search size={15} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search product..." /></label><select value={categoryId} onChange={(event) => setCategoryId(event.target.value)}><option value="">Category</option>{categories.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></div>
-            <div className="order-dialog__results">
-              {!search && !categoryId ? <p>Search for a product above.<br />Matching items will show here.</p> : matchingProducts.map((product) => <button className={selectedProductId === product.id ? "is-selected" : ""} type="button" key={product.id} onClick={() => chooseProduct(product)}>{product.images?.[0] ? <img src={product.images[0]} alt="" /> : <Package size={20} />}<span><strong>{product.name}</strong><small>{product.stock} in stock</small></span></button>)}
-            </div>
-            <div className="order-dialog__picker"><select value={selectedVariantId} onChange={(event) => setSelectedVariantId(event.target.value)}><option value="">Variants (e.g., Size L, Red)</option>{(selectedProduct?.sizes || []).map((variant) => <option key={variant.id} value={variant.id} disabled={!variant.stock}>{variant.size || variant.sku} â€” {variant.stock} available</option>)}</select><Quantity value={quantity} onMinus={() => setQuantity(Math.max(1, quantity - 1))} onPlus={() => setQuantity(quantity + 1)} /><button type="button" onClick={addItem}>Add</button></div>
-            <hr />
-            <strong>ORDER ITEMS</strong>
-            <div className="order-dialog__table"><div className="order-dialog__table-head"><span>ITEM</span><span>QTY</span><span>PRICE</span><span /></div>{items.map((item) => <div className="order-dialog__table-row" key={item.variantId}><div>{item.image && <img src={item.image} alt="" />}<span><strong>{item.productName}</strong><small>{item.size ? `Variant: ${item.size}` : item.sku}</small></span></div><Quantity value={item.quantity} onMinus={() => changeItemQuantity(item.variantId, -1)} onPlus={() => changeItemQuantity(item.variantId, 1)} /><strong>{money(item.sellingPrice * item.quantity)}</strong><button type="button" onClick={() => setItems((current) => current.filter((row) => row.variantId !== item.variantId))}><Trash2 size={14} /></button></div>)}</div>
-            <div className="order-dialog__subtotal"><span>Items subtotal</span><strong>{money(subtotal)}</strong></div>
-          </section>
-          {errorMessage && <p className="order-dialog__error">{errorMessage}</p>}
-          <footer className="order-dialog__footer"><button type="button" onClick={onClose}>Cancel</button><button className="order-dialog__checkout" type="submit">Checkout</button></footer>
-        </form>}
-    </ModalShell>
+            <section className="order-dialog__items">
+              <strong>ADD ITEM</strong>
+              <div className="order-dialog__filters">
+                <label className="order-dialog__search">
+                  <Search size={15} />
+                  <input
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    placeholder="Search product..."
+                  />
+                </label>
+                <select
+                  value={categoryId}
+                  onChange={(event) => setCategoryId(event.target.value)}
+                >
+                  <option value="">Category</option>
+                  {categories.map(([id, name]) => (
+                    <option key={id} value={id}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="order-dialog__results">
+                {!search && !categoryId ? (
+                  <p>
+                    Search for a product above.
+                    <br />
+                    Matching items will show here.
+                  </p>
+                ) : (
+                  matchingProducts.map((product) => (
+                    <button
+                      className={
+                        selectedProductId === product.id ? "is-selected" : ""
+                      }
+                      type="button"
+                      key={product.id}
+                      onClick={() => chooseProduct(product)}
+                    >
+                      {product.images?.[0] ? (
+                        <img src={product.images[0]} alt="" />
+                      ) : (
+                        <Package size={20} />
+                      )}
+                      <span>
+                        <strong>{product.name}</strong>
+                        <small>{product.stock} in stock</small>
+                      </span>
+                    </button>
+                  ))
+                )}
+              </div>
+              <div className="order-dialog__picker">
+                <select
+                  value={selectedVariantId}
+                  onChange={(event) => setSelectedVariantId(event.target.value)}
+                >
+                  <option value="">Variants (e.g., Size L, Red)</option>
+                  {(selectedProduct?.sizes || []).map((variant) => (
+                    <option
+                      key={variant.id}
+                      value={variant.id}
+                      disabled={!variant.stock}
+                    >
+                      {variant.size || variant.sku} â€” {variant.stock}{" "}
+                      available
+                    </option>
+                  ))}
+                </select>
+                <Quantity
+                  value={quantity}
+                  onMinus={() => setQuantity(Math.max(1, quantity - 1))}
+                  onPlus={() => setQuantity(quantity + 1)}
+                />
+                <button type="button" onClick={addItem}>
+                  Add
+                </button>
+              </div>
+              <hr />
+              <strong>ORDER ITEMS</strong>
+              <div className="order-dialog__table">
+                <div className="order-dialog__table-head">
+                  <span>ITEM</span>
+                  <span>QTY</span>
+                  <span>PRICE</span>
+                  <span />
+                </div>
+                {items.map((item) => (
+                  <div className="order-dialog__table-row" key={item.variantId}>
+                    <div>
+                      {item.image && <img src={item.image} alt="" />}
+                      <span>
+                        <strong>{item.productName}</strong>
+                        <small>
+                          {item.size ? `Variant: ${item.size}` : item.sku}
+                        </small>
+                      </span>
+                    </div>
+                    <Quantity
+                      value={item.quantity}
+                      onMinus={() => changeItemQuantity(item.variantId, -1)}
+                      onPlus={() => changeItemQuantity(item.variantId, 1)}
+                    />
+                    <strong>{money(item.sellingPrice * item.quantity)}</strong>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setItems((current) =>
+                          current.filter(
+                            (row) => row.variantId !== item.variantId,
+                          ),
+                        )
+                      }
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div className="order-dialog__subtotal">
+                <span>Items subtotal</span>
+                <strong>{money(subtotal)}</strong>
+              </div>
+            </section>
+            {errorMessage && (
+              <p className="order-dialog__error">{errorMessage}</p>
+            )}
+            <footer className="order-dialog__footer">
+              <button type="button" onClick={onClose}>
+                Cancel
+              </button>
+              <button className="order-dialog__checkout" type="submit">
+                Checkout
+              </button>
+            </footer>
+          </form>
+        )}
+      </ModalShell>
 
-    {isOpen && isCheckoutOpen && <div className="order-summary__backdrop" role="presentation">
-      <section className="order-summary" role="dialog" aria-modal="true" aria-labelledby="order-summary-title">
-        <header><h2 id="order-summary-title">Order Summary</h2><button type="button" onClick={() => setIsCheckoutOpen(false)}><X size={20} /></button></header>
-        <div className="order-summary__body">
-          <div><span>Items subtotal</span><strong>{money(subtotal)}</strong></div>
-          <label><span>Discount</span><span className="order-summary__discount">âˆ’ <input type="number" min="0" max={subtotal} value={discountAmount} onChange={(event) => setDiscountAmount(event.target.value)} /></span></label>
-          <div><span>Delivery fee</span><strong>{money(deliveryFee)}</strong></div>
-          <div className="order-summary__total"><strong>Estimated Total</strong><strong>{money(estimatedTotal)}</strong></div>
-          <fieldset><legend>Payment</legend><label><input type="radio" name="payment" checked={paymentMethod === "cod"} onChange={() => setPaymentMethod("cod")} /> COD</label><label><input type="radio" name="payment" checked={paymentMethod === "deposit"} onChange={() => setPaymentMethod("deposit")} /> Deposit</label>{paymentMethod === "deposit" && <label className="order-summary__deposit">Deposit amount<input type="number" min="0" max={estimatedTotal} value={depositAmount} onChange={(event) => setDepositAmount(event.target.value)} /></label>}</fieldset>
-          <label className="order-summary__courier">Courier<select value={courierId} onChange={(event) => setCourierId(event.target.value)}>{couriers.map((courier) => <option key={courier.id} value={courier.id}>{courier.name}</option>)}</select></label>
+      {isOpen && isCheckoutOpen && (
+        <div className="order-summary__backdrop" role="presentation">
+          <section
+            className="order-summary"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="order-summary-title"
+          >
+            <header>
+              <h2 id="order-summary-title">Order Summary</h2>
+              <button type="button" onClick={() => setIsCheckoutOpen(false)}>
+                <X size={20} />
+              </button>
+            </header>
+            <div className="order-summary__body">
+              <div>
+                <span>Items subtotal</span>
+                <strong>{money(subtotal)}</strong>
+              </div>
+              <label>
+                <span>Discount</span>
+                <span className="order-summary__discount">
+                  âˆ’{" "}
+                  <input
+                    type="number"
+                    min="0"
+                    max={subtotal}
+                    value={discountAmount}
+                    onChange={(event) => setDiscountAmount(event.target.value)}
+                  />
+                </span>
+              </label>
+              <div>
+                <span>Delivery fee</span>
+                <strong>{money(deliveryFee)}</strong>
+              </div>
+              <div className="order-summary__total">
+                <strong>Estimated Total</strong>
+                <strong>{money(estimatedTotal)}</strong>
+              </div>
+              <fieldset>
+                <legend>Payment</legend>
+                <label>
+                  <input
+                    type="radio"
+                    name="payment"
+                    checked={paymentMethod === "cod"}
+                    onChange={() => setPaymentMethod("cod")}
+                  />{" "}
+                  COD
+                </label>
+                <label>
+                  <input
+                    type="radio"
+                    name="payment"
+                    checked={paymentMethod === "deposit"}
+                    onChange={() => setPaymentMethod("deposit")}
+                  />{" "}
+                  Deposit
+                </label>
+                {paymentMethod === "deposit" && (
+                  <label className="order-summary__deposit">
+                    Deposit amount
+                    <input
+                      type="number"
+                      min="0"
+                      max={estimatedTotal}
+                      value={depositAmount}
+                      onChange={(event) => setDepositAmount(event.target.value)}
+                    />
+                  </label>
+                )}
+              </fieldset>
+              <label className="order-summary__courier">
+                Courier
+                <select
+                  value={courierId}
+                  onChange={(event) => setCourierId(event.target.value)}
+                >
+                  {couriers.map((courier) => (
+                    <option key={courier.id} value={courier.id}>
+                      {courier.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <footer>
+              <button type="button" onClick={() => setIsCheckoutOpen(false)}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={createConfirmedOrder}
+                disabled={isSaving}
+              >
+                {isSaving ? "Creating..." : "Create order"}
+              </button>
+            </footer>
+          </section>
         </div>
-        <footer><button type="button" onClick={() => setIsCheckoutOpen(false)}>Cancel</button><button type="button" onClick={createConfirmedOrder} disabled={isSaving}>{isSaving ? "Creating..." : "Create order"}</button></footer>
-      </section>
-    </div>}
-    {isOpen && receiptOrder && <OrderReceipt business={business} order={receiptOrder} closeLabel="Return to Orders" onClose={onClose} />}
-  </>;
+      )}
+      {isOpen && receiptOrder && (
+        <OrderReceipt
+          business={business}
+          order={receiptOrder}
+          closeLabel="Return to Orders"
+          onClose={onClose}
+        />
+      )}
+    </>
+  );
 }
 
 function Quantity({ value, onMinus, onPlus }) {
-  return <span className="order-dialog__quantity"><button type="button" onClick={onMinus}><Minus size={14} /></button><b>{value}</b><button type="button" onClick={onPlus}><Plus size={14} /></button></span>;
+  return (
+    <span className="order-dialog__quantity">
+      <button type="button" onClick={onMinus}>
+        <Minus size={14} />
+      </button>
+      <b>{value}</b>
+      <button type="button" onClick={onPlus}>
+        <Plus size={14} />
+      </button>
+    </span>
+  );
 }
 
 export default AddOrderModal;
-````
+```
 
 ### `frontend/src/components/AddProductModal.jsx`
 
-````jsx
+```jsx
 import { useEffect, useMemo, useState } from "react";
-import { Image as ImageIcon, Plus, Trash2, Upload, WandSparkles } from "lucide-react";
+import {
+  Image as ImageIcon,
+  Plus,
+  Trash2,
+  Upload,
+  WandSparkles,
+} from "lucide-react";
 
 import {
   createProduct,
@@ -9382,20 +10488,30 @@ import "./InventoryForm.css";
 
 function randomCode(length = 5) {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  return Array.from({ length }, () => alphabet[Math.floor(Math.random() * alphabet.length)]).join("");
+  return Array.from(
+    { length },
+    () => alphabet[Math.floor(Math.random() * alphabet.length)],
+  ).join("");
 }
 
 function skuPart(value, fallback = "ITEM") {
-  const cleaned = String(value || "").toUpperCase().replace(/[^A-Z0-9]+/g, "-").replace(/^-|-$/g, "");
+  const cleaned = String(value || "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
   return cleaned.slice(0, 12) || fallback;
 }
 
 function generateSku(name, option = "") {
-  return [skuPart(name), option && skuPart(option), randomCode(4)].filter(Boolean).join("-");
+  return [skuPart(name), option && skuPart(option), randomCode(4)]
+    .filter(Boolean)
+    .join("-");
 }
 
 function generateBarcode() {
-  const body = Array.from({ length: 12 }, () => Math.floor(Math.random() * 10)).join("");
+  const body = Array.from({ length: 12 }, () =>
+    Math.floor(Math.random() * 10),
+  ).join("");
   const weightedTotal = [...body].reduce(
     (total, digit, index) => total + Number(digit) * (index % 2 === 0 ? 1 : 3),
     0,
@@ -9433,11 +10549,21 @@ function initialFormData(product = null) {
     weightKg: String(product?.weightKg ?? ""),
     description: product?.description || "",
     hasSizes: Boolean(product?.hasSizes),
-    variants: (product?.sizes || []).map((variant) => newVariant(product, variant)),
+    variants: (product?.sizes || []).map((variant) =>
+      newVariant(product, variant),
+    ),
   };
 }
 
-function AddProductModal({ isOpen, businessId, categories, product = null, onClose, onCreated, onUpdated }) {
+function AddProductModal({
+  isOpen,
+  businessId,
+  categories,
+  product = null,
+  onClose,
+  onCreated,
+  onUpdated,
+}) {
   const [formData, setFormData] = useState(initialFormData);
   const [mediaFiles, setMediaFiles] = useState([]);
   const [errorMessage, setErrorMessage] = useState("");
@@ -9452,24 +10578,40 @@ function AddProductModal({ isOpen, businessId, categories, product = null, onClo
     }
   }, [isOpen, product]);
 
-  const activeCategories = categories.filter((category) => category.status === "active");
-  const selectedCategory = activeCategories.find((category) => category.id === formData.categoryId);
+  const activeCategories = categories.filter(
+    (category) => category.status === "active",
+  );
+  const selectedCategory = activeCategories.find(
+    (category) => category.id === formData.categoryId,
+  );
   const previews = useMemo(
-    () => mediaFiles.map((file) => ({ file, url: file.type.startsWith("image/") ? URL.createObjectURL(file) : null })),
+    () =>
+      mediaFiles.map((file) => ({
+        file,
+        url: file.type.startsWith("image/") ? URL.createObjectURL(file) : null,
+      })),
     [mediaFiles],
   );
 
-  useEffect(() => () => previews.forEach(({ url }) => url && URL.revokeObjectURL(url)), [previews]);
+  useEffect(
+    () => () => previews.forEach(({ url }) => url && URL.revokeObjectURL(url)),
+    [previews],
+  );
 
   function updateField(event) {
     const { name, value, type, checked } = event.target;
-    setFormData((current) => ({ ...current, [name]: type === "checkbox" ? checked : value }));
+    setFormData((current) => ({
+      ...current,
+      [name]: type === "checkbox" ? checked : value,
+    }));
   }
 
   function updateVariant(id, field, value) {
     setFormData((current) => ({
       ...current,
-      variants: current.variants.map((variant) => variant.id === id ? { ...variant, [field]: value } : variant),
+      variants: current.variants.map((variant) =>
+        variant.id === id ? { ...variant, [field]: value } : variant,
+      ),
     }));
   }
 
@@ -9485,30 +10627,45 @@ function AddProductModal({ isOpen, businessId, categories, product = null, onClo
     setFormData((current) => ({
       ...current,
       hasSizes: checked,
-      variants: checked && current.variants.length === 0 ? [newVariant(current)] : current.variants,
+      variants:
+        checked && current.variants.length === 0
+          ? [newVariant(current)]
+          : current.variants,
     }));
   }
 
   function fillBaseIdentifier(field) {
     setFormData((current) => ({
       ...current,
-      [field]: field === "baseSku" ? generateSku(current.name, current.productSize) : generateBarcode(),
+      [field]:
+        field === "baseSku"
+          ? generateSku(current.name, current.productSize)
+          : generateBarcode(),
     }));
   }
 
   function fillVariantIdentifier(id, field) {
     setFormData((current) => ({
       ...current,
-      variants: current.variants.map((variant) => variant.id === id ? {
-        ...variant,
-        [field]: field === "sku" ? generateSku(current.name, variant.size) : generateBarcode(),
-      } : variant),
+      variants: current.variants.map((variant) =>
+        variant.id === id
+          ? {
+              ...variant,
+              [field]:
+                field === "sku"
+                  ? generateSku(current.name, variant.size)
+                  : generateBarcode(),
+            }
+          : variant,
+      ),
     }));
   }
 
   async function handleGenerateDescription() {
     if (!formData.name.trim()) {
-      setErrorMessage("Enter the product name before generating a description.");
+      setErrorMessage(
+        "Enter the product name before generating a description.",
+      );
       return;
     }
     setErrorMessage("");
@@ -9524,7 +10681,18 @@ function AddProductModal({ isOpen, businessId, categories, product = null, onClo
         weightKg: formData.weightKg,
         costPrice: formData.hasSizes ? undefined : formData.costPrice,
         sellingPrice: formData.hasSizes ? undefined : formData.sellingPrice,
-        variants: formData.hasSizes ? formData.variants.map(({ size, sku, barcode, stock, costPrice, sellingPrice }) => ({ size, sku, barcode, stock, costPrice, sellingPrice })) : [],
+        variants: formData.hasSizes
+          ? formData.variants.map(
+              ({ size, sku, barcode, stock, costPrice, sellingPrice }) => ({
+                size,
+                sku,
+                barcode,
+                stock,
+                costPrice,
+                sellingPrice,
+              }),
+            )
+          : [],
       });
       setFormData((current) => ({ ...current, description }));
     } catch (error) {
@@ -9541,18 +10709,24 @@ function AddProductModal({ isOpen, businessId, categories, product = null, onClo
 
     const variants = formData.hasSizes
       ? formData.variants
-      : [{
-          size: formData.productSize,
-          sku: formData.baseSku,
-          barcode: formData.baseBarcode,
-          stock: formData.stock,
-          sellingPrice: formData.sellingPrice,
-          costPrice: formData.costPrice,
-        }];
+      : [
+          {
+            size: formData.productSize,
+            sku: formData.baseSku,
+            barcode: formData.baseBarcode,
+            stock: formData.stock,
+            sellingPrice: formData.sellingPrice,
+            costPrice: formData.costPrice,
+          },
+        ];
 
     try {
-      const baseCost = formData.hasSizes ? formData.variants[0]?.costPrice : formData.costPrice;
-      const baseSelling = formData.hasSizes ? formData.variants[0]?.sellingPrice : formData.sellingPrice;
+      const baseCost = formData.hasSizes
+        ? formData.variants[0]?.costPrice
+        : formData.costPrice;
+      const baseSelling = formData.hasSizes
+        ? formData.variants[0]?.sellingPrice
+        : formData.sellingPrice;
       const payload = {
         ...formData,
         productType: "",
@@ -9565,19 +10739,35 @@ function AddProductModal({ isOpen, businessId, categories, product = null, onClo
         warrantyNotes: "",
         costPrice: baseCost,
         sellingPrice: baseSelling,
-        variants: variants.map(({ imageFile: _imageFile, ...variant }) => variant),
+        variants: variants.map(
+          ({ imageFile: _imageFile, ...variant }) => variant,
+        ),
         media: [],
       };
       let savedProduct = product
         ? await updateProduct(businessId, product.id, payload)
         : await createProduct(businessId, payload);
-      if (mediaFiles.length) savedProduct = await uploadProductMedia(businessId, savedProduct.id, mediaFiles);
+      if (mediaFiles.length)
+        savedProduct = await uploadProductMedia(
+          businessId,
+          savedProduct.id,
+          mediaFiles,
+        );
       for (const [index, variant] of formData.variants.entries()) {
         if (!variant.imageFile) continue;
-        const savedVariant = savedProduct.sizes.find((item) => item.id === variant.id) || savedProduct.sizes[index];
-        if (savedVariant) savedProduct = await uploadVariantImage(businessId, savedProduct.id, savedVariant.id, variant.imageFile);
+        const savedVariant =
+          savedProduct.sizes.find((item) => item.id === variant.id) ||
+          savedProduct.sizes[index];
+        if (savedVariant)
+          savedProduct = await uploadVariantImage(
+            businessId,
+            savedProduct.id,
+            savedVariant.id,
+            variant.imageFile,
+          );
       }
-      if (product) onUpdated?.(savedProduct); else onCreated?.(savedProduct);
+      if (product) onUpdated?.(savedProduct);
+      else onCreated?.(savedProduct);
       onClose();
     } catch (error) {
       setErrorMessage(error.message);
@@ -9587,114 +10777,447 @@ function AddProductModal({ isOpen, businessId, categories, product = null, onClo
   }
 
   return (
-    <ModalShell isOpen={isOpen} title={product ? "Edit Product" : "Add Product"} onClose={onClose} size="wide">
+    <ModalShell
+      isOpen={isOpen}
+      title={product ? "Edit Product" : "Add Product"}
+      onClose={onClose}
+      size="wide"
+    >
       <form className="stitch-product-form" onSubmit={handleSubmit}>
         <div className="stitch-product__top">
           <div className="stitch-product__details">
-            <label className="stitch-product__full">Product Name
-              <input name="name" value={formData.name} onChange={updateField} placeholder="Enter product name" required />
+            <label className="stitch-product__full">
+              Product Name
+              <input
+                name="name"
+                value={formData.name}
+                onChange={updateField}
+                placeholder="Enter product name"
+                required
+              />
             </label>
-            <label>Product color
-              <input name="colourName" value={formData.colourName} onChange={updateField} placeholder="Select color..." />
+            <label>
+              Product color
+              <input
+                name="colourName"
+                value={formData.colourName}
+                onChange={updateField}
+                placeholder="Select color..."
+              />
             </label>
-            <label>Product Size
-              <input name="productSize" value={formData.productSize} onChange={updateField} placeholder="Select size..." />
+            <label>
+              Product Size
+              <input
+                name="productSize"
+                value={formData.productSize}
+                onChange={updateField}
+                placeholder="Select size..."
+              />
             </label>
-            <label>Category
-              <select name="categoryId" value={formData.categoryId} onChange={updateField} required>
+            <label>
+              Category
+              <select
+                name="categoryId"
+                value={formData.categoryId}
+                onChange={updateField}
+                required
+              >
                 <option value="">None</option>
-                {activeCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
+                {activeCategories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
               </select>
             </label>
-            <label>Brand
-              <input name="brand" value={formData.brand} onChange={updateField} placeholder="Select brand..." />
+            <label>
+              Brand
+              <input
+                name="brand"
+                value={formData.brand}
+                onChange={updateField}
+                placeholder="Select brand..."
+              />
             </label>
-            <label>Warranty
-              <select name="warrantyPeriodMonths" value={formData.warrantyPeriodMonths} onChange={updateField}>
-                <option value="0">None</option><option value="1">1 month</option><option value="3">3 months</option>
-                <option value="6">6 months</option><option value="12">1 year</option><option value="24">2 years</option>
+            <label>
+              Warranty
+              <select
+                name="warrantyPeriodMonths"
+                value={formData.warrantyPeriodMonths}
+                onChange={updateField}
+              >
+                <option value="0">None</option>
+                <option value="1">1 month</option>
+                <option value="3">3 months</option>
+                <option value="6">6 months</option>
+                <option value="12">1 year</option>
+                <option value="24">2 years</option>
               </select>
             </label>
           </div>
 
           <section className="stitch-product__photos">
             <strong>Product Photos</strong>
-            <label className="stitch-product__upload"><Upload size={15} /> Upload
-              <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple onChange={(event) => setMediaFiles(Array.from(event.target.files).slice(0, 12))} />
+            <label className="stitch-product__upload">
+              <Upload size={15} /> Upload
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                multiple
+                onChange={(event) =>
+                  setMediaFiles(Array.from(event.target.files).slice(0, 12))
+                }
+              />
             </label>
             <div className="stitch-product__photo-grid">
               {previews.slice(0, 3).map((preview, index) => (
-                <span key={`${preview.file.name}-${index}`}>{preview.url ? <img src={preview.url} alt="" /> : <ImageIcon size={19} />}</span>
+                <span key={`${preview.file.name}-${index}`}>
+                  {preview.url ? (
+                    <img src={preview.url} alt="" />
+                  ) : (
+                    <ImageIcon size={19} />
+                  )}
+                </span>
               ))}
-              {Array.from({ length: Math.max(0, 3 - previews.length) }, (_, index) => <span key={`empty-${index}`}><ImageIcon size={19} /></span>)}
-              <label className="stitch-product__photo-add"><Plus size={22} />
-                <input type="file" accept="image/*" multiple onChange={(event) => setMediaFiles((current) => [...current, ...Array.from(event.target.files)].slice(0, 12))} />
+              {Array.from(
+                { length: Math.max(0, 3 - previews.length) },
+                (_, index) => (
+                  <span key={`empty-${index}`}>
+                    <ImageIcon size={19} />
+                  </span>
+                ),
+              )}
+              <label className="stitch-product__photo-add">
+                <Plus size={22} />
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={(event) =>
+                    setMediaFiles((current) =>
+                      [...current, ...Array.from(event.target.files)].slice(
+                        0,
+                        12,
+                      ),
+                    )
+                  }
+                />
               </label>
             </div>
           </section>
         </div>
 
         <div className="stitch-product__identifiers">
-          <IdentifierField label="SKU ID" name="baseSku" value={formData.baseSku} placeholder="Generate or enter SKU" onChange={updateField} onGenerate={() => fillBaseIdentifier("baseSku")} disabled={formData.hasSizes} />
-          <IdentifierField label="Barcode" name="baseBarcode" value={formData.baseBarcode} placeholder="Scan or enter barcode" onChange={updateField} onGenerate={() => fillBaseIdentifier("baseBarcode")} disabled={formData.hasSizes} />
+          <IdentifierField
+            label="SKU ID"
+            name="baseSku"
+            value={formData.baseSku}
+            placeholder="Generate or enter SKU"
+            onChange={updateField}
+            onGenerate={() => fillBaseIdentifier("baseSku")}
+            disabled={formData.hasSizes}
+          />
+          <IdentifierField
+            label="Barcode"
+            name="baseBarcode"
+            value={formData.baseBarcode}
+            placeholder="Scan or enter barcode"
+            onChange={updateField}
+            onGenerate={() => fillBaseIdentifier("baseBarcode")}
+            disabled={formData.hasSizes}
+          />
         </div>
 
-        <section className={`stitch-product__panel ${formData.hasSizes ? "stitch-product__panel--weight-only" : ""}`}>
+        <section
+          className={`stitch-product__panel ${formData.hasSizes ? "stitch-product__panel--weight-only" : ""}`}
+        >
           <strong>{formData.hasSizes ? "Product Weight" : "Pricing"}</strong>
           <div className="stitch-product__pricing">
-            {!formData.hasSizes && <label>Cost price<input name="costPrice" type="number" min="0" step="0.01" value={formData.costPrice} onChange={updateField} placeholder="LKR 0.00" required /></label>}
-            {!formData.hasSizes && <label>Selling price<input name="sellingPrice" type="number" min="0.01" step="0.01" value={formData.sellingPrice} onChange={updateField} placeholder="LKR 0.00" required /></label>}
-            <label>Weight<input name="weightKg" type="number" min="0.001" step="0.001" value={formData.weightKg} onChange={updateField} placeholder="0.00 kg" required /></label>
-            {!formData.hasSizes && <label>Stock<input name="stock" type="number" min="0" step="1" value={formData.stock} onChange={updateField} required /></label>}
+            {!formData.hasSizes && (
+              <label>
+                Cost price
+                <input
+                  name="costPrice"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={formData.costPrice}
+                  onChange={updateField}
+                  placeholder="LKR 0.00"
+                  required
+                />
+              </label>
+            )}
+            {!formData.hasSizes && (
+              <label>
+                Selling price
+                <input
+                  name="sellingPrice"
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  value={formData.sellingPrice}
+                  onChange={updateField}
+                  placeholder="LKR 0.00"
+                  required
+                />
+              </label>
+            )}
+            <label>
+              Weight
+              <input
+                name="weightKg"
+                type="number"
+                min="0.001"
+                step="0.001"
+                value={formData.weightKg}
+                onChange={updateField}
+                placeholder="0.00 kg"
+                required
+              />
+            </label>
+            {!formData.hasSizes && (
+              <label>
+                Stock
+                <input
+                  name="stock"
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={formData.stock}
+                  onChange={updateField}
+                  required
+                />
+              </label>
+            )}
           </div>
         </section>
 
         <section className="stitch-product__panel stitch-product__variants">
-          <div className="stitch-product__section-title"><strong>Variants</strong><label><input type="checkbox" checked={formData.hasSizes} onChange={toggleVariants} /> This product has variants</label></div>
-          {formData.hasSizes && <>
-            <div className="stitch-product__variant-head"><span>Variant</span><span>Image</span><span>SKU</span><span>Barcode</span><span>Stock</span><span>Selling price</span><span>Cost price</span><span /></div>
-            {formData.variants.map((variant, index) => (
-              <div className="stitch-product__variant-row" key={variant.id}>
-                <input value={variant.size} onChange={(event) => updateVariant(variant.id, "size", event.target.value)} placeholder="e.g. Red, Small" aria-label={`Variant ${index + 1}`} required />
-                <label className="stitch-product__variant-image">{variant.imageFile ? <img src={URL.createObjectURL(variant.imageFile)} alt="" /> : variant.imageUrl ? <img src={variant.imageUrl} alt="" /> : <ImageIcon size={16} />}<input type="file" accept="image/*" onChange={(event) => updateVariant(variant.id, "imageFile", event.target.files[0] || null)} /></label>
-                <GeneratedInput value={variant.sku} onChange={(value) => updateVariant(variant.id, "sku", value)} onGenerate={() => fillVariantIdentifier(variant.id, "sku")} label={`SKU ${index + 1}`} />
-                <GeneratedInput value={variant.barcode} onChange={(value) => updateVariant(variant.id, "barcode", value)} onGenerate={() => fillVariantIdentifier(variant.id, "barcode")} label={`Barcode ${index + 1}`} />
-                <input type="number" min="0" value={variant.stock} onChange={(event) => updateVariant(variant.id, "stock", event.target.value)} aria-label={`Stock ${index + 1}`} required />
-                <input type="number" min="0.01" step="0.01" value={variant.sellingPrice} onChange={(event) => updateVariant(variant.id, "sellingPrice", event.target.value)} aria-label={`Selling price ${index + 1}`} required />
-                <input type="number" min="0" step="0.01" value={variant.costPrice} onChange={(event) => updateVariant(variant.id, "costPrice", event.target.value)} aria-label={`Cost price ${index + 1}`} required />
-                <button type="button" onClick={() => setFormData((current) => ({ ...current, variants: current.variants.filter(({ id }) => id !== variant.id) }))} aria-label={`Remove variant ${index + 1}`}><Trash2 size={15} /></button>
+          <div className="stitch-product__section-title">
+            <strong>Variants</strong>
+            <label>
+              <input
+                type="checkbox"
+                checked={formData.hasSizes}
+                onChange={toggleVariants}
+              />{" "}
+              This product has variants
+            </label>
+          </div>
+          {formData.hasSizes && (
+            <>
+              <div className="stitch-product__variant-head">
+                <span>Variant</span>
+                <span>Image</span>
+                <span>SKU</span>
+                <span>Barcode</span>
+                <span>Stock</span>
+                <span>Selling price</span>
+                <span>Cost price</span>
+                <span />
               </div>
-            ))}
-            <button className="stitch-product__add-variant" type="button" onClick={addVariant}><Plus size={15} /> Add variant</button>
-          </>}
+              {formData.variants.map((variant, index) => (
+                <div className="stitch-product__variant-row" key={variant.id}>
+                  <input
+                    value={variant.size}
+                    onChange={(event) =>
+                      updateVariant(variant.id, "size", event.target.value)
+                    }
+                    placeholder="e.g. Red, Small"
+                    aria-label={`Variant ${index + 1}`}
+                    required
+                  />
+                  <label className="stitch-product__variant-image">
+                    {variant.imageFile ? (
+                      <img
+                        src={URL.createObjectURL(variant.imageFile)}
+                        alt=""
+                      />
+                    ) : variant.imageUrl ? (
+                      <img src={variant.imageUrl} alt="" />
+                    ) : (
+                      <ImageIcon size={16} />
+                    )}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(event) =>
+                        updateVariant(
+                          variant.id,
+                          "imageFile",
+                          event.target.files[0] || null,
+                        )
+                      }
+                    />
+                  </label>
+                  <GeneratedInput
+                    value={variant.sku}
+                    onChange={(value) =>
+                      updateVariant(variant.id, "sku", value)
+                    }
+                    onGenerate={() => fillVariantIdentifier(variant.id, "sku")}
+                    label={`SKU ${index + 1}`}
+                  />
+                  <GeneratedInput
+                    value={variant.barcode}
+                    onChange={(value) =>
+                      updateVariant(variant.id, "barcode", value)
+                    }
+                    onGenerate={() =>
+                      fillVariantIdentifier(variant.id, "barcode")
+                    }
+                    label={`Barcode ${index + 1}`}
+                  />
+                  <input
+                    type="number"
+                    min="0"
+                    value={variant.stock}
+                    onChange={(event) =>
+                      updateVariant(variant.id, "stock", event.target.value)
+                    }
+                    aria-label={`Stock ${index + 1}`}
+                    required
+                  />
+                  <input
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    value={variant.sellingPrice}
+                    onChange={(event) =>
+                      updateVariant(
+                        variant.id,
+                        "sellingPrice",
+                        event.target.value,
+                      )
+                    }
+                    aria-label={`Selling price ${index + 1}`}
+                    required
+                  />
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={variant.costPrice}
+                    onChange={(event) =>
+                      updateVariant(variant.id, "costPrice", event.target.value)
+                    }
+                    aria-label={`Cost price ${index + 1}`}
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setFormData((current) => ({
+                        ...current,
+                        variants: current.variants.filter(
+                          ({ id }) => id !== variant.id,
+                        ),
+                      }))
+                    }
+                    aria-label={`Remove variant ${index + 1}`}
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+              ))}
+              <button
+                className="stitch-product__add-variant"
+                type="button"
+                onClick={addVariant}
+              >
+                <Plus size={15} /> Add variant
+              </button>
+            </>
+          )}
         </section>
 
         <section className="stitch-product__description">
-          <div><strong>Description</strong><button type="button" onClick={handleGenerateDescription} disabled={isGenerating}><WandSparkles size={14} /> {isGenerating ? "Generating..." : "Generate"}</button></div>
-          <textarea name="description" value={formData.description} onChange={updateField} placeholder="Write a detailed product description..." rows="4" />
+          <div>
+            <strong>Description</strong>
+            <button
+              type="button"
+              onClick={handleGenerateDescription}
+              disabled={isGenerating}
+            >
+              <WandSparkles size={14} />{" "}
+              {isGenerating ? "Generating..." : "Generate"}
+            </button>
+          </div>
+          <textarea
+            name="description"
+            value={formData.description}
+            onChange={updateField}
+            placeholder="Write a detailed product description..."
+            rows="4"
+          />
         </section>
 
-        {errorMessage && <p className="inventory-form__error">{errorMessage}</p>}
-        <footer className="stitch-product__footer"><button type="button" onClick={onClose}>Cancel</button><button className="stitch-product__save" type="submit" disabled={isSaving || activeCategories.length === 0}>{isSaving ? "Saving..." : product ? "Save Product" : "Add Product"}</button></footer>
+        {errorMessage && (
+          <p className="inventory-form__error">{errorMessage}</p>
+        )}
+        <footer className="stitch-product__footer">
+          <button type="button" onClick={onClose}>
+            Cancel
+          </button>
+          <button
+            className="stitch-product__save"
+            type="submit"
+            disabled={isSaving || activeCategories.length === 0}
+          >
+            {isSaving ? "Saving..." : product ? "Save Product" : "Add Product"}
+          </button>
+        </footer>
       </form>
     </ModalShell>
   );
 }
 
 function IdentifierField({ label, onGenerate, disabled, ...inputProps }) {
-  return <label>{label}<span className="stitch-product__generated"><input {...inputProps} disabled={disabled} required={!disabled} /><button type="button" onClick={onGenerate} disabled={disabled} aria-label={`Generate ${label}`}><WandSparkles size={15} /></button></span></label>;
+  return (
+    <label>
+      {label}
+      <span className="stitch-product__generated">
+        <input {...inputProps} disabled={disabled} required={!disabled} />
+        <button
+          type="button"
+          onClick={onGenerate}
+          disabled={disabled}
+          aria-label={`Generate ${label}`}
+        >
+          <WandSparkles size={15} />
+        </button>
+      </span>
+    </label>
+  );
 }
 
 function GeneratedInput({ value, onChange, onGenerate, label }) {
-  return <span className="stitch-product__generated"><input value={value} onChange={(event) => onChange(event.target.value)} aria-label={label} required /><button type="button" onClick={onGenerate} aria-label={`Generate ${label}`}><WandSparkles size={14} /></button></span>;
+  return (
+    <span className="stitch-product__generated">
+      <input
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        aria-label={label}
+        required
+      />
+      <button
+        type="button"
+        onClick={onGenerate}
+        aria-label={`Generate ${label}`}
+      >
+        <WandSparkles size={14} />
+      </button>
+    </span>
+  );
 }
 
 export default AddProductModal;
-````
+```
 
 ### `frontend/src/components/AdjustStockModal.css`
 
-````css
+```css
 .adjust-stock__product {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
@@ -9789,11 +11312,11 @@ export default AddProductModal;
 .adjust-stock__preview--error strong {
   margin-left: auto;
 }
-````
+```
 
 ### `frontend/src/components/AdjustStockModal.jsx`
 
-````jsx
+```jsx
 import { useEffect, useMemo, useState } from "react";
 import { PackagePlus, TriangleAlert } from "lucide-react";
 
@@ -9803,7 +11326,13 @@ import ModalShell from "./ModalShell";
 import "./InventoryForm.css";
 import "./AdjustStockModal.css";
 
-function AdjustStockModal({ businessId, product, initialVariantId, onClose, onUpdated }) {
+function AdjustStockModal({
+  businessId,
+  product,
+  initialVariantId,
+  onClose,
+  onUpdated,
+}) {
   const [variantId, setVariantId] = useState("");
   const [operation, setOperation] = useState("add");
   const [quantity, setQuantity] = useState("1");
@@ -9833,7 +11362,11 @@ function AdjustStockModal({ businessId, product, initialVariantId, onClose, onUp
 
     const cleanQuantity = Number(quantity);
 
-    if (!selectedVariant || !Number.isInteger(cleanQuantity) || cleanQuantity < 1) {
+    if (
+      !selectedVariant ||
+      !Number.isInteger(cleanQuantity) ||
+      cleanQuantity < 1
+    ) {
       setErrorMessage("Choose a SKU and enter a positive whole quantity.");
       return;
     }
@@ -9862,7 +11395,8 @@ function AdjustStockModal({ businessId, product, initialVariantId, onClose, onUp
   }
 
   const projectedStock = selectedVariant
-    ? selectedVariant.stock + (operation === "add" ? Number(quantity) || 0 : -(Number(quantity) || 0))
+    ? selectedVariant.stock +
+      (operation === "add" ? Number(quantity) || 0 : -(Number(quantity) || 0))
     : 0;
 
   return (
@@ -9875,18 +11409,28 @@ function AdjustStockModal({ businessId, product, initialVariantId, onClose, onUp
       {product && (
         <form className="inventory-form adjust-stock" onSubmit={handleSubmit}>
           <div className="adjust-stock__product">
-            <span><PackagePlus size={22} aria-hidden="true" /></span>
-            <div><strong>{product.name}</strong><small>{product.category}</small></div>
+            <span>
+              <PackagePlus size={22} aria-hidden="true" />
+            </span>
+            <div>
+              <strong>{product.name}</strong>
+              <small>{product.category}</small>
+            </div>
             <b>{product.stock} total units</b>
           </div>
 
           <section className="inventory-form__panel">
             <label>
               Product size / SKU
-              <select value={variantId} onChange={(event) => setVariantId(event.target.value)} required>
+              <select
+                value={variantId}
+                onChange={(event) => setVariantId(event.target.value)}
+                required
+              >
                 {(product.sizes ?? []).map((variant) => (
                   <option key={variant.id} value={variant.id}>
-                    {variant.size ? `Size ${variant.size} Â· ` : ""}{variant.sku} Â· {variant.stock} available
+                    {variant.size ? `Size ${variant.size} Â· ` : ""}
+                    {variant.sku} Â· {variant.stock} available
                   </option>
                 ))}
               </select>
@@ -9894,38 +11438,91 @@ function AdjustStockModal({ businessId, product, initialVariantId, onClose, onUp
 
             <fieldset className="adjust-stock__operation">
               <legend>Adjustment type</legend>
-              <button className={operation === "add" ? "adjust-stock__operation--active" : ""} type="button" onClick={() => { setOperation("add"); setReason("New stock received"); }}>Add stock</button>
-              <button className={operation === "remove" ? "adjust-stock__operation--remove" : ""} type="button" onClick={() => { setOperation("remove"); setReason("Damaged, lost or corrected stock"); }}>Remove stock</button>
+              <button
+                className={
+                  operation === "add" ? "adjust-stock__operation--active" : ""
+                }
+                type="button"
+                onClick={() => {
+                  setOperation("add");
+                  setReason("New stock received");
+                }}
+              >
+                Add stock
+              </button>
+              <button
+                className={
+                  operation === "remove"
+                    ? "adjust-stock__operation--remove"
+                    : ""
+                }
+                type="button"
+                onClick={() => {
+                  setOperation("remove");
+                  setReason("Damaged, lost or corrected stock");
+                }}
+              >
+                Remove stock
+              </button>
             </fieldset>
 
             <div className="inventory-form__two-columns">
               <label>
                 Quantity
-                <input type="number" min="1" step="1" value={quantity} onChange={(event) => setQuantity(event.target.value)} required />
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={quantity}
+                  onChange={(event) => setQuantity(event.target.value)}
+                  required
+                />
               </label>
               <label>
                 Reference (optional)
-                <input value={reference} onChange={(event) => setReference(event.target.value)} placeholder="Supplier invoice or note" />
+                <input
+                  value={reference}
+                  onChange={(event) => setReference(event.target.value)}
+                  placeholder="Supplier invoice or note"
+                />
               </label>
             </div>
 
             <label>
               Reason
-              <textarea rows={3} maxLength={300} value={reason} onChange={(event) => setReason(event.target.value)} required />
+              <textarea
+                rows={3}
+                maxLength={300}
+                value={reason}
+                onChange={(event) => setReason(event.target.value)}
+                required
+              />
             </label>
 
-            <div className={`adjust-stock__preview ${projectedStock < 0 ? "adjust-stock__preview--error" : ""}`}>
-              {projectedStock < 0 && <TriangleAlert size={18} aria-hidden="true" />}
+            <div
+              className={`adjust-stock__preview ${projectedStock < 0 ? "adjust-stock__preview--error" : ""}`}
+            >
+              {projectedStock < 0 && (
+                <TriangleAlert size={18} aria-hidden="true" />
+              )}
               <span>Available stock after adjustment</span>
               <strong>{projectedStock}</strong>
             </div>
           </section>
 
-          {errorMessage && <p className="inventory-form__error">{errorMessage}</p>}
+          {errorMessage && (
+            <p className="inventory-form__error">{errorMessage}</p>
+          )}
 
           <footer className="inventory-form__footer">
-            <button type="button" onClick={onClose}>Cancel</button>
-            <button className="inventory-form__primary" type="submit" disabled={isSaving || projectedStock < 0}>
+            <button type="button" onClick={onClose}>
+              Cancel
+            </button>
+            <button
+              className="inventory-form__primary"
+              type="submit"
+              disabled={isSaving || projectedStock < 0}
+            >
               {isSaving ? "Updating stock..." : "Update Stock"}
             </button>
           </footer>
@@ -9936,11 +11533,11 @@ function AdjustStockModal({ businessId, product, initialVariantId, onClose, onUp
 }
 
 export default AdjustStockModal;
-````
+```
 
 ### `frontend/src/components/CategoryTable.css`
 
-````css
+```css
 /* Category table column sizing. */
 .category-table th:nth-child(2) {
   min-width: 180px;
@@ -10110,8 +11707,7 @@ html[data-theme="dark"] .category-table__status--active {
   color: #5cdaa8;
 }
 
-html[data-theme="dark"]
-  .category-table__status--needs-attention {
+html[data-theme="dark"] .category-table__status--needs-attention {
   color: #ffbd4a;
 }
 
@@ -10121,11 +11717,11 @@ html[data-theme="dark"]
     animation: none;
   }
 }
-````
+```
 
 ### `frontend/src/components/CategoryTable.jsx`
 
-````jsx
+```jsx
 import { Fragment, useState } from "react";
 import {
   ChevronDown,
@@ -10172,12 +11768,16 @@ function getProductsForCategory(category, products) {
 
   return products.filter(
     (product) =>
-      product.categoryId === category.id ||
-      product.category === category.name,
+      product.categoryId === category.id || product.category === category.name,
   );
 }
 
-function CategoryTable({ categories: categoryRecords = [], products = [], onEditCategory, onRemoveCategory }) {
+function CategoryTable({
+  categories: categoryRecords = [],
+  products = [],
+  onEditCategory,
+  onRemoveCategory,
+}) {
   // Only one category is expanded at a time.
   const [expandedCategoryId, setExpandedCategoryId] =
     useState("category-footwear");
@@ -10187,8 +11787,7 @@ function CategoryTable({ categories: categoryRecords = [], products = [], onEdit
     const categoryProducts = getProductsForCategory(category, products);
 
     const totalStock = categoryProducts.reduce(
-      (stockTotal, product) =>
-        stockTotal + getProductStock(product),
+      (stockTotal, product) => stockTotal + getProductStock(product),
       0,
     );
 
@@ -10221,16 +11820,13 @@ function CategoryTable({ categories: categoryRecords = [], products = [], onEdit
               <th>Products</th>
               <th>Total Stock</th>
               <th>Status</th>
-              <th className="orders-table__actions-heading">
-                Actions
-              </th>
+              <th className="orders-table__actions-heading">Actions</th>
             </tr>
           </thead>
 
           <tbody>
             {categories.map((category) => {
-              const isExpanded =
-                expandedCategoryId === category.id;
+              const isExpanded = expandedCategoryId === category.id;
 
               return (
                 <Fragment key={category.id}>
@@ -10249,15 +11845,9 @@ function CategoryTable({ categories: categoryRecords = [], products = [], onEdit
                         }
                       >
                         {isExpanded ? (
-                          <ChevronDown
-                            size={18}
-                            aria-hidden="true"
-                          />
+                          <ChevronDown size={18} aria-hidden="true" />
                         ) : (
-                          <ChevronRight
-                            size={18}
-                            aria-hidden="true"
-                          />
+                          <ChevronRight size={18} aria-hidden="true" />
                         )}
                       </button>
                     </td>
@@ -10287,29 +11877,34 @@ function CategoryTable({ categories: categoryRecords = [], products = [], onEdit
                     </td>
 
                     <td>
-                      <ActionMenu label={`More actions for ${category.name}`} items={[
-                        { label: "Edit category", icon: <Pencil size={16} />, onClick: () => onEditCategory?.(category) },
-                        { label: "Remove category", icon: <Trash2 size={16} />, danger: true, onClick: () => onRemoveCategory?.(category) },
-                      ]} />
+                      <ActionMenu
+                        label={`More actions for ${category.name}`}
+                        items={[
+                          {
+                            label: "Edit category",
+                            icon: <Pencil size={16} />,
+                            onClick: () => onEditCategory?.(category),
+                          },
+                          {
+                            label: "Remove category",
+                            icon: <Trash2 size={16} />,
+                            danger: true,
+                            onClick: () => onRemoveCategory?.(category),
+                          },
+                        ]}
+                      />
                     </td>
                   </tr>
 
                   {/* Products belonging to the expanded category */}
                   {isExpanded && (
                     <tr className="category-table__details-row">
-                      <td
-                        className="category-table__details-cell"
-                        colSpan={7}
-                      >
+                      <td className="category-table__details-cell" colSpan={7}>
                         <div className="category-table__products">
-                          <h3>
-                            Products in {category.name}
-                          </h3>
+                          <h3>Products in {category.name}</h3>
 
                           {category.products.length === 0 ? (
-                            <p>
-                              No products belong to this category.
-                            </p>
+                            <p>No products belong to this category.</p>
                           ) : (
                             <div className="category-table__products-scroll">
                               <table className="category-table__products-table">
@@ -10372,8 +11967,7 @@ function CategoryTable({ categories: categoryRecords = [], products = [], onEdit
 
       <footer className="orders-table__footer">
         <span>
-          Showing 1 to {categories.length} of{" "}
-          {categories.length} categories
+          Showing 1 to {categories.length} of {categories.length} categories
         </span>
       </footer>
     </section>
@@ -10381,32 +11975,74 @@ function CategoryTable({ categories: categoryRecords = [], products = [], onEdit
 }
 
 export default CategoryTable;
-````
+```
 
 ### `frontend/src/components/ConfirmDialog.css`
 
-````css
-.confirm-dialog p { margin: 0; color: var(--color-text-muted); line-height: 1.6; }
-.confirm-dialog__actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; }
-.confirm-dialog__actions button { min-height: 40px; padding: 0 16px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-surface); color: var(--color-text); cursor: pointer; font-weight: 600; }
-.confirm-dialog__actions .confirm-dialog__danger { border-color: #ef4444; background: #ef4444; color: white; }
-````
+```css
+.confirm-dialog p {
+  margin: 0;
+  color: var(--color-text-muted);
+  line-height: 1.6;
+}
+.confirm-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 24px;
+}
+.confirm-dialog__actions button {
+  min-height: 40px;
+  padding: 0 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+  font-weight: 600;
+}
+.confirm-dialog__actions .confirm-dialog__danger {
+  border-color: #ef4444;
+  background: #ef4444;
+  color: white;
+}
+```
 
 ### `frontend/src/components/ConfirmDialog.jsx`
 
-````jsx
+```jsx
 import ModalShell from "./ModalShell";
 
 import "./ConfirmDialog.css";
 
-function ConfirmDialog({ isOpen, title, message, confirmLabel = "Remove", isWorking = false, onCancel, onConfirm }) {
+function ConfirmDialog({
+  isOpen,
+  title,
+  message,
+  confirmLabel = "Remove",
+  isWorking = false,
+  onCancel,
+  onConfirm,
+}) {
   return (
-    <ModalShell isOpen={isOpen} title={title} description="Please confirm this action." onClose={onCancel}>
+    <ModalShell
+      isOpen={isOpen}
+      title={title}
+      description="Please confirm this action."
+      onClose={onCancel}
+    >
       <div className="confirm-dialog">
         <p>{message}</p>
         <footer className="confirm-dialog__actions">
-          <button type="button" onClick={onCancel} disabled={isWorking}>Cancel</button>
-          <button className="confirm-dialog__danger" type="button" onClick={onConfirm} disabled={isWorking}>
+          <button type="button" onClick={onCancel} disabled={isWorking}>
+            Cancel
+          </button>
+          <button
+            className="confirm-dialog__danger"
+            type="button"
+            onClick={onConfirm}
+            disabled={isWorking}
+          >
             {isWorking ? "Removing..." : confirmLabel}
           </button>
         </footer>
@@ -10416,18 +12052,24 @@ function ConfirmDialog({ isOpen, title, message, confirmLabel = "Remove", isWork
 }
 
 export default ConfirmDialog;
-````
+```
 
 ### `frontend/src/components/EditOrderModal.jsx`
 
-````jsx
+```jsx
 import { useEffect, useState } from "react";
 import ModalShell from "./ModalShell";
 import { getCouriers } from "../services/courierService";
 import { updateOrder, updateOrderStatus } from "../services/orderService";
 import "./InventoryForm.css";
 
-const emptyAddress = { line1: "", line2: "", city: "", district: "", postalCode: "" };
+const emptyAddress = {
+  line1: "",
+  line2: "",
+  city: "",
+  district: "",
+  postalCode: "",
+};
 const nextStatuses = {
   "needs-confirmation": ["confirmed", "cancelled"],
   confirmed: ["packed", "cancelled"],
@@ -10438,7 +12080,16 @@ const nextStatuses = {
 
 function EditOrderModal({ isOpen, businessId, order, onClose, onUpdated }) {
   const [couriers, setCouriers] = useState([]);
-  const [form, setForm] = useState({ customerName: "", phoneNumber: "", email: "", deliveryAddress: emptyAddress, courierId: "", paymentMethod: "cod", privateNote: "", status: "" });
+  const [form, setForm] = useState({
+    customerName: "",
+    phoneNumber: "",
+    email: "",
+    deliveryAddress: emptyAddress,
+    courierId: "",
+    paymentMethod: "cod",
+    privateNote: "",
+    status: "",
+  });
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -10448,21 +12099,29 @@ function EditOrderModal({ isOpen, businessId, order, onClose, onUpdated }) {
       customerName: order.customerName ?? "",
       phoneNumber: order.phoneNumber ?? "",
       email: order.email ?? "",
-      deliveryAddress: { ...emptyAddress, ...(order.deliveryAddressObject ?? {}) },
+      deliveryAddress: {
+        ...emptyAddress,
+        ...(order.deliveryAddressObject ?? {}),
+      },
       courierId: order.courierId ?? "",
       paymentMethod: order.paymentMethod ?? "cod",
       privateNote: order.privateNote ?? "",
       status: "",
     });
     setError("");
-    getCouriers(businessId).then(setCouriers).catch(() => setCouriers([]));
+    getCouriers(businessId)
+      .then(setCouriers)
+      .catch(() => setCouriers([]));
   }, [businessId, isOpen, order]);
 
   function change(event) {
     const { name, value } = event.target;
     if (name.startsWith("address.")) {
       const field = name.slice("address.".length);
-      setForm((current) => ({ ...current, deliveryAddress: { ...current.deliveryAddress, [field]: value } }));
+      setForm((current) => ({
+        ...current,
+        deliveryAddress: { ...current.deliveryAddress, [field]: value },
+      }));
       return;
     }
     setForm((current) => ({ ...current, [name]: value }));
@@ -10498,35 +12157,173 @@ function EditOrderModal({ isOpen, businessId, order, onClose, onUpdated }) {
   const statusOptions = nextStatuses[order?.fulfilmentStatus] ?? [];
 
   return (
-    <ModalShell isOpen={isOpen} title={`Edit Order ${order?.orderNumber ?? ""}`} description="Update customer, delivery, payment, courier, status, and internal notes." onClose={onClose} size="wide">
+    <ModalShell
+      isOpen={isOpen}
+      title={`Edit Order ${order?.orderNumber ?? ""}`}
+      description="Update customer, delivery, payment, courier, status, and internal notes."
+      onClose={onClose}
+      size="wide"
+    >
       <form className="inventory-form" onSubmit={submit}>
-        <section className="inventory-form__panel"><h3>Customer details</h3>
-          <div className="inventory-form__two-columns"><label>Customer name<input name="customerName" value={form.customerName} onChange={change} required /></label><label>Phone number<input name="phoneNumber" value={form.phoneNumber} onChange={change} required /></label></div>
-          <label>Email<input name="email" type="email" value={form.email} onChange={change} /></label>
+        <section className="inventory-form__panel">
+          <h3>Customer details</h3>
+          <div className="inventory-form__two-columns">
+            <label>
+              Customer name
+              <input
+                name="customerName"
+                value={form.customerName}
+                onChange={change}
+                required
+              />
+            </label>
+            <label>
+              Phone number
+              <input
+                name="phoneNumber"
+                value={form.phoneNumber}
+                onChange={change}
+                required
+              />
+            </label>
+          </div>
+          <label>
+            Email
+            <input
+              name="email"
+              type="email"
+              value={form.email}
+              onChange={change}
+            />
+          </label>
         </section>
-        <section className="inventory-form__panel"><h3>Delivery address</h3>
-          <label>Address line 1<input name="address.line1" value={form.deliveryAddress.line1} onChange={change} required /></label>
-          <div className="inventory-form__two-columns"><label>Address line 2<input name="address.line2" value={form.deliveryAddress.line2} onChange={change} /></label><label>City<input name="address.city" value={form.deliveryAddress.city} onChange={change} required /></label></div>
-          <div className="inventory-form__two-columns"><label>District<input name="address.district" value={form.deliveryAddress.district} onChange={change} required /></label><label>Postal code<input name="address.postalCode" value={form.deliveryAddress.postalCode} onChange={change} /></label></div>
+        <section className="inventory-form__panel">
+          <h3>Delivery address</h3>
+          <label>
+            Address line 1
+            <input
+              name="address.line1"
+              value={form.deliveryAddress.line1}
+              onChange={change}
+              required
+            />
+          </label>
+          <div className="inventory-form__two-columns">
+            <label>
+              Address line 2
+              <input
+                name="address.line2"
+                value={form.deliveryAddress.line2}
+                onChange={change}
+              />
+            </label>
+            <label>
+              City
+              <input
+                name="address.city"
+                value={form.deliveryAddress.city}
+                onChange={change}
+                required
+              />
+            </label>
+          </div>
+          <div className="inventory-form__two-columns">
+            <label>
+              District
+              <input
+                name="address.district"
+                value={form.deliveryAddress.district}
+                onChange={change}
+                required
+              />
+            </label>
+            <label>
+              Postal code
+              <input
+                name="address.postalCode"
+                value={form.deliveryAddress.postalCode}
+                onChange={change}
+              />
+            </label>
+          </div>
         </section>
-        <section className="inventory-form__panel"><h3>Order settings</h3>
-          <div className="inventory-form__two-columns"><label>Courier<select name="courierId" value={form.courierId} onChange={change}><option value="">Choose courier</option>{couriers.map((courier) => <option key={courier.id} value={courier.id}>{courier.name}</option>)}</select></label><label>Payment<select name="paymentMethod" value={form.paymentMethod} onChange={change}><option value="cod">Cash on delivery</option><option value="paid">Paid</option><option value="deposit">Deposit</option></select></label></div>
-          <label>Next status<select name="status" value={form.status} onChange={change}><option value="">Keep {order?.status ?? "current status"}</option>{statusOptions.map((status) => <option key={status} value={status}>{status.replaceAll("-", " ")}</option>)}</select></label>
-          <label>Private order note<textarea name="privateNote" value={form.privateNote} onChange={change} rows={4} placeholder="Visible only to your team" /></label>
+        <section className="inventory-form__panel">
+          <h3>Order settings</h3>
+          <div className="inventory-form__two-columns">
+            <label>
+              Courier
+              <select name="courierId" value={form.courierId} onChange={change}>
+                <option value="">Choose courier</option>
+                {couriers.map((courier) => (
+                  <option key={courier.id} value={courier.id}>
+                    {courier.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Payment
+              <select
+                name="paymentMethod"
+                value={form.paymentMethod}
+                onChange={change}
+              >
+                <option value="cod">Cash on delivery</option>
+                <option value="paid">Paid</option>
+                <option value="deposit">Deposit</option>
+              </select>
+            </label>
+          </div>
+          <label>
+            Next status
+            <select name="status" value={form.status} onChange={change}>
+              <option value="">Keep {order?.status ?? "current status"}</option>
+              {statusOptions.map((status) => (
+                <option key={status} value={status}>
+                  {status.replaceAll("-", " ")}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Private order note
+            <textarea
+              name="privateNote"
+              value={form.privateNote}
+              onChange={change}
+              rows={4}
+              placeholder="Visible only to your team"
+            />
+          </label>
         </section>
-        {error && <p className="inventory-form__error" role="alert">{error}</p>}
-        <footer className="inventory-form__footer"><button type="button" onClick={onClose}>Cancel</button><button className="inventory-form__primary" type="submit" disabled={saving}>{saving ? "Saving..." : "Save order"}</button></footer>
+        {error && (
+          <p className="inventory-form__error" role="alert">
+            {error}
+          </p>
+        )}
+        <footer className="inventory-form__footer">
+          <button type="button" onClick={onClose}>
+            Cancel
+          </button>
+          <button
+            className="inventory-form__primary"
+            type="submit"
+            disabled={saving}
+          >
+            {saving ? "Saving..." : "Save order"}
+          </button>
+        </footer>
       </form>
     </ModalShell>
   );
 }
 
 export default EditOrderModal;
-````
+```
 
 ### `frontend/src/components/EditProductModal.jsx`
 
-````jsx
+```jsx
 import { useEffect, useState } from "react";
 import { updateProduct, uploadProductMedia } from "../services/productService";
 import ModalShell from "./ModalShell";
@@ -10550,7 +12347,14 @@ const emptyForm = {
   taxCategory: "standard",
 };
 
-function EditProductModal({ isOpen, businessId, product, categories = [], onClose, onUpdated }) {
+function EditProductModal({
+  isOpen,
+  businessId,
+  product,
+  categories = [],
+  onClose,
+  onUpdated,
+}) {
   const [form, setForm] = useState(emptyForm);
   const [mediaFiles, setMediaFiles] = useState([]);
   const [error, setError] = useState("");
@@ -10592,7 +12396,8 @@ function EditProductModal({ isOpen, businessId, product, categories = [], onClos
     setError("");
     try {
       let updated = await updateProduct(businessId, product.id, form);
-      if (mediaFiles.length) updated = await uploadProductMedia(businessId, product.id, mediaFiles);
+      if (mediaFiles.length)
+        updated = await uploadProductMedia(businessId, product.id, mediaFiles);
       onUpdated?.(updated);
       onClose();
     } catch (requestError) {
@@ -10603,49 +12408,214 @@ function EditProductModal({ isOpen, businessId, product, categories = [], onClos
   }
 
   return (
-    <ModalShell isOpen={isOpen} title="Edit Product" description="Update every catalogue field. Stock quantities remain in Adjust stock so each change is audited." onClose={onClose} size="wide">
+    <ModalShell
+      isOpen={isOpen}
+      title="Edit Product"
+      description="Update every catalogue field. Stock quantities remain in Adjust stock so each change is audited."
+      onClose={onClose}
+      size="wide"
+    >
       <form className="inventory-form" onSubmit={submit}>
         <div className="inventory-form__two-columns">
-          <label>Product name<input name="name" value={form.name} onChange={change} required /></label>
-          <label>Product type<input name="productType" value={form.productType} onChange={change} /></label>
+          <label>
+            Product name
+            <input name="name" value={form.name} onChange={change} required />
+          </label>
+          <label>
+            Product type
+            <input
+              name="productType"
+              value={form.productType}
+              onChange={change}
+            />
+          </label>
         </div>
         <div className="inventory-form__two-columns">
-          <label>Colour name<input name="colourName" value={form.colourName} onChange={change} /></label>
-          <label>Colour<input className="inventory-form__colour" name="colourHex" type="color" value={form.colourHex} onChange={change} /></label>
+          <label>
+            Colour name
+            <input
+              name="colourName"
+              value={form.colourName}
+              onChange={change}
+            />
+          </label>
+          <label>
+            Colour
+            <input
+              className="inventory-form__colour"
+              name="colourHex"
+              type="color"
+              value={form.colourHex}
+              onChange={change}
+            />
+          </label>
         </div>
         <div className="inventory-form__two-columns">
-          <label>Category<select name="categoryId" value={form.categoryId} onChange={change} required><option value="">Choose category</option>{categories.filter((category) => category.status === "active").map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
-          <label>Brand<input name="brand" value={form.brand} onChange={change} /></label>
+          <label>
+            Category
+            <select
+              name="categoryId"
+              value={form.categoryId}
+              onChange={change}
+              required
+            >
+              <option value="">Choose category</option>
+              {categories
+                .filter((category) => category.status === "active")
+                .map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+            </select>
+          </label>
+          <label>
+            Brand
+            <input name="brand" value={form.brand} onChange={change} />
+          </label>
         </div>
         <div className="inventory-form__two-columns">
-          <label>Supplier ID<input name="supplierId" value={form.supplierId} onChange={change} /></label>
-          <label>Tax category<select name="taxCategory" value={form.taxCategory} onChange={change}><option value="standard">Standard</option><option value="zero-rated">Zero rated</option><option value="exempt">Exempt</option></select></label>
+          <label>
+            Supplier ID
+            <input
+              name="supplierId"
+              value={form.supplierId}
+              onChange={change}
+            />
+          </label>
+          <label>
+            Tax category
+            <select
+              name="taxCategory"
+              value={form.taxCategory}
+              onChange={change}
+            >
+              <option value="standard">Standard</option>
+              <option value="zero-rated">Zero rated</option>
+              <option value="exempt">Exempt</option>
+            </select>
+          </label>
         </div>
-        <label>Description for chatbot<textarea name="description" value={form.description} onChange={change} rows={4} /></label>
-        <label>AI description<textarea name="aiDescription" value={form.aiDescription} onChange={change} rows={3} /></label>
+        <label>
+          Description for chatbot
+          <textarea
+            name="description"
+            value={form.description}
+            onChange={change}
+            rows={4}
+          />
+        </label>
+        <label>
+          AI description
+          <textarea
+            name="aiDescription"
+            value={form.aiDescription}
+            onChange={change}
+            rows={3}
+          />
+        </label>
         <div className="inventory-form__three-columns">
-          <label>Cost price (LKR)<input name="costPrice" type="number" min="0" step="0.01" value={form.costPrice} onChange={change} required /></label>
-          <label>Selling price (LKR)<input name="sellingPrice" type="number" min="0.01" step="0.01" value={form.sellingPrice} onChange={change} required /></label>
-          <label>Compare-at price<input name="compareAtPrice" type="number" min="0" step="0.01" value={form.compareAtPrice} onChange={change} /></label>
+          <label>
+            Cost price (LKR)
+            <input
+              name="costPrice"
+              type="number"
+              min="0"
+              step="0.01"
+              value={form.costPrice}
+              onChange={change}
+              required
+            />
+          </label>
+          <label>
+            Selling price (LKR)
+            <input
+              name="sellingPrice"
+              type="number"
+              min="0.01"
+              step="0.01"
+              value={form.sellingPrice}
+              onChange={change}
+              required
+            />
+          </label>
+          <label>
+            Compare-at price
+            <input
+              name="compareAtPrice"
+              type="number"
+              min="0"
+              step="0.01"
+              value={form.compareAtPrice}
+              onChange={change}
+            />
+          </label>
         </div>
         <div className="inventory-form__three-columns">
-          <label>Weight (kg)<input name="weightKg" type="number" min="0.001" step="0.001" value={form.weightKg} onChange={change} required /></label>
-          <label>Low-stock alert<input name="lowStockThreshold" type="number" min="0" step="1" value={form.lowStockThreshold} onChange={change} required /></label>
-          <label>Replace/add media<input type="file" accept="image/*,video/*" multiple onChange={(event) => setMediaFiles(Array.from(event.target.files).slice(0, 12))} /></label>
+          <label>
+            Weight (kg)
+            <input
+              name="weightKg"
+              type="number"
+              min="0.001"
+              step="0.001"
+              value={form.weightKg}
+              onChange={change}
+              required
+            />
+          </label>
+          <label>
+            Low-stock alert
+            <input
+              name="lowStockThreshold"
+              type="number"
+              min="0"
+              step="1"
+              value={form.lowStockThreshold}
+              onChange={change}
+              required
+            />
+          </label>
+          <label>
+            Replace/add media
+            <input
+              type="file"
+              accept="image/*,video/*"
+              multiple
+              onChange={(event) =>
+                setMediaFiles(Array.from(event.target.files).slice(0, 12))
+              }
+            />
+          </label>
         </div>
-        {error && <p className="inventory-form__error" role="alert">{error}</p>}
-        <footer className="inventory-form__footer"><button type="button" onClick={onClose}>Cancel</button><button className="inventory-form__primary" type="submit" disabled={saving}>{saving ? "Saving..." : "Save product"}</button></footer>
+        {error && (
+          <p className="inventory-form__error" role="alert">
+            {error}
+          </p>
+        )}
+        <footer className="inventory-form__footer">
+          <button type="button" onClick={onClose}>
+            Cancel
+          </button>
+          <button
+            className="inventory-form__primary"
+            type="submit"
+            disabled={saving}
+          >
+            {saving ? "Saving..." : "Save product"}
+          </button>
+        </footer>
       </form>
     </ModalShell>
   );
 }
 
 export default EditProductModal;
-````
+```
 
 ### `frontend/src/components/Header.css`
 
-````css
+```css
 /* Top application header layout. */
 .header {
   position: relative;
@@ -10836,12 +12806,7 @@ export default EditProductModal;
   border-radius: 50%;
 
   color: white;
-  background:
-    linear-gradient(
-      145deg,
-      #0d5fa9,
-      #073665
-    );
+  background: linear-gradient(145deg, #0d5fa9, #073665);
 
   font-size: 12px;
   font-weight: 700;
@@ -10896,7 +12861,6 @@ html[data-theme="dark"] .header__avatar {
   }
 }
 
-
 .header__profile-menu {
   position: relative;
 }
@@ -10915,8 +12879,7 @@ html[data-theme="dark"] .header__avatar {
 
   background: var(--color-surface);
 
-  box-shadow:
-    0 12px 30px rgba(0, 20, 45, 0.18);
+  box-shadow: 0 12px 30px rgba(0, 20, 45, 0.18);
 }
 
 .header__dropdown-item {
@@ -10964,8 +12927,7 @@ html[data-theme="dark"] .header__avatar {
 
   background: var(--color-surface);
 
-  box-shadow:
-    0 12px 30px rgba(0, 20, 45, 0.18);
+  box-shadow: 0 12px 30px rgba(0, 20, 45, 0.18);
 }
 
 .header__search-results {
@@ -11113,40 +13075,31 @@ html[data-theme="dark"] .header__avatar {
 
   background: var(--color-surface);
 
-  box-shadow:
-    0 12px 30px rgba(0, 20, 45, 0.18);
+  box-shadow: 0 12px 30px rgba(0, 20, 45, 0.18);
 }
 
 .header__profile-dropdown,
-.header__notification-dropdown, 
-.header__settings-dropdown{
+.header__notification-dropdown,
+.header__settings-dropdown {
   transform-origin: top right;
 
-  animation:
-    dropdown-open 200ms
-    cubic-bezier(0.22, 1, 0.36, 1)
-    both;
+  animation: dropdown-open 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 @keyframes dropdown-open {
   from {
     opacity: 0;
-    transform:
-      translateY(-8px)
-      scale(0.96);
+    transform: translateY(-8px) scale(0.96);
   }
 
   to {
     opacity: 1;
-    transform:
-      translateY(0)
-      scale(1);
+    transform: translateY(0) scale(1);
   }
 }
 
-.header__dropdown-item{
-  animation:
-    dropdown-item-open 240ms ease-out both;
+.header__dropdown-item {
+  animation: dropdown-item-open 240ms ease-out both;
 }
 
 @keyframes dropdown-item-open {
@@ -11168,11 +13121,11 @@ html[data-theme="dark"] .header__avatar {
     animation: none;
   }
 }
-````
+```
 
 ### `frontend/src/components/Header.jsx`
 
-````jsx
+```jsx
 // Icons used by global search, theme controls, notifications, and the profile.
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -11200,7 +13153,10 @@ import { searchBusiness } from "../services/searchService";
 import ProfileModal from "./ProfileModal";
 
 function getNotificationPath(notification) {
-  if (notification.orderId || ["new-order", "fraud-report"].includes(notification.type)) {
+  if (
+    notification.orderId ||
+    ["new-order", "fraud-report"].includes(notification.type)
+  ) {
     const orderNumber =
       notification.orderNumber ||
       notification.title?.match(/[A-Z]{2,}-\d+/)?.[0] ||
@@ -11216,7 +13172,8 @@ function getNotificationPath(notification) {
       : "/inventory";
   }
   if (notification.customerId) return "/customers";
-  if (notification.courierId || notification.type?.includes("courier")) return "/couriers";
+  if (notification.courierId || notification.type?.includes("courier"))
+    return "/couriers";
   return "/";
 }
 
@@ -11265,12 +13222,19 @@ function Header({ title, theme, onToggleTheme }) {
     }
 
     function showDeviceNotification(notification) {
-      if (!("Notification" in window) || window.Notification.permission !== "granted") return;
+      if (
+        !("Notification" in window) ||
+        window.Notification.permission !== "granted"
+      )
+        return;
 
-      const deviceNotification = new window.Notification(notification.title || "Vendly notification", {
-        body: notification.message || "Open Vendly to view the update.",
-        tag: `vendly-${notification.id}`,
-      });
+      const deviceNotification = new window.Notification(
+        notification.title || "Vendly notification",
+        {
+          body: notification.message || "Open Vendly to view the update.",
+          tag: `vendly-${notification.id}`,
+        },
+      );
       deviceNotification.onclick = () => {
         window.focus();
         navigate(getNotificationPath(notification));
@@ -11313,7 +13277,10 @@ function Header({ title, theme, onToggleTheme }) {
   }, [business?.id, navigate]);
 
   async function requestDeviceNotificationPermission() {
-    if ("Notification" in window && window.Notification.permission === "default") {
+    if (
+      "Notification" in window &&
+      window.Notification.permission === "default"
+    ) {
       await window.Notification.requestPermission();
     }
   }
@@ -11387,7 +13354,6 @@ function Header({ title, theme, onToggleTheme }) {
       navigate(getNotificationPath(notification));
     }
   }
- 
 
   // Accessible text changes to describe the action the theme button will perform.
   const themeButtonLabel =
@@ -11409,7 +13375,8 @@ function Header({ title, theme, onToggleTheme }) {
           onChange={(event) => {
             const value = event.target.value;
             setSearchText(value);
-            if (!value && location.search) navigate(location.pathname, { replace: true });
+            if (!value && location.search)
+              navigate(location.pathname, { replace: true });
           }}
           onFocus={() => {
             if (searchText.trim().length >= 2) setIsSearchOpen(true);
@@ -11430,10 +13397,16 @@ function Header({ title, theme, onToggleTheme }) {
               <button
                 key={order.id}
                 type="button"
-                onClick={() => openSearchResult(`/orders?search=${encodeURIComponent(order.orderNumber)}`)}
+                onClick={() =>
+                  openSearchResult(
+                    `/orders?search=${encodeURIComponent(order.orderNumber)}`,
+                  )
+                }
               >
                 <span>{order.orderNumber}</span>
-                <small>{order.customerName} Â· {order.status}</small>
+                <small>
+                  {order.customerName} Â· {order.status}
+                </small>
               </button>
             ))}
 
@@ -11442,10 +13415,17 @@ function Header({ title, theme, onToggleTheme }) {
               <button
                 key={product.id}
                 type="button"
-                onClick={() => openSearchResult(`/inventory?search=${encodeURIComponent(product.name)}`)}
+                onClick={() =>
+                  openSearchResult(
+                    `/inventory?search=${encodeURIComponent(product.name)}`,
+                  )
+                }
               >
                 <span>{product.name}</span>
-                <small>{product.sku || "Product"} Â· {product.availableStock} available</small>
+                <small>
+                  {product.sku || "Product"} Â· {product.availableStock}{" "}
+                  available
+                </small>
               </button>
             ))}
 
@@ -11454,16 +13434,22 @@ function Header({ title, theme, onToggleTheme }) {
               <button
                 key={customer.id}
                 type="button"
-                onClick={() => openSearchResult(`/customers?search=${encodeURIComponent(customer.name)}`)}
+                onClick={() =>
+                  openSearchResult(
+                    `/customers?search=${encodeURIComponent(customer.name)}`,
+                  )
+                }
               >
                 <span>{customer.name}</span>
-                <small>+{customer.phone} Â· {customer.riskLevel} risk</small>
+                <small>
+                  +{customer.phone} Â· {customer.riskLevel} risk
+                </small>
               </button>
             ))}
 
-            {Object.values(searchResults).every((items) => items.length === 0) && (
-              <p>No matching orders, products or customers.</p>
-            )}
+            {Object.values(searchResults).every(
+              (items) => items.length === 0,
+            ) && <p>No matching orders, products or customers.</p>}
           </div>
         )}
       </div>
@@ -11489,17 +13475,19 @@ function Header({ title, theme, onToggleTheme }) {
 
         {/* Application settings shortcut. */}
         <div className="header__settings-menu">
-        <button
-          className="header__icon-button"
-          type="button"
-          onClick={() => setIsSettingsPanelOpen((currentValue) => !currentValue)}
-          aria-label="Open settings"
-          title="Settings"
-        >
-          <Settings size={20} aria-hidden="true" />
-        </button>
+          <button
+            className="header__icon-button"
+            type="button"
+            onClick={() =>
+              setIsSettingsPanelOpen((currentValue) => !currentValue)
+            }
+            aria-label="Open settings"
+            title="Settings"
+          >
+            <Settings size={20} aria-hidden="true" />
+          </button>
 
-        {isSettingsPanelOpen && (
+          {isSettingsPanelOpen && (
             <div className="header__settings-dropdown" role="menu">
               <StaffSettings
                 businessId={business?.id}
@@ -11540,7 +13528,9 @@ function Header({ title, theme, onToggleTheme }) {
 
               <div className="header__notification-list">
                 {notifications.length === 0 ? (
-                  <p className="header__notification-empty">No notifications yet.</p>
+                  <p className="header__notification-empty">
+                    No notifications yet.
+                  </p>
                 ) : (
                   notifications.slice(0, 8).map((notification) => (
                     <button
@@ -11633,11 +13623,11 @@ async function handleLogout() {
 }
 
 export default Header;
-````
+```
 
 ### `frontend/src/components/InventoryFilters.css`
 
-````css
+```css
 /* Outer card containing all inventory filter controls. */
 .inventory-filters {
   margin-top: 10px;
@@ -11662,11 +13652,11 @@ export default Header;
 .inventory-filters__form {
   display: grid;
 
-grid-template-columns:
-  minmax(220px, 1.6fr)
-  repeat(2, minmax(105px, 1fr))
-  auto
-  auto;
+  grid-template-columns:
+    minmax(220px, 1.6fr)
+    repeat(2, minmax(105px, 1fr))
+    auto
+    auto;
 
   align-items: end;
   gap: 10px;
@@ -11777,7 +13767,7 @@ grid-template-columns:
   background-color: var(--color-accent);
 }
 
-.inventory-filters__resetbt{
+.inventory-filters__resetbt {
   transform: rotate(45deg);
 }
 
@@ -11830,11 +13820,7 @@ html[data-theme="dark"] .inventory-filters {
       rgba(41, 151, 255, 0.09),
       transparent 35%
     ),
-    linear-gradient(
-      145deg,
-      rgba(17, 31, 46, 0.96),
-      rgba(10, 21, 34, 0.96)
-    );
+    linear-gradient(145deg, rgba(17, 31, 46, 0.96), rgba(10, 21, 34, 0.96));
 
   box-shadow:
     0 12px 28px rgba(0, 0, 0, 0.22),
@@ -11856,9 +13842,7 @@ html[data-theme="dark"] .inventory-filters__field > select {
     inset 0 1px 0 rgba(255, 255, 255, 0.015);
 }
 
-html[data-theme="dark"]
-  .inventory-filters__field
-  > input::placeholder {
+html[data-theme="dark"] .inventory-filters__field > input::placeholder {
   color: #74879b;
 }
 
@@ -11877,7 +13861,6 @@ html[data-theme="dark"] .inventory-filters__field > select:focus {
     0 5px 14px rgba(0, 0, 0, 0.15);
 }
 
-
 html[data-theme="dark"] .inventory-filters__reset {
   border-color: #31506d;
   color: #54aaff;
@@ -11889,20 +13872,31 @@ html[data-theme="dark"] .inventory-filters__reset:hover {
   color: white;
   background-color: #176bb7;
 }
-.inventory-filters__field { position: relative; }
-.inventory-filters__clear { position: absolute; right: 8px; bottom: 8px; display: grid; place-items: center; width: 24px; height: 24px; border: 0; border-radius: 50%; background: var(--color-surface-muted); color: var(--color-text-muted); cursor: pointer; }
-````
+.inventory-filters__field {
+  position: relative;
+}
+.inventory-filters__clear {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+```
 
 ### `frontend/src/components/InventoryFilters.jsx`
 
-````jsx
+```jsx
 // React state stores the current filter values entered by the user.
 import { useState } from "react";
-import {
-  Funnel,
-  RotateCcw,
-  X,
-} from "lucide-react";
+import { Funnel, RotateCcw, X } from "lucide-react";
 
 import "./InventoryFilters.css";
 
@@ -11949,12 +13943,8 @@ function InventoryFilters({ categories = [], onApply, onReset }) {
     <section className="inventory-filters" aria-label="inventory filters">
       {/* Controlled form: every value comes from the filters state object. */}
       <form className="inventory-filters__form" onSubmit={handleSubmit}>
-    
-
-
         {/* Product name, SKU, or barcode search. */}
         <div className="inventory-filters__field">
-
           <input
             id="searchProduct"
             name="searchProduct"
@@ -11964,9 +13954,21 @@ function InventoryFilters({ categories = [], onApply, onReset }) {
             value={filters.searchProduct}
             onChange={handleInputChange}
           />
-          {filters.searchProduct && <button type="button" className="inventory-filters__clear" onClick={() => handleInputChange({ target: { name: "searchProduct", value: "" } })} aria-label="Clear product search"><X size={15} /></button>}
+          {filters.searchProduct && (
+            <button
+              type="button"
+              className="inventory-filters__clear"
+              onClick={() =>
+                handleInputChange({
+                  target: { name: "searchProduct", value: "" },
+                })
+              }
+              aria-label="Clear product search"
+            >
+              <X size={15} />
+            </button>
+          )}
         </div>
-
 
         {/* Category selector. */}
         <div className="inventory-filters__field">
@@ -11980,12 +13982,12 @@ function InventoryFilters({ categories = [], onApply, onReset }) {
           >
             <option value="">All categories</option>
             {categories.map((category) => (
-              <option key={category.id} value={category.id}>{category.name}</option>
+              <option key={category.id} value={category.id}>
+                {category.name}
+              </option>
             ))}
           </select>
         </div>
-
-
 
         {/* Stock-status selector. */}
         <div className="inventory-filters__field">
@@ -12017,7 +14019,11 @@ function InventoryFilters({ categories = [], onApply, onReset }) {
           aria-label="Reset inventory filters"
           title="Reset filters"
         >
-          <RotateCcw className="inventory-filters__resetbt" size={21} aria-hidden="true" />
+          <RotateCcw
+            className="inventory-filters__resetbt"
+            size={21}
+            aria-hidden="true"
+          />
         </button>
       </form>
     </section>
@@ -12025,11 +14031,11 @@ function InventoryFilters({ categories = [], onApply, onReset }) {
 }
 
 export default InventoryFilters;
-````
+```
 
 ### `frontend/src/components/InventoryForm.css`
 
-````css
+```css
 .inventory-form {
   display: grid;
   gap: 16px;
@@ -12047,9 +14053,15 @@ export default InventoryFilters;
   background: #f8fafc;
 }
 
-.modal-shell:has(.stitch-product-form) .modal-shell__header h2 { font-size: 1.05rem; }
-.modal-shell:has(.stitch-product-form) .modal-shell__header p { display: none; }
-.modal-shell:has(.stitch-product-form) .modal-shell__content { padding: 18px 20px 14px; }
+.modal-shell:has(.stitch-product-form) .modal-shell__header h2 {
+  font-size: 1.05rem;
+}
+.modal-shell:has(.stitch-product-form) .modal-shell__header p {
+  display: none;
+}
+.modal-shell:has(.stitch-product-form) .modal-shell__content {
+  padding: 18px 20px 14px;
+}
 
 .stitch-product-form {
   display: grid;
@@ -12087,7 +14099,9 @@ export default InventoryFilters;
   box-shadow: 0 0 0 2px rgba(37, 137, 220, 0.12);
 }
 
-.stitch-product-form input:disabled { background: #f2f4f7; }
+.stitch-product-form input:disabled {
+  background: #f2f4f7;
+}
 
 .stitch-product__top {
   display: grid;
@@ -12102,7 +14116,9 @@ export default InventoryFilters;
   gap: 14px;
 }
 
-.stitch-product__full { grid-column: 1 / -1; }
+.stitch-product__full {
+  grid-column: 1 / -1;
+}
 
 .stitch-product__photos,
 .stitch-product__panel {
@@ -12111,9 +14127,14 @@ export default InventoryFilters;
   background: #f8fafc;
 }
 
-.stitch-product__photos { padding: 18px; }
+.stitch-product__photos {
+  padding: 18px;
+}
 .stitch-product__photos > strong,
-.stitch-product__panel > strong { display: block; margin-bottom: 13px; }
+.stitch-product__panel > strong {
+  display: block;
+  margin-bottom: 13px;
+}
 
 .stitch-product__upload {
   display: flex !important;
@@ -12129,7 +14150,12 @@ export default InventoryFilters;
 }
 
 .stitch-product__upload input,
-.stitch-product__photo-add input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.stitch-product__photo-add input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
 
 .stitch-product__photo-grid {
   display: grid;
@@ -12152,7 +14178,11 @@ export default InventoryFilters;
   cursor: pointer;
 }
 
-.stitch-product__photo-grid img { width: 100%; height: 100%; object-fit: cover; }
+.stitch-product__photo-grid img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
 
 .stitch-product__identifiers {
   display: grid;
@@ -12160,8 +14190,13 @@ export default InventoryFilters;
   gap: 22px;
 }
 
-.stitch-product__generated { position: relative; display: block; }
-.stitch-product__generated input { padding-right: 35px; }
+.stitch-product__generated {
+  position: relative;
+  display: block;
+}
+.stitch-product__generated input {
+  padding-right: 35px;
+}
 .stitch-product__generated button {
   position: absolute;
   top: 50%;
@@ -12178,9 +14213,17 @@ export default InventoryFilters;
   cursor: pointer;
 }
 
-.stitch-product__panel { padding: 16px 18px; }
-.stitch-product__pricing { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
-.stitch-product__panel--weight-only .stitch-product__pricing { grid-template-columns: minmax(180px, 260px); }
+.stitch-product__panel {
+  padding: 16px 18px;
+}
+.stitch-product__pricing {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+}
+.stitch-product__panel--weight-only .stitch-product__pricing {
+  grid-template-columns: minmax(180px, 260px);
+}
 
 .stitch-product__section-title {
   display: flex;
@@ -12197,12 +14240,16 @@ export default InventoryFilters;
   font-weight: 500;
 }
 
-.stitch-product__section-title input { width: 16px; min-height: 16px; accent-color: #168bd1; }
+.stitch-product__section-title input {
+  width: 16px;
+  min-height: 16px;
+  accent-color: #168bd1;
+}
 
 .stitch-product__variant-head,
 .stitch-product__variant-row {
   display: grid;
-  grid-template-columns: 1.05fr 52px .95fr 1.05fr .58fr .82fr .82fr 28px;
+  grid-template-columns: 1.05fr 52px 0.95fr 1.05fr 0.58fr 0.82fr 0.82fr 28px;
   align-items: center;
   gap: 10px;
 }
@@ -12216,8 +14263,14 @@ export default InventoryFilters;
   text-transform: uppercase;
 }
 
-.stitch-product__variant-row { padding: 7px 10px; border-bottom: 1px solid #eaecf0; }
-.stitch-product__variant-row input { min-height: 34px; padding: 6px 8px; }
+.stitch-product__variant-row {
+  padding: 7px 10px;
+  border-bottom: 1px solid #eaecf0;
+}
+.stitch-product__variant-row input {
+  min-height: 34px;
+  padding: 6px 8px;
+}
 .stitch-product__variant-row > button {
   display: grid;
   place-items: center;
@@ -12229,9 +14282,29 @@ export default InventoryFilters;
   background: transparent;
   cursor: pointer;
 }
-.stitch-product__variant-image { display: grid !important; place-items: center; width: 42px; height: 34px; overflow: hidden; border: 1px dashed #cbd5e1; border-radius: 5px; color: #94a3b8; background: #fff; cursor: pointer; }
-.stitch-product__variant-image img { width: 100%; height: 100%; object-fit: cover; }
-.stitch-product__variant-image input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.stitch-product__variant-image {
+  display: grid !important;
+  place-items: center;
+  width: 42px;
+  height: 34px;
+  overflow: hidden;
+  border: 1px dashed #cbd5e1;
+  border-radius: 5px;
+  color: #94a3b8;
+  background: #fff;
+  cursor: pointer;
+}
+.stitch-product__variant-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.stitch-product__variant-image input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
 
 .stitch-product__add-variant,
 .stitch-product__description button {
@@ -12260,30 +14333,70 @@ export default InventoryFilters;
   background: #dff2fc;
 }
 
-.stitch-product__description textarea { min-height: 88px; resize: vertical; }
-.stitch-product__footer { display: flex; justify-content: flex-end; gap: 9px; padding-top: 3px; }
-.stitch-product__footer button { min-height: 36px; padding: 0 18px; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; cursor: pointer; }
-.stitch-product__footer .stitch-product__save { border-color: #087cf0; color: #fff; background: #087cf0; }
+.stitch-product__description textarea {
+  min-height: 88px;
+  resize: vertical;
+}
+.stitch-product__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+  padding-top: 3px;
+}
+.stitch-product__footer button {
+  min-height: 36px;
+  padding: 0 18px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+}
+.stitch-product__footer .stitch-product__save {
+  border-color: #087cf0;
+  color: #fff;
+  background: #087cf0;
+}
 
-html[data-theme="dark"] .modal-shell:has(.stitch-product-form) .modal-shell__header,
+html[data-theme="dark"]
+  .modal-shell:has(.stitch-product-form)
+  .modal-shell__header,
 html[data-theme="dark"] .stitch-product__photos,
-html[data-theme="dark"] .stitch-product__panel { background: var(--color-surface-soft); }
-html[data-theme="dark"] .stitch-product-form { color: var(--color-text); }
+html[data-theme="dark"] .stitch-product__panel {
+  background: var(--color-surface-soft);
+}
+html[data-theme="dark"] .stitch-product-form {
+  color: var(--color-text);
+}
 html[data-theme="dark"] .stitch-product-form input,
 html[data-theme="dark"] .stitch-product-form select,
 html[data-theme="dark"] .stitch-product-form textarea,
 html[data-theme="dark"] .stitch-product__upload,
 html[data-theme="dark"] .stitch-product__photo-grid > span,
-html[data-theme="dark"] .stitch-product__photo-add { color: var(--color-text); background: var(--color-surface); border-color: var(--color-border); }
+html[data-theme="dark"] .stitch-product__photo-add {
+  color: var(--color-text);
+  background: var(--color-surface);
+  border-color: var(--color-border);
+}
 
 @media (max-width: 760px) {
-  .stitch-product__top { grid-template-columns: 1fr; gap: 14px; }
-  .stitch-product__photos { order: 2; }
+  .stitch-product__top {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+  .stitch-product__photos {
+    order: 2;
+  }
   .stitch-product__identifiers,
-  .stitch-product__pricing { grid-template-columns: 1fr 1fr; }
-  .stitch-product__variants { overflow-x: auto; }
+  .stitch-product__pricing {
+    grid-template-columns: 1fr 1fr;
+  }
+  .stitch-product__variants {
+    overflow-x: auto;
+  }
   .stitch-product__variant-head,
-  .stitch-product__variant-row { min-width: 790px; }
+  .stitch-product__variant-row {
+    min-width: 790px;
+  }
 }
 
 .inventory-form__columns {
@@ -12999,11 +15112,11 @@ html[data-theme="dark"] .stitch-product__photo-add { color: var(--color-text); b
     font-size: 0.72rem;
   }
 }
-````
+```
 
 ### `frontend/src/components/InventoryTable.css`
 
-````css
+```css
 /* Product image and text arrangement inside a main inventory row. */
 .inventory-table__product {
   display: flex;
@@ -13328,18 +15441,15 @@ html[data-theme="dark"] .inventory-table__details {
   );
 }
 
-html[data-theme="dark"]
-  .inventory-table__status--in-stock {
+html[data-theme="dark"] .inventory-table__status--in-stock {
   color: #5cdaa8;
 }
 
-html[data-theme="dark"]
-  .inventory-table__status--low-stock {
+html[data-theme="dark"] .inventory-table__status--low-stock {
   color: #ffbd4a;
 }
 
-html[data-theme="dark"]
-  .inventory-table__status--out-of-stock {
+html[data-theme="dark"] .inventory-table__status--out-of-stock {
   color: #ff7777;
 }
 
@@ -13458,11 +15568,11 @@ html[data-theme="dark"] .inventory-table__bulk-actions {
     justify-content: flex-start;
   }
 }
-````
+```
 
 ### `frontend/src/components/InventoryTable.jsx`
 
-````jsx
+```jsx
 // React tools manage repeated table rows and interactive component state.
 import { Fragment, useState } from "react";
 import {
@@ -13478,10 +15588,7 @@ import {
 import ActionMenu from "./ActionMenu";
 
 // Product data, stock calculation helpers, and the nested size table.
-import {
-  getProductStock,
-  getProductStockStatus,
-} from "../utils/inventory";
+import { getProductStock, getProductStockStatus } from "../utils/inventory";
 import ProductSizesTable from "./ProductVariantsTable";
 
 import "./OrderTable.css";
@@ -13528,7 +15635,13 @@ function ProductImage({ product, imageNumber = 0 }) {
 }
 
 // Expanded content used only by products that have size variants.
-function SizeStockDetails({ product, onViewReviews, onAdjustStock, onEditProduct, onRemoveProduct }) {
+function SizeStockDetails({
+  product,
+  onViewReviews,
+  onAdjustStock,
+  onEditProduct,
+  onRemoveProduct,
+}) {
   return (
     <div className="inventory-table__size-details">
       {/* Size summary and seller actions. */}
@@ -13536,7 +15649,8 @@ function SizeStockDetails({ product, onViewReviews, onAdjustStock, onEditProduct
         <div>
           <h3>Sizes &amp; Stock</h3>
           <span>
-            {product.sizes.length} sizes â€¢ {getProductStock(product)} total units
+            {product.sizes.length} sizes â€¢ {getProductStock(product)} total
+            units
           </span>
         </div>
 
@@ -13549,7 +15663,11 @@ function SizeStockDetails({ product, onViewReviews, onAdjustStock, onEditProduct
             <Pencil size={16} aria-hidden="true" />
             Edit Product
           </button>
-          <button type="button" className="inventory-table__danger-button" onClick={() => onRemoveProduct?.(product)}>
+          <button
+            type="button"
+            className="inventory-table__danger-button"
+            onClick={() => onRemoveProduct?.(product)}
+          >
             <Trash2 size={16} aria-hidden="true" />
             Remove Product
           </button>
@@ -13571,11 +15689,7 @@ function SizeStockDetails({ product, onViewReviews, onAdjustStock, onEditProduct
           <h4>Product Photos</h4>
           <div className="inventory-table__images">
             {(product.images ?? []).map((image, index) => (
-              <ProductImage
-                key={image}
-                product={product}
-                imageNumber={index}
-              />
+              <ProductImage key={image} product={product} imageNumber={index} />
             ))}
           </div>
         </section>
@@ -13591,7 +15705,13 @@ function SizeStockDetails({ product, onViewReviews, onAdjustStock, onEditProduct
 }
 
 // Expanded content for a simple product that does not have sizes.
-function SimpleProductDetails({ product, onViewReviews, onAdjustStock, onEditProduct, onRemoveProduct }) {
+function SimpleProductDetails({
+  product,
+  onViewReviews,
+  onAdjustStock,
+  onEditProduct,
+  onRemoveProduct,
+}) {
   return (
     <div className="inventory-table__details">
       {/* Product description and photo gallery. */}
@@ -13602,11 +15722,7 @@ function SimpleProductDetails({ product, onViewReviews, onAdjustStock, onEditPro
         <h3>Product Images</h3>
         <div className="inventory-table__images">
           {(product.images ?? []).map((image, index) => (
-            <ProductImage
-              key={image}
-              product={product}
-              imageNumber={index}
-            />
+            <ProductImage key={image} product={product} imageNumber={index} />
           ))}
         </div>
       </section>
@@ -13657,7 +15773,11 @@ function SimpleProductDetails({ product, onViewReviews, onAdjustStock, onEditPro
           <Pencil size={17} aria-hidden="true" />
           Edit Product
         </button>
-        <button type="button" className="inventory-table__danger-button" onClick={() => onRemoveProduct?.(product)}>
+        <button
+          type="button"
+          className="inventory-table__danger-button"
+          onClick={() => onRemoveProduct?.(product)}
+        >
           <Trash2 size={17} aria-hidden="true" />
           Remove Product
         </button>
@@ -13674,11 +15794,19 @@ function SimpleProductDetails({ product, onViewReviews, onAdjustStock, onEditPro
   );
 }
 
-function InventoryTable({ products = [], categories = [], onViewReviews, onAdjustStock, onEditProduct, onRemoveProduct, onChangeStatus, onChangeCategory, onExportSelected }) {
+function InventoryTable({
+  products = [],
+  categories = [],
+  onViewReviews,
+  onAdjustStock,
+  onEditProduct,
+  onRemoveProduct,
+  onChangeStatus,
+  onChangeCategory,
+  onExportSelected,
+}) {
   // Track the one expanded row and all checkbox-selected products.
-  const [expandedProductId, setExpandedProductId] = useState(
-    null,
-  );
+  const [expandedProductId, setExpandedProductId] = useState(null);
   const [selectedProductIds, setSelectedProductIds] = useState([]);
 
   // True when every visible product checkbox is selected.
@@ -13727,12 +15855,18 @@ function InventoryTable({ products = [], categories = [], onViewReviews, onAdjus
             onClick={() => {
               if (selectedProductIds.length === 1) {
                 onAdjustStock?.(
-                  products.find((product) => product.id === selectedProductIds[0]),
+                  products.find(
+                    (product) => product.id === selectedProductIds[0],
+                  ),
                 );
               }
             }}
             disabled={selectedProductIds.length !== 1}
-            title={selectedProductIds.length === 1 ? "Adjust selected product" : "Select one product to adjust stock"}
+            title={
+              selectedProductIds.length === 1
+                ? "Adjust selected product"
+                : "Select one product to adjust stock"
+            }
           >
             <PackagePlus size={16} aria-hidden="true" />
             Adjust stock
@@ -13748,7 +15882,9 @@ function InventoryTable({ products = [], categories = [], onViewReviews, onAdjus
               }
             }}
           >
-            <option value="" disabled>Change status</option>
+            <option value="" disabled>
+              Change status
+            </option>
             <option value="active">Active</option>
             <option value="draft">Draft</option>
             <option value="archived">Archived</option>
@@ -13764,13 +15900,25 @@ function InventoryTable({ products = [], categories = [], onViewReviews, onAdjus
               }
             }}
           >
-            <option value="" disabled>Add to category</option>
-            {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
+            <option value="" disabled>
+              Add to category
+            </option>
+            {categories.map((category) => (
+              <option key={category.id} value={category.id}>
+                {category.name}
+              </option>
+            ))}
           </select>
-          <button type="button" onClick={() => onChangeStatus?.(selectedProductIds, "archived")}>
+          <button
+            type="button"
+            onClick={() => onChangeStatus?.(selectedProductIds, "archived")}
+          >
             Delete selected
           </button>
-          <button type="button" onClick={() => onExportSelected?.(selectedProductIds)}>
+          <button
+            type="button"
+            onClick={() => onExportSelected?.(selectedProductIds)}
+          >
             <Download size={16} aria-hidden="true" />
             Export selected
           </button>
@@ -13812,9 +15960,7 @@ function InventoryTable({ products = [], categories = [], onViewReviews, onAdjus
               return (
                 <Fragment key={product.id}>
                   <tr
-                    className={
-                      isSelected ? "orders-table__row--selected" : ""
-                    }
+                    className={isSelected ? "orders-table__row--selected" : ""}
                   >
                     <td>
                       <input
@@ -13889,19 +16035,42 @@ function InventoryTable({ products = [], categories = [], onViewReviews, onAdjus
                       </span>
                     </td>
                     <td>
-                      <ActionMenu label={`More actions for ${product.name}`} items={[
-                        { label: "Edit product", icon: <Pencil size={16} />, onClick: () => onEditProduct?.(product) },
-                        { label: "Adjust stock", icon: <PackagePlus size={16} />, onClick: () => onAdjustStock?.(product) },
-                        { label: "View reviews", icon: <Star size={16} />, onClick: () => onViewReviews?.(product) },
-                        { label: "Remove product", icon: <Trash2 size={16} />, danger: true, onClick: () => onRemoveProduct?.(product) },
-                      ]} />
+                      <ActionMenu
+                        label={`More actions for ${product.name}`}
+                        items={[
+                          {
+                            label: "Edit product",
+                            icon: <Pencil size={16} />,
+                            onClick: () => onEditProduct?.(product),
+                          },
+                          {
+                            label: "Adjust stock",
+                            icon: <PackagePlus size={16} />,
+                            onClick: () => onAdjustStock?.(product),
+                          },
+                          {
+                            label: "View reviews",
+                            icon: <Star size={16} />,
+                            onClick: () => onViewReviews?.(product),
+                          },
+                          {
+                            label: "Remove product",
+                            icon: <Trash2 size={16} />,
+                            danger: true,
+                            onClick: () => onRemoveProduct?.(product),
+                          },
+                        ]}
+                      />
                     </td>
                   </tr>
 
                   {/* Show the correct expanded layout for sized or simple products. */}
                   {isExpanded && (
                     <tr className="inventory-table__details-row">
-                      <td className="inventory-table__details-cell" colSpan={10}>
+                      <td
+                        className="inventory-table__details-cell"
+                        colSpan={10}
+                      >
                         {product.hasSizes ? (
                           <SizeStockDetails
                             product={product}
@@ -13952,11 +16121,11 @@ function InventoryTable({ products = [], categories = [], onViewReviews, onAdjus
 }
 
 export default InventoryTable;
-````
+```
 
 ### `frontend/src/components/ModalShell.css`
 
-````css
+```css
 .modal-is-open {
   overflow: hidden;
 }
@@ -14037,13 +16206,23 @@ export default InventoryTable;
 }
 
 @keyframes modal-backdrop-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes modal-panel-in {
-  from { opacity: 0; transform: translateY(14px) scale(0.985); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -14052,18 +16231,25 @@ export default InventoryTable;
     animation: none;
   }
 }
-````
+```
 
 ### `frontend/src/components/ModalShell.jsx`
 
-````jsx
+```jsx
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
 import "./ModalShell.css";
 
-function ModalShell({ isOpen, title, description, onClose, children, size = "medium" }) {
+function ModalShell({
+  isOpen,
+  title,
+  description,
+  onClose,
+  children,
+  size = "medium",
+}) {
   useEffect(() => {
     if (!isOpen) {
       return undefined;
@@ -14115,11 +16301,11 @@ function ModalShell({ isOpen, title, description, onClose, children, size = "med
 }
 
 export default ModalShell;
-````
+```
 
 ### `frontend/src/components/OrderDetails.css`
 
-````css
+```css
 /* Expanded order panel divided into products, address, summary, and actions. */
 .order-details {
   display: grid;
@@ -14417,11 +16603,11 @@ html[data-theme="dark"] .orders-table__details-cell {
   pointer-events: none;
   transform: translateY(-50%);
 }
-````
+```
 
 ### `frontend/src/components/OrderDetails.jsx`
 
-````jsx
+```jsx
 // Icons used in the customer information and order action areas.
 import {
   ChevronDown,
@@ -14560,7 +16746,13 @@ function OrderDetails({
         <div className="order-details__items">
           {items.map((item) => (
             <div className="order-details__item" key={item.id}>
-              {item.imageUrl ? <img className="order-details__item-image" src={item.imageUrl} alt="" /> : null}
+              {item.imageUrl ? (
+                <img
+                  className="order-details__item-image"
+                  src={item.imageUrl}
+                  alt=""
+                />
+              ) : null}
               <div>
                 <strong>{item.name}</strong>
 
@@ -14625,7 +16817,11 @@ function OrderDetails({
               placeholder="Enter waybill number"
               disabled={isWorking}
             />
-            <button type="button" onClick={handleWaybillSave} disabled={isWorking}>
+            <button
+              type="button"
+              onClick={handleWaybillSave}
+              disabled={isWorking}
+            >
               Save
             </button>
           </div>
@@ -14647,11 +16843,15 @@ function OrderDetails({
                   event.target.value = "";
                 }
               }}
-              disabled={(nextStatuses[order.fulfilmentStatus] ?? []).length === 0}
+              disabled={
+                (nextStatuses[order.fulfilmentStatus] ?? []).length === 0
+              }
             >
               <option value="">Choose next status</option>
               {(nextStatuses[order.fulfilmentStatus] ?? []).map((status) => (
-                <option key={status} value={status}>{readableStatus(status)}</option>
+                <option key={status} value={status}>
+                  {readableStatus(status)}
+                </option>
               ))}
             </select>
             <ChevronDown size={17} aria-hidden="true" />
@@ -14689,7 +16889,9 @@ function OrderDetails({
         </button>
 
         {actionError && (
-          <p className="order-details__action-error" role="alert">{actionError}</p>
+          <p className="order-details__action-error" role="alert">
+            {actionError}
+          </p>
         )}
       </section>
     </div>
@@ -14697,11 +16899,11 @@ function OrderDetails({
 }
 
 export default OrderDetails;
-````
+```
 
 ### `frontend/src/components/OrderFilters.css`
 
-````css
+```css
 /* Outer card containing all order filter controls. */
 .order-filters {
   margin-top: 10px;
@@ -14885,7 +17087,7 @@ export default OrderDetails;
   background-color: var(--color-accent);
 }
 
-.order-filters__resetbt{
+.order-filters__resetbt {
   transform: rotate(45deg);
 }
 
@@ -14938,11 +17140,7 @@ html[data-theme="dark"] .order-filters {
       rgba(41, 151, 255, 0.09),
       transparent 35%
     ),
-    linear-gradient(
-      145deg,
-      rgba(17, 31, 46, 0.96),
-      rgba(10, 21, 34, 0.96)
-    );
+    linear-gradient(145deg, rgba(17, 31, 46, 0.96), rgba(10, 21, 34, 0.96));
 
   box-shadow:
     0 12px 28px rgba(0, 0, 0, 0.22),
@@ -14965,9 +17163,7 @@ html[data-theme="dark"] .order-filters__date-control {
     inset 0 1px 0 rgba(255, 255, 255, 0.015);
 }
 
-html[data-theme="dark"]
-  .order-filters__field
-  > input::placeholder {
+html[data-theme="dark"] .order-filters__field > input::placeholder {
   color: #74879b;
 }
 
@@ -14978,8 +17174,7 @@ html[data-theme="dark"] .order-filters__field select option {
 
 html[data-theme="dark"] .order-filters__field > input:focus,
 html[data-theme="dark"] .order-filters__field > select:focus,
-html[data-theme="dark"]
-  .order-filters__date-control:focus-within {
+html[data-theme="dark"] .order-filters__date-control:focus-within {
   border-color: #2997ff;
   background-color: rgba(10, 25, 41, 0.95);
 
@@ -15007,22 +17202,34 @@ html[data-theme="dark"] .order-filters__reset:hover {
   color: white;
   background-color: #176bb7;
 }
-.order-filters__field { position: relative; }
-.order-filters__clear { position: absolute; right: 8px; bottom: 8px; display: grid; place-items: center; width: 24px; height: 24px; border: 0; border-radius: 50%; background: var(--color-surface-muted); color: var(--color-text-muted); cursor: pointer; }
-.order-filters__clear:hover { color: var(--color-text); }
-````
+.order-filters__field {
+  position: relative;
+}
+.order-filters__clear {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+.order-filters__clear:hover {
+  color: var(--color-text);
+}
+```
 
 ### `frontend/src/components/OrderFilters.jsx`
 
-````jsx
+```jsx
 // React state stores the filter form; icons improve the form controls visually.
 import { useState } from "react";
-import {
-  CalendarDays,
-  Funnel,
-  RotateCcw,
-  X,
-} from "lucide-react";
+import { CalendarDays, Funnel, RotateCcw, X } from "lucide-react";
 
 import "./OrderFilters.css";
 
@@ -15054,7 +17261,11 @@ function OrderFilters({ couriers = [], onApply, onReset }) {
       ...currentFilters,
       [fieldName]: fieldValue,
     }));
-    if (!fieldValue && ["orderNumber", "itemName", "customer"].includes(fieldName)) onApply?.(nextFilters);
+    if (
+      !fieldValue &&
+      ["orderNumber", "itemName", "customer"].includes(fieldName)
+    )
+      onApply?.(nextFilters);
   }
 
   // Stop the browser refresh and prepare filters for future API/database use.
@@ -15103,23 +17314,55 @@ function OrderFilters({ couriers = [], onApply, onReset }) {
 
         <div className="order-filters__field">
           <label htmlFor="waybill-number">Waybill number</label>
-          <input id="waybill-number" name="waybillNumber" type="search" placeholder="Scan or enter waybill" value={filters.waybillNumber} onChange={handleInputChange} />
-          {filters.waybillNumber && <button type="button" className="order-filters__clear" onClick={() => handleInputChange({ target: { name: "waybillNumber", value: "" } })} aria-label="Clear waybill number"><X size={15} /></button>}
+          <input
+            id="waybill-number"
+            name="waybillNumber"
+            type="search"
+            placeholder="Scan or enter waybill"
+            value={filters.waybillNumber}
+            onChange={handleInputChange}
+          />
+          {filters.waybillNumber && (
+            <button
+              type="button"
+              className="order-filters__clear"
+              onClick={() =>
+                handleInputChange({
+                  target: { name: "waybillNumber", value: "" },
+                })
+              }
+              aria-label="Clear waybill number"
+            >
+              <X size={15} />
+            </button>
+          )}
         </div>
 
         {/* Search by order number. */}
         <div className="order-filters__field">
           <label htmlFor="order-number">Order number</label>
 
-            <input
-              id="order-number"
-              name="orderNumber"
-              type="search"
+          <input
+            id="order-number"
+            name="orderNumber"
+            type="search"
             placeholder="e.g. VD-100001"
             value={filters.orderNumber}
-              onChange={handleInputChange}
-            />
-            {filters.orderNumber && <button type="button" className="order-filters__clear" onClick={() => { const event = { target: { name: "orderNumber", value: "" } }; handleInputChange(event); }} aria-label="Clear order number"><X size={15} /></button>}
+            onChange={handleInputChange}
+          />
+          {filters.orderNumber && (
+            <button
+              type="button"
+              className="order-filters__clear"
+              onClick={() => {
+                const event = { target: { name: "orderNumber", value: "" } };
+                handleInputChange(event);
+              }}
+              aria-label="Clear order number"
+            >
+              <X size={15} />
+            </button>
+          )}
         </div>
 
         {/* Search by product/item name. */}
@@ -15134,7 +17377,18 @@ function OrderFilters({ couriers = [], onApply, onReset }) {
             value={filters.itemName}
             onChange={handleInputChange}
           />
-          {filters.itemName && <button type="button" className="order-filters__clear" onClick={() => handleInputChange({ target: { name: "itemName", value: "" } })} aria-label="Clear item name"><X size={15} /></button>}
+          {filters.itemName && (
+            <button
+              type="button"
+              className="order-filters__clear"
+              onClick={() =>
+                handleInputChange({ target: { name: "itemName", value: "" } })
+              }
+              aria-label="Clear item name"
+            >
+              <X size={15} />
+            </button>
+          )}
         </div>
 
         {/* Search by customer name or phone number. */}
@@ -15149,7 +17403,18 @@ function OrderFilters({ couriers = [], onApply, onReset }) {
             value={filters.customer}
             onChange={handleInputChange}
           />
-          {filters.customer && <button type="button" className="order-filters__clear" onClick={() => handleInputChange({ target: { name: "customer", value: "" } })} aria-label="Clear customer search"><X size={15} /></button>}
+          {filters.customer && (
+            <button
+              type="button"
+              className="order-filters__clear"
+              onClick={() =>
+                handleInputChange({ target: { name: "customer", value: "" } })
+              }
+              aria-label="Clear customer search"
+            >
+              <X size={15} />
+            </button>
+          )}
         </div>
 
         {/* Restrict results to a selected courier. */}
@@ -15164,7 +17429,9 @@ function OrderFilters({ couriers = [], onApply, onReset }) {
           >
             <option value="">All couriers</option>
             {couriers.map((courier) => (
-              <option key={courier.id} value={courier.id}>{courier.name}</option>
+              <option key={courier.id} value={courier.id}>
+                {courier.name}
+              </option>
             ))}
           </select>
         </div>
@@ -15182,7 +17449,11 @@ function OrderFilters({ couriers = [], onApply, onReset }) {
           aria-label="Reset order filters"
           title="Reset filters"
         >
-          <RotateCcw className="order-filters__resetbt" size={21} aria-hidden="true" />
+          <RotateCcw
+            className="order-filters__resetbt"
+            size={21}
+            aria-hidden="true"
+          />
         </button>
       </form>
     </section>
@@ -15190,59 +17461,261 @@ function OrderFilters({ couriers = [], onApply, onReset }) {
 }
 
 export default OrderFilters;
-````
+```
 
 ### `frontend/src/components/OrderReceipt.css`
 
-````css
-.receipt-layer { position: fixed; inset: 0; z-index: 1400; overflow-y: auto; padding: 30px 18px; color: #20262e; background: rgba(246,248,251,.98); }
-.receipt-page { width: min(770px, 100%); margin: 0 auto; text-align: center; }
-.receipt-success-mark { display: grid; place-items: center; width: 64px; height: 64px; margin: 0 auto 12px; border-radius: 50%; color: #003b52; background: #08b4ec; }
-.receipt-page > h1 { margin: 0; font-size: 1.7rem; }
-.receipt-page > p { margin: 8px 0 24px; color: #536173; }
-.receipt-card { overflow: hidden; border: 1px solid #aebdca; border-radius: 11px; background: #fff; box-shadow: 0 18px 50px rgba(18,38,63,.12); text-align: left; }
-.receipt-card > header { display: flex; justify-content: space-between; padding: 16px 25px; background: #f2f5f8; }
-.receipt-card > header div { display: grid; gap: 3px; }
-.receipt-card > header div:last-child { text-align: right; }
-.receipt-card small { color: #536173; }
-.receipt-card > header strong { font-size: 1.25rem; }
+```css
+.receipt-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 1400;
+  overflow-y: auto;
+  padding: 30px 18px;
+  color: #20262e;
+  background: rgba(246, 248, 251, 0.98);
+}
+.receipt-page {
+  width: min(770px, 100%);
+  margin: 0 auto;
+  text-align: center;
+}
+.receipt-success-mark {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 12px;
+  border-radius: 50%;
+  color: #003b52;
+  background: #08b4ec;
+}
+.receipt-page > h1 {
+  margin: 0;
+  font-size: 1.7rem;
+}
+.receipt-page > p {
+  margin: 8px 0 24px;
+  color: #536173;
+}
+.receipt-card {
+  overflow: hidden;
+  border: 1px solid #aebdca;
+  border-radius: 11px;
+  background: #fff;
+  box-shadow: 0 18px 50px rgba(18, 38, 63, 0.12);
+  text-align: left;
+}
+.receipt-card > header {
+  display: flex;
+  justify-content: space-between;
+  padding: 16px 25px;
+  background: #f2f5f8;
+}
+.receipt-card > header div {
+  display: grid;
+  gap: 3px;
+}
+.receipt-card > header div:last-child {
+  text-align: right;
+}
+.receipt-card small {
+  color: #536173;
+}
+.receipt-card > header strong {
+  font-size: 1.25rem;
+}
 .receipt-status,
 .receipt-items,
 .receipt-details,
-.receipt-totals { padding: 24px 25px; border-top: 1px solid #cfd8e1; }
-.receipt-card h2 { margin: 0 0 18px; font-size: 1.12rem; }
-.receipt-status__track { position: relative; display: grid; grid-template-columns: repeat(3, 1fr); margin-bottom: 20px; }
-.receipt-status__track::before { position: absolute; top: 12px; left: 8px; right: 8px; height: 4px; border-radius: 3px; background: linear-gradient(90deg,#087397 0 58%,#dfe5ea 58%); content: ""; }
-.receipt-status__track span { position: relative; z-index: 1; display: grid; justify-items: start; gap: 6px; font-weight: 650; }
-.receipt-status__track span:nth-child(2) { justify-items: center; }
-.receipt-status__track span:last-child { justify-items: end; }
-.receipt-status__track svg { box-sizing: content-box; padding: 5px; border-radius: 50%; color: #fff; background: #087397; }
-.receipt-status__track .is-muted svg { color: #526273; background: #dfe5ea; }
-.receipt-info { display: flex; gap: 10px; padding: 15px; border-radius: 7px; background: #dce7fa; }
-.receipt-info span { display: grid; gap: 4px; }
-.receipt-info strong { color: #526273; font-size: .72rem; letter-spacing: .05em; }
-.receipt-items > div { display: grid; grid-template-columns: 80px 1fr auto; align-items: center; gap: 16px; margin-top: 14px; }
-.receipt-item__image { display: grid; place-items: center; width: 80px; height: 80px; overflow: hidden; border: 1px solid #c7d2dc; border-radius: 8px; background: #f2f5f8; }
-.receipt-item__image img { width: 100%; height: 100%; object-fit: cover; }
-.receipt-items > div > span:nth-child(2) { display: grid; gap: 5px; }
-.receipt-details { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
-.receipt-details > div { display: grid; align-content: start; gap: 7px; }
-.receipt-details small { font-weight: 700; letter-spacing: .05em; }
-.receipt-details span { color: #536173; line-height: 1.5; }
-.receipt-totals { background: #f2f5f8; }
-.receipt-totals > div { display: flex; justify-content: space-between; margin-bottom: 10px; color: #445161; }
-.receipt-totals .receipt-total { margin: 15px 0 0; padding-top: 14px; border-top: 1px solid #cbd5df; color: #20262e; font-size: 1.15rem; }
-.receipt-total strong:last-child { color: #087397; font-size: 1.4rem; }
-.receipt-actions { display: flex; justify-content: center; gap: 14px; margin-top: 24px; }
-.receipt-actions button { display: inline-flex; align-items: center; gap: 8px; min-height: 48px; padding: 0 22px; border: 1px solid #8d9bab; border-radius: 7px; color: #20262e; background: #fff; cursor: pointer; font-weight: 700; }
-.receipt-actions button:first-child { border-color: #087397; color: #fff; background: #087397; }
-@media (max-width: 600px) { .receipt-layer { padding: 18px 10px; } .receipt-details { grid-template-columns: 1fr; } .receipt-items > div { grid-template-columns: 58px 1fr auto; } .receipt-item__image { width: 58px; height: 58px; } .receipt-actions { flex-direction: column; } .receipt-actions button { justify-content: center; } }
-````
+.receipt-totals {
+  padding: 24px 25px;
+  border-top: 1px solid #cfd8e1;
+}
+.receipt-card h2 {
+  margin: 0 0 18px;
+  font-size: 1.12rem;
+}
+.receipt-status__track {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin-bottom: 20px;
+}
+.receipt-status__track::before {
+  position: absolute;
+  top: 12px;
+  left: 8px;
+  right: 8px;
+  height: 4px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #087397 0 58%, #dfe5ea 58%);
+  content: "";
+}
+.receipt-status__track span {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-items: start;
+  gap: 6px;
+  font-weight: 650;
+}
+.receipt-status__track span:nth-child(2) {
+  justify-items: center;
+}
+.receipt-status__track span:last-child {
+  justify-items: end;
+}
+.receipt-status__track svg {
+  box-sizing: content-box;
+  padding: 5px;
+  border-radius: 50%;
+  color: #fff;
+  background: #087397;
+}
+.receipt-status__track .is-muted svg {
+  color: #526273;
+  background: #dfe5ea;
+}
+.receipt-info {
+  display: flex;
+  gap: 10px;
+  padding: 15px;
+  border-radius: 7px;
+  background: #dce7fa;
+}
+.receipt-info span {
+  display: grid;
+  gap: 4px;
+}
+.receipt-info strong {
+  color: #526273;
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+}
+.receipt-items > div {
+  display: grid;
+  grid-template-columns: 80px 1fr auto;
+  align-items: center;
+  gap: 16px;
+  margin-top: 14px;
+}
+.receipt-item__image {
+  display: grid;
+  place-items: center;
+  width: 80px;
+  height: 80px;
+  overflow: hidden;
+  border: 1px solid #c7d2dc;
+  border-radius: 8px;
+  background: #f2f5f8;
+}
+.receipt-item__image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.receipt-items > div > span:nth-child(2) {
+  display: grid;
+  gap: 5px;
+}
+.receipt-details {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 30px;
+}
+.receipt-details > div {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+}
+.receipt-details small {
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+.receipt-details span {
+  color: #536173;
+  line-height: 1.5;
+}
+.receipt-totals {
+  background: #f2f5f8;
+}
+.receipt-totals > div {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  color: #445161;
+}
+.receipt-totals .receipt-total {
+  margin: 15px 0 0;
+  padding-top: 14px;
+  border-top: 1px solid #cbd5df;
+  color: #20262e;
+  font-size: 1.15rem;
+}
+.receipt-total strong:last-child {
+  color: #087397;
+  font-size: 1.4rem;
+}
+.receipt-actions {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  margin-top: 24px;
+}
+.receipt-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 22px;
+  border: 1px solid #8d9bab;
+  border-radius: 7px;
+  color: #20262e;
+  background: #fff;
+  cursor: pointer;
+  font-weight: 700;
+}
+.receipt-actions button:first-child {
+  border-color: #087397;
+  color: #fff;
+  background: #087397;
+}
+@media (max-width: 600px) {
+  .receipt-layer {
+    padding: 18px 10px;
+  }
+  .receipt-details {
+    grid-template-columns: 1fr;
+  }
+  .receipt-items > div {
+    grid-template-columns: 58px 1fr auto;
+  }
+  .receipt-item__image {
+    width: 58px;
+    height: 58px;
+  }
+  .receipt-actions {
+    flex-direction: column;
+  }
+  .receipt-actions button {
+    justify-content: center;
+  }
+}
+```
 
 ### `frontend/src/components/OrderReceipt.jsx`
 
-````jsx
-import { Check, CircleHelp, Download, Home, Info, Package, Truck } from "lucide-react";
+```jsx
+import {
+  Check,
+  CircleHelp,
+  Download,
+  Home,
+  Info,
+  Package,
+  Truck,
+} from "lucide-react";
 import { downloadReceiptPdf } from "../services/receiptService";
 import "./OrderReceipt.css";
 
@@ -15252,44 +17725,180 @@ function money(minorUnits = 0) {
 
 function dateLabel(value) {
   const date = value ? new Date(value) : new Date();
-  return Number.isNaN(date.getTime()) ? new Date().toLocaleDateString("en-LK") : date.toLocaleDateString("en-LK", { year: "numeric", month: "long", day: "numeric" });
+  return Number.isNaN(date.getTime())
+    ? new Date().toLocaleDateString("en-LK")
+    : date.toLocaleDateString("en-LK", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
 }
 
-export default function OrderReceipt({ business, order, onClose, closeLabel = "Return" }) {
+export default function OrderReceipt({
+  business,
+  order,
+  onClose,
+  closeLabel = "Return",
+}) {
   const address = order.deliveryAddress || order.deliveryAddressObject || {};
   const customer = order.customerSnapshot || {};
-  const payment = order.paymentMethod === "deposit" ? "Deposit / balance due" : order.paymentMethod === "paid" ? "Paid" : "Cash on delivery";
+  const payment =
+    order.paymentMethod === "deposit"
+      ? "Deposit / balance due"
+      : order.paymentMethod === "paid"
+        ? "Paid"
+        : "Cash on delivery";
 
-  return <div className="receipt-layer">
-    <section className="receipt-page">
-      <div className="receipt-success-mark"><Check size={25} strokeWidth={3} /></div>
-      <h1>Order Confirmed</h1>
-      <p>Thank you for your purchase. Your order is being processed.</p>
+  return (
+    <div className="receipt-layer">
+      <section className="receipt-page">
+        <div className="receipt-success-mark">
+          <Check size={25} strokeWidth={3} />
+        </div>
+        <h1>Order Confirmed</h1>
+        <p>Thank you for your purchase. Your order is being processed.</p>
 
-      <article className="receipt-card">
-        <header><div><small>ORDER NUMBER</small><strong>#{order.orderNumber}</strong></div><div><small>ORDER DATE</small><span>{dateLabel(order.createdAt)}</span></div></header>
-        <section className="receipt-status">
-          <h2>Order Status</h2>
-          <div className="receipt-status__track"><span><Package size={15} />Confirmed</span><span><Truck size={15} />Processing</span><span className="is-muted"><Home size={15} />Delivered</span></div>
-          <div className="receipt-info"><Info size={18} /><span><strong>TRACKING INFO</strong>Your items are being prepared for shipping. We will provide tracking information when the order is dispatched.</span></div>
-        </section>
+        <article className="receipt-card">
+          <header>
+            <div>
+              <small>ORDER NUMBER</small>
+              <strong>#{order.orderNumber}</strong>
+            </div>
+            <div>
+              <small>ORDER DATE</small>
+              <span>{dateLabel(order.createdAt)}</span>
+            </div>
+          </header>
+          <section className="receipt-status">
+            <h2>Order Status</h2>
+            <div className="receipt-status__track">
+              <span>
+                <Package size={15} />
+                Confirmed
+              </span>
+              <span>
+                <Truck size={15} />
+                Processing
+              </span>
+              <span className="is-muted">
+                <Home size={15} />
+                Delivered
+              </span>
+            </div>
+            <div className="receipt-info">
+              <Info size={18} />
+              <span>
+                <strong>TRACKING INFO</strong>Your items are being prepared for
+                shipping. We will provide tracking information when the order is
+                dispatched.
+              </span>
+            </div>
+          </section>
 
-        <section className="receipt-items"><h2>Items in your order</h2>{(order.items || []).map((item) => <div key={item.variantId || item.id}><span className="receipt-item__image">{item.mediaUrl || item.imageUrl ? <img src={item.mediaUrl || item.imageUrl} alt="" /> : <Package size={25} />}</span><span><strong>{item.name || item.productName}</strong><small>{item.size ? `Variant: ${item.size} | ` : ""}Qty: {item.quantity}</small></span><strong>{money(item.lineTotalMinor ?? Number(item.sellingPrice || 0) * item.quantity * 100)}</strong></div>)}</section>
+          <section className="receipt-items">
+            <h2>Items in your order</h2>
+            {(order.items || []).map((item) => (
+              <div key={item.variantId || item.id}>
+                <span className="receipt-item__image">
+                  {item.mediaUrl || item.imageUrl ? (
+                    <img src={item.mediaUrl || item.imageUrl} alt="" />
+                  ) : (
+                    <Package size={25} />
+                  )}
+                </span>
+                <span>
+                  <strong>{item.name || item.productName}</strong>
+                  <small>
+                    {item.size ? `Variant: ${item.size} | ` : ""}Qty:{" "}
+                    {item.quantity}
+                  </small>
+                </span>
+                <strong>
+                  {money(
+                    item.lineTotalMinor ??
+                      Number(item.sellingPrice || 0) * item.quantity * 100,
+                  )}
+                </strong>
+              </div>
+            ))}
+          </section>
 
-        <section className="receipt-details"><div><small>SHIPPING ADDRESS</small><strong>{customer.name || order.customerName || "Customer"}</strong><span>{[address.line1, address.line2, address.city, address.district, address.postalCode, address.country].filter(Boolean).join(", ")}</span></div><div><small>PAYMENT METHOD</small><strong>{payment}</strong><span>{order.paymentStatus === "partially-paid" ? `${money(order.balanceAmountMinor)} balance remaining` : "Payment details saved with this order."}</span></div></section>
+          <section className="receipt-details">
+            <div>
+              <small>SHIPPING ADDRESS</small>
+              <strong>
+                {customer.name || order.customerName || "Customer"}
+              </strong>
+              <span>
+                {[
+                  address.line1,
+                  address.line2,
+                  address.city,
+                  address.district,
+                  address.postalCode,
+                  address.country,
+                ]
+                  .filter(Boolean)
+                  .join(", ")}
+              </span>
+            </div>
+            <div>
+              <small>PAYMENT METHOD</small>
+              <strong>{payment}</strong>
+              <span>
+                {order.paymentStatus === "partially-paid"
+                  ? `${money(order.balanceAmountMinor)} balance remaining`
+                  : "Payment details saved with this order."}
+              </span>
+            </div>
+          </section>
 
-        <section className="receipt-totals"><div><span>Subtotal</span><strong>{money(order.subtotalMinor)}</strong></div>{order.discountTotalMinor > 0 && <div><span>Discount</span><strong>- {money(order.discountTotalMinor)}</strong></div>}<div><span>Delivery</span><strong>{money(order.deliveryFeeMinor)}</strong></div><div><span>Tax</span><strong>{money(order.taxTotalMinor)}</strong></div><div className="receipt-total"><strong>Total</strong><strong>{money(order.totalAmountMinor)}</strong></div></section>
-      </article>
+          <section className="receipt-totals">
+            <div>
+              <span>Subtotal</span>
+              <strong>{money(order.subtotalMinor)}</strong>
+            </div>
+            {order.discountTotalMinor > 0 && (
+              <div>
+                <span>Discount</span>
+                <strong>- {money(order.discountTotalMinor)}</strong>
+              </div>
+            )}
+            <div>
+              <span>Delivery</span>
+              <strong>{money(order.deliveryFeeMinor)}</strong>
+            </div>
+            <div>
+              <span>Tax</span>
+              <strong>{money(order.taxTotalMinor)}</strong>
+            </div>
+            <div className="receipt-total">
+              <strong>Total</strong>
+              <strong>{money(order.totalAmountMinor)}</strong>
+            </div>
+          </section>
+        </article>
 
-      <div className="receipt-actions"><button type="button" onClick={() => downloadReceiptPdf(business, order)}><Download size={17} /> Download Receipt PDF</button><button type="button" onClick={onClose}><CircleHelp size={17} /> {closeLabel}</button></div>
-    </section>
-  </div>;
+        <div className="receipt-actions">
+          <button
+            type="button"
+            onClick={() => downloadReceiptPdf(business, order)}
+          >
+            <Download size={17} /> Download Receipt PDF
+          </button>
+          <button type="button" onClick={onClose}>
+            <CircleHelp size={17} /> {closeLabel}
+          </button>
+        </div>
+      </section>
+    </div>
+  );
 }
-````
+```
 
 ### `frontend/src/components/OrderTable.css`
 
-````css
+```css
 /* Card that contains the scrollable order or inventory table. */
 .orders-table-section {
   margin-top: 14px;
@@ -15558,12 +18167,11 @@ export default function OrderReceipt({ business, order, onClose, closeLabel = "R
 html[data-theme="dark"] .orders-table-section {
   border-color: #263b50;
 
-  background:
-    linear-gradient(
-      145deg,
-      rgba(17, 31, 46, 0.97),
-      rgba(9, 20, 32, 0.97)
-    );
+  background: linear-gradient(
+    145deg,
+    rgba(17, 31, 46, 0.97),
+    rgba(9, 20, 32, 0.97)
+  );
 
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22);
 }
@@ -15657,11 +18265,11 @@ html[data-theme="dark"] .orders-table__status--shipped {
     flex-direction: column;
   }
 }
-````
+```
 
 ### `frontend/src/components/OrderTable.jsx`
 
-````jsx
+```jsx
 // React state controls selected and expanded order rows.
 import { Fragment, useState } from "react";
 import OrderDetails from "./OrderDetails";
@@ -15751,7 +18359,9 @@ function OrderTable({
               }
             }}
           >
-            <option value="" disabled>Change status</option>
+            <option value="" disabled>
+              Change status
+            </option>
             <option value="pending">Pending</option>
             <option value="confirmed">Confirmed</option>
             <option value="packed">Packed</option>
@@ -15759,7 +18369,10 @@ function OrderTable({
             <option value="delivered">Delivered</option>
             <option value="returned">Returned</option>
           </select>
-          <button type="button" onClick={() => onExportSelected?.(selectedOrderIds)}>
+          <button
+            type="button"
+            onClick={() => onExportSelected?.(selectedOrderIds)}
+          >
             <Download size={16} aria-hidden="true" />
             Export selected
           </button>
@@ -15774,7 +18387,8 @@ function OrderTable({
                 <input
                   type="checkbox"
                   checked={
-                    orders.length > 0 && selectedOrderIds.length === orders.length
+                    orders.length > 0 &&
+                    selectedOrderIds.length === orders.length
                   }
                   onChange={toggleAllOrders}
                   aria-label="Select all orders"
@@ -15800,118 +18414,133 @@ function OrderTable({
               const isSelected = selectedOrderIds.includes(order.id);
 
               return (
-              <Fragment key={order.id}>
-              <tr
-               className={isSelected ? "orders-table__row--selected" : ""}
-              >
-                  <td>
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={() => toggleSelectedOrder(order.id)}
-                      aria-label={`Select order ${order.orderNumber}`}
-                    />
-                  </td>
+                <Fragment key={order.id}>
+                  <tr
+                    className={isSelected ? "orders-table__row--selected" : ""}
+                  >
+                    <td>
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleSelectedOrder(order.id)}
+                        aria-label={`Select order ${order.orderNumber}`}
+                      />
+                    </td>
 
-                  <td>
-                    <button
-                      className="orders-table__expand-button"
-                      type="button"
-                      onClick={() => toggleExpandedOrder(order.id)}
-                      aria-expanded={isExpanded}
-                      aria-label={
-                        isExpanded
-                          ? `Collapse order ${order.orderNumber}`
-                          : `Expand order ${order.orderNumber}`
-                      }
-                    >
-                      {isExpanded ? (
-                        <ChevronDown size={18} />
-                      ) : (
-                        <ChevronRight size={18} />
-                      )}
-                    </button>
-                  </td>
+                    <td>
+                      <button
+                        className="orders-table__expand-button"
+                        type="button"
+                        onClick={() => toggleExpandedOrder(order.id)}
+                        aria-expanded={isExpanded}
+                        aria-label={
+                          isExpanded
+                            ? `Collapse order ${order.orderNumber}`
+                            : `Expand order ${order.orderNumber}`
+                        }
+                      >
+                        {isExpanded ? (
+                          <ChevronDown size={18} />
+                        ) : (
+                          <ChevronRight size={18} />
+                        )}
+                      </button>
+                    </td>
 
-                  <td>
-                    <strong className="orders-table__order-number">
-                      #{order.orderNumber}
-                    </strong>
+                    <td>
+                      <strong className="orders-table__order-number">
+                        #{order.orderNumber}
+                      </strong>
 
-                    <span className="orders-table__item-count">
-                      {order.itemCount}{" "}
-                      {order.itemCount === 1 ? "item" : "items"}
-                    </span>
-                  </td>
+                      <span className="orders-table__item-count">
+                        {order.itemCount}{" "}
+                        {order.itemCount === 1 ? "item" : "items"}
+                      </span>
+                    </td>
 
-                  <td>
-                    <strong>{order.customerName}</strong>
-                    <span className="orders-table__secondary">
-                      {order.phoneNumber}
-                    </span>
-                  </td>
+                    <td>
+                      <strong>{order.customerName}</strong>
+                      <span className="orders-table__secondary">
+                        {order.phoneNumber}
+                      </span>
+                    </td>
 
-                  <td>
-                    <div className="orders-table__items">
-                      {(order.items ?? []).slice(0, 3).map((item, index) => (
-                        <span
-                          className="orders-table__product-preview"
-                          key={item.id ?? index}
-                        >
-                          {item.imageUrl ? (
-                            <img src={item.imageUrl} alt="" />
-                          ) : (
-                            <Package size={18} aria-hidden="true" />
-                          )}
-                        </span>
-                      ))}
-                      {order.itemCount > 3 && <span className="orders-table__product-more">+{order.itemCount - 3}</span>}
-                    </div>
-                  </td>
+                    <td>
+                      <div className="orders-table__items">
+                        {(order.items ?? []).slice(0, 3).map((item, index) => (
+                          <span
+                            className="orders-table__product-preview"
+                            key={item.id ?? index}
+                          >
+                            {item.imageUrl ? (
+                              <img src={item.imageUrl} alt="" />
+                            ) : (
+                              <Package size={18} aria-hidden="true" />
+                            )}
+                          </span>
+                        ))}
+                        {order.itemCount > 3 && (
+                          <span className="orders-table__product-more">
+                            +{order.itemCount - 3}
+                          </span>
+                        )}
+                      </div>
+                    </td>
 
-                  <td className="orders-table__total">{order.total}</td>
+                    <td className="orders-table__total">{order.total}</td>
 
-                  <td>{order.courier}</td>
+                    <td>{order.courier}</td>
 
-                  <td>
-                    <span
-                      className={`orders-table__status orders-table__status--${order.status}`}
-                    >
-                      {formatStatus(order.status)}
-                    </span>
-                  </td>
+                    <td>
+                      <span
+                        className={`orders-table__status orders-table__status--${order.status}`}
+                      >
+                        {formatStatus(order.status)}
+                      </span>
+                    </td>
 
-                  <td>
-                    <span>{order.date}</span>
-                    <span className="orders-table__secondary">
-                      {order.time}
-                    </span>
-                  </td>
+                    <td>
+                      <span>{order.date}</span>
+                      <span className="orders-table__secondary">
+                        {order.time}
+                      </span>
+                    </td>
 
-                  <td>
-                      <ActionMenu label={`More actions for ${order.orderNumber}`} items={[
-                        { label: "Edit order", icon: <Pencil size={16} />, onClick: () => onEditOrder?.(order) },
-                        { label: "Remove order", icon: <Trash2 size={16} />, danger: true, onClick: () => onRemoveOrder?.(order) },
-                      ]} />
-                  </td>
-                </tr>
-                {/* Insert the detailed order information directly below its row. */}
-                {isExpanded && (
-  <tr className="orders-table__details-row">
-    <td className="orders-table__details-cell" colSpan={10}>
-                  <OrderDetails
-                    order={order}
-                    onStatusChange={onStatusChange}
-                    onGenerateWaybill={onGenerateWaybill}
-                    onFraudReport={onFraudReport}
-                    onCourierIssue={onCourierIssue}
-                    onWaybillSave={onWaybillSave}
-                  />
-    </td>
-  </tr>
-)}
-  </Fragment>
-
+                    <td>
+                      <ActionMenu
+                        label={`More actions for ${order.orderNumber}`}
+                        items={[
+                          {
+                            label: "Edit order",
+                            icon: <Pencil size={16} />,
+                            onClick: () => onEditOrder?.(order),
+                          },
+                          {
+                            label: "Remove order",
+                            icon: <Trash2 size={16} />,
+                            danger: true,
+                            onClick: () => onRemoveOrder?.(order),
+                          },
+                        ]}
+                      />
+                    </td>
+                  </tr>
+                  {/* Insert the detailed order information directly below its row. */}
+                  {isExpanded && (
+                    <tr className="orders-table__details-row">
+                      <td className="orders-table__details-cell" colSpan={10}>
+                        <OrderDetails
+                          order={order}
+                          onStatusChange={onStatusChange}
+                          onGenerateWaybill={onGenerateWaybill}
+                          onFraudReport={onFraudReport}
+                          onCourierIssue={onCourierIssue}
+                          onWaybillSave={onWaybillSave}
+                        />
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
               );
             })}
           </tbody>
@@ -15944,11 +18573,11 @@ function OrderTable({
 }
 
 export default OrderTable;
-````
+```
 
 ### `frontend/src/components/ProductVariantsTable.jsx`
 
-````jsx
+```jsx
 // Row action icon and shared stock-status helper.
 import { PackagePlus } from "lucide-react";
 
@@ -16025,11 +18654,11 @@ function ProductSizesTable({ sizes, onAdjustStock }) {
 }
 
 export default ProductSizesTable;
-````
+```
 
 ### `frontend/src/components/ProfileModal.css`
 
-````css
+```css
 .profile-modal {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -16058,54 +18687,196 @@ export default ProductSizesTable;
   background: linear-gradient(145deg, #087cf0, #0759ba);
 }
 
-.profile-modal__identity > div { display: grid; gap: 2px; min-width: 0; }
-.profile-modal__identity span, .profile-modal__identity small { color: var(--color-text-muted); }
-.profile-modal__verified { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; color: #13865d !important; font-size: 0.78rem; font-weight: 700; }
+.profile-modal__identity > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.profile-modal__identity span,
+.profile-modal__identity small {
+  color: var(--color-text-muted);
+}
+.profile-modal__verified {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  color: #13865d !important;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
 
-.profile-modal__section { display: grid; gap: 12px; padding: 16px; border: 1px solid var(--color-border); border-radius: 12px; }
-.profile-modal__section-title { display: flex; align-items: flex-start; gap: 10px; }
-.profile-modal__section-title svg { margin-top: 2px; color: var(--color-accent); }
-.profile-modal__section-title h3, .profile-modal__section-title p { margin: 0; }
-.profile-modal__section-title h3 { font-size: 0.96rem; }
-.profile-modal__section-title p { margin-top: 3px; color: var(--color-text-muted); font-size: 0.78rem; }
+.profile-modal__section {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+}
+.profile-modal__section-title {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.profile-modal__section-title svg {
+  margin-top: 2px;
+  color: var(--color-accent);
+}
+.profile-modal__section-title h3,
+.profile-modal__section-title p {
+  margin: 0;
+}
+.profile-modal__section-title h3 {
+  font-size: 0.96rem;
+}
+.profile-modal__section-title p {
+  margin-top: 3px;
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+}
 
-.profile-modal label { display: grid; gap: 6px; color: var(--color-text); font-size: 0.8rem; font-weight: 650; }
-.profile-modal input { width: 100%; min-height: 40px; padding: 0 11px; border: 1px solid var(--color-border); border-radius: 8px; color: var(--color-text); background: var(--color-surface); font: inherit; box-sizing: border-box; }
-.profile-modal input:focus { border-color: var(--color-accent); outline: 3px solid color-mix(in srgb, var(--color-accent) 15%, transparent); }
-.profile-modal__password-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 11px; }
-.profile-modal__password-grid label:first-child { grid-column: 1 / -1; }
-.profile-modal__hint, .profile-modal__provider-note { margin: 0; padding: 10px 12px; border-radius: 8px; color: var(--color-text-muted); background: var(--color-surface-soft); font-size: 0.78rem; line-height: 1.5; }
-.profile-modal__message { margin: 0; padding: 9px 11px; border-radius: 8px; font-size: 0.78rem; line-height: 1.45; }
-.profile-modal__message--success { color: #08734f; background: #e7f8f1; }
-.profile-modal__message--error { color: #b42318; background: #fff0ef; }
-.profile-modal__button-row { display: flex; justify-content: flex-end; gap: 8px; }
-.profile-modal button { min-height: 38px; padding: 0 14px; border-radius: 8px; font: inherit; font-size: 0.8rem; font-weight: 700; cursor: pointer; }
-.profile-modal button:disabled { cursor: wait; opacity: 0.62; }
-.profile-modal__primary { justify-self: end; border: 1px solid var(--color-accent); color: #fff; background: var(--color-accent); }
-.profile-modal__secondary { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--color-border); color: var(--color-text); background: var(--color-surface); }
+.profile-modal label {
+  display: grid;
+  gap: 6px;
+  color: var(--color-text);
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+.profile-modal input {
+  width: 100%;
+  min-height: 40px;
+  padding: 0 11px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  color: var(--color-text);
+  background: var(--color-surface);
+  font: inherit;
+  box-sizing: border-box;
+}
+.profile-modal input:focus {
+  border-color: var(--color-accent);
+  outline: 3px solid color-mix(in srgb, var(--color-accent) 15%, transparent);
+}
+.profile-modal__password-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 11px;
+}
+.profile-modal__password-grid label:first-child {
+  grid-column: 1 / -1;
+}
+.profile-modal__hint,
+.profile-modal__provider-note {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  color: var(--color-text-muted);
+  background: var(--color-surface-soft);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+.profile-modal__message {
+  margin: 0;
+  padding: 9px 11px;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+.profile-modal__message--success {
+  color: #08734f;
+  background: #e7f8f1;
+}
+.profile-modal__message--error {
+  color: #b42318;
+  background: #fff0ef;
+}
+.profile-modal__button-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.profile-modal button {
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.profile-modal button:disabled {
+  cursor: wait;
+  opacity: 0.62;
+}
+.profile-modal__primary {
+  justify-self: end;
+  border: 1px solid var(--color-accent);
+  color: #fff;
+  background: var(--color-accent);
+}
+.profile-modal__secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  background: var(--color-surface);
+}
 
-html[data-theme="dark"] .profile-modal__message--success { color: #75e1ba; background: rgba(18, 134, 93, 0.18); }
-html[data-theme="dark"] .profile-modal__message--error { color: #ffaaa3; background: rgba(180, 35, 24, 0.2); }
+html[data-theme="dark"] .profile-modal__message--success {
+  color: #75e1ba;
+  background: rgba(18, 134, 93, 0.18);
+}
+html[data-theme="dark"] .profile-modal__message--error {
+  color: #ffaaa3;
+  background: rgba(180, 35, 24, 0.2);
+}
 
 @media (max-width: 800px) {
-  .profile-modal { grid-template-columns: 1fr; }
-  .profile-modal__identity { grid-column: auto; }
+  .profile-modal {
+    grid-template-columns: 1fr;
+  }
+  .profile-modal__identity {
+    grid-column: auto;
+  }
 }
 
 @media (max-width: 620px) {
-  .profile-modal__password-grid { grid-template-columns: 1fr; }
-  .profile-modal__password-grid label:first-child { grid-column: auto; }
-  .profile-modal__identity { align-items: flex-start; flex-wrap: wrap; }
-  .profile-modal__verified { margin-left: 59px; }
-  .profile-modal__button-row { flex-direction: column-reverse; }
-  .profile-modal__button-row button, .profile-modal__primary { width: 100%; justify-self: stretch; justify-content: center; }
+  .profile-modal__password-grid {
+    grid-template-columns: 1fr;
+  }
+  .profile-modal__password-grid label:first-child {
+    grid-column: auto;
+  }
+  .profile-modal__identity {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .profile-modal__verified {
+    margin-left: 59px;
+  }
+  .profile-modal__button-row {
+    flex-direction: column-reverse;
+  }
+  .profile-modal__button-row button,
+  .profile-modal__primary {
+    width: 100%;
+    justify-self: stretch;
+    justify-content: center;
+  }
 }
-````
+```
 
 ### `frontend/src/components/ProfileModal.jsx`
 
-````jsx
-import { KeyRound, Mail, RotateCcw, ShieldCheck, UserRound } from "lucide-react";
+```jsx
+import {
+  KeyRound,
+  Mail,
+  RotateCcw,
+  ShieldCheck,
+  UserRound,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 
 import {
@@ -16120,7 +18891,8 @@ import "./ProfileModal.css";
 
 function readableAuthError(error) {
   const messages = {
-    "auth/email-already-in-use": "That email address is already used by another account.",
+    "auth/email-already-in-use":
+      "That email address is already used by another account.",
     "auth/invalid-email": "Enter a valid email address.",
     "auth/invalid-credential": "The current password is incorrect.",
     "auth/wrong-password": "The current password is incorrect.",
@@ -16128,10 +18900,15 @@ function readableAuthError(error) {
     "auth/too-many-requests": "Too many attempts. Please wait and try again.",
     "auth/popup-closed-by-user": "Google verification was cancelled.",
     "auth/popup-blocked": "Allow popups and try Google verification again.",
-    "auth/requires-recent-login": "For security, sign out and sign in again before trying this change.",
+    "auth/requires-recent-login":
+      "For security, sign out and sign in again before trying this change.",
   };
 
-  return messages[error?.code] ?? error?.message ?? "The account could not be updated.";
+  return (
+    messages[error?.code] ??
+    error?.message ??
+    "The account could not be updated."
+  );
 }
 
 function ProfileModal({ isOpen, onClose, user }) {
@@ -16145,8 +18922,11 @@ function ProfileModal({ isOpen, onClose, user }) {
   const [workingAction, setWorkingAction] = useState("");
   const hasPasswordProvider = currentUserHasPasswordProvider();
   const providerNames = (user?.providerData ?? []).map((provider) =>
-    provider.providerId === "google.com" ? "Google" :
-      provider.providerId === "password" ? "Email and password" : provider.providerId,
+    provider.providerId === "google.com"
+      ? "Google"
+      : provider.providerId === "password"
+        ? "Email and password"
+        : provider.providerId,
   );
 
   useEffect(() => {
@@ -16166,7 +18946,10 @@ function ProfileModal({ isOpen, onClose, user }) {
     setEmailMessage(null);
 
     if (!cleanEmail || cleanEmail === user?.email?.toLowerCase()) {
-      setEmailMessage({ type: "error", text: "Enter a different email address." });
+      setEmailMessage({
+        type: "error",
+        text: "Enter a different email address.",
+      });
       return;
     }
 
@@ -16191,18 +18974,27 @@ function ProfileModal({ isOpen, onClose, user }) {
     setPasswordMessage(null);
 
     if (newPassword.length < 6) {
-      setPasswordMessage({ type: "error", text: "The new password needs at least 6 characters." });
+      setPasswordMessage({
+        type: "error",
+        text: "The new password needs at least 6 characters.",
+      });
       return;
     }
     if (newPassword !== confirmPassword) {
-      setPasswordMessage({ type: "error", text: "The new passwords do not match." });
+      setPasswordMessage({
+        type: "error",
+        text: "The new passwords do not match.",
+      });
       return;
     }
 
     setWorkingAction("password");
     try {
       await changeAccountPassword(currentPassword, newPassword);
-      setPasswordMessage({ type: "success", text: "Your password was changed successfully." });
+      setPasswordMessage({
+        type: "success",
+        text: "Your password was changed successfully.",
+      });
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
@@ -16218,7 +19010,10 @@ function ProfileModal({ isOpen, onClose, user }) {
     setWorkingAction("reset");
     try {
       await sendCurrentUserPasswordReset();
-      setPasswordMessage({ type: "success", text: `Password-reset email sent to ${user?.email}.` });
+      setPasswordMessage({
+        type: "success",
+        text: `Password-reset email sent to ${user?.email}.`,
+      });
     } catch (error) {
       setPasswordMessage({ type: "error", text: readableAuthError(error) });
     } finally {
@@ -16236,60 +19031,159 @@ function ProfileModal({ isOpen, onClose, user }) {
     >
       <div className="profile-modal">
         <section className="profile-modal__identity">
-          <span className="profile-modal__identity-icon"><UserRound size={24} /></span>
+          <span className="profile-modal__identity-icon">
+            <UserRound size={24} />
+          </span>
           <div>
             <strong>{user?.displayName || "Vendly user"}</strong>
             <span>{user?.email}</span>
-            <small>Sign-in method: {providerNames.join(", ") || "Unknown"}</small>
+            <small>
+              Sign-in method: {providerNames.join(", ") || "Unknown"}
+            </small>
           </div>
           {user?.emailVerified && (
-            <span className="profile-modal__verified"><ShieldCheck size={15} /> Verified</span>
+            <span className="profile-modal__verified">
+              <ShieldCheck size={15} /> Verified
+            </span>
           )}
         </section>
 
         <form className="profile-modal__section" onSubmit={handleEmailChange}>
           <div className="profile-modal__section-title">
             <Mail size={19} />
-            <div><h3>Change email</h3><p>A verification link will be sent to the new address.</p></div>
+            <div>
+              <h3>Change email</h3>
+              <p>A verification link will be sent to the new address.</p>
+            </div>
           </div>
           <label>
             New email address
-            <input type="email" value={newEmail} onChange={(event) => setNewEmail(event.target.value)} placeholder="new-email@example.com" required />
+            <input
+              type="email"
+              value={newEmail}
+              onChange={(event) => setNewEmail(event.target.value)}
+              placeholder="new-email@example.com"
+              required
+            />
           </label>
           {hasPasswordProvider && (
             <label>
               Current password
-              <input type="password" value={emailPassword} onChange={(event) => setEmailPassword(event.target.value)} autoComplete="current-password" required />
+              <input
+                type="password"
+                value={emailPassword}
+                onChange={(event) => setEmailPassword(event.target.value)}
+                autoComplete="current-password"
+                required
+              />
             </label>
           )}
-          {!hasPasswordProvider && <p className="profile-modal__hint">Google will open a popup to confirm your identity.</p>}
-          {emailMessage && <p className={`profile-modal__message profile-modal__message--${emailMessage.type}`} role="status">{emailMessage.text}</p>}
-          <button className="profile-modal__primary" type="submit" disabled={Boolean(workingAction)}>
-            {workingAction === "email" ? "Sending verification..." : "Verify new email"}
+          {!hasPasswordProvider && (
+            <p className="profile-modal__hint">
+              Google will open a popup to confirm your identity.
+            </p>
+          )}
+          {emailMessage && (
+            <p
+              className={`profile-modal__message profile-modal__message--${emailMessage.type}`}
+              role="status"
+            >
+              {emailMessage.text}
+            </p>
+          )}
+          <button
+            className="profile-modal__primary"
+            type="submit"
+            disabled={Boolean(workingAction)}
+          >
+            {workingAction === "email"
+              ? "Sending verification..."
+              : "Verify new email"}
           </button>
         </form>
 
-        <form className="profile-modal__section" onSubmit={handlePasswordChange}>
+        <form
+          className="profile-modal__section"
+          onSubmit={handlePasswordChange}
+        >
           <div className="profile-modal__section-title">
             <KeyRound size={19} />
-            <div><h3>Change password</h3><p>Use a password you do not use on another website.</p></div>
+            <div>
+              <h3>Change password</h3>
+              <p>Use a password you do not use on another website.</p>
+            </div>
           </div>
 
           {hasPasswordProvider ? (
             <>
               <div className="profile-modal__password-grid">
-                <label>Current password<input type="password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} autoComplete="current-password" required /></label>
-                <label>New password<input type="password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} autoComplete="new-password" minLength={6} required /></label>
-                <label>Confirm new password<input type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} autoComplete="new-password" minLength={6} required /></label>
+                <label>
+                  Current password
+                  <input
+                    type="password"
+                    value={currentPassword}
+                    onChange={(event) => setCurrentPassword(event.target.value)}
+                    autoComplete="current-password"
+                    required
+                  />
+                </label>
+                <label>
+                  New password
+                  <input
+                    type="password"
+                    value={newPassword}
+                    onChange={(event) => setNewPassword(event.target.value)}
+                    autoComplete="new-password"
+                    minLength={6}
+                    required
+                  />
+                </label>
+                <label>
+                  Confirm new password
+                  <input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(event) => setConfirmPassword(event.target.value)}
+                    autoComplete="new-password"
+                    minLength={6}
+                    required
+                  />
+                </label>
               </div>
-              {passwordMessage && <p className={`profile-modal__message profile-modal__message--${passwordMessage.type}`} role="status">{passwordMessage.text}</p>}
+              {passwordMessage && (
+                <p
+                  className={`profile-modal__message profile-modal__message--${passwordMessage.type}`}
+                  role="status"
+                >
+                  {passwordMessage.text}
+                </p>
+              )}
               <div className="profile-modal__button-row">
-                <button className="profile-modal__secondary" type="button" onClick={handlePasswordReset} disabled={Boolean(workingAction)}><RotateCcw size={16} /> Send reset email</button>
-                <button className="profile-modal__primary" type="submit" disabled={Boolean(workingAction)}>{workingAction === "password" ? "Changing..." : "Change password"}</button>
+                <button
+                  className="profile-modal__secondary"
+                  type="button"
+                  onClick={handlePasswordReset}
+                  disabled={Boolean(workingAction)}
+                >
+                  <RotateCcw size={16} /> Send reset email
+                </button>
+                <button
+                  className="profile-modal__primary"
+                  type="submit"
+                  disabled={Boolean(workingAction)}
+                >
+                  {workingAction === "password"
+                    ? "Changing..."
+                    : "Change password"}
+                </button>
               </div>
             </>
           ) : (
-            <p className="profile-modal__provider-note">This account signs in with Google, so it does not have a separate Vendly password. Manage your Google password from your Google Account.</p>
+            <p className="profile-modal__provider-note">
+              This account signs in with Google, so it does not have a separate
+              Vendly password. Manage your Google password from your Google
+              Account.
+            </p>
           )}
         </form>
       </div>
@@ -16298,15 +19192,12 @@ function ProfileModal({ isOpen, onClose, user }) {
 }
 
 export default ProfileModal;
-````
+```
 
 ### `frontend/src/components/ProtectedRoute.jsx`
 
-````jsx
-import {
-  Navigate,
-  useLocation,
-} from "react-router-dom";
+```jsx
+import { Navigate, useLocation } from "react-router-dom";
 
 import { useAuth } from "../context/authContextValue";
 
@@ -16319,9 +19210,9 @@ function hasPermission(membership, requiredPermission) {
   const resource = requiredPermission.split(":", 1)[0];
 
   return (
-    permissions.includes("*")
-    || permissions.includes(requiredPermission)
-    || permissions.includes(`${resource}:*`)
+    permissions.includes("*") ||
+    permissions.includes(requiredPermission) ||
+    permissions.includes(`${resource}:*`)
   );
 }
 
@@ -16330,12 +19221,8 @@ function ProtectedRoute({
   requireSellerProfile = true,
   permission = null,
 }) {
-  const {
-    isAuthenticated,
-    isAuthLoading,
-    sellerProfile,
-    membership,
-  } = useAuth();
+  const { isAuthenticated, isAuthLoading, sellerProfile, membership } =
+    useAuth();
 
   const location = useLocation();
 
@@ -16372,11 +19259,11 @@ function ProtectedRoute({
 }
 
 export default ProtectedRoute;
-````
+```
 
 ### `frontend/src/components/ReviewsModal.css`
 
-````css
+```css
 .reviews-modal__list {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -16486,18 +19373,17 @@ export default ProtectedRoute;
     grid-template-columns: 1fr;
   }
 }
-````
+```
 
 ### `frontend/src/components/ReviewsModal.jsx`
 
-````jsx
+```jsx
 import { Check, Star, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { getProductReviews, moderateReview } from "../services/reviewService";
 import ModalShell from "./ModalShell";
 import "./ReviewsModal.css";
-
 
 function ReviewsModal({ businessId, product, onClose, onApproved }) {
   const [reviews, setReviews] = useState([]);
@@ -16554,7 +19440,14 @@ function ReviewsModal({ businessId, product, onClose, onApproved }) {
       size="large"
     >
       {isLoading && <p className="reviews-modal__notice">Loading reviews...</p>}
-      {errorMessage && <p className="reviews-modal__notice reviews-modal__notice--error" role="alert">{errorMessage}</p>}
+      {errorMessage && (
+        <p
+          className="reviews-modal__notice reviews-modal__notice--error"
+          role="alert"
+        >
+          {errorMessage}
+        </p>
+      )}
 
       <div className="reviews-modal__list">
         {reviews.map((review) => (
@@ -16562,14 +19455,23 @@ function ReviewsModal({ businessId, product, onClose, onApproved }) {
             <header>
               <div>
                 <strong>{review.customerName}</strong>
-                <span>{review.verifiedPurchase ? "Verified purchase" : "Customer review"}</span>
+                <span>
+                  {review.verifiedPurchase
+                    ? "Verified purchase"
+                    : "Customer review"}
+                </span>
               </div>
-              <span className={`reviews-modal__status reviews-modal__status--${review.status}`}>
+              <span
+                className={`reviews-modal__status reviews-modal__status--${review.status}`}
+              >
                 {review.status}
               </span>
             </header>
 
-            <div className="reviews-modal__stars" aria-label={`${review.rating} out of 5 stars`}>
+            <div
+              className="reviews-modal__stars"
+              aria-label={`${review.rating} out of 5 stars`}
+            >
               {Array.from({ length: 5 }, (_, index) => (
                 <Star
                   key={index}
@@ -16604,7 +19506,9 @@ function ReviewsModal({ businessId, product, onClose, onApproved }) {
         ))}
 
         {!isLoading && reviews.length === 0 && (
-          <p className="reviews-modal__empty">No reviews have been submitted for this product yet.</p>
+          <p className="reviews-modal__empty">
+            No reviews have been submitted for this product yet.
+          </p>
         )}
       </div>
     </ModalShell>
@@ -16612,11 +19516,11 @@ function ReviewsModal({ businessId, product, onClose, onApproved }) {
 }
 
 export default ReviewsModal;
-````
+```
 
 ### `frontend/src/components/Sidebar.css`
 
-````css
+```css
 /* Full-width sidebar with the Vendly blue gradient. */
 .sidebar {
   display: flex;
@@ -16626,11 +19530,11 @@ export default ReviewsModal;
   padding: 4px 14px 24px;
   color: white;
   background: linear-gradient(
-  to bottom right,
-  #002d52 0%,
-  #063b6a 50%,
-  #00315c 100%
-);
+    to bottom right,
+    #002d52 0%,
+    #063b6a 50%,
+    #00315c 100%
+  );
   overflow: hidden;
   transition:
     width 240ms cubic-bezier(0.22, 1, 0.36, 1),
@@ -16710,14 +19614,7 @@ export default ReviewsModal;
 }
 
 .sidebar__link--active {
-  background:
-    linear-gradient(
-      135deg,
-      #0879dd 0%,
-      #075da9 100%
-    );
-
-
+  background: linear-gradient(135deg, #0879dd 0%, #075da9 100%);
 }
 
 .sidebar__assistant {
@@ -16836,8 +19733,8 @@ export default ReviewsModal;
     transform 180ms ease;
 }
 
-.Panel_icon{
-border-radius: 7px;
+.Panel_icon {
+  border-radius: 7px;
 }
 
 .sidebar__toggle:hover {
@@ -16862,29 +19759,19 @@ html[data-theme="dark"] .sidebar {
       rgba(20, 126, 220, 0.25),
       transparent 38%
     ),
-    linear-gradient(
-      145deg,
-      #052d50 0%,
-      #073d6d 52%,
-      #031e37 100%
-    );
+    linear-gradient(145deg, #052d50 0%, #073d6d 52%, #031e37 100%);
 
   box-shadow: 8px 0 28px rgba(0, 0, 0, 0.22);
 }
 
 html[data-theme="dark"] .sidebar__link--active {
-  background:
-    linear-gradient(
-      135deg,
-      #075fae 0%,
-      #064b89 100%
-    );
+  background: linear-gradient(135deg, #075fae 0%, #064b89 100%);
 }
-````
+```
 
 ### `frontend/src/components/Sidebar.jsx`
 
-````jsx
+```jsx
 // Sidebar styles, Vendly logo, and React Router navigation component.
 import "./Sidebar.css";
 import vendlyLogo from "../assets/vendly-logo.png";
@@ -16909,22 +19796,54 @@ import {
 // Central list of sidebar pages; map() below turns each item into a link.
 const navigationItems = [
   { label: "Overview", path: "/", icon: LayoutDashboard },
-  { label: "Orders", path: "/orders", icon: ClipboardList, permission: "orders:read" },
-  { label: "Inventory", path: "/inventory", icon: Box, permission: "inventory:read" },
-  { label: "Couriers", path: "/couriers", icon: Truck, permission: "couriers:read" },
-  { label: "Customers", path: "/customers", icon: Users, permission: "customers:read" },
-  { label: "Analytics", path: "/analytics", icon: ChartNoAxesCombined, permission: "analytics:read" },
+  {
+    label: "Orders",
+    path: "/orders",
+    icon: ClipboardList,
+    permission: "orders:read",
+  },
+  {
+    label: "Inventory",
+    path: "/inventory",
+    icon: Box,
+    permission: "inventory:read",
+  },
+  {
+    label: "Couriers",
+    path: "/couriers",
+    icon: Truck,
+    permission: "couriers:read",
+  },
+  {
+    label: "Customers",
+    path: "/customers",
+    icon: Users,
+    permission: "customers:read",
+  },
+  {
+    label: "Analytics",
+    path: "/analytics",
+    icon: ChartNoAxesCombined,
+    permission: "analytics:read",
+  },
 ];
 
 function hasPermission(membership, requiredPermission) {
   if (!requiredPermission || membership?.role === "owner") return true;
   const permissions = membership?.permissions ?? [];
   const resource = requiredPermission.split(":", 1)[0];
-  return permissions.includes("*") || permissions.includes(requiredPermission) || permissions.includes(`${resource}:*`);
+  return (
+    permissions.includes("*") ||
+    permissions.includes(requiredPermission) ||
+    permissions.includes(`${resource}:*`)
+  );
 }
 
 function readableRole(role = "viewer") {
-  return role.split("_").map((word) => word[0].toUpperCase() + word.slice(1)).join(" ");
+  return role
+    .split("_")
+    .map((word) => word[0].toUpperCase() + word.slice(1))
+    .join(" ");
 }
 
 function Sidebar({ isCollapsed, onToggleSidebar }) {
@@ -16932,89 +19851,98 @@ function Sidebar({ isCollapsed, onToggleSidebar }) {
   const businessName = sellerProfile?.businessName ?? "Your Business";
 
   return (
-    <aside id="sidebar-navigation" className={`sidebar ${isCollapsed ? "sidebar--collapsed" : ""}`} >
-{/* Logo and button that expands or collapses the sidebar. */}
-<div className="sidebar__top">
-  <div className="sidebar__logo">
-    <img
-      className="sidebar__logo-image"
-      src={vendlyLogo}
-      alt="Vendly.lk"
-    />
-  </div>
+    <aside
+      id="sidebar-navigation"
+      className={`sidebar ${isCollapsed ? "sidebar--collapsed" : ""}`}
+    >
+      {/* Logo and button that expands or collapses the sidebar. */}
+      <div className="sidebar__top">
+        <div className="sidebar__logo">
+          <img
+            className="sidebar__logo-image"
+            src={vendlyLogo}
+            alt="Vendly.lk"
+          />
+        </div>
 
-  <button
-    className="sidebar__toggle"
-    type="button"
-    onClick={onToggleSidebar}
-    aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-    aria-expanded={!isCollapsed}
-    title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-  >
-    {isCollapsed ? <ChevronsRight size={25} /> : <SquareMenu className="Panel_icon" size={20} />}
-  </button>
-</div>
+        <button
+          className="sidebar__toggle"
+          type="button"
+          onClick={onToggleSidebar}
+          aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          aria-expanded={!isCollapsed}
+          title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          {isCollapsed ? (
+            <ChevronsRight size={25} />
+          ) : (
+            <SquareMenu className="Panel_icon" size={20} />
+          )}
+        </button>
+      </div>
       {/* Main navigation links. NavLink reports which route is active. */}
       <nav className="sidebar__navigation">
-        {navigationItems.filter((item) => hasPermission(membership, item.permission)).map((item) => {
-          // Store the selected icon component in a capitalized variable for JSX.
-          const Icon = item.icon;
+        {navigationItems
+          .filter((item) => hasPermission(membership, item.permission))
+          .map((item) => {
+            // Store the selected icon component in a capitalized variable for JSX.
+            const Icon = item.icon;
 
-          return (
- <NavLink
-  className={({ isActive }) =>
-    `sidebar__link ${isActive ? "sidebar__link--active" : ""}`
-  }
-  end={item.path === "/"}
-  key={item.path}
-  to={item.path}
-  title={isCollapsed ? item.label : undefined}
->
-  <Icon size={22} />
-  <span className="sidebar__label">{item.label}</span>
-</NavLink>
-          );
-        })}
+            return (
+              <NavLink
+                className={({ isActive }) =>
+                  `sidebar__link ${isActive ? "sidebar__link--active" : ""}`
+                }
+                end={item.path === "/"}
+                key={item.path}
+                to={item.path}
+                title={isCollapsed ? item.label : undefined}
+              >
+                <Icon size={22} />
+                <span className="sidebar__label">{item.label}</span>
+              </NavLink>
+            );
+          })}
       </nav>
 
-     {/* Business assistant and current-store controls stay at the bottom. */}
-     <div className="sidebar__footer">
-  <button className="sidebar__assistant" type="button">
-    <Sparkles size={20} aria-hidden="true" />
-    <span className="sidebar__label">Business Assistant</span>
-  </button>
+      {/* Business assistant and current-store controls stay at the bottom. */}
+      <div className="sidebar__footer">
+        <button className="sidebar__assistant" type="button">
+          <Sparkles size={20} aria-hidden="true" />
+          <span className="sidebar__label">Business Assistant</span>
+        </button>
 
-  <button
-    className="sidebar__business"
-    type="button"
-    title={isCollapsed ? businessName : undefined}
-  >
-    <span className="sidebar__business-icon">
-      <Store size={18} aria-hidden="true" />
-    </span>
+        <button
+          className="sidebar__business"
+          type="button"
+          title={isCollapsed ? businessName : undefined}
+        >
+          <span className="sidebar__business-icon">
+            <Store size={18} aria-hidden="true" />
+          </span>
 
-    <span className="sidebar__business-details sidebar__label">
-      <strong>{businessName}</strong>
-      <small>{readableRole(membership?.role)}</small>
-    </span>
+          <span className="sidebar__business-details sidebar__label">
+            <strong>{businessName}</strong>
+            <small>{readableRole(membership?.role)}</small>
+          </span>
 
-    <ChevronRight
-      className="sidebar__business-arrow"
-      size={16}
-      aria-hidden="true"
-    />
-  </button>
-</div>
+          <ChevronRight
+            className="sidebar__business-arrow"
+            size={16}
+            aria-hidden="true"
+          />
+        </button>
+      </div>
     </aside>
   );
 }
 
 export default Sidebar;
-````
+```
 
 ### `frontend/src/components/StaffSettings.css`
 
-````css
+```css
 .staff-settings {
   display: grid;
   gap: 14px;
@@ -17123,11 +20051,11 @@ export default Sidebar;
     grid-template-columns: 1fr;
   }
 }
-````
+```
 
 ### `frontend/src/components/StaffSettings.jsx`
 
-````jsx
+```jsx
 import { UserPlus } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -17137,7 +20065,6 @@ import {
   updateBusinessMember,
 } from "../services/memberService";
 import "./StaffSettings.css";
-
 
 const staffRoles = [
   ["admin", "Admin"],
@@ -17154,7 +20081,6 @@ const roleDescriptions = {
   support: "View orders and manage customer support details.",
   viewer: "Read-only access to orders, inventory and analytics.",
 };
-
 
 function StaffSettings({ businessId, currentRole }) {
   const [members, setMembers] = useState([]);
@@ -17202,7 +20128,11 @@ function StaffSettings({ businessId, currentRole }) {
     setErrorMessage("");
 
     try {
-      const updated = await updateBusinessMember(businessId, member.id, changes);
+      const updated = await updateBusinessMember(
+        businessId,
+        member.id,
+        changes,
+      );
       setMembers((current) =>
         current.map((item) => (item.id === member.id ? updated : item)),
       );
@@ -17214,11 +20144,16 @@ function StaffSettings({ businessId, currentRole }) {
   return (
     <section className="staff-settings">
       <header>
-        <div><h2>Staff & permissions</h2><p>Control who can access this business.</p></div>
+        <div>
+          <h2>Staff & permissions</h2>
+          <p>Control who can access this business.</p>
+        </div>
       </header>
 
       {!canManageStaff ? (
-        <p className="staff-settings__notice">Only the owner or an admin can manage staff accounts.</p>
+        <p className="staff-settings__notice">
+          Only the owner or an admin can manage staff accounts.
+        </p>
       ) : (
         <>
           <form onSubmit={addMember}>
@@ -17229,39 +20164,67 @@ function StaffSettings({ businessId, currentRole }) {
               placeholder="Existing Vendly account email"
               required
             />
-            <select value={role} onChange={(event) => setRole(event.target.value)}>
-              {staffRoles.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            <select
+              value={role}
+              onChange={(event) => setRole(event.target.value)}
+            >
+              {staffRoles.map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
             </select>
             <button type="submit" disabled={isSaving}>
               <UserPlus size={16} /> {isSaving ? "Adding..." : "Add staff"}
             </button>
           </form>
-          <p className="staff-settings__role-description">{roleDescriptions[role]}</p>
+          <p className="staff-settings__role-description">
+            {roleDescriptions[role]}
+          </p>
 
-          {errorMessage && <p className="staff-settings__notice staff-settings__notice--error" role="alert">{errorMessage}</p>}
+          {errorMessage && (
+            <p
+              className="staff-settings__notice staff-settings__notice--error"
+              role="alert"
+            >
+              {errorMessage}
+            </p>
+          )}
 
           <div className="staff-settings__members">
             {members.map((member) => (
               <article key={member.id}>
-                <div><strong>{member.displayName}</strong><span>{member.email}</span></div>
+                <div>
+                  <strong>{member.displayName}</strong>
+                  <span>{member.email}</span>
+                </div>
                 {member.role === "owner" ? (
                   <strong className="staff-settings__owner">Owner</strong>
                 ) : (
                   <>
                     <select
                       value={member.role}
-                      onChange={(event) => changeMember(member, { role: event.target.value })}
+                      onChange={(event) =>
+                        changeMember(member, { role: event.target.value })
+                      }
                     >
-                      {staffRoles.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                      {staffRoles.map(([value, label]) => (
+                        <option key={value} value={value}>
+                          {label}
+                        </option>
+                      ))}
                     </select>
                     <small className="staff-settings__member-permissions">
                       {roleDescriptions[member.role]}
                     </small>
                     <button
                       type="button"
-                      onClick={() => changeMember(member, {
-                        status: member.status === "active" ? "inactive" : "active",
-                      })}
+                      onClick={() =>
+                        changeMember(member, {
+                          status:
+                            member.status === "active" ? "inactive" : "active",
+                        })
+                      }
                     >
                       {member.status === "active" ? "Disable" : "Enable"}
                     </button>
@@ -17277,11 +20240,11 @@ function StaffSettings({ businessId, currentRole }) {
 }
 
 export default StaffSettings;
-````
+```
 
 ### `frontend/src/components/StatCard.css`
 
-````css
+```css
 /* Large statistic card container. */
 .stat-card {
   position: relative;
@@ -17301,8 +20264,8 @@ export default StaffSettings;
   z-index: -1;
   border: 1px solid var(--color-border);
   border-radius: 8px;
-background: var(--card-background);
-box-shadow: var(--card-shadow);
+  background: var(--card-background);
+  box-shadow: var(--card-shadow);
 
   transform: scale(1);
   transition:
@@ -17436,11 +20399,11 @@ html[data-theme="dark"] .stat-card2--red .stat-card2__icon {
   color: #ff6262;
   background-color: rgba(239, 68, 68, 0.16);
 }
-````
+```
 
 ### `frontend/src/components/StatCard.jsx`
 
-````jsx
+```jsx
 // Styles for the larger dashboard statistic cards.
 import "./StatCard.css";
 
@@ -17463,11 +20426,11 @@ function StatCard({ label, value, icon: Icon, tone = "blue" }) {
 }
 
 export default StatCard;
-````
+```
 
 ### `frontend/src/components/StatCard2.css`
 
-````css
+```css
 /* Single-row grid used by the compact order statistic cards. */
 .order-stats-grid {
   display: grid;
@@ -17491,8 +20454,6 @@ export default StatCard;
   cursor: pointer;
 }
 
-
-
 /* Hover glow and lift animation. */
 .stat-card2::before {
   content: "";
@@ -17501,8 +20462,8 @@ export default StatCard;
   z-index: -1;
   border: 2px solid var(--color-border);
   border-radius: 15px;
-background: var(--card-background);
-box-shadow: var(--card-shadow);
+  background: var(--card-background);
+  box-shadow: var(--card-shadow);
 
   transform: scale(1);
   transition:
@@ -17516,12 +20477,14 @@ box-shadow: var(--card-shadow);
 }
 .stat-card2--active::before {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-primary) 18%, transparent);
+  box-shadow: 0 0 0 1px
+    color-mix(in srgb, var(--color-primary) 18%, transparent);
 }
 
 .stat-card2:focus-visible::before {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 25%, transparent);
+  box-shadow: 0 0 0 2px
+    color-mix(in srgb, var(--color-primary) 25%, transparent);
 }
 
 html[data-theme="dark"] .stat-card2:hover::before {
@@ -17645,42 +20608,54 @@ html[data-theme="dark"] .stat-card2--red .stat-card2__icon {
   color: #ff6262;
   background-color: rgba(239, 68, 68, 0.16);
 }
-````
+```
 
 ### `frontend/src/components/StatCard2.jsx`
 
-````jsx
+```jsx
 // Styles for the compact statistic cards used on the Orders page.
 import "./StatCard2.css";
 
 // This compact card uses props so the same layout can show many statistics.
-function StatCard2({ label, value, icon: Icon, tone = "blue", onClick, isActive = false }) {
+function StatCard2({
+  label,
+  value,
+  icon: Icon,
+  tone = "blue",
+  onClick,
+  isActive = false,
+}) {
   return (
-    <article className={`stat-card2 stat-card2--${tone} ${isActive ? "stat-card2--active" : ""}`} onClick={onClick} role={onClick ? "button" : undefined} tabIndex={onClick ? 0 : undefined} onKeyDown={(event) => { if (onClick && (event.key === "Enter" || event.key === " ")) onClick(); }}>
+    <article
+      className={`stat-card2 stat-card2--${tone} ${isActive ? "stat-card2--active" : ""}`}
+      onClick={onClick}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={(event) => {
+        if (onClick && (event.key === "Enter" || event.key === " ")) onClick();
+      }}
+    >
       {/* Icon supplied by the parent page. */}
       <div className="stat-card2__icon">
         <Icon size={28} aria-hidden="true" />
       </div>
 
-{/* Statistic label and value. */}
-<div className="stat-card2__content">
-  <span className="stat-card2__label">{label}</span>
-  <strong className="stat-card2__value">{value}</strong>
-</div>
+      {/* Statistic label and value. */}
+      <div className="stat-card2__content">
+        <span className="stat-card2__label">{label}</span>
+        <strong className="stat-card2__value">{value}</strong>
+      </div>
     </article>
   );
 }
 
 export default StatCard2;
-````
+```
 
 ### `frontend/src/context/AuthContext.jsx`
 
-````jsx
-import {
-  useEffect,
-  useState,
-} from "react";
+```jsx
+import { useEffect, useState } from "react";
 
 import { onAuthStateChanged } from "firebase/auth";
 
@@ -17767,28 +20742,25 @@ function AuthProvider({ children }) {
 
   useEffect(() => {
     // Firebase calls this whenever the login session changes.
-    const unsubscribe = onAuthStateChanged(
-      auth,
-      async (currentUser) => {
-        setIsAuthLoading(true);
-        setUser(currentUser);
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      setIsAuthLoading(true);
+      setUser(currentUser);
 
-        try {
-          if (currentUser) {
-            await loadAccount(currentUser);
-          } else {
-            setSellerProfile(null);
-            setAccount(null);
-            setAccountError(null);
-          }
-        } catch (error) {
-          console.error("Seller profile could not be loaded:", error);
+      try {
+        if (currentUser) {
+          await loadAccount(currentUser);
+        } else {
           setSellerProfile(null);
-        } finally {
-          setIsAuthLoading(false);
+          setAccount(null);
+          setAccountError(null);
         }
-      },
-    );
+      } catch (error) {
+        console.error("Seller profile could not be loaded:", error);
+        setSellerProfile(null);
+      } finally {
+        setIsAuthLoading(false);
+      }
+    });
 
     // Stop the Firebase listener when this component is removed.
     return unsubscribe;
@@ -17818,18 +20790,16 @@ function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={authValue}>
-      {children}
-    </AuthContext.Provider>
+    <AuthContext.Provider value={authValue}>{children}</AuthContext.Provider>
   );
 }
 
 export { AuthProvider };
-````
+```
 
 ### `frontend/src/context/authContextValue.js`
 
-````javascript
+```javascript
 import { createContext, useContext } from "react";
 
 // Shared authentication storage used by AuthProvider and dashboard components.
@@ -17844,11 +20814,11 @@ export function useAuth() {
 
   return context;
 }
-````
+```
 
 ### `frontend/src/data/sampleCategories.js`
 
-````javascript
+```javascript
 // Temporary category records used until Firestore is connected.
 const sampleCategories = [
   {
@@ -17890,11 +20860,11 @@ const sampleCategories = [
 ];
 
 export default sampleCategories;
-````
+```
 
 ### `frontend/src/data/sampleProducts.js`
 
-````javascript
+```javascript
 // Temporary product records used to build the inventory UI before Firestore.
 const sampleProducts = [
   // Simple product without size variants.
@@ -17946,10 +20916,7 @@ const sampleProducts = [
     description:
       "Lightweight wireless earbuds supplied with a compact charging case.",
 
-    images: [
-      "/products/redmi-buds-front.png",
-      "/products/redmi-buds-case.png",
-    ],
+    images: ["/products/redmi-buds-front.png", "/products/redmi-buds-case.png"],
   },
 
   // Product with no remaining stock.
@@ -17969,8 +20936,7 @@ const sampleProducts = [
     lowStockThreshold: 5,
     approvedReviews: 45,
 
-    description:
-      "A compact beige tote bag suitable for everyday use.",
+    description: "A compact beige tote bag suitable for everyday use.",
 
     images: [
       "/products/zara-mini-bag-front.png",
@@ -18045,11 +21011,41 @@ const sampleProducts = [
     lowStockThreshold: 5,
     hasSizes: true,
     sizes: [
-      { id: "pink-36", size: "36", sku: "DFS-PNK-36", barcode: "890123456001", stock: 5 },
-      { id: "pink-37", size: "37", sku: "DFS-PNK-37", barcode: "890123456002", stock: 1 },
-      { id: "pink-38", size: "38", sku: "DFS-PNK-38", barcode: "890123456003", stock: 2 },
-      { id: "pink-39", size: "39", sku: "DFS-PNK-39", barcode: "890123456004", stock: 3 },
-      { id: "pink-40", size: "40", sku: "DFS-PNK-40", barcode: "890123456005", stock: 4 },
+      {
+        id: "pink-36",
+        size: "36",
+        sku: "DFS-PNK-36",
+        barcode: "890123456001",
+        stock: 5,
+      },
+      {
+        id: "pink-37",
+        size: "37",
+        sku: "DFS-PNK-37",
+        barcode: "890123456002",
+        stock: 1,
+      },
+      {
+        id: "pink-38",
+        size: "38",
+        sku: "DFS-PNK-38",
+        barcode: "890123456003",
+        stock: 2,
+      },
+      {
+        id: "pink-39",
+        size: "39",
+        sku: "DFS-PNK-39",
+        barcode: "890123456004",
+        stock: 3,
+      },
+      {
+        id: "pink-40",
+        size: "40",
+        sku: "DFS-PNK-40",
+        barcode: "890123456005",
+        stock: 4,
+      },
     ],
     approvedReviews: 42,
     description:
@@ -18072,11 +21068,41 @@ const sampleProducts = [
     lowStockThreshold: 6,
     hasSizes: true,
     sizes: [
-      { id: "purple-36", size: "36", sku: "DFS-PUR-36", barcode: "890123456101", stock: 2 },
-      { id: "purple-37", size: "37", sku: "DFS-PUR-37", barcode: "890123456102", stock: 1 },
-      { id: "purple-38", size: "38", sku: "DFS-PUR-38", barcode: "890123456103", stock: 1 },
-      { id: "purple-39", size: "39", sku: "DFS-PUR-39", barcode: "890123456104", stock: 1 },
-      { id: "purple-40", size: "40", sku: "DFS-PUR-40", barcode: "890123456105", stock: 1 },
+      {
+        id: "purple-36",
+        size: "36",
+        sku: "DFS-PUR-36",
+        barcode: "890123456101",
+        stock: 2,
+      },
+      {
+        id: "purple-37",
+        size: "37",
+        sku: "DFS-PUR-37",
+        barcode: "890123456102",
+        stock: 1,
+      },
+      {
+        id: "purple-38",
+        size: "38",
+        sku: "DFS-PUR-38",
+        barcode: "890123456103",
+        stock: 1,
+      },
+      {
+        id: "purple-39",
+        size: "39",
+        sku: "DFS-PUR-39",
+        barcode: "890123456104",
+        stock: 1,
+      },
+      {
+        id: "purple-40",
+        size: "40",
+        sku: "DFS-PUR-40",
+        barcode: "890123456105",
+        stock: 1,
+      },
     ],
     approvedReviews: 18,
     description:
@@ -18099,11 +21125,41 @@ const sampleProducts = [
     lowStockThreshold: 5,
     hasSizes: true,
     sizes: [
-      { id: "burgundy-36", size: "36", sku: "DFS-BUR-36", barcode: "890123456201", stock: 1 },
-      { id: "burgundy-37", size: "37", sku: "DFS-BUR-37", barcode: "890123456202", stock: 1 },
-      { id: "burgundy-38", size: "38", sku: "DFS-BUR-38", barcode: "890123456203", stock: 2 },
-      { id: "burgundy-39", size: "39", sku: "DFS-BUR-39", barcode: "890123456204", stock: 2 },
-      { id: "burgundy-40", size: "40", sku: "DFS-BUR-40", barcode: "890123456205", stock: 1 },
+      {
+        id: "burgundy-36",
+        size: "36",
+        sku: "DFS-BUR-36",
+        barcode: "890123456201",
+        stock: 1,
+      },
+      {
+        id: "burgundy-37",
+        size: "37",
+        sku: "DFS-BUR-37",
+        barcode: "890123456202",
+        stock: 1,
+      },
+      {
+        id: "burgundy-38",
+        size: "38",
+        sku: "DFS-BUR-38",
+        barcode: "890123456203",
+        stock: 2,
+      },
+      {
+        id: "burgundy-39",
+        size: "39",
+        sku: "DFS-BUR-39",
+        barcode: "890123456204",
+        stock: 2,
+      },
+      {
+        id: "burgundy-40",
+        size: "40",
+        sku: "DFS-BUR-40",
+        barcode: "890123456205",
+        stock: 1,
+      },
     ],
     approvedReviews: 23,
     description:
@@ -18126,11 +21182,41 @@ const sampleProducts = [
     lowStockThreshold: 5,
     hasSizes: true,
     sizes: [
-      { id: "black-36", size: "36", sku: "DFS-BLK-36", barcode: "890123456301", stock: 0 },
-      { id: "black-37", size: "37", sku: "DFS-BLK-37", barcode: "890123456302", stock: 0 },
-      { id: "black-38", size: "38", sku: "DFS-BLK-38", barcode: "890123456303", stock: 0 },
-      { id: "black-39", size: "39", sku: "DFS-BLK-39", barcode: "890123456304", stock: 0 },
-      { id: "black-40", size: "40", sku: "DFS-BLK-40", barcode: "890123456305", stock: 0 },
+      {
+        id: "black-36",
+        size: "36",
+        sku: "DFS-BLK-36",
+        barcode: "890123456301",
+        stock: 0,
+      },
+      {
+        id: "black-37",
+        size: "37",
+        sku: "DFS-BLK-37",
+        barcode: "890123456302",
+        stock: 0,
+      },
+      {
+        id: "black-38",
+        size: "38",
+        sku: "DFS-BLK-38",
+        barcode: "890123456303",
+        stock: 0,
+      },
+      {
+        id: "black-39",
+        size: "39",
+        sku: "DFS-BLK-39",
+        barcode: "890123456304",
+        stock: 0,
+      },
+      {
+        id: "black-40",
+        size: "40",
+        sku: "DFS-BLK-40",
+        barcode: "890123456305",
+        stock: 0,
+      },
     ],
     approvedReviews: 11,
     description:
@@ -18141,19 +21227,16 @@ const sampleProducts = [
 
 // Export the records so inventory components can display and calculate them.
 export default sampleProducts;
-````
+```
 
 ### `frontend/src/firebase/firebase.js`
 
-````javascript
+```javascript
 // Firebase application setup.
 import { initializeApp } from "firebase/app";
 
 // Firebase Authentication tools.
-import {
-  getAuth,
-  GoogleAuthProvider,
-} from "firebase/auth";
+import { getAuth, GoogleAuthProvider } from "firebase/auth";
 
 // Read Firebase settings from .env.local.
 const firebaseConfig = {
@@ -18161,8 +21244,7 @@ const firebaseConfig = {
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId:
-    import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
@@ -18180,25 +21262,17 @@ googleProvider.setCustomParameters({
 });
 
 // Export these objects so authentication components can use them.
-export {
-  firebaseApp,
-  auth,
-  googleProvider,
-};
-````
+export { firebaseApp, auth, googleProvider };
+```
 
 ### `frontend/src/index.css`
 
-````css
+```css
 /* Global light-theme design tokens reused by every component stylesheet. */
 :root {
- font-family:
-  "Inter Variable",
-  "Inter",
-  "Noto Sans Sinhala",
-  "Noto Sans Tamil",
-  "Segoe UI",
-  sans-serif;
+  font-family:
+    "Inter Variable", "Inter", "Noto Sans Sinhala", "Noto Sans Tamil",
+    "Segoe UI", sans-serif;
 
   font-optical-sizing: auto;
   font-synthesis: none;
@@ -18207,13 +21281,12 @@ export {
   --color-accent: #168cf5;
 
   --color-background: #f8fafc;
-  --color-background-gradient:
-    linear-gradient(
-      135deg,
-      #f8fafc 0%,
-      #f5f9ff 50%,
-      #edf5ff 100%
-    );
+  --color-background-gradient: linear-gradient(
+    135deg,
+    #f8fafc 0%,
+    #f5f9ff 50%,
+    #edf5ff 100%
+  );
 
   --color-surface: #ffffff;
   --color-surface-soft: #f1f5f9;
@@ -18253,12 +21326,7 @@ html[data-theme="dark"] {
       rgba(0, 82, 145, 0.16) 0%,
       transparent 36%
     ),
-    linear-gradient(
-      135deg,
-      #050b12 0%,
-      #08131f 48%,
-      #0a1c2d 100%
-    );
+    linear-gradient(135deg, #050b12 0%, #08131f 48%, #0a1c2d 100%);
 
   --color-surface: #101b28;
   --color-surface-soft: #172536;
@@ -18272,16 +21340,14 @@ html[data-theme="dark"] {
   --color-header: rgba(7, 15, 25, 0.82);
   --color-control: #111e2d;
 
-  --card-background:
-    linear-gradient(
-      145deg,
-      rgba(18, 31, 46, 0.96),
-      rgba(10, 20, 32, 0.96)
-    );
+  --card-background: linear-gradient(
+    145deg,
+    rgba(18, 31, 46, 0.96),
+    rgba(10, 20, 32, 0.96)
+  );
 
   --card-shadow:
-    0 12px 30px rgba(0, 0, 0, 0.28),
-    inset 0 1px 0 rgba(255, 255, 255, 0.025);
+    0 12px 30px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.025);
 
   color-scheme: dark;
 }
@@ -18323,35 +21389,35 @@ button {
   flex: 1;
   min-width: 0;
 }
-````
+```
 
 ### `frontend/src/main.jsx`
 
-````jsx
+```jsx
 // React and router tools used to start the Vendly application.
-import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
+import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import "@fontsource-variable/inter";
-import './index.css'
-import App from './App.jsx'
+import "./index.css";
+import App from "./App.jsx";
 import { AuthProvider } from "./context/AuthContext.jsx";
 
 // Mount the React application inside the <div id="root"> from index.html.
-createRoot(document.getElementById('root')).render(
+createRoot(document.getElementById("root")).render(
   <StrictMode>
     <BrowserRouter>
-  <AuthProvider>
-    <App />
-  </AuthProvider>
-</BrowserRouter>
+      <AuthProvider>
+        <App />
+      </AuthProvider>
+    </BrowserRouter>
   </StrictMode>,
 );
-````
+```
 
 ### `frontend/src/pages/AnalyticsPage.css`
 
-````css
+```css
 .analytics-page {
   display: grid;
   gap: 20px;
@@ -18551,17 +21617,12 @@ createRoot(document.getElementById('root')).render(
     grid-template-columns: 1fr;
   }
 }
-````
+```
 
 ### `frontend/src/pages/AnalyticsPage.jsx`
 
-````jsx
-import {
-  Banknote,
-  Boxes,
-  PackageCheck,
-  TrendingUp,
-} from "lucide-react";
+```jsx
+import { Banknote, Boxes, PackageCheck, TrendingUp } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { useAuth } from "../context/authContextValue";
@@ -18570,7 +21631,6 @@ import {
   getAnalyticsOverview,
 } from "../services/analyticsService";
 import "./AnalyticsPage.css";
-
 
 function AnalyticsPage() {
   const { business } = useAuth();
@@ -18596,7 +21656,8 @@ function AnalyticsPage() {
   }, [business?.id]);
 
   const maximumDailyOrders = useMemo(
-    () => Math.max(...(analytics?.dailyOrders ?? []).map((item) => item.count), 1),
+    () =>
+      Math.max(...(analytics?.dailyOrders ?? []).map((item) => item.count), 1),
     [analytics],
   );
   const visibleMonths = analytics?.monthlyRevenue?.slice(-6) ?? [];
@@ -18622,14 +21683,34 @@ function AnalyticsPage() {
     <main className="dashboard analytics-page">
       <div className="dashboard__intro">
         <h2>Business Analytics</h2>
-        <p>Revenue, gross profit, orders and product performance from Firestore.</p>
+        <p>
+          Revenue, gross profit, orders and product performance from Firestore.
+        </p>
       </div>
 
       <section className="analytics-summary" aria-label="Business totals">
-        <article><Banknote /><span>Product revenue</span><strong>{formatAnalyticsMoney(financials.productRevenueMinor)}</strong></article>
-        <article><PackageCheck /><span>Total orders</span><strong>{analytics?.orderCounts?.all ?? 0}</strong></article>
-        <article><Boxes /><span>Stock units</span><strong>{analytics?.inventory?.totalUnits ?? 0}</strong></article>
-        <article><TrendingUp /><span>Gross profit</span><strong>{formatAnalyticsMoney(financials.grossProfitMinor)}</strong></article>
+        <article>
+          <Banknote />
+          <span>Product revenue</span>
+          <strong>
+            {formatAnalyticsMoney(financials.productRevenueMinor)}
+          </strong>
+        </article>
+        <article>
+          <PackageCheck />
+          <span>Total orders</span>
+          <strong>{analytics?.orderCounts?.all ?? 0}</strong>
+        </article>
+        <article>
+          <Boxes />
+          <span>Stock units</span>
+          <strong>{analytics?.inventory?.totalUnits ?? 0}</strong>
+        </article>
+        <article>
+          <TrendingUp />
+          <span>Gross profit</span>
+          <strong>{formatAnalyticsMoney(financials.grossProfitMinor)}</strong>
+        </article>
       </section>
 
       <section className="analytics-grid">
@@ -18640,8 +21721,17 @@ function AnalyticsPage() {
             {(analytics?.dailyOrders ?? []).map((item) => (
               <div key={item.date}>
                 <span className="analytics-bars__value">{item.count}</span>
-                <i style={{ height: `${Math.max((item.count / maximumDailyOrders) * 100, 4)}%` }} />
-                <small>{new Date(`${item.date}T00:00:00`).toLocaleDateString("en-LK", { weekday: "short" })}</small>
+                <i
+                  style={{
+                    height: `${Math.max((item.count / maximumDailyOrders) * 100, 4)}%`,
+                  }}
+                />
+                <small>
+                  {new Date(`${item.date}T00:00:00`).toLocaleDateString(
+                    "en-LK",
+                    { weekday: "short" },
+                  )}
+                </small>
               </div>
             ))}
           </div>
@@ -18653,8 +21743,14 @@ function AnalyticsPage() {
           <div className="analytics-bars">
             {visibleMonths.map((item) => (
               <div key={item.month}>
-                <span className="analytics-bars__value">{formatAnalyticsMoney(item.revenueMinor).replace("LKR ", "")}</span>
-                <i style={{ height: `${Math.max((item.revenueMinor / maximumMonthlyRevenue) * 100, 4)}%` }} />
+                <span className="analytics-bars__value">
+                  {formatAnalyticsMoney(item.revenueMinor).replace("LKR ", "")}
+                </span>
+                <i
+                  style={{
+                    height: `${Math.max((item.revenueMinor / maximumMonthlyRevenue) * 100, 4)}%`,
+                  }}
+                />
                 <small>{item.month}</small>
               </div>
             ))}
@@ -18671,7 +21767,10 @@ function AnalyticsPage() {
               analytics.topProducts.map((product, index) => (
                 <div key={product.id}>
                   <b>{index + 1}</b>
-                  <span><strong>{product.name}</strong><small>{product.quantity} units</small></span>
+                  <span>
+                    <strong>{product.name}</strong>
+                    <small>{product.quantity} units</small>
+                  </span>
                   <em>{formatAnalyticsMoney(product.revenueMinor)}</em>
                 </div>
               ))
@@ -18683,27 +21782,41 @@ function AnalyticsPage() {
           <h3>Daily work centre</h3>
           <p>Actions that currently need attention</p>
           <div className="analytics-work">
-            <div><span>Needs confirmation</span><strong>{analytics?.workCentre?.needsConfirmation ?? 0}</strong></div>
-            <div><span>Ready to pack</span><strong>{analytics?.workCentre?.needsPacking ?? 0}</strong></div>
-            <div><span>Low stock</span><strong>{analytics?.workCentre?.lowStockProducts ?? 0}</strong></div>
-            <div><span>Out of stock</span><strong>{analytics?.workCentre?.outOfStockProducts ?? 0}</strong></div>
+            <div>
+              <span>Needs confirmation</span>
+              <strong>{analytics?.workCentre?.needsConfirmation ?? 0}</strong>
+            </div>
+            <div>
+              <span>Ready to pack</span>
+              <strong>{analytics?.workCentre?.needsPacking ?? 0}</strong>
+            </div>
+            <div>
+              <span>Low stock</span>
+              <strong>{analytics?.workCentre?.lowStockProducts ?? 0}</strong>
+            </div>
+            <div>
+              <span>Out of stock</span>
+              <strong>{analytics?.workCentre?.outOfStockProducts ?? 0}</strong>
+            </div>
           </div>
         </article>
       </section>
 
       <p className="analytics-page__footnote">
-        Gross profit is product revenue minus recorded product cost. It does not yet subtract salaries, rent, advertising, tax or other business expenses.
+        Gross profit is product revenue minus recorded product cost. It does not
+        yet subtract salaries, rent, advertising, tax or other business
+        expenses.
       </p>
     </main>
   );
 }
 
 export default AnalyticsPage;
-````
+```
 
 ### `frontend/src/pages/BusinessSetupPage.jsx`
 
-````jsx
+```jsx
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -18714,14 +21827,9 @@ import "./LoginPage.css";
 
 function BusinessSetupPage() {
   const navigate = useNavigate();
-  const {
-    user,
-    refreshSellerProfile,
-  } = useAuth();
+  const { user, refreshSellerProfile } = useAuth();
 
-  const [ownerName, setOwnerName] = useState(
-    user?.displayName ?? "",
-  );
+  const [ownerName, setOwnerName] = useState(user?.displayName ?? "");
   const [businessName, setBusinessName] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -18741,9 +21849,7 @@ function BusinessSetupPage() {
       navigate("/", { replace: true });
     } catch (error) {
       console.error(error);
-      setErrorMessage(
-        "Business details could not be saved. Please try again.",
-      );
+      setErrorMessage("Business details could not be saved. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -18804,11 +21910,11 @@ function BusinessSetupPage() {
 }
 
 export default BusinessSetupPage;
-````
+```
 
 ### `frontend/src/pages/CouriersPage.jsx`
 
-````jsx
+```jsx
 import { useEffect, useState } from "react";
 import { Plus, Truck } from "lucide-react";
 
@@ -18848,29 +21954,61 @@ function CouriersPage() {
           <h2>Couriers & Delivery</h2>
           <p>Manage courier services, weight pricing and delivery quality.</p>
         </div>
-        <button className="management-page__primary-button" type="button" onClick={() => setIsAddCourierOpen(true)} disabled={!business?.id}>
+        <button
+          className="management-page__primary-button"
+          type="button"
+          onClick={() => setIsAddCourierOpen(true)}
+          disabled={!business?.id}
+        >
           <Plus size={18} /> Add Courier
         </button>
       </div>
 
-      {isLoading && <p className="management-page__notice">Loading couriers...</p>}
-      {errorMessage && <p className="management-page__notice" role="alert">{errorMessage}</p>}
+      {isLoading && (
+        <p className="management-page__notice">Loading couriers...</p>
+      )}
+      {errorMessage && (
+        <p className="management-page__notice" role="alert">
+          {errorMessage}
+        </p>
+      )}
 
       <table className="management-table">
-        <thead><tr><th>Courier</th><th>First 1 kg</th><th>Extra 1 kg</th><th>Success</th><th>Returns</th><th>Delivery</th><th>Status</th></tr></thead>
+        <thead>
+          <tr>
+            <th>Courier</th>
+            <th>First 1 kg</th>
+            <th>Extra 1 kg</th>
+            <th>Success</th>
+            <th>Returns</th>
+            <th>Delivery</th>
+            <th>Status</th>
+          </tr>
+        </thead>
         <tbody>
           {couriers.map((courier) => (
             <tr key={courier.id}>
-              <td><Truck size={17} aria-hidden="true" /> <strong>{courier.name}</strong> ({courier.code})</td>
+              <td>
+                <Truck size={17} aria-hidden="true" />{" "}
+                <strong>{courier.name}</strong> ({courier.code})
+              </td>
               <td>{money(courier.firstKgPriceMinor)}</td>
               <td>{money(courier.extraKgPriceMinor)}</td>
               <td>{Math.round((courier.successRate ?? 0) * 100)}%</td>
               <td>{Math.round((courier.returnRate ?? 0) * 100)}%</td>
               <td>{courier.averageDeliveryDays} days</td>
-              <td><span className="management-table__badge">{courier.status}</span></td>
+              <td>
+                <span className="management-table__badge">
+                  {courier.status}
+                </span>
+              </td>
             </tr>
           ))}
-          {!isLoading && couriers.length === 0 && <tr><td colSpan={7}>No couriers configured yet.</td></tr>}
+          {!isLoading && couriers.length === 0 && (
+            <tr>
+              <td colSpan={7}>No couriers configured yet.</td>
+            </tr>
+          )}
         </tbody>
       </table>
 
@@ -18885,11 +22023,11 @@ function CouriersPage() {
 }
 
 export default CouriersPage;
-````
+```
 
 ### `frontend/src/pages/CustomersPage.jsx`
 
-````jsx
+```jsx
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
@@ -18900,15 +22038,20 @@ import "./ManagementPage.css";
 
 function CustomersPage() {
   const [searchParameters] = useSearchParams();
-  const routeSearch = (searchParameters.get("search") ?? "").trim().toLowerCase();
+  const routeSearch = (searchParameters.get("search") ?? "")
+    .trim()
+    .toLowerCase();
   const { business } = useAuth();
   const [customers, setCustomers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
   const visibleCustomers = routeSearch
     ? customers.filter((customer) =>
-        [customer.name, customer.normalizedPhone, customer.email].some((value) =>
-          String(value ?? "").toLowerCase().includes(routeSearch),
+        [customer.name, customer.normalizedPhone, customer.email].some(
+          (value) =>
+            String(value ?? "")
+              .toLowerCase()
+              .includes(routeSearch),
         ),
       )
     : customers;
@@ -18932,24 +22075,59 @@ function CustomersPage() {
         <p>Review customer loyalty, order history and return risk.</p>
       </div>
 
-      {isLoading && <p className="management-page__notice">Loading customers...</p>}
-      {errorMessage && <p className="management-page__notice" role="alert">{errorMessage}</p>}
+      {isLoading && (
+        <p className="management-page__notice">Loading customers...</p>
+      )}
+      {errorMessage && (
+        <p className="management-page__notice" role="alert">
+          {errorMessage}
+        </p>
+      )}
 
       <table className="management-table">
-        <thead><tr><th>Customer</th><th>Phone</th><th>Completed</th><th>Returned</th><th>Total spent</th><th>Risk</th><th>Status</th></tr></thead>
+        <thead>
+          <tr>
+            <th>Customer</th>
+            <th>Phone</th>
+            <th>Completed</th>
+            <th>Returned</th>
+            <th>Total spent</th>
+            <th>Risk</th>
+            <th>Status</th>
+          </tr>
+        </thead>
         <tbody>
           {visibleCustomers.map((customer) => (
             <tr key={customer.id}>
-              <td><strong>{customer.name}</strong><br /><small>{customer.email || "No email"}</small></td>
+              <td>
+                <strong>{customer.name}</strong>
+                <br />
+                <small>{customer.email || "No email"}</small>
+              </td>
               <td>+{customer.normalizedPhone}</td>
               <td>{customer.completedOrderCount}</td>
               <td>{customer.returnedOrderCount}</td>
-              <td>LKR {((customer.totalSpentMinor ?? 0) / 100).toLocaleString("en-LK")}</td>
-              <td><span className={`management-table__badge management-table__badge--${customer.riskLevel}`}>{customer.riskLevel}</span></td>
+              <td>
+                LKR{" "}
+                {((customer.totalSpentMinor ?? 0) / 100).toLocaleString(
+                  "en-LK",
+                )}
+              </td>
+              <td>
+                <span
+                  className={`management-table__badge management-table__badge--${customer.riskLevel}`}
+                >
+                  {customer.riskLevel}
+                </span>
+              </td>
               <td>{customer.status}</td>
             </tr>
           ))}
-          {!isLoading && visibleCustomers.length === 0 && <tr><td colSpan={7}>No matching customers found.</td></tr>}
+          {!isLoading && visibleCustomers.length === 0 && (
+            <tr>
+              <td colSpan={7}>No matching customers found.</td>
+            </tr>
+          )}
         </tbody>
       </table>
     </main>
@@ -18957,11 +22135,11 @@ function CustomersPage() {
 }
 
 export default CustomersPage;
-````
+```
 
 ### `frontend/src/pages/InventoryPage.css`
 
-````css
+```css
 /* Page title and inventory action buttons share one horizontal row. */
 .inventory-page__heading {
   display: flex;
@@ -19034,7 +22212,6 @@ export default CustomersPage;
     justify-content: flex-start;
   }
 }
-
 
 /* Products and Categories tab navigation. */
 .inventory-tabs {
@@ -19127,11 +22304,11 @@ export default CustomersPage;
   color: #fca5a5;
   background: rgba(127, 29, 29, 0.2);
 }
-````
+```
 
 ### `frontend/src/pages/InventoryPage.jsx`
 
-````jsx
+```jsx
 // React state remembers whether Products or Categories is selected.
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
@@ -19160,14 +22337,22 @@ import ReviewsModal from "../components/ReviewsModal";
 import AdjustStockModal from "../components/AdjustStockModal";
 import { useAuth } from "../context/authContextValue";
 import { getCategories, removeCategory } from "../services/categoryService";
-import { downloadInventoryCsv, getProducts, removeProduct, updateProduct, updateProductStatus } from "../services/productService";
+import {
+  downloadInventoryCsv,
+  getProducts,
+  removeProduct,
+  updateProduct,
+  updateProductStatus,
+} from "../services/productService";
 import { getProductStockStatus } from "../utils/inventory";
 
 import "./InventoryPage.css";
 
 function InventoryPage() {
   const [searchParameters, setSearchParameters] = useSearchParams();
-  const routeSearch = (searchParameters.get("search") ?? "").trim().toLowerCase();
+  const routeSearch = (searchParameters.get("search") ?? "")
+    .trim()
+    .toLowerCase();
   const { business, accountError } = useAuth();
 
   // Products is the default tab when the Inventory page opens.
@@ -19217,7 +22402,11 @@ function InventoryPage() {
 
         if (requestIsCurrent) {
           setProducts(productRecords);
-          setCategories(categoryResponse.categories.filter((category) => category.status === "active"));
+          setCategories(
+            categoryResponse.categories.filter(
+              (category) => category.status === "active",
+            ),
+          );
         }
       } catch (error) {
         console.error("Inventory could not be loaded:", error);
@@ -19320,9 +22509,9 @@ function InventoryPage() {
   }, [categories, products]);
 
   const visibleProducts = useMemo(() => {
-    const searchText = (
-      routeSearch || inventoryFilters.searchProduct || ""
-    ).trim().toLowerCase();
+    const searchText = (routeSearch || inventoryFilters.searchProduct || "")
+      .trim()
+      .toLowerCase();
 
     return products.filter((product) => {
       const matchesSearch =
@@ -19332,7 +22521,11 @@ function InventoryPage() {
           product.sku,
           product.barcode,
           ...(product.sizes ?? []).flatMap((size) => [size.sku, size.barcode]),
-        ].some((value) => String(value ?? "").toLowerCase().includes(searchText));
+        ].some((value) =>
+          String(value ?? "")
+            .toLowerCase()
+            .includes(searchText),
+        );
       const matchesCategory =
         !inventoryFilters.category ||
         product.categoryId === inventoryFilters.category;
@@ -19350,10 +22543,14 @@ function InventoryPage() {
     try {
       if (removalTarget.type === "product") {
         await removeProduct(business.id, removalTarget.record.id);
-        setProducts((current) => current.filter((product) => product.id !== removalTarget.record.id));
+        setProducts((current) =>
+          current.filter((product) => product.id !== removalTarget.record.id),
+        );
       } else {
         await removeCategory(business.id, removalTarget.record.id);
-        setCategories((current) => current.filter((category) => category.id !== removalTarget.record.id));
+        setCategories((current) =>
+          current.filter((category) => category.id !== removalTarget.record.id),
+        );
       }
       setRemovalTarget(null);
     } catch (error) {
@@ -19374,20 +22571,28 @@ function InventoryPage() {
   }
 
   function handleExportSelected(selectedIds) {
-    const selectedProducts = visibleProducts.filter((product) => selectedIds.includes(product.id));
+    const selectedProducts = visibleProducts.filter((product) =>
+      selectedIds.includes(product.id),
+    );
     downloadInventoryCsv(selectedProducts);
   }
 
   async function handleBulkStatusChange(selectedIds, status) {
     if (!business?.id) return;
     try {
-      const selectedProducts = visibleProducts.filter((product) => selectedIds.includes(product.id));
+      const selectedProducts = visibleProducts.filter((product) =>
+        selectedIds.includes(product.id),
+      );
       const updatedProducts = await Promise.all(
-        selectedProducts.map((product) => updateProductStatus(business.id, product.id, status)),
+        selectedProducts.map((product) =>
+          updateProductStatus(business.id, product.id, status),
+        ),
       );
       setProducts((currentProducts) =>
-        currentProducts.map((product) =>
-          updatedProducts.find((updated) => updated.id === product.id) ?? product,
+        currentProducts.map(
+          (product) =>
+            updatedProducts.find((updated) => updated.id === product.id) ??
+            product,
         ),
       );
     } catch (error) {
@@ -19398,11 +22603,21 @@ function InventoryPage() {
   async function handleBulkCategoryChange(selectedIds, categoryId) {
     if (!business?.id || !categoryId) return;
     try {
-      const selectedProducts = visibleProducts.filter((product) => selectedIds.includes(product.id));
-      const updatedProducts = await Promise.all(
-        selectedProducts.map((product) => updateProduct(business.id, product.id, { categoryId })),
+      const selectedProducts = visibleProducts.filter((product) =>
+        selectedIds.includes(product.id),
       );
-      setProducts((currentProducts) => currentProducts.map((product) => updatedProducts.find((updated) => updated.id === product.id) ?? product));
+      const updatedProducts = await Promise.all(
+        selectedProducts.map((product) =>
+          updateProduct(business.id, product.id, { categoryId }),
+        ),
+      );
+      setProducts((currentProducts) =>
+        currentProducts.map(
+          (product) =>
+            updatedProducts.find((updated) => updated.id === product.id) ??
+            product,
+        ),
+      );
     } catch (error) {
       setInventoryError(error);
     }
@@ -19413,50 +22628,53 @@ function InventoryPage() {
       <div className="inventory-page__heading">
         <h2>Product Inventory</h2>
 
-{/* inventory page buttons starts here*/}
+        {/* inventory page buttons starts here*/}
 
-{activeTab === "products" && (
-        <>
-        <div className="inventory-page__actions">
-          <button type="button">
-            <ScanBarcode size={18} aria-hidden="true" />
-            Scan Barcode
-          </button>
-          <button type="button" onClick={handleExportInventory} disabled={isExporting}>
-            <Download size={18} aria-hidden="true" />
-            {isExporting ? "Exporting..." : "Export Inventory"}
-          </button>
-          <button
-            className="inventory-page__add-button"
-            type="button"
-            onClick={() => setIsAddProductOpen(true)}
-            disabled={!business?.id}
-          >
-            <Plus size={18} aria-hidden="true" />
-            Add Product
-          </button>
-        </div>
-        </>
-)}
+        {activeTab === "products" && (
+          <>
+            <div className="inventory-page__actions">
+              <button type="button">
+                <ScanBarcode size={18} aria-hidden="true" />
+                Scan Barcode
+              </button>
+              <button
+                type="button"
+                onClick={handleExportInventory}
+                disabled={isExporting}
+              >
+                <Download size={18} aria-hidden="true" />
+                {isExporting ? "Exporting..." : "Export Inventory"}
+              </button>
+              <button
+                className="inventory-page__add-button"
+                type="button"
+                onClick={() => setIsAddProductOpen(true)}
+                disabled={!business?.id}
+              >
+                <Plus size={18} aria-hidden="true" />
+                Add Product
+              </button>
+            </div>
+          </>
+        )}
 
-{activeTab === "categories" && (
-        <>
-        <div className="inventory-page__actions">
-          <button
-            className="inventory-page__add-button"
-            type="button"
-            onClick={() => setIsAddCategoryOpen(true)}
-            disabled={!business?.id}
-          >
-            <Plus size={18} aria-hidden="true" />
-            Add Category
-          </button>
-        </div>
-        </>
-)}
+        {activeTab === "categories" && (
+          <>
+            <div className="inventory-page__actions">
+              <button
+                className="inventory-page__add-button"
+                type="button"
+                onClick={() => setIsAddCategoryOpen(true)}
+                disabled={!business?.id}
+              >
+                <Plus size={18} aria-hidden="true" />
+                Add Category
+              </button>
+            </div>
+          </>
+        )}
 
-{/* inventory page buttons ends here*/}
-
+        {/* inventory page buttons ends here*/}
       </div>
 
       <p className="inventory-page__description">
@@ -19464,7 +22682,10 @@ function InventoryPage() {
       </p>
 
       {(accountError || inventoryError) && (
-        <p className="inventory-page__notice inventory-page__notice--error" role="alert">
+        <p
+          className="inventory-page__notice inventory-page__notice--error"
+          role="alert"
+        >
           Inventory data could not be loaded from the Vendly API. Start the
           Flask server and check its Firebase Admin configuration.
         </p>
@@ -19476,113 +22697,117 @@ function InventoryPage() {
         </p>
       )}
 
-{/* Inventory dashboard starts here */}
+      {/* Inventory dashboard starts here */}
 
-{activeTab === "products" && (
-      <>
-      <section aria-label="Inventory dashboard">
-        <div className="stats-grid">
-          {inventoryStats.map((stat) => (
-            <StatCard
-              key={stat.label}
-              label={stat.label}
-              value={stat.value}
-              icon={stat.icon}
-              tone={stat.tone}
-            />
-          ))}
-        </div>
-      </section>
-      </>
-)}
+      {activeTab === "products" && (
+        <>
+          <section aria-label="Inventory dashboard">
+            <div className="stats-grid">
+              {inventoryStats.map((stat) => (
+                <StatCard
+                  key={stat.label}
+                  label={stat.label}
+                  value={stat.value}
+                  icon={stat.icon}
+                  tone={stat.tone}
+                />
+              ))}
+            </div>
+          </section>
+        </>
+      )}
 
-{activeTab === "categories" && (
-      <>
-      <section aria-label="Inventory dashboard">
-        <div className="stats-grid">
-          {categoryStats.map((stat) => (
-            <StatCard
-              key={stat.label}
-              label={stat.label}
-              value={stat.value}
-              icon={stat.icon}
-              tone={stat.tone}
-            />
-          ))}
-        </div>
-      </section>
-      </>
-)}
+      {activeTab === "categories" && (
+        <>
+          <section aria-label="Inventory dashboard">
+            <div className="stats-grid">
+              {categoryStats.map((stat) => (
+                <StatCard
+                  key={stat.label}
+                  label={stat.label}
+                  value={stat.value}
+                  icon={stat.icon}
+                  tone={stat.tone}
+                />
+              ))}
+            </div>
+          </section>
+        </>
+      )}
 
-{/* Inventory dashboard ends here */}
+      {/* Inventory dashboard ends here */}
 
-{/* Tabs allow the same Inventory page to switch between two sections. */}
+      {/* Tabs allow the same Inventory page to switch between two sections. */}
 
-<nav
-  className="inventory-tabs"
-  role="tablist"
-  aria-label="Inventory sections"
->
-  <button
-    type="button"
-    role="tab"
-    aria-selected={activeTab === "products"}
-    className={`inventory-tabs__button ${
-      activeTab === "products"
-        ? "inventory-tabs__button--active"
-        : ""
-    }`}
-    onClick={() => setActiveTab("products")}
-  >
-    <Package size={17} aria-hidden="true" />
-    Products
-  </button>
+      <nav
+        className="inventory-tabs"
+        role="tablist"
+        aria-label="Inventory sections"
+      >
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === "products"}
+          className={`inventory-tabs__button ${
+            activeTab === "products" ? "inventory-tabs__button--active" : ""
+          }`}
+          onClick={() => setActiveTab("products")}
+        >
+          <Package size={17} aria-hidden="true" />
+          Products
+        </button>
 
-  <button
-    type="button"
-    role="tab"
-    aria-selected={activeTab === "categories"}
-    className={`inventory-tabs__button ${
-      activeTab === "categories"
-        ? "inventory-tabs__button--active"
-        : ""
-    }`}
-    onClick={() => setActiveTab("categories")}
-  >
-    <Tags size={17} aria-hidden="true" />
-    Categories
-  </button>
-</nav>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === "categories"}
+          className={`inventory-tabs__button ${
+            activeTab === "categories" ? "inventory-tabs__button--active" : ""
+          }`}
+          onClick={() => setActiveTab("categories")}
+        >
+          <Tags size={17} aria-hidden="true" />
+          Categories
+        </button>
+      </nav>
 
+      {/* Product filters and table are rendered only while Products is active. */}
+      {activeTab === "products" && (
+        <>
+          <InventoryFilters
+            categories={categories}
+            onApply={setInventoryFilters}
+            onReset={resetInventoryFilters}
+          />
+          <InventoryTable
+            products={visibleProducts}
+            onViewReviews={setReviewProduct}
+            onEditProduct={setEditingProduct}
+            onRemoveProduct={(product) =>
+              setRemovalTarget({ type: "product", record: product })
+            }
+            onChangeStatus={handleBulkStatusChange}
+            categories={categories}
+            onChangeCategory={handleBulkCategoryChange}
+            onExportSelected={handleExportSelected}
+            onAdjustStock={(product, variantId) =>
+              setStockAdjustment({ product, variantId })
+            }
+          />
+        </>
+      )}
 
-{/* Product filters and table are rendered only while Products is active. */}
-{activeTab === "products" && (
-  <>
-    <InventoryFilters
-      categories={categories}
-      onApply={setInventoryFilters}
-      onReset={resetInventoryFilters}
-    />
-    <InventoryTable
-      products={visibleProducts}
-      onViewReviews={setReviewProduct}
-      onEditProduct={setEditingProduct}
-      onRemoveProduct={(product) => setRemovalTarget({ type: "product", record: product })}
-      onChangeStatus={handleBulkStatusChange}
-      categories={categories}
-      onChangeCategory={handleBulkCategoryChange}
-      onExportSelected={handleExportSelected}
-      onAdjustStock={(product, variantId) =>
-        setStockAdjustment({ product, variantId })
-      }
-    />
-  </>
-)}
-
-{/* Temporary category content shown while Categories is active. */}
-{activeTab === "categories" && (
-  <CategoryTable categories={categories} products={products} onEditCategory={setEditingCategory} onRemoveCategory={(category) => setRemovalTarget({ type: "category", record: category })} />
-)}
+      {/* Temporary category content shown while Categories is active. */}
+      {activeTab === "categories" && (
+        <CategoryTable
+          categories={categories}
+          products={products}
+          onEditCategory={setEditingCategory}
+          onRemoveCategory={(category) =>
+            setRemovalTarget({ type: "category", record: category })
+          }
+        />
+      )}
 
       <AddCategoryModal
         isOpen={isAddCategoryOpen}
@@ -19603,7 +22828,11 @@ function InventoryPage() {
         category={editingCategory}
         onClose={() => setEditingCategory(null)}
         onUpdated={(updated) => {
-          setCategories((current) => current.map((category) => category.id === updated.id ? updated : category));
+          setCategories((current) =>
+            current.map((category) =>
+              category.id === updated.id ? updated : category,
+            ),
+          );
           setEditingCategory(null);
         }}
       />
@@ -19625,14 +22854,22 @@ function InventoryPage() {
         categories={categories}
         onClose={() => setEditingProduct(null)}
         onUpdated={(updated) => {
-          setProducts((current) => current.map((product) => product.id === updated.id ? updated : product));
+          setProducts((current) =>
+            current.map((product) =>
+              product.id === updated.id ? updated : product,
+            ),
+          );
           setEditingProduct(null);
         }}
       />
 
       <ConfirmDialog
         isOpen={Boolean(removalTarget)}
-        title={removalTarget?.type === "product" ? "Remove product?" : "Remove category?"}
+        title={
+          removalTarget?.type === "product"
+            ? "Remove product?"
+            : "Remove category?"
+        }
         message={`This will archive ${removalTarget?.record?.name ?? "this item"} and hide it from active lists.`}
         isWorking={isRemoving}
         onCancel={() => setRemovalTarget(null)}
@@ -19676,11 +22913,11 @@ function InventoryPage() {
 }
 
 export default InventoryPage;
-````
+```
 
 ### `frontend/src/pages/LoginPage.css`
 
-````css
+```css
 /* Full-page authentication background. */
 .login-page {
   display: grid;
@@ -19695,12 +22932,7 @@ export default InventoryPage;
       rgba(34, 145, 255, 0.35),
       transparent 34%
     ),
-    linear-gradient(
-      145deg,
-      #002d52,
-      #063b6a 50%,
-      #001e38
-    );
+    linear-gradient(145deg, #002d52, #063b6a 50%, #001e38);
 }
 
 /* Main login and registration card. */
@@ -19713,8 +22945,7 @@ export default InventoryPage;
 
   background: rgba(255, 255, 255, 0.97);
 
-  box-shadow:
-    0 24px 60px rgba(0, 15, 35, 0.35);
+  box-shadow: 0 24px 60px rgba(0, 15, 35, 0.35);
 
   animation: login-card-open 300ms ease-out;
 }
@@ -19778,8 +23009,7 @@ export default InventoryPage;
   color: white;
   background: #087fee;
 
-  box-shadow:
-    0 6px 16px rgba(8, 127, 238, 0.25);
+  box-shadow: 0 6px 16px rgba(8, 127, 238, 0.25);
 }
 
 .login-card__tab--active:hover {
@@ -19832,8 +23062,7 @@ export default InventoryPage;
 .login-card__field input:focus {
   border-color: #168cf5;
 
-  box-shadow:
-    0 0 0 3px rgba(22, 140, 245, 0.14);
+  box-shadow: 0 0 0 3px rgba(22, 140, 245, 0.14);
 }
 
 /* Firebase authentication error message. */
@@ -19874,27 +23103,18 @@ export default InventoryPage;
   border-radius: 9px;
 
   color: white;
-  background: linear-gradient(
-    135deg,
-    #168cf5,
-    #0873d4
-  );
+  background: linear-gradient(135deg, #168cf5, #0873d4);
 
   font: inherit;
   font-weight: 700;
 
   cursor: pointer;
 
-  box-shadow:
-    0 8px 20px rgba(8, 127, 238, 0.24);
+  box-shadow: 0 8px 20px rgba(8, 127, 238, 0.24);
 }
 
 .login-card__submit:hover:not(:disabled) {
-  background: linear-gradient(
-    135deg,
-    #087fee,
-    #0567bd
-  );
+  background: linear-gradient(135deg, #087fee, #0567bd);
 
   transform: translateY(-1px);
 }
@@ -19938,7 +23158,7 @@ export default InventoryPage;
   min-height: 46px;
   padding: 0 16px;
 
-margin: 5px;
+  margin: 5px;
 
   border: 1px solid #cbd9e7;
   border-radius: 9px;
@@ -19969,12 +23189,7 @@ margin: 5px;
   border-radius: 50%;
 
   color: white;
-  background:
-    linear-gradient(
-      135deg,
-      #4285f4,
-      #34a853
-    );
+  background: linear-gradient(135deg, #4285f4, #34a853);
 
   font-weight: 800;
 }
@@ -20018,17 +23233,14 @@ margin: 5px;
     transform: none;
   }
 }
-````
+```
 
 ### `frontend/src/pages/LoginPage.jsx`
 
-````jsx
+```jsx
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  LogIn,
-  UserPlus,
-} from "lucide-react";
+import { LogIn, UserPlus } from "lucide-react";
 
 import {
   loginWithEmail,
@@ -20130,10 +23342,7 @@ function LoginPage() {
 
         return;
       } else {
-        await loginWithEmail(
-          formData.email,
-          formData.password,
-        );
+        await loginWithEmail(formData.email, formData.password);
         await refreshSellerProfile();
       }
 
@@ -20185,7 +23394,7 @@ function LoginPage() {
     <main className="login-page">
       <section className="login-card">
         <div className="login-card__heading">
-        <img height="90" src={vendlyLoginLogo} alt="Vendly.lk" />
+          <img height="90" src={vendlyLoginLogo} alt="Vendly.lk" />
 
           <p>
             {isRegisterMode
@@ -20224,15 +23433,10 @@ function LoginPage() {
         </div>
 
         {/* Email and password form */}
-        <form
-          className="login-card__form"
-          onSubmit={handleSubmit}
-        >
+        <form className="login-card__form" onSubmit={handleSubmit}>
           {isRegisterMode && (
             <div className="login-card__field">
-              <label htmlFor="owner-name">
-                Owner name
-              </label>
+              <label htmlFor="owner-name">Owner name</label>
 
               <input
                 id="owner-name"
@@ -20249,9 +23453,7 @@ function LoginPage() {
 
           {isRegisterMode && (
             <div className="login-card__field">
-              <label htmlFor="business-name">
-                Business name
-              </label>
+              <label htmlFor="business-name">Business name</label>
 
               <input
                 id="business-name"
@@ -20267,9 +23469,7 @@ function LoginPage() {
           )}
 
           <div className="login-card__field">
-            <label htmlFor="seller-email">
-              Email address
-            </label>
+            <label htmlFor="seller-email">Email address</label>
 
             <input
               id="seller-email"
@@ -20284,9 +23484,7 @@ function LoginPage() {
           </div>
 
           <div className="login-card__field">
-            <label htmlFor="seller-password">
-              Password
-            </label>
+            <label htmlFor="seller-password">Password</label>
 
             <input
               id="seller-password"
@@ -20296,9 +23494,7 @@ function LoginPage() {
               onChange={handleInputChange}
               placeholder="Enter your password"
               autoComplete={
-                isRegisterMode
-                  ? "new-password"
-                  : "current-password"
+                isRegisterMode ? "new-password" : "current-password"
               }
               minLength={6}
               required
@@ -20334,7 +23530,7 @@ function LoginPage() {
           <span>or</span>
         </div>
 
-{/* Google login button */}
+        {/* Google login button */}
         <button
           className="login-card__google"
           type="button"
@@ -20344,19 +23540,17 @@ function LoginPage() {
           <img width="25" src={googleLogo} alt="" aria-hidden="true" />
           Sign in with Google
         </button>
-
-
       </section>
     </main>
   );
 }
 
 export default LoginPage;
-````
+```
 
 ### `frontend/src/pages/ManagementPage.css`
 
-````css
+```css
 .management-page__heading {
   display: flex;
   align-items: center;
@@ -20452,11 +23646,11 @@ export default LoginPage;
     overflow-x: auto;
   }
 }
-````
+```
 
 ### `frontend/src/pages/OrdersPage.css`
 
-````css
+```css
 /* Sales Orders title and export action alignment. */
 .orders-page__heading {
   display: flex;
@@ -20533,12 +23727,11 @@ html[data-theme="dark"] .orders-page__share-button {
   border-color: #31506d;
   color: #c5dcf4;
 
-  background:
-    linear-gradient(
-      145deg,
-      rgba(20, 39, 58, 0.95),
-      rgba(11, 27, 43, 0.95)
-    );
+  background: linear-gradient(
+    145deg,
+    rgba(20, 39, 58, 0.95),
+    rgba(11, 27, 43, 0.95)
+  );
 
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.04),
@@ -20621,7 +23814,10 @@ html[data-theme="dark"] .orders-page__share-button:hover svg {
 }
 
 .orders-page__add-button {
-  transition: transform 180ms ease, box-shadow 180ms ease, filter 180ms ease;
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    filter 180ms ease;
 }
 
 .orders-page__add-button:hover:not(:disabled) {
@@ -20641,11 +23837,11 @@ html[data-theme="dark"] .orders-page__share-button:hover svg {
     flex-wrap: wrap;
   }
 }
-````
+```
 
 ### `frontend/src/pages/OrdersPage.jsx`
 
-````jsx
+```jsx
 // Icons used by the order statistics and export button.
 import {
   CircleCheck,
@@ -20727,7 +23923,11 @@ function OrdersPage() {
 
       try {
         const orderRecords = await getOrders(business.id, {
-          search: filters.orderNumber || filters.waybillNumber || filters.itemName || filters.customer,
+          search:
+            filters.orderNumber ||
+            filters.waybillNumber ||
+            filters.itemName ||
+            filters.customer,
           dateFrom: filters.dateFrom,
           dateTo: filters.dateTo,
           courierId: filters.courier,
@@ -20765,7 +23965,9 @@ function OrdersPage() {
 
     getCouriers(business.id)
       .then(setCouriers)
-      .catch((error) => console.error("Courier filters could not be loaded:", error));
+      .catch((error) =>
+        console.error("Courier filters could not be loaded:", error),
+      );
   }, [business?.id]);
 
   const orderStats2 = useMemo(
@@ -20832,11 +24034,14 @@ function OrdersPage() {
     if (!business?.id) return;
     try {
       const updatedOrders = await Promise.all(
-        selectedIds.map((orderId) => updateOrderStatus(business.id, orderId, status)),
+        selectedIds.map((orderId) =>
+          updateOrderStatus(business.id, orderId, status),
+        ),
       );
       setOrders((currentOrders) =>
-        currentOrders.map((order) =>
-          updatedOrders.find((updated) => updated.id === order.id) ?? order,
+        currentOrders.map(
+          (order) =>
+            updatedOrders.find((updated) => updated.id === order.id) ?? order,
         ),
       );
     } catch (error) {
@@ -20845,8 +24050,21 @@ function OrdersPage() {
   }
 
   function handleExportSelected(selectedIds) {
-    const selectedOrders = visibleOrders.filter((order) => selectedIds.includes(order.id));
-    const columns = ["Order number", "Customer", "Phone", "Items", "Subtotal", "Delivery fee", "Total", "Courier", "Status", "Date"];
+    const selectedOrders = visibleOrders.filter((order) =>
+      selectedIds.includes(order.id),
+    );
+    const columns = [
+      "Order number",
+      "Customer",
+      "Phone",
+      "Items",
+      "Subtotal",
+      "Delivery fee",
+      "Total",
+      "Courier",
+      "Status",
+      "Date",
+    ];
     const escape = (value) => `"${String(value ?? "").replaceAll('"', '""')}"`;
     const rows = selectedOrders.map((order) => [
       order.orderNumber,
@@ -20860,8 +24078,12 @@ function OrdersPage() {
       order.status,
       `${order.date} ${order.time}`,
     ]);
-    const csv = [columns, ...rows].map((row) => row.map(escape).join(",")).join("\r\n");
-    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const csv = [columns, ...rows]
+      .map((row) => row.map(escape).join(","))
+      .join("\r\n");
+    const url = URL.createObjectURL(
+      new Blob([csv], { type: "text/csv;charset=utf-8" }),
+    );
     const link = document.createElement("a");
     link.href = url;
     link.download = `vendly-selected-orders-${new Date().toISOString().slice(0, 10)}.csv`;
@@ -20876,10 +24098,15 @@ function OrdersPage() {
     setIsRemoving(true);
     try {
       const removed = await removeOrder(business.id, removalTarget.id);
-      setOrders((current) => current.filter((order) => order.id !== removed.id));
+      setOrders((current) =>
+        current.filter((order) => order.id !== removed.id),
+      );
       setRemovalTarget(null);
-    } catch (error) { setOrdersError(error); }
-    finally { setIsRemoving(false); }
+    } catch (error) {
+      setOrdersError(error);
+    } finally {
+      setIsRemoving(false);
+    }
   }
 
   async function handleGenerateWaybill(orderId) {
@@ -20891,7 +24118,9 @@ function OrdersPage() {
   }
 
   async function handleWaybillSave(orderId, waybillNumber) {
-    const updatedOrder = await updateOrder(business.id, orderId, { waybillNumber });
+    const updatedOrder = await updateOrder(business.id, orderId, {
+      waybillNumber,
+    });
     setOrders((current) =>
       current.map((order) => (order.id === orderId ? updatedOrder : order)),
     );
@@ -20903,7 +24132,10 @@ function OrdersPage() {
     setOrders((current) =>
       current.map((order) =>
         order.id === orderId
-          ? { ...order, fraudReport: { status: "active", reason: "fake-details" } }
+          ? {
+              ...order,
+              fraudReport: { status: "active", reason: "fake-details" },
+            }
           : order,
       ),
     );
@@ -20958,63 +24190,71 @@ function OrdersPage() {
     <main className="dashboard orders-page">
       {/* Page title, description, and order export action. */}
       <div className="dashboard__intro">
- <div className="orders-page__heading">
-  <h2>Sales Orders</h2>
+        <div className="orders-page__heading">
+          <h2>Sales Orders</h2>
 
- <div className="orders-page__heading-actions">
-   <button className="orders-page__export-button" type="button" onClick={handleScanWaybill}>
-     <ScanLine size={19} aria-hidden="true" />
-     <span>Scan Waybill</span>
-   </button>
-   <button
-     className="orders-page__share-button"
-     type="button"
-     onClick={handleCopyChatbotLink}
-     disabled={!business?.shortCode}
-     title="Copy the seller-specific catalogue and chatbot link"
-   >
-     {linkWasCopied ? (
-       <Check size={19} aria-hidden="true" />
-     ) : (
-       <Link2 size={19} aria-hidden="true" />
-     )}
-     <span>{linkWasCopied ? "Link Copied" : "Chatbot Link"}</span>
-   </button>
+          <div className="orders-page__heading-actions">
+            <button
+              className="orders-page__export-button"
+              type="button"
+              onClick={handleScanWaybill}
+            >
+              <ScanLine size={19} aria-hidden="true" />
+              <span>Scan Waybill</span>
+            </button>
+            <button
+              className="orders-page__share-button"
+              type="button"
+              onClick={handleCopyChatbotLink}
+              disabled={!business?.shortCode}
+              title="Copy the seller-specific catalogue and chatbot link"
+            >
+              {linkWasCopied ? (
+                <Check size={19} aria-hidden="true" />
+              ) : (
+                <Link2 size={19} aria-hidden="true" />
+              )}
+              <span>{linkWasCopied ? "Link Copied" : "Chatbot Link"}</span>
+            </button>
 
-   <button
-     className="orders-page__export-button"
-     type="button"
-     onClick={handleExport}
-     disabled={isExporting || !business?.id}
-   >
-    <Download size={19} strokeWidth={1.8} />
-    <span>{isExporting ? "Exporting..." : "Export Orders"}</span>
-   </button>
+            <button
+              className="orders-page__export-button"
+              type="button"
+              onClick={handleExport}
+              disabled={isExporting || !business?.id}
+            >
+              <Download size={19} strokeWidth={1.8} />
+              <span>{isExporting ? "Exporting..." : "Export Orders"}</span>
+            </button>
 
-   <button
-     className="orders-page__add-button"
-     type="button"
-     onClick={() => setIsAddOrderOpen(true)}
-     disabled={!business?.id}
-   >
-     <Plus size={19} aria-hidden="true" />
-     Add Order
-   </button>
- </div>
-</div>
-         <p>View and manage all customer orders.</p>
+            <button
+              className="orders-page__add-button"
+              type="button"
+              onClick={() => setIsAddOrderOpen(true)}
+              disabled={!business?.id}
+            >
+              <Plus size={19} aria-hidden="true" />
+              Add Order
+            </button>
+          </div>
+        </div>
+        <p>View and manage all customer orders.</p>
       </div>
       {(accountError || ordersError) && (
-        <p className="orders-page__notice orders-page__notice--error" role="alert">
+        <p
+          className="orders-page__notice orders-page__notice--error"
+          role="alert"
+        >
           Orders could not be loaded from the Vendly API.
         </p>
       )}
       {isLoading && (
-        <p className="orders-page__notice" role="status">Loading orders...</p>
+        <p className="orders-page__notice" role="status">
+          Loading orders...
+        </p>
       )}
       {/* Order status summary cards. */}
       <section aria-labelledby="order-dashboard-title">
-
         <div className="order-stats-grid">
           {orderStats2.map((stat) => (
             <StatCard2
@@ -21023,8 +24263,15 @@ function OrdersPage() {
               value={stat.value}
               icon={stat.icon}
               tone={stat.tone}
-              isActive={(statusFilter === "" && stat.label === "All") || statusFilter === stat.label.toLowerCase()}
-              onClick={() => setStatusFilter(stat.label === "All" ? "" : stat.label.toLowerCase())}
+              isActive={
+                (statusFilter === "" && stat.label === "All") ||
+                statusFilter === stat.label.toLowerCase()
+              }
+              onClick={() =>
+                setStatusFilter(
+                  stat.label === "All" ? "" : stat.label.toLowerCase(),
+                )
+              }
             />
           ))}
         </div>
@@ -21058,18 +24305,36 @@ function OrdersPage() {
         onCreated={(order) => setOrders((current) => [order, ...current])}
       />
 
-      <EditOrderModal isOpen={Boolean(editingOrder)} businessId={business?.id} order={editingOrder} onClose={() => setEditingOrder(null)} onUpdated={(updated) => { setOrders((current) => current.map((order) => order.id === updated.id ? updated : order)); setEditingOrder(null); }} />
-      <ConfirmDialog isOpen={Boolean(removalTarget)} title="Remove order?" message={`This cancels ${removalTarget?.orderNumber ?? "this order"} and releases its reserved stock.`} isWorking={isRemoving} onCancel={() => setRemovalTarget(null)} onConfirm={confirmOrderRemoval} />
+      <EditOrderModal
+        isOpen={Boolean(editingOrder)}
+        businessId={business?.id}
+        order={editingOrder}
+        onClose={() => setEditingOrder(null)}
+        onUpdated={(updated) => {
+          setOrders((current) =>
+            current.map((order) => (order.id === updated.id ? updated : order)),
+          );
+          setEditingOrder(null);
+        }}
+      />
+      <ConfirmDialog
+        isOpen={Boolean(removalTarget)}
+        title="Remove order?"
+        message={`This cancels ${removalTarget?.orderNumber ?? "this order"} and releases its reserved stock.`}
+        isWorking={isRemoving}
+        onCancel={() => setRemovalTarget(null)}
+        onConfirm={confirmOrderRemoval}
+      />
     </main>
   );
 }
 
 export default OrdersPage;
-````
+```
 
 ### `frontend/src/pages/OverviewPage.jsx`
 
-````jsx
+```jsx
 // Icons used by the order summary cards.
 import {
   CircleCheck,
@@ -21086,7 +24351,6 @@ import "./OrdersPage.css";
 import StatCard from "../components/StatCard";
 import { useAuth } from "../context/authContextValue";
 import { getAnalyticsOverview } from "../services/analyticsService";
-
 
 function OverviewPage() {
   const { sellerProfile, business } = useAuth();
@@ -21128,15 +24392,30 @@ function OverviewPage() {
         icon: SquareCheckBig,
         tone: "green",
       },
-      { label: "Packed", value: counts.packed ?? 0, icon: Package2, tone: "blue" },
-      { label: "Shipped", value: counts.shipped ?? 0, icon: Truck, tone: "purple" },
+      {
+        label: "Packed",
+        value: counts.packed ?? 0,
+        icon: Package2,
+        tone: "blue",
+      },
+      {
+        label: "Shipped",
+        value: counts.shipped ?? 0,
+        icon: Truck,
+        tone: "purple",
+      },
       {
         label: "Delivered",
         value: counts.delivered ?? 0,
         icon: CircleCheck,
         tone: "green",
       },
-      { label: "Returned", value: counts.returned ?? 0, icon: Undo2, tone: "red" },
+      {
+        label: "Returned",
+        value: counts.returned ?? 0,
+        icon: Undo2,
+        tone: "red",
+      },
     ];
   }, [analytics]);
 
@@ -21149,7 +24428,10 @@ function OverviewPage() {
       </div>
 
       {analyticsError && (
-        <p className="orders-page__notice orders-page__notice--error" role="alert">
+        <p
+          className="orders-page__notice orders-page__notice--error"
+          role="alert"
+        >
           The current business summary could not be loaded.
         </p>
       )}
@@ -21175,10 +24457,18 @@ function OverviewPage() {
         <section className="overview-work" aria-labelledby="work-centre-title">
           <h2 id="work-centre-title">Today&apos;s work centre</h2>
           <div className="overview-work__grid">
-            <span>{analytics.workCentre.needsConfirmation} orders need confirmation</span>
-            <span>{analytics.workCentre.needsPacking} orders are ready to pack</span>
-            <span>{analytics.workCentre.lowStockProducts} products are low in stock</span>
-            <span>{analytics.workCentre.unreadNotifications} unread notifications</span>
+            <span>
+              {analytics.workCentre.needsConfirmation} orders need confirmation
+            </span>
+            <span>
+              {analytics.workCentre.needsPacking} orders are ready to pack
+            </span>
+            <span>
+              {analytics.workCentre.lowStockProducts} products are low in stock
+            </span>
+            <span>
+              {analytics.workCentre.unreadNotifications} unread notifications
+            </span>
           </div>
         </section>
       )}
@@ -21187,11 +24477,11 @@ function OverviewPage() {
 }
 
 export default OverviewPage;
-````
+```
 
 ### `frontend/src/pages/StorefrontPage.css`
 
-````css
+```css
 .storefront {
   --sf-primary: #0872d9;
   --sf-primary-dark: #0058ac;
@@ -21349,7 +24639,10 @@ export default OverviewPage;
   font-weight: 650;
   background: transparent;
   cursor: pointer;
-  transition: color 160ms ease, background 160ms ease, transform 160ms ease;
+  transition:
+    color 160ms ease,
+    background 160ms ease,
+    transform 160ms ease;
 }
 
 .storefront-nav button:hover {
@@ -21570,7 +24863,9 @@ export default OverviewPage;
   border-radius: 999px;
   color: var(--sf-muted);
   background: var(--sf-surface);
-  transition: border-color 160ms ease, box-shadow 160ms ease;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease;
 }
 
 .storefront-search:focus-within {
@@ -21633,7 +24928,9 @@ export default OverviewPage;
   border-radius: 14px;
   background: var(--sf-surface);
   box-shadow: 0 5px 15px rgba(27, 49, 76, 0.04);
-  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 220ms ease;
+  transition:
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 220ms ease;
 }
 
 .storefront-product-card:hover {
@@ -21825,8 +25122,11 @@ export default OverviewPage;
   display: grid;
   min-width: 0;
   grid-template-rows: auto minmax(0, 1fr) auto auto;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--sf-primary) 3%, var(--sf-surface)), var(--sf-surface) 18%);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--sf-primary) 3%, var(--sf-surface)),
+    var(--sf-surface) 18%
+  );
 }
 
 .storefront-chat-panel__header,
@@ -21987,7 +25287,8 @@ export default OverviewPage;
   font-weight: 700;
 }
 
-.storefront-chat-catalog-card.is-selected .storefront-chat-catalog-card__select {
+.storefront-chat-catalog-card.is-selected
+  .storefront-chat-catalog-card__select {
   color: #fff;
   background: var(--sf-primary);
 }
@@ -22270,12 +25571,24 @@ export default OverviewPage;
   animation: storefrontTyping 1s infinite ease-in-out;
 }
 
-.storefront-typing i:nth-child(2) { animation-delay: 0.15s; }
-.storefront-typing i:nth-child(3) { animation-delay: 0.3s; }
+.storefront-typing i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.storefront-typing i:nth-child(3) {
+  animation-delay: 0.3s;
+}
 
 @keyframes storefrontTyping {
-  0%, 60%, 100% { transform: translateY(0); opacity: 0.45; }
-  30% { transform: translateY(-4px); opacity: 1; }
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.45;
+  }
+  30% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
 }
 
 .storefront-draft {
@@ -22795,8 +26108,14 @@ export default OverviewPage;
 }
 
 @keyframes storefrontModalIn {
-  from { opacity: 0; transform: translateY(16px) scale(0.98); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .storefront-checkout-modal > header {
@@ -23444,11 +26763,11 @@ export default OverviewPage;
     grid-template-columns: 1fr;
   }
 }
-````
+```
 
 ### `frontend/src/pages/StorefrontPage.jsx`
 
-````jsx
+```jsx
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Bell,
@@ -23621,9 +26940,11 @@ function StorefrontPage({ linkType }) {
 
   useEffect(() => {
     if (!user || !session?.sessionId || !session?.sessionToken) return;
-    claimPublicChatSession(session.sessionId, session.sessionToken).catch((error) => {
-      setErrorMessage(error.message);
-    });
+    claimPublicChatSession(session.sessionId, session.sessionToken).catch(
+      (error) => {
+        setErrorMessage(error.message);
+      },
+    );
   }, [session?.sessionId, session?.sessionToken, user]);
 
   useEffect(() => {
@@ -23967,10 +27288,14 @@ function StorefrontPage({ linkType }) {
           <X size={21} />
         </button>
 
-          <div>
-            <img className="sidebar__logo-image" src={vendlyLogo} alt="Vendly.lk"/>
-            <small align ="center">Customer Storefront</small>
-          </div>
+        <div>
+          <img
+            className="sidebar__logo-image"
+            src={vendlyLogo}
+            alt="Vendly.lk"
+          />
+          <small align="center">Customer Storefront</small>
+        </div>
 
         <nav className="storefront-nav" aria-label="Storefront navigation">
           <button
@@ -24063,9 +27388,15 @@ function StorefrontPage({ linkType }) {
             >
               {user ? (
                 <span className="storefront-customer-avatar">
-                  {user.isAnonymous ? "G" : (user.displayName || user.email || "C").charAt(0).toUpperCase()}
+                  {user.isAnonymous
+                    ? "G"
+                    : (user.displayName || user.email || "C")
+                        .charAt(0)
+                        .toUpperCase()}
                 </span>
-              ) : <CircleUserRound size={21} />}
+              ) : (
+                <CircleUserRound size={21} />
+              )}
             </button>
             <button
               className="storefront-cart-button"
@@ -24350,7 +27681,16 @@ function ProductCard({ product, onAddToCart, onOpenChat }) {
   );
 }
 
-function ChatCatalogCard({ product, productIndex, isOrderMode, cart, onQuickMessage, onAddFromChat, onDecreaseItem, onIncreaseItem }) {
+function ChatCatalogCard({
+  product,
+  productIndex,
+  isOrderMode,
+  cart,
+  onQuickMessage,
+  onAddFromChat,
+  onDecreaseItem,
+  onIncreaseItem,
+}) {
   const variant = product.variants?.[0];
   const selectedItem = cart.find((item) => item.variantId === variant?.id);
   const quantity = selectedItem?.quantity ?? 0;
@@ -24359,27 +27699,72 @@ function ChatCatalogCard({ product, productIndex, isOrderMode, cart, onQuickMess
   if (!isOrderMode) {
     return (
       <article className="storefront-chat-catalog-card">
-        {product.media?.[0]?.url ? <img src={product.media[0].url} alt="" /> : <Package size={24} />}
-        <strong>{productIndex + 1}. {product.name}</strong>
-        <small>{money(product.sellingPriceMinor)} Â· {availableStock} available</small>
-        <button type="button" onClick={() => onQuickMessage(String(productIndex + 1))}>View product details</button>
+        {product.media?.[0]?.url ? (
+          <img src={product.media[0].url} alt="" />
+        ) : (
+          <Package size={24} />
+        )}
+        <strong>
+          {productIndex + 1}. {product.name}
+        </strong>
+        <small>
+          {money(product.sellingPriceMinor)} Â· {availableStock} available
+        </small>
+        <button
+          type="button"
+          onClick={() => onQuickMessage(String(productIndex + 1))}
+        >
+          View product details
+        </button>
       </article>
     );
   }
 
   return (
-    <article className={`storefront-chat-catalog-card ${quantity ? "is-selected" : ""}`}>
-      {product.media?.[0]?.url ? <img src={product.media[0].url} alt="" /> : <Package size={24} />}
+    <article
+      className={`storefront-chat-catalog-card ${quantity ? "is-selected" : ""}`}
+    >
+      {product.media?.[0]?.url ? (
+        <img src={product.media[0].url} alt="" />
+      ) : (
+        <Package size={24} />
+      )}
       <strong>{product.name}</strong>
       <small>{money(product.sellingPriceMinor)}</small>
       <small>{availableStock} available</small>
-      <button className="storefront-chat-catalog-card__select" type="button" disabled={!variant || availableStock < 1} onClick={() => onAddFromChat(product, variant)}>
+      <button
+        className="storefront-chat-catalog-card__select"
+        type="button"
+        disabled={!variant || availableStock < 1}
+        onClick={() => onAddFromChat(product, variant)}
+      >
         {quantity ? "Selected" : "Select"}
       </button>
-      <div className="storefront-chat-catalog-card__quantity" aria-label={`Quantity for ${product.name}`}>
-        <button type="button" aria-label={`Remove one ${product.name}`} disabled={!quantity} onClick={() => onDecreaseItem(variant.id)}>-</button>
+      <div
+        className="storefront-chat-catalog-card__quantity"
+        aria-label={`Quantity for ${product.name}`}
+      >
+        <button
+          type="button"
+          aria-label={`Remove one ${product.name}`}
+          disabled={!quantity}
+          onClick={() => onDecreaseItem(variant.id)}
+        >
+          -
+        </button>
         <strong>{quantity}</strong>
-        <button type="button" aria-label={`Add one ${product.name}`} disabled={!variant || quantity >= availableStock} onClick={() => quantity ? onIncreaseItem(variant.id) : onAddFromChat(product, variant)}>+</button>
+        <button
+          type="button"
+          aria-label={`Add one ${product.name}`}
+          disabled={!variant || quantity >= availableStock}
+          onClick={() =>
+            quantity
+              ? onIncreaseItem(variant.id)
+              : onAddFromChat(product, variant)
+          }
+        >
+          +
+        </button>
       </div>
     </article>
   );
@@ -24400,7 +27785,9 @@ function ChatProductVariantControl({
   const variantLabel = variant.size ? `Size ${variant.size}` : variant.sku;
 
   return (
-    <div className={`storefront-chat-product__variant-row ${quantity ? "is-selected" : ""}`}>
+    <div
+      className={`storefront-chat-product__variant-row ${quantity ? "is-selected" : ""}`}
+    >
       <span>
         <strong>{variantLabel}</strong>
         <small>{availableStock} available</small>
@@ -24666,7 +28053,6 @@ function ChatbotView({
       </section>
 
       <aside className="storefront-draft">
-
         <section>
           <h3>Products & quantity</h3>
           <div className="storefront-draft__items">
@@ -24704,6 +28090,9 @@ function ChatbotView({
           <h3>Customer details</h3>
           <DraftField label="Customer Name" value={customer.name} />
           <DraftField label="Phone No" value={customer.phoneNumber} />
+          {customer.secondaryPhoneNumber && (
+            <DraftField label="Second phone" value={customer.secondaryPhoneNumber} />
+          )}
           <DraftField
             label="Address"
             value={[
@@ -25092,7 +28481,8 @@ function CheckoutModal({
               Cancel
             </button>
             <button type="submit" disabled={isSending}>
-              {isSending ? "Placing orderâ€¦" : "Place Order"} <Check size={17} />
+              {isSending ? "Placing orderâ€¦" : "Place Order"}{" "}
+              <Check size={17} />
             </button>
           </div>
         </footer>
@@ -25102,7 +28492,14 @@ function CheckoutModal({
 }
 
 function OrderSuccess({ business, order, onClose, closeLabel }) {
-  return <OrderReceipt business={business} order={order} onClose={onClose} closeLabel={closeLabel} />;
+  return (
+    <OrderReceipt
+      business={business}
+      order={order}
+      onClose={onClose}
+      closeLabel={closeLabel}
+    />
+  );
   /* Previous receipt design retained temporarily for easy visual comparison.
   return (
     <div className="storefront-success-layer">
@@ -25267,24 +28664,23 @@ function ProductReviews({
 }
 
 export default StorefrontPage;
-````
+```
 
 ### `frontend/src/services/accountService.js`
 
-````javascript
+```javascript
 import { apiRequest } from "./apiClient";
 
 // Load the authenticated Firebase identity and its Vendly profile from Flask.
 export function getCurrentAccount() {
   return apiRequest("/me");
 }
-````
+```
 
 ### `frontend/src/services/analyticsService.js`
 
-````javascript
+```javascript
 import { apiRequest } from "./apiClient";
-
 
 export async function getAnalyticsOverview(businessId) {
   const response = await apiRequest(
@@ -25293,22 +28689,20 @@ export async function getAnalyticsOverview(businessId) {
   return response.analytics;
 }
 
-
 export function formatAnalyticsMoney(minorUnits = 0) {
   return `LKR ${(minorUnits / 100).toLocaleString("en-LK", {
     maximumFractionDigits: 0,
   })}`;
 }
-````
+```
 
 ### `frontend/src/services/apiClient.js`
 
-````javascript
+```javascript
 import { getCurrentUserToken } from "./authService";
 
 const apiBaseUrl = (
-  import.meta.env.VITE_API_BASE_URL ??
-  "http://127.0.0.1:5000/api/v1"
+  import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:5000/api/v1"
 ).replace(/\/$/, "");
 
 /**
@@ -25347,15 +28741,12 @@ export async function apiRequest(
     requestBody = JSON.stringify(body);
   }
 
-  const response = await fetch(
-    `${apiBaseUrl}/${path.replace(/^\//, "")}`,
-    {
-      method,
-      headers: requestHeaders,
-      body: requestBody,
-      signal,
-    },
-  );
+  const response = await fetch(`${apiBaseUrl}/${path.replace(/^\//, "")}`, {
+    method,
+    headers: requestHeaders,
+    body: requestBody,
+    signal,
+  });
 
   const responseType = response.headers.get("content-type") ?? "";
   const responseData = responseType.includes("application/json")
@@ -25402,18 +28793,20 @@ export async function apiFileRequest(path) {
   }
 
   const disposition = response.headers.get("content-disposition") ?? "";
-  const filenameMatch = disposition.match(/filename\*?=(?:UTF-8''|")?([^";]+)/i);
+  const filenameMatch = disposition.match(
+    /filename\*?=(?:UTF-8''|")?([^";]+)/i,
+  );
 
   return {
     blob: await response.blob(),
     filename: filenameMatch?.[1] ?? "vendly-download",
   };
 }
-````
+```
 
 ### `frontend/src/services/authService.js`
 
-````javascript
+```javascript
 // Firebase Authentication functions.
 import {
   createUserWithEmailAndPassword,
@@ -25434,23 +28827,15 @@ import {
 } from "firebase/auth";
 
 // Firebase objects configured in firebase.js.
-import {
-  auth,
-  googleProvider,
-} from "../firebase/firebase";
+import { auth, googleProvider } from "../firebase/firebase";
 
 // Register a seller using an email address and password.
-export async function registerWithEmail(
-  name,
-  email,
-  password,
-) {
-  const userCredential =
-    await createUserWithEmailAndPassword(
-      auth,
-      email,
-      password,
-    );
+export async function registerWithEmail(name, email, password) {
+  const userCredential = await createUserWithEmailAndPassword(
+    auth,
+    email,
+    password,
+  );
 
   // Save the seller's name in their Firebase profile.
   await updateProfile(userCredential.user, {
@@ -25465,12 +28850,11 @@ export async function registerWithEmail(
 
 // Login using email and password.
 export async function loginWithEmail(email, password) {
-  const userCredential =
-    await signInWithEmailAndPassword(
-      auth,
-      email,
-      password,
-    );
+  const userCredential = await signInWithEmailAndPassword(
+    auth,
+    email,
+    password,
+  );
 
   const loggedInUser = userCredential.user;
 
@@ -25481,9 +28865,7 @@ export async function loginWithEmail(email, password) {
   if (!loggedInUser.emailVerified) {
     await signOut(auth);
 
-    const verificationError = new Error(
-      "Email address has not been verified.",
-    );
+    const verificationError = new Error("Email address has not been verified.");
 
     verificationError.code = "auth/email-not-verified";
 
@@ -25495,13 +28877,9 @@ export async function loginWithEmail(email, password) {
 
 // Login or register using a Google account.
 export async function loginWithGoogle() {
-  const userCredential = await signInWithPopup(
-    auth,
-    googleProvider,
-  );
+  const userCredential = await signInWithPopup(auth, googleProvider);
 
   return userCredential.user;
-  
 }
 
 // Logout the currently authenticated seller.
@@ -25544,7 +28922,9 @@ async function reauthenticateCurrentUser(currentPassword = "") {
 
   if (currentUserHasPasswordProvider()) {
     if (!currentPassword) {
-      const passwordError = new Error("Enter your current password to continue.");
+      const passwordError = new Error(
+        "Enter your current password to continue.",
+      );
       passwordError.code = "auth/current-password-required";
       throw passwordError;
     }
@@ -25575,7 +28955,10 @@ async function reauthenticateCurrentUser(currentPassword = "") {
 
 // Send verification to the new address. Firebase changes the address only
 // after the user opens that verification link.
-export async function requestAccountEmailChange(newEmail, currentPassword = "") {
+export async function requestAccountEmailChange(
+  newEmail,
+  currentPassword = "",
+) {
   const currentUser = auth.currentUser;
 
   if (!currentUser) {
@@ -25611,11 +28994,11 @@ export async function sendCurrentUserPasswordReset() {
 
   await sendPasswordResetEmail(auth, currentUser.email);
 }
-````
+```
 
 ### `frontend/src/services/businessService.js`
 
-````javascript
+```javascript
 import { apiRequest } from "./apiClient";
 
 // Create the seller's first business. Repeating the request returns the same one.
@@ -25628,11 +29011,11 @@ export function createBusiness({ ownerName, businessName }) {
     },
   });
 }
-````
+```
 
 ### `frontend/src/services/categoryService.js`
 
-````javascript
+```javascript
 import { apiRequest } from "./apiClient";
 
 export function getCategories(businessId) {
@@ -25647,13 +29030,10 @@ export function createCategory(businessId, categoryData) {
 }
 
 export function updateCategory(businessId, categoryId, changes) {
-  return apiRequest(
-    `/businesses/${businessId}/categories/${categoryId}`,
-    {
-      method: "PATCH",
-      body: changes,
-    },
-  );
+  return apiRequest(`/businesses/${businessId}/categories/${categoryId}`, {
+    method: "PATCH",
+    body: changes,
+  });
 }
 
 export function removeCategory(businessId, categoryId) {
@@ -25661,11 +29041,11 @@ export function removeCategory(businessId, categoryId) {
     method: "DELETE",
   });
 }
-````
+```
 
 ### `frontend/src/services/courierService.js`
 
-````javascript
+```javascript
 import { apiRequest } from "./apiClient";
 
 export async function getCouriers(businessId) {
@@ -25681,7 +29061,11 @@ export async function createCourier(businessId, courierData) {
   return response.courier;
 }
 
-export async function recommendCouriers(businessId, totalWeightGrams, district) {
+export async function recommendCouriers(
+  businessId,
+  totalWeightGrams,
+  district,
+) {
   const response = await apiRequest(
     `/businesses/${businessId}/couriers/recommend`,
     {
@@ -25691,16 +29075,18 @@ export async function recommendCouriers(businessId, totalWeightGrams, district) 
   );
   return response.recommendations;
 }
-````
+```
 
 ### `frontend/src/services/customerService.js`
 
-````javascript
+```javascript
 import { apiRequest } from "./apiClient";
 
 export async function getCustomers(businessId, search = "") {
   const query = search ? `?search=${encodeURIComponent(search)}` : "";
-  const response = await apiRequest(`/businesses/${businessId}/customers${query}`);
+  const response = await apiRequest(
+    `/businesses/${businessId}/customers${query}`,
+  );
   return response.customers;
 }
 
@@ -25722,19 +29108,17 @@ export async function updateCustomer(businessId, customerId, changes) {
   );
   return response.customer;
 }
-````
+```
 
 ### `frontend/src/services/memberService.js`
 
-````javascript
+```javascript
 import { apiRequest } from "./apiClient";
-
 
 export async function getBusinessMembers(businessId) {
   const response = await apiRequest(`/businesses/${businessId}/members`);
   return response.members;
 }
-
 
 export async function addBusinessMember(businessId, memberData) {
   const response = await apiRequest(`/businesses/${businessId}/members`, {
@@ -25744,7 +29128,6 @@ export async function addBusinessMember(businessId, memberData) {
   return response.member;
 }
 
-
 export async function updateBusinessMember(businessId, memberUid, changes) {
   const response = await apiRequest(
     `/businesses/${businessId}/members/${memberUid}`,
@@ -25752,19 +29135,17 @@ export async function updateBusinessMember(businessId, memberUid, changes) {
   );
   return response.member;
 }
-````
+```
 
 ### `frontend/src/services/notificationService.js`
 
-````javascript
+```javascript
 import { apiRequest } from "./apiClient";
-
 
 export async function getNotifications(businessId) {
   const response = await apiRequest(`/businesses/${businessId}/notifications`);
   return response.notifications;
 }
-
 
 export async function markNotificationRead(businessId, notificationId) {
   const response = await apiRequest(
@@ -25773,14 +29154,13 @@ export async function markNotificationRead(businessId, notificationId) {
   );
   return response.notification;
 }
-````
+```
 
 ### `frontend/src/services/operationService.js`
 
-````javascript
+```javascript
 import { apiFileRequest, apiRequest } from "./apiClient";
 import { mapOrderForTable } from "./orderService";
-
 
 export async function generateOrderWaybill(businessId, orderId) {
   const response = await apiRequest(
@@ -25790,7 +29170,6 @@ export async function generateOrderWaybill(businessId, orderId) {
   return mapOrderForTable(response.order);
 }
 
-
 export async function reportFraudOrder(businessId, orderId, reason, note = "") {
   const response = await apiRequest(
     `/businesses/${businessId}/orders/${orderId}/fraud-report`,
@@ -25798,7 +29177,6 @@ export async function reportFraudOrder(businessId, orderId, reason, note = "") {
   );
   return response.fraudReport;
 }
-
 
 export async function reportCourierIssue(
   businessId,
@@ -25812,7 +29190,6 @@ export async function reportCourierIssue(
   );
   return response.courierIssue;
 }
-
 
 export async function downloadOrderExport(businessId) {
   const { blob, filename } = await apiFileRequest(
@@ -25828,7 +29205,6 @@ export async function downloadOrderExport(businessId) {
   URL.revokeObjectURL(url);
 }
 
-
 function escapeHtml(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -25837,7 +29213,6 @@ function escapeHtml(value) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
-
 
 export function printWaybill(order, printWindow = window.open("", "_blank")) {
   if (!printWindow) {
@@ -25877,11 +29252,11 @@ export function printWaybill(order, printWindow = window.open("", "_blank")) {
     </body></html>`);
   printWindow.document.close();
 }
-````
+```
 
 ### `frontend/src/services/orderService.js`
 
-````javascript
+```javascript
 import { apiRequest } from "./apiClient";
 
 function formatCurrency(minorUnits = 0) {
@@ -25968,7 +29343,12 @@ export async function createOrder(businessId, orderData) {
   return mapOrderForTable(response.order);
 }
 
-export async function updateOrderStatus(businessId, orderId, status, note = "") {
+export async function updateOrderStatus(
+  businessId,
+  orderId,
+  status,
+  note = "",
+) {
   const response = await apiRequest(
     `/businesses/${businessId}/orders/${orderId}/status`,
     {
@@ -25980,21 +29360,27 @@ export async function updateOrderStatus(businessId, orderId, status, note = "") 
 }
 
 export async function removeOrder(businessId, orderId) {
-  const response = await apiRequest(`/businesses/${businessId}/orders/${orderId}`, {
-    method: "DELETE",
-  });
+  const response = await apiRequest(
+    `/businesses/${businessId}/orders/${orderId}`,
+    {
+      method: "DELETE",
+    },
+  );
   return mapOrderForTable(response.order);
 }
 
 export async function updateOrder(businessId, orderId, changes) {
-  const response = await apiRequest(`/businesses/${businessId}/orders/${orderId}`, { method: "PATCH", body: changes });
+  const response = await apiRequest(
+    `/businesses/${businessId}/orders/${orderId}`,
+    { method: "PATCH", body: changes },
+  );
   return mapOrderForTable(response.order);
 }
-````
+```
 
 ### `frontend/src/services/productService.js`
 
-````javascript
+```javascript
 import { apiRequest } from "./apiClient";
 
 function minorUnitsToAmount(value = 0) {
@@ -26028,8 +29414,12 @@ export function mapProductForInventory(product) {
       sku: variant.sku,
       barcode: variant.barcode,
       stock: variant.stockAvailable,
-      costPrice: minorUnitsToAmount(variant.costPriceMinor ?? product.costPriceMinor),
-      sellingPrice: minorUnitsToAmount(variant.sellingPriceMinor ?? product.sellingPriceMinor),
+      costPrice: minorUnitsToAmount(
+        variant.costPriceMinor ?? product.costPriceMinor,
+      ),
+      sellingPrice: minorUnitsToAmount(
+        variant.sellingPriceMinor ?? product.sellingPriceMinor,
+      ),
       imageUrl: variant.imageUrl ?? "",
     })),
   };
@@ -26090,7 +29480,12 @@ export async function uploadProductMedia(businessId, productId, files) {
   return mapProductForInventory(response.product);
 }
 
-export async function uploadVariantImage(businessId, productId, variantId, file) {
+export async function uploadVariantImage(
+  businessId,
+  productId,
+  variantId,
+  file,
+) {
   const formData = new FormData();
   formData.append("file", file);
   const response = await apiRequest(
@@ -26113,9 +29508,12 @@ export async function updateProduct(businessId, productId, changes) {
 }
 
 export async function removeProduct(businessId, productId) {
-  const response = await apiRequest(`/businesses/${businessId}/products/${productId}`, {
-    method: "DELETE",
-  });
+  const response = await apiRequest(
+    `/businesses/${businessId}/products/${productId}`,
+    {
+      method: "DELETE",
+    },
+  );
   return mapProductForInventory(response.product);
 }
 
@@ -26125,7 +29523,16 @@ export async function updateProductStatus(businessId, productId, status) {
 
 // Export the currently loaded inventory without requiring a second server endpoint.
 export function downloadInventoryCsv(products = []) {
-  const columns = ["Product", "SKU", "Barcode", "Category", "Selling price", "Weight (kg)", "Stock", "Status"];
+  const columns = [
+    "Product",
+    "SKU",
+    "Barcode",
+    "Category",
+    "Selling price",
+    "Weight (kg)",
+    "Stock",
+    "Status",
+  ];
   const escape = (value) => `"${String(value ?? "").replaceAll('"', '""')}"`;
   const rows = products.map((product) => [
     product.name,
@@ -26137,8 +29544,12 @@ export function downloadInventoryCsv(products = []) {
     product.stock,
     product.stockStatus,
   ]);
-  const csv = [columns, ...rows].map((row) => row.map(escape).join(",")).join("\r\n");
-  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+  const csv = [columns, ...rows]
+    .map((row) => row.map(escape).join(","))
+    .join("\r\n");
+  const url = URL.createObjectURL(
+    new Blob([csv], { type: "text/csv;charset=utf-8" }),
+  );
   const link = document.createElement("a");
   link.href = url;
   link.download = `vendly-inventory-${new Date().toISOString().slice(0, 10)}.csv`;
@@ -26164,11 +29575,11 @@ export async function adjustProductStock(
 
   return mapProductForInventory(response.product);
 }
-````
+```
 
 ### `frontend/src/services/publicService.js`
 
-````javascript
+```javascript
 import { apiRequest } from "./apiClient";
 
 export function getPublicStore(storeCode) {
@@ -26206,7 +29617,12 @@ export function getCustomerChats(storeCode) {
   return apiRequest(`/public/stores/${storeCode}/customer/chats`);
 }
 
-export function sendPublicChatMessage(sessionId, sessionToken, message, orderDraft = {}) {
+export function sendPublicChatMessage(
+  sessionId,
+  sessionToken,
+  message,
+  orderDraft = {},
+) {
   return apiRequest(`/public/chat/sessions/${sessionId}/messages`, {
     method: "POST",
     body: { message, ...orderDraft },
@@ -26237,11 +29653,11 @@ export function submitPublicReview(storeCode, reviewData) {
     requiresAuthentication: false,
   });
 }
-````
+```
 
 ### `frontend/src/services/receiptService.js`
 
-````javascript
+```javascript
 import { jsPDF } from "jspdf";
 
 function amount(value = 0) {
@@ -26273,7 +29689,12 @@ export function downloadReceiptPdf(business, order) {
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(9);
   pdf.setTextColor(91, 103, 120);
-  pdf.text(`Thank you for your purchase from ${safeText(business?.name || "Vendly.lk")}.`, 105, y, { align: "center" });
+  pdf.text(
+    `Thank you for your purchase from ${safeText(business?.name || "Vendly.lk")}.`,
+    105,
+    y,
+    { align: "center" },
+  );
   y += 12;
 
   pdf.setFillColor(243, 246, 249);
@@ -26289,56 +29710,152 @@ export function downloadReceiptPdf(business, order) {
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(8);
   const date = order.createdAt ? new Date(order.createdAt) : new Date();
-  pdf.text(date.toLocaleDateString("en-LK"), right - 6, y + 13, { align: "right" });
+  pdf.text(date.toLocaleDateString("en-LK"), right - 6, y + 13, {
+    align: "right",
+  });
   y += 27;
 
-  pdf.setFont("helvetica", "bold"); pdf.setFontSize(12); pdf.text("Order Status", left + 6, y);
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(12);
+  pdf.text("Order Status", left + 6, y);
   y += 9;
-  pdf.setDrawColor(8, 115, 151); pdf.setLineWidth(1); pdf.line(left + 8, y, 105, y);
-  pdf.setDrawColor(220, 226, 232); pdf.line(105, y, right - 8, y);
-  pdf.setFontSize(8); pdf.setTextColor(29, 41, 57);
-  pdf.text("Confirmed", left + 8, y + 7); pdf.text("Processing", 105, y + 7, { align: "center" }); pdf.text("Delivered", right - 8, y + 7, { align: "right" });
+  pdf.setDrawColor(8, 115, 151);
+  pdf.setLineWidth(1);
+  pdf.line(left + 8, y, 105, y);
+  pdf.setDrawColor(220, 226, 232);
+  pdf.line(105, y, right - 8, y);
+  pdf.setFontSize(8);
+  pdf.setTextColor(29, 41, 57);
+  pdf.text("Confirmed", left + 8, y + 7);
+  pdf.text("Processing", 105, y + 7, { align: "center" });
+  pdf.text("Delivered", right - 8, y + 7, { align: "right" });
   y += 14;
-  pdf.setFillColor(226, 235, 250); pdf.roundedRect(left + 6, y, right - left - 12, 18, 2, 2, "F");
-  pdf.setFont("helvetica", "bold"); pdf.setFontSize(7); pdf.setTextColor(71, 84, 103); pdf.text("TRACKING INFO", left + 12, y + 6);
-  pdf.setFont("helvetica", "normal"); pdf.setFontSize(8); pdf.text("Your items are being prepared for shipping. Tracking will be available after dispatch.", left + 12, y + 12);
+  pdf.setFillColor(226, 235, 250);
+  pdf.roundedRect(left + 6, y, right - left - 12, 18, 2, 2, "F");
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(7);
+  pdf.setTextColor(71, 84, 103);
+  pdf.text("TRACKING INFO", left + 12, y + 6);
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(8);
+  pdf.text(
+    "Your items are being prepared for shipping. Tracking will be available after dispatch.",
+    left + 12,
+    y + 12,
+  );
   y += 28;
 
-  pdf.setFont("helvetica", "bold"); pdf.setFontSize(12); pdf.setTextColor(29, 41, 57); pdf.text("Items in your order", left + 6, y);
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(12);
+  pdf.setTextColor(29, 41, 57);
+  pdf.text("Items in your order", left + 6, y);
   y += 8;
   (order.items || []).forEach((item) => {
-    if (y > 244) { pdf.addPage(); y = 18; }
-    pdf.setFillColor(247, 249, 251); pdf.roundedRect(left + 6, y, 16, 16, 2, 2, "F");
-    pdf.setFont("helvetica", "bold"); pdf.setFontSize(9); pdf.text(safeText(item.name || item.productName || "Product"), left + 27, y + 6);
-    pdf.setFont("helvetica", "normal"); pdf.setFontSize(7); pdf.setTextColor(91, 103, 120); pdf.text(`${item.size ? `Variant: ${safeText(item.size)} | ` : ""}Qty: ${item.quantity}`, left + 27, y + 12);
-    pdf.setFont("helvetica", "bold"); pdf.setFontSize(9); pdf.setTextColor(29, 41, 57); pdf.text(amount(item.lineTotalMinor ?? Number(item.sellingPrice || 0) * item.quantity * 100), right - 6, y + 9, { align: "right" });
+    if (y > 244) {
+      pdf.addPage();
+      y = 18;
+    }
+    pdf.setFillColor(247, 249, 251);
+    pdf.roundedRect(left + 6, y, 16, 16, 2, 2, "F");
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(9);
+    pdf.text(
+      safeText(item.name || item.productName || "Product"),
+      left + 27,
+      y + 6,
+    );
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(7);
+    pdf.setTextColor(91, 103, 120);
+    pdf.text(
+      `${item.size ? `Variant: ${safeText(item.size)} | ` : ""}Qty: ${item.quantity}`,
+      left + 27,
+      y + 12,
+    );
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(9);
+    pdf.setTextColor(29, 41, 57);
+    pdf.text(
+      amount(
+        item.lineTotalMinor ??
+          Number(item.sellingPrice || 0) * item.quantity * 100,
+      ),
+      right - 6,
+      y + 9,
+      { align: "right" },
+    );
     y += 20;
   });
   y += 3;
 
   const address = order.deliveryAddress || order.deliveryAddressObject || {};
-  const addressText = [address.line1, address.line2, address.city, address.district, address.postalCode, address.country].filter(Boolean).join(", ");
-  pdf.setDrawColor(220, 226, 232); pdf.line(left + 6, y, right - 6, y); y += 8;
-  pdf.setFont("helvetica", "bold"); pdf.setFontSize(7); pdf.setTextColor(71, 84, 103); pdf.text("SHIPPING ADDRESS", left + 6, y); pdf.text("PAYMENT METHOD", 112, y);
-  pdf.setFont("helvetica", "normal"); pdf.setFontSize(8); pdf.setTextColor(29, 41, 57);
-  const addressLines = pdf.splitTextToSize(safeText(addressText), 75); pdf.text(addressLines, left + 6, y + 6);
-  pdf.text(order.paymentMethod === "deposit" ? "Deposit / balance due" : order.paymentMethod === "paid" ? "Paid" : "Cash on delivery", 112, y + 6);
+  const addressText = [
+    address.line1,
+    address.line2,
+    address.city,
+    address.district,
+    address.postalCode,
+    address.country,
+  ]
+    .filter(Boolean)
+    .join(", ");
+  pdf.setDrawColor(220, 226, 232);
+  pdf.line(left + 6, y, right - 6, y);
+  y += 8;
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(7);
+  pdf.setTextColor(71, 84, 103);
+  pdf.text("SHIPPING ADDRESS", left + 6, y);
+  pdf.text("PAYMENT METHOD", 112, y);
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(8);
+  pdf.setTextColor(29, 41, 57);
+  const addressLines = pdf.splitTextToSize(safeText(addressText), 75);
+  pdf.text(addressLines, left + 6, y + 6);
+  pdf.text(
+    order.paymentMethod === "deposit"
+      ? "Deposit / balance due"
+      : order.paymentMethod === "paid"
+        ? "Paid"
+        : "Cash on delivery",
+    112,
+    y + 6,
+  );
   y += Math.max(22, addressLines.length * 4 + 10);
 
-  pdf.setFillColor(243, 246, 249); pdf.roundedRect(left, y, right - left, 42, 2, 2, "F");
-  const rows = [["Subtotal", order.subtotalMinor], ["Discount", -Number(order.discountTotalMinor || 0)], ["Delivery", order.deliveryFeeMinor], ["Tax", order.taxTotalMinor]];
-  pdf.setFontSize(8); rows.forEach(([label, value], index) => { pdf.setFont("helvetica", "normal"); pdf.setTextColor(71, 84, 103); pdf.text(label, left + 7, y + 7 + index * 6); pdf.setTextColor(29, 41, 57); pdf.text(amount(value), right - 7, y + 7 + index * 6, { align: "right" }); });
-  pdf.setDrawColor(210, 218, 227); pdf.line(left + 7, y + 31, right - 7, y + 31);
-  pdf.setFont("helvetica", "bold"); pdf.setFontSize(12); pdf.text("Total", left + 7, y + 39); pdf.setTextColor(8, 115, 151); pdf.text(amount(order.totalAmountMinor), right - 7, y + 39, { align: "right" });
+  pdf.setFillColor(243, 246, 249);
+  pdf.roundedRect(left, y, right - left, 42, 2, 2, "F");
+  const rows = [
+    ["Subtotal", order.subtotalMinor],
+    ["Discount", -Number(order.discountTotalMinor || 0)],
+    ["Delivery", order.deliveryFeeMinor],
+    ["Tax", order.taxTotalMinor],
+  ];
+  pdf.setFontSize(8);
+  rows.forEach(([label, value], index) => {
+    pdf.setFont("helvetica", "normal");
+    pdf.setTextColor(71, 84, 103);
+    pdf.text(label, left + 7, y + 7 + index * 6);
+    pdf.setTextColor(29, 41, 57);
+    pdf.text(amount(value), right - 7, y + 7 + index * 6, { align: "right" });
+  });
+  pdf.setDrawColor(210, 218, 227);
+  pdf.line(left + 7, y + 31, right - 7, y + 31);
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(12);
+  pdf.text("Total", left + 7, y + 39);
+  pdf.setTextColor(8, 115, 151);
+  pdf.text(amount(order.totalAmountMinor), right - 7, y + 39, {
+    align: "right",
+  });
   pdf.save(`${safeText(order.orderNumber || "vendly-order")}-receipt.pdf`);
 }
-````
+```
 
 ### `frontend/src/services/reviewService.js`
 
-````javascript
+```javascript
 import { apiRequest } from "./apiClient";
-
 
 export async function getProductReviews(businessId, productId) {
   const response = await apiRequest(
@@ -26347,7 +29864,6 @@ export async function getProductReviews(businessId, productId) {
   return response.reviews;
 }
 
-
 export async function moderateReview(businessId, reviewId, status) {
   const response = await apiRequest(
     `/businesses/${businessId}/reviews/${reviewId}`,
@@ -26355,13 +29871,12 @@ export async function moderateReview(businessId, reviewId, status) {
   );
   return response.review;
 }
-````
+```
 
 ### `frontend/src/services/searchService.js`
 
-````javascript
+```javascript
 import { apiRequest } from "./apiClient";
-
 
 export async function searchBusiness(businessId, query, signal) {
   const response = await apiRequest(
@@ -26370,15 +29885,16 @@ export async function searchBusiness(businessId, query, signal) {
   );
   return response.results;
 }
-````
+```
 
 ### `frontend/src/services/sellerService.js`
 
-````javascript
+```javascript
 function pendingProfileKey(email) {
-  return `vendly-pending-profile:${String(email ?? "").trim().toLowerCase()}`;
+  return `vendly-pending-profile:${String(email ?? "")
+    .trim()
+    .toLowerCase()}`;
 }
-
 
 // Read onboarding details kept locally until an email address is verified.
 export async function getSellerProfile(user) {
@@ -26396,7 +29912,6 @@ export async function getSellerProfile(user) {
   }
 }
 
-
 // Unverified accounts cannot use Flask yet, so remember only the non-sensitive
 // onboarding names in this browser until the first verified login.
 export async function saveSellerProfile(user, profileData) {
@@ -26410,15 +29925,14 @@ export async function saveSellerProfile(user, profileData) {
   );
 }
 
-
 export function clearPendingSellerProfile(user) {
   if (user?.email) localStorage.removeItem(pendingProfileKey(user.email));
 }
-````
+```
 
 ### `frontend/src/utils/inventory.js`
 
-````javascript
+```javascript
 // Return direct stock for simple products or add all size stocks together.
 export function getProductStock(product) {
   if (!product.hasSizes) {
@@ -26446,16 +29960,13 @@ export function getStockStatus(stock, lowStockThreshold = 5) {
 
 // Calculate a complete product's status using its own low-stock threshold.
 export function getProductStockStatus(product) {
-  return getStockStatus(
-    getProductStock(product),
-    product.lowStockThreshold,
-  );
+  return getStockStatus(getProductStock(product), product.lowStockThreshold);
 }
-````
+```
 
 ### `backend/app/services/customer_portal_service.py`
 
-````python
+```python
 from app.core.errors import ApiError
 from app.core.serialization import serialize_snapshot
 from app.services.public_catalog_service import resolve_short_link
@@ -26522,13 +30033,21 @@ def list_customer_chats(database, store_code, customer_uid):
             }
         )
     return sorted(chats, key=lambda item: str(item.get("updatedAt", "")), reverse=True)
-````
+```
 
 ### `frontend/src/components/CustomerAccountModal.jsx`
 
-````jsx
+```jsx
 import { useEffect, useState } from "react";
-import { Clock3, LogIn, LogOut, MessageSquareText, PackageSearch, UserRound, X } from "lucide-react";
+import {
+  Clock3,
+  LogIn,
+  LogOut,
+  MessageSquareText,
+  PackageSearch,
+  UserRound,
+  X,
+} from "lucide-react";
 import {
   loginAsGuest,
   loginWithEmail,
@@ -26540,7 +30059,9 @@ import { getCustomerChats, getCustomerOrders } from "../services/publicService";
 import "./CustomerAccountModal.css";
 
 function readableStatus(value = "") {
-  return value.replaceAll("-", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+  return value
+    .replaceAll("-", " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function CustomerAccountModal({ isOpen, onClose, user, storeCode }) {
@@ -26565,7 +30086,9 @@ function CustomerAccountModal({ isOpen, onClose, user, storeCode }) {
       })
       .catch((requestError) => active && setError(requestError.message))
       .finally(() => active && setIsBusy(false));
-    return () => { active = false; };
+    return () => {
+      active = false;
+    };
   }, [isOpen, storeCode, user]);
 
   if (!isOpen) return null;
@@ -26593,50 +30116,290 @@ function CustomerAccountModal({ isOpen, onClose, user, storeCode }) {
   async function authenticate(action) {
     setIsBusy(true);
     setError("");
-    try { await action(); } catch (authError) { setError(authError.message); }
-    finally { setIsBusy(false); }
+    try {
+      await action();
+    } catch (authError) {
+      setError(authError.message);
+    } finally {
+      setIsBusy(false);
+    }
   }
 
   return (
-    <div className="customer-account-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-      <section className="customer-account-modal" role="dialog" aria-modal="true" aria-label="Customer account">
-        <header><div><UserRound size={20} /><div><strong>{user ? "My account" : "Customer login"}</strong><small>Save chats, orders and tracking details</small></div></div><button type="button" onClick={onClose} aria-label="Close"><X size={19} /></button></header>
+    <div
+      className="customer-account-backdrop"
+      role="presentation"
+      onMouseDown={(event) => event.target === event.currentTarget && onClose()}
+    >
+      <section
+        className="customer-account-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Customer account"
+      >
+        <header>
+          <div>
+            <UserRound size={20} />
+            <div>
+              <strong>{user ? "My account" : "Customer login"}</strong>
+              <small>Save chats, orders and tracking details</small>
+            </div>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Close">
+            <X size={19} />
+          </button>
+        </header>
 
         {!user ? (
           <div className="customer-account-auth">
-            <div className="customer-account-switch"><button className={mode === "login" ? "is-active" : ""} type="button" onClick={() => setMode("login")}>Log in</button><button className={mode === "register" ? "is-active" : ""} type="button" onClick={() => setMode("register")}>Create account</button></div>
+            <div className="customer-account-switch">
+              <button
+                className={mode === "login" ? "is-active" : ""}
+                type="button"
+                onClick={() => setMode("login")}
+              >
+                Log in
+              </button>
+              <button
+                className={mode === "register" ? "is-active" : ""}
+                type="button"
+                onClick={() => setMode("register")}
+              >
+                Create account
+              </button>
+            </div>
             <form onSubmit={submit}>
-              {mode === "register" && <label>Name<input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} required /></label>}
-              <label>Email<input type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} required /></label>
-              <label>Password<input type="password" minLength={6} value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} required /></label>
-              <button className="customer-account-primary" disabled={isBusy}><LogIn size={17} />{mode === "login" ? "Log in" : "Create account"}</button>
+              {mode === "register" && (
+                <label>
+                  Name
+                  <input
+                    value={form.name}
+                    onChange={(event) =>
+                      setForm({ ...form, name: event.target.value })
+                    }
+                    required
+                  />
+                </label>
+              )}
+              <label>
+                Email
+                <input
+                  type="email"
+                  value={form.email}
+                  onChange={(event) =>
+                    setForm({ ...form, email: event.target.value })
+                  }
+                  required
+                />
+              </label>
+              <label>
+                Password
+                <input
+                  type="password"
+                  minLength={6}
+                  value={form.password}
+                  onChange={(event) =>
+                    setForm({ ...form, password: event.target.value })
+                  }
+                  required
+                />
+              </label>
+              <button className="customer-account-primary" disabled={isBusy}>
+                <LogIn size={17} />
+                {mode === "login" ? "Log in" : "Create account"}
+              </button>
             </form>
-            <div className="customer-account-divider"><span>or</span></div>
-            <button type="button" onClick={() => authenticate(loginWithGoogle)} disabled={isBusy}>Continue with Google</button>
-            <button type="button" onClick={() => authenticate(loginAsGuest)} disabled={isBusy}>Continue as guest</button>
-            <small className="customer-account-hint">Guest history remains available on this browser. Create an account to use it across devices.</small>
+            <div className="customer-account-divider">
+              <span>or</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => authenticate(loginWithGoogle)}
+              disabled={isBusy}
+            >
+              Continue with Google
+            </button>
+            <button
+              type="button"
+              onClick={() => authenticate(loginAsGuest)}
+              disabled={isBusy}
+            >
+              Continue as guest
+            </button>
+            <small className="customer-account-hint">
+              Guest history remains available on this browser. Create an account
+              to use it across devices.
+            </small>
           </div>
         ) : (
           <div className="customer-account-portal">
-            <div className="customer-account-identity"><span>{user.isAnonymous ? "G" : (user.displayName || user.email || "C").charAt(0).toUpperCase()}</span><div><strong>{user.isAnonymous ? "Guest customer" : user.displayName || "Customer"}</strong><small>{user.isAnonymous ? "History saved on this device" : user.email}</small></div><button type="button" onClick={() => authenticate(logoutUser)}><LogOut size={16} /> Log out</button></div>
-            <nav><button className={tab === "orders" ? "is-active" : ""} type="button" onClick={() => setTab("orders")}><PackageSearch size={16} /> Orders</button><button className={tab === "chats" ? "is-active" : ""} type="button" onClick={() => setTab("chats")}><MessageSquareText size={16} /> Chats</button></nav>
-            {isBusy && <p className="customer-account-empty">Loading historyâ€¦</p>}
-            {!isBusy && tab === "orders" && <div className="customer-account-list">{orders.length ? orders.map((order) => <article key={order.id}><div><strong>{order.orderNumber}</strong><span className={`customer-order-status customer-order-status--${order.fulfilmentStatus}`}>{readableStatus(order.fulfilmentStatus)}</span></div><p>{order.items.map((item) => `${item.name} Ã— ${item.quantity}`).join(", ")}</p><dl><div><dt>Total</dt><dd>Rs {(order.totalAmountMinor / 100).toLocaleString("en-LK")}</dd></div><div><dt>Courier</dt><dd>{order.courier?.name || "Being assigned"}</dd></div><div><dt>Waybill</dt><dd>{order.waybillNumber || "Pending"}</dd></div></dl><div className="customer-order-progress"><span className="is-complete">Confirmed</span><span className={["packed", "shipped", "delivered"].includes(order.fulfilmentStatus) ? "is-complete" : ""}>Packed</span><span className={["shipped", "delivered"].includes(order.fulfilmentStatus) ? "is-complete" : ""}>Shipped</span><span className={order.fulfilmentStatus === "delivered" ? "is-complete" : ""}>Delivered</span></div></article>) : <p className="customer-account-empty">No orders are linked to this account yet.</p>}</div>}
-            {!isBusy && tab === "chats" && <div className="customer-account-list">{chats.length ? chats.map((chat) => <article key={chat.id}><div><strong>Chat conversation</strong><span><Clock3 size={13} /> {chat.status}</span></div>{chat.messages.slice(-4).map((message) => <p key={message.id}><b>{message.role === "assistant" ? "Vendly" : "You"}:</b> {message.message}</p>)}</article>) : <p className="customer-account-empty">No saved chats yet.</p>}</div>}
+            <div className="customer-account-identity">
+              <span>
+                {user.isAnonymous
+                  ? "G"
+                  : (user.displayName || user.email || "C")
+                      .charAt(0)
+                      .toUpperCase()}
+              </span>
+              <div>
+                <strong>
+                  {user.isAnonymous
+                    ? "Guest customer"
+                    : user.displayName || "Customer"}
+                </strong>
+                <small>
+                  {user.isAnonymous
+                    ? "History saved on this device"
+                    : user.email}
+                </small>
+              </div>
+              <button type="button" onClick={() => authenticate(logoutUser)}>
+                <LogOut size={16} /> Log out
+              </button>
+            </div>
+            <nav>
+              <button
+                className={tab === "orders" ? "is-active" : ""}
+                type="button"
+                onClick={() => setTab("orders")}
+              >
+                <PackageSearch size={16} /> Orders
+              </button>
+              <button
+                className={tab === "chats" ? "is-active" : ""}
+                type="button"
+                onClick={() => setTab("chats")}
+              >
+                <MessageSquareText size={16} /> Chats
+              </button>
+            </nav>
+            {isBusy && (
+              <p className="customer-account-empty">Loading historyâ€¦</p>
+            )}
+            {!isBusy && tab === "orders" && (
+              <div className="customer-account-list">
+                {orders.length ? (
+                  orders.map((order) => (
+                    <article key={order.id}>
+                      <div>
+                        <strong>{order.orderNumber}</strong>
+                        <span
+                          className={`customer-order-status customer-order-status--${order.fulfilmentStatus}`}
+                        >
+                          {readableStatus(order.fulfilmentStatus)}
+                        </span>
+                      </div>
+                      <p>
+                        {order.items
+                          .map((item) => `${item.name} Ã— ${item.quantity}`)
+                          .join(", ")}
+                      </p>
+                      <dl>
+                        <div>
+                          <dt>Total</dt>
+                          <dd>
+                            Rs{" "}
+                            {(order.totalAmountMinor / 100).toLocaleString(
+                              "en-LK",
+                            )}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>Courier</dt>
+                          <dd>{order.courier?.name || "Being assigned"}</dd>
+                        </div>
+                        <div>
+                          <dt>Waybill</dt>
+                          <dd>{order.waybillNumber || "Pending"}</dd>
+                        </div>
+                      </dl>
+                      <div className="customer-order-progress">
+                        <span className="is-complete">Confirmed</span>
+                        <span
+                          className={
+                            ["packed", "shipped", "delivered"].includes(
+                              order.fulfilmentStatus,
+                            )
+                              ? "is-complete"
+                              : ""
+                          }
+                        >
+                          Packed
+                        </span>
+                        <span
+                          className={
+                            ["shipped", "delivered"].includes(
+                              order.fulfilmentStatus,
+                            )
+                              ? "is-complete"
+                              : ""
+                          }
+                        >
+                          Shipped
+                        </span>
+                        <span
+                          className={
+                            order.fulfilmentStatus === "delivered"
+                              ? "is-complete"
+                              : ""
+                          }
+                        >
+                          Delivered
+                        </span>
+                      </div>
+                    </article>
+                  ))
+                ) : (
+                  <p className="customer-account-empty">
+                    No orders are linked to this account yet.
+                  </p>
+                )}
+              </div>
+            )}
+            {!isBusy && tab === "chats" && (
+              <div className="customer-account-list">
+                {chats.length ? (
+                  chats.map((chat) => (
+                    <article key={chat.id}>
+                      <div>
+                        <strong>Chat conversation</strong>
+                        <span>
+                          <Clock3 size={13} /> {chat.status}
+                        </span>
+                      </div>
+                      {chat.messages.slice(-4).map((message) => (
+                        <p key={message.id}>
+                          <b>
+                            {message.role === "assistant" ? "Vendly" : "You"}:
+                          </b>{" "}
+                          {message.message}
+                        </p>
+                      ))}
+                    </article>
+                  ))
+                ) : (
+                  <p className="customer-account-empty">No saved chats yet.</p>
+                )}
+              </div>
+            )}
           </div>
         )}
-        {error && <p className="customer-account-error" role="alert">{error}</p>}
+        {error && (
+          <p className="customer-account-error" role="alert">
+            {error}
+          </p>
+        )}
       </section>
     </div>
   );
 }
 
 export default CustomerAccountModal;
-````
+```
 
 ### `frontend/src/components/CustomerAccountModal.css`
 
-````css
+```css
 .customer-account-backdrop {
   position: fixed;
   inset: 0;
@@ -26661,8 +30424,14 @@ export default CustomerAccountModal;
 }
 
 @keyframes customer-modal-in {
-  from { opacity: 0; transform: translateY(12px) scale(0.98); }
-  to { opacity: 1; transform: none; }
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 .customer-account-modal > header,
@@ -26687,59 +30456,260 @@ export default CustomerAccountModal;
   background: var(--sf-surface, #fff);
 }
 
-.customer-account-modal > header > div { gap: 11px; }
-.customer-account-modal > header > div > div { display: grid; gap: 2px; }
-.customer-account-modal > header small { color: var(--sf-muted, #667386); }
-.customer-account-modal button { border: 1px solid var(--sf-border, #dfe4ec); border-radius: 10px; background: var(--sf-surface, #fff); cursor: pointer; }
-.customer-account-modal > header > button { display: grid; width: 36px; height: 36px; padding: 0; place-items: center; }
+.customer-account-modal > header > div {
+  gap: 11px;
+}
+.customer-account-modal > header > div > div {
+  display: grid;
+  gap: 2px;
+}
+.customer-account-modal > header small {
+  color: var(--sf-muted, #667386);
+}
+.customer-account-modal button {
+  border: 1px solid var(--sf-border, #dfe4ec);
+  border-radius: 10px;
+  background: var(--sf-surface, #fff);
+  cursor: pointer;
+}
+.customer-account-modal > header > button {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  place-items: center;
+}
 
-.customer-account-auth { display: grid; width: min(400px, 100%); margin: auto; padding: 26px; gap: 12px; }
-.customer-account-switch { display: grid; grid-template-columns: 1fr 1fr; padding: 4px; border-radius: 12px; background: var(--sf-soft, #f2f4f8); }
-.customer-account-switch button { min-height: 38px; border: 0; background: transparent; }
-.customer-account-switch button.is-active { color: #fff; background: var(--sf-primary, #0872d9); }
-.customer-account-auth form { display: grid; gap: 12px; }
-.customer-account-auth label { display: grid; gap: 6px; font-size: 0.82rem; font-weight: 700; }
-.customer-account-auth input { height: 43px; padding: 0 12px; border: 1px solid var(--sf-border, #dfe4ec); border-radius: 9px; color: inherit; background: var(--sf-surface, #fff); }
+.customer-account-auth {
+  display: grid;
+  width: min(400px, 100%);
+  margin: auto;
+  padding: 26px;
+  gap: 12px;
+}
+.customer-account-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  padding: 4px;
+  border-radius: 12px;
+  background: var(--sf-soft, #f2f4f8);
+}
+.customer-account-switch button {
+  min-height: 38px;
+  border: 0;
+  background: transparent;
+}
+.customer-account-switch button.is-active {
+  color: #fff;
+  background: var(--sf-primary, #0872d9);
+}
+.customer-account-auth form {
+  display: grid;
+  gap: 12px;
+}
+.customer-account-auth label {
+  display: grid;
+  gap: 6px;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+.customer-account-auth input {
+  height: 43px;
+  padding: 0 12px;
+  border: 1px solid var(--sf-border, #dfe4ec);
+  border-radius: 9px;
+  color: inherit;
+  background: var(--sf-surface, #fff);
+}
 .customer-account-auth > button,
-.customer-account-primary { display: flex; min-height: 43px; align-items: center; justify-content: center; gap: 8px; font-weight: 750; }
-.customer-account-primary { border-color: transparent !important; color: #fff !important; background: var(--sf-primary, #0872d9) !important; }
-.customer-account-divider { position: relative; text-align: center; color: var(--sf-muted, #667386); }
-.customer-account-divider::before { position: absolute; top: 50%; right: 0; left: 0; height: 1px; content: ""; background: var(--sf-border, #dfe4ec); }
-.customer-account-divider span { position: relative; padding: 0 10px; background: var(--sf-surface, #fff); }
-.customer-account-hint { color: var(--sf-muted, #667386); text-align: center; line-height: 1.5; }
+.customer-account-primary {
+  display: flex;
+  min-height: 43px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-weight: 750;
+}
+.customer-account-primary {
+  border-color: transparent !important;
+  color: #fff !important;
+  background: var(--sf-primary, #0872d9) !important;
+}
+.customer-account-divider {
+  position: relative;
+  text-align: center;
+  color: var(--sf-muted, #667386);
+}
+.customer-account-divider::before {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  left: 0;
+  height: 1px;
+  content: "";
+  background: var(--sf-border, #dfe4ec);
+}
+.customer-account-divider span {
+  position: relative;
+  padding: 0 10px;
+  background: var(--sf-surface, #fff);
+}
+.customer-account-hint {
+  color: var(--sf-muted, #667386);
+  text-align: center;
+  line-height: 1.5;
+}
 
-.customer-account-portal { padding: 20px; }
-.customer-account-identity { gap: 12px; padding: 14px; border-radius: 14px; background: var(--sf-soft, #f2f4f8); }
-.customer-account-identity > span { display: grid; width: 43px; height: 43px; place-items: center; border-radius: 50%; color: #fff; font-weight: 800; background: var(--sf-primary, #0872d9); }
-.customer-account-identity > div { display: grid; flex: 1; gap: 2px; }
-.customer-account-identity small { color: var(--sf-muted, #667386); }
-.customer-account-identity button { display: flex; padding: 9px 12px; align-items: center; gap: 6px; color: #d73737; }
-.customer-account-portal nav { gap: 7px; margin: 18px 0 12px; border-bottom: 1px solid var(--sf-border, #dfe4ec); }
-.customer-account-portal nav button { display: flex; padding: 10px 14px; align-items: center; gap: 7px; border: 0; border-radius: 9px 9px 0 0; background: transparent; }
-.customer-account-portal nav button.is-active { color: var(--sf-primary, #0872d9); background: color-mix(in srgb, var(--sf-primary, #0872d9) 10%, transparent); }
-.customer-account-list { display: grid; gap: 11px; }
-.customer-account-list article { padding: 15px; border: 1px solid var(--sf-border, #dfe4ec); border-radius: 13px; background: var(--sf-surface, #fff); }
-.customer-account-list article > div { justify-content: space-between; gap: 10px; }
-.customer-account-list article > div > span { gap: 5px; color: var(--sf-muted, #667386); font-size: 0.76rem; }
-.customer-account-list article > p { margin: 10px 0; color: var(--sf-muted, #667386); font-size: 0.83rem; line-height: 1.45; }
-.customer-account-list dl { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 12px 0; }
-.customer-account-list dl div { display: grid; gap: 3px; }
-.customer-account-list dt { color: var(--sf-muted, #667386); font-size: 0.72rem; }
-.customer-account-list dd { margin: 0; font-size: 0.82rem; font-weight: 700; }
-.customer-order-status { padding: 5px 8px; border-radius: 999px; color: #087c58 !important; background: #e5f7f0; }
-.customer-order-progress { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
-.customer-order-progress span { padding-top: 8px; border-top: 3px solid var(--sf-border, #dfe4ec); color: var(--sf-muted, #667386); text-align: center; font-size: 0.67rem; }
-.customer-order-progress span.is-complete { border-color: var(--sf-primary, #0872d9); color: var(--sf-primary, #0872d9); font-weight: 750; }
-.customer-account-empty { padding: 32px; color: var(--sf-muted, #667386); text-align: center; }
-.customer-account-error { margin: 0 20px 20px; padding: 10px 12px; border-radius: 9px; color: #a32929; background: #ffeded; }
+.customer-account-portal {
+  padding: 20px;
+}
+.customer-account-identity {
+  gap: 12px;
+  padding: 14px;
+  border-radius: 14px;
+  background: var(--sf-soft, #f2f4f8);
+}
+.customer-account-identity > span {
+  display: grid;
+  width: 43px;
+  height: 43px;
+  place-items: center;
+  border-radius: 50%;
+  color: #fff;
+  font-weight: 800;
+  background: var(--sf-primary, #0872d9);
+}
+.customer-account-identity > div {
+  display: grid;
+  flex: 1;
+  gap: 2px;
+}
+.customer-account-identity small {
+  color: var(--sf-muted, #667386);
+}
+.customer-account-identity button {
+  display: flex;
+  padding: 9px 12px;
+  align-items: center;
+  gap: 6px;
+  color: #d73737;
+}
+.customer-account-portal nav {
+  gap: 7px;
+  margin: 18px 0 12px;
+  border-bottom: 1px solid var(--sf-border, #dfe4ec);
+}
+.customer-account-portal nav button {
+  display: flex;
+  padding: 10px 14px;
+  align-items: center;
+  gap: 7px;
+  border: 0;
+  border-radius: 9px 9px 0 0;
+  background: transparent;
+}
+.customer-account-portal nav button.is-active {
+  color: var(--sf-primary, #0872d9);
+  background: color-mix(in srgb, var(--sf-primary, #0872d9) 10%, transparent);
+}
+.customer-account-list {
+  display: grid;
+  gap: 11px;
+}
+.customer-account-list article {
+  padding: 15px;
+  border: 1px solid var(--sf-border, #dfe4ec);
+  border-radius: 13px;
+  background: var(--sf-surface, #fff);
+}
+.customer-account-list article > div {
+  justify-content: space-between;
+  gap: 10px;
+}
+.customer-account-list article > div > span {
+  gap: 5px;
+  color: var(--sf-muted, #667386);
+  font-size: 0.76rem;
+}
+.customer-account-list article > p {
+  margin: 10px 0;
+  color: var(--sf-muted, #667386);
+  font-size: 0.83rem;
+  line-height: 1.45;
+}
+.customer-account-list dl {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 12px 0;
+}
+.customer-account-list dl div {
+  display: grid;
+  gap: 3px;
+}
+.customer-account-list dt {
+  color: var(--sf-muted, #667386);
+  font-size: 0.72rem;
+}
+.customer-account-list dd {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+.customer-order-status {
+  padding: 5px 8px;
+  border-radius: 999px;
+  color: #087c58 !important;
+  background: #e5f7f0;
+}
+.customer-order-progress {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+}
+.customer-order-progress span {
+  padding-top: 8px;
+  border-top: 3px solid var(--sf-border, #dfe4ec);
+  color: var(--sf-muted, #667386);
+  text-align: center;
+  font-size: 0.67rem;
+}
+.customer-order-progress span.is-complete {
+  border-color: var(--sf-primary, #0872d9);
+  color: var(--sf-primary, #0872d9);
+  font-weight: 750;
+}
+.customer-account-empty {
+  padding: 32px;
+  color: var(--sf-muted, #667386);
+  text-align: center;
+}
+.customer-account-error {
+  margin: 0 20px 20px;
+  padding: 10px 12px;
+  border-radius: 9px;
+  color: #a32929;
+  background: #ffeded;
+}
 
 @media (max-width: 600px) {
-  .customer-account-backdrop { padding: 0; align-items: end; }
-  .customer-account-modal { max-height: 92vh; border-radius: 20px 20px 0 0; }
-  .customer-account-list dl { grid-template-columns: 1fr 1fr; }
-  .customer-account-identity { align-items: flex-start; flex-wrap: wrap; }
+  .customer-account-backdrop {
+    padding: 0;
+    align-items: end;
+  }
+  .customer-account-modal {
+    max-height: 92vh;
+    border-radius: 20px 20px 0 0;
+  }
+  .customer-account-list dl {
+    grid-template-columns: 1fr 1fr;
+  }
+  .customer-account-identity {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
 }
-````
+```
 
 # Current source additions
 
@@ -26747,11 +30717,16 @@ The following files were added after the original source export. Add them to the
 
 #### `frontend/src/pages/CustomerAuthGate.jsx`
 
-````jsx
+```jsx
 import { useState } from "react";
 import { Chrome, Eye, EyeOff, UserRound } from "lucide-react";
 import { useAuth } from "../context/authContextValue";
-import { loginAsGuest, loginWithEmail, loginWithGoogle, registerWithEmail } from "../services/authService";
+import {
+  loginAsGuest,
+  loginWithEmail,
+  loginWithGoogle,
+  registerWithEmail,
+} from "../services/authService";
 import StorefrontPage from "./StorefrontPage";
 import "./CustomerAuthGate.css";
 
@@ -26765,41 +30740,140 @@ function CustomerAuthGate({ linkType }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
-  if (isAuthLoading) return <main className="customer-auth-gate__loading">Loading storefront...</main>;
+  if (isAuthLoading)
+    return (
+      <main className="customer-auth-gate__loading">Loading storefront...</main>
+    );
   if (user) return <StorefrontPage linkType={linkType} />;
 
   async function run(action) {
-    setBusy(true); setError("");
-    try { await action(); } catch (nextError) { setError(nextError.message || "Unable to sign in. Please try again."); } finally { setBusy(false); }
+    setBusy(true);
+    setError("");
+    try {
+      await action();
+    } catch (nextError) {
+      setError(nextError.message || "Unable to sign in. Please try again.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   function submit(event) {
     event.preventDefault();
-    return run(() => mode === "login" ? loginWithEmail(email, password) : registerWithEmail(name, email, password).then(() => { setMode("login"); setError("Verification email sent. Verify your email, then sign in."); }));
+    return run(() =>
+      mode === "login"
+        ? loginWithEmail(email, password)
+        : registerWithEmail(name, email, password).then(() => {
+            setMode("login");
+            setError(
+              "Verification email sent. Verify your email, then sign in.",
+            );
+          }),
+    );
   }
 
   return (
-    <main className="customer-auth-gate"><section className="customer-auth-card">
-      <div className="customer-auth-card__brand">Vendly<span>.lk</span></div><p className="customer-auth-card__eyebrow">Customer storefront</p>
-      <h1>Sign in to continue</h1><p className="customer-auth-card__hint">Sign in to save your chats, orders, and delivery updates.</p>
-      <form onSubmit={submit} className="customer-auth-form">
-        {mode === "register" && <label>Full name<input value={name} onChange={(event) => setName(event.target.value)} required /></label>}
-        <label>Email address<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required /></label>
-        <label>Password<span className="customer-auth-password"><input type={showPassword ? "text" : "password"} value={password} onChange={(event) => setPassword(event.target.value)} minLength={6} required /><button type="button" onClick={() => setShowPassword((value) => !value)} aria-label="Show password">{showPassword ? <EyeOff size={17} /> : <Eye size={17} />}</button></span></label>
-        {error && <p className="customer-auth-error" role="alert">{error}</p>}
-        <button className="customer-auth-primary" disabled={busy}>{busy ? "Please wait..." : mode === "login" ? "Sign in" : "Create account"}</button>
-      </form>
-      <div className="customer-auth-divider"><span>or</span></div>
-      <button className="customer-auth-secondary" disabled={busy} onClick={() => run(loginWithGoogle)}><Chrome size={18} /> Continue with Google</button>
-      <button className="customer-auth-guest" disabled={busy} onClick={() => run(loginAsGuest)}><UserRound size={18} /> Continue as guest</button>
-      <button className="customer-auth-switch" onClick={() => { setMode((value) => value === "login" ? "register" : "login"); setError(""); }}>{mode === "login" ? "New customer? Create an account" : "Already have an account? Sign in"}</button>
-      <p className="customer-auth-note">Guest accounts keep your current chat and order history on this device.</p>
-    </section></main>
+    <main className="customer-auth-gate">
+      <section className="customer-auth-card">
+        <div className="customer-auth-card__brand">
+          Vendly<span>.lk</span>
+        </div>
+        <p className="customer-auth-card__eyebrow">Customer storefront</p>
+        <h1>Sign in to continue</h1>
+        <p className="customer-auth-card__hint">
+          Sign in to save your chats, orders, and delivery updates.
+        </p>
+        <form onSubmit={submit} className="customer-auth-form">
+          {mode === "register" && (
+            <label>
+              Full name
+              <input
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                required
+              />
+            </label>
+          )}
+          <label>
+            Email address
+            <input
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              required
+            />
+          </label>
+          <label>
+            Password
+            <span className="customer-auth-password">
+              <input
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                minLength={6}
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((value) => !value)}
+                aria-label="Show password"
+              >
+                {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+              </button>
+            </span>
+          </label>
+          {error && (
+            <p className="customer-auth-error" role="alert">
+              {error}
+            </p>
+          )}
+          <button className="customer-auth-primary" disabled={busy}>
+            {busy
+              ? "Please wait..."
+              : mode === "login"
+                ? "Sign in"
+                : "Create account"}
+          </button>
+        </form>
+        <div className="customer-auth-divider">
+          <span>or</span>
+        </div>
+        <button
+          className="customer-auth-secondary"
+          disabled={busy}
+          onClick={() => run(loginWithGoogle)}
+        >
+          <Chrome size={18} /> Continue with Google
+        </button>
+        <button
+          className="customer-auth-guest"
+          disabled={busy}
+          onClick={() => run(loginAsGuest)}
+        >
+          <UserRound size={18} /> Continue as guest
+        </button>
+        <button
+          className="customer-auth-switch"
+          onClick={() => {
+            setMode((value) => (value === "login" ? "register" : "login"));
+            setError("");
+          }}
+        >
+          {mode === "login"
+            ? "New customer? Create an account"
+            : "Already have an account? Sign in"}
+        </button>
+        <p className="customer-auth-note">
+          Guest accounts keep your current chat and order history on this
+          device.
+        </p>
+      </section>
+    </main>
   );
 }
 
 export default CustomerAuthGate;
-````
+```
 
 ## Latest chatbot checkout additions
 
@@ -26807,6 +30881,156 @@ The chatbot checkout now collects `name`, required `phoneNumber`, optional `seco
 
 #### `frontend/src/pages/CustomerAuthGate.css`
 
-````css
-.customer-auth-gate{min-height:100vh;display:grid;place-items:center;padding:24px;background:linear-gradient(135deg,#eef6ff,#f8fbff);color:#0b3159}.customer-auth-gate__loading{min-height:100vh;display:grid;place-items:center;color:#0b3159;background:#f6f9fd}.customer-auth-card{width:min(430px,100%);padding:34px;border:1px solid #dce8f5;border-radius:24px;background:#fff;box-shadow:0 24px 70px #0b3b6e22}.customer-auth-card__brand{font-size:28px;font-weight:800;color:#073a68}.customer-auth-card__brand span{color:#1188e8}.customer-auth-card__eyebrow{margin:5px 0 34px;color:#6d8299;font-size:13px}.customer-auth-card h1{margin:0;font-size:28px}.customer-auth-card__hint{color:#64778b;line-height:1.5}.customer-auth-form{display:grid;gap:14px;margin-top:22px}.customer-auth-form label{display:grid;gap:7px;font-size:13px;font-weight:700}.customer-auth-form input{box-sizing:border-box;width:100%;padding:12px 13px;border:1px solid #cbdbea;border-radius:10px;font:inherit;font-weight:400;color:#18324d;background:#fbfdff}.customer-auth-password{position:relative}.customer-auth-password input{padding-right:42px}.customer-auth-password button{position:absolute;right:8px;top:7px;border:0;background:transparent;color:#66809a;cursor:pointer}.customer-auth-primary,.customer-auth-secondary,.customer-auth-guest{width:100%;min-height:44px;border-radius:10px;border:0;font:inherit;font-weight:700;cursor:pointer}.customer-auth-primary{margin-top:3px;color:#fff;background:#087fea}.customer-auth-secondary{display:flex;align-items:center;justify-content:center;gap:9px;color:#173858;background:#fff;border:1px solid #c6d9ed}.customer-auth-guest{display:flex;align-items:center;justify-content:center;gap:9px;color:#0b5790;background:#eaf5ff}.customer-auth-switch{margin:16px auto 0;border:0;background:transparent;color:#0674d7;cursor:pointer}.customer-auth-divider{display:flex;align-items:center;gap:10px;margin:20px 0;color:#8293a5;font-size:12px}.customer-auth-divider:before,.customer-auth-divider:after{content:"";height:1px;flex:1;background:#dbe5ef}.customer-auth-note{margin:15px 0 0;color:#8190a0;text-align:center;font-size:11px;line-height:1.45}.customer-auth-error{margin:0;padding:10px;border-radius:8px;color:#a62b2b;background:#fff0f0;font-size:13px}
-````
+```css
+.customer-auth-gate {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: linear-gradient(135deg, #eef6ff, #f8fbff);
+  color: #0b3159;
+}
+.customer-auth-gate__loading {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  color: #0b3159;
+  background: #f6f9fd;
+}
+.customer-auth-card {
+  width: min(430px, 100%);
+  padding: 34px;
+  border: 1px solid #dce8f5;
+  border-radius: 24px;
+  background: #fff;
+  box-shadow: 0 24px 70px #0b3b6e22;
+}
+.customer-auth-card__brand {
+  font-size: 28px;
+  font-weight: 800;
+  color: #073a68;
+}
+.customer-auth-card__brand span {
+  color: #1188e8;
+}
+.customer-auth-card__eyebrow {
+  margin: 5px 0 34px;
+  color: #6d8299;
+  font-size: 13px;
+}
+.customer-auth-card h1 {
+  margin: 0;
+  font-size: 28px;
+}
+.customer-auth-card__hint {
+  color: #64778b;
+  line-height: 1.5;
+}
+.customer-auth-form {
+  display: grid;
+  gap: 14px;
+  margin-top: 22px;
+}
+.customer-auth-form label {
+  display: grid;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.customer-auth-form input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 12px 13px;
+  border: 1px solid #cbdbea;
+  border-radius: 10px;
+  font: inherit;
+  font-weight: 400;
+  color: #18324d;
+  background: #fbfdff;
+}
+.customer-auth-password {
+  position: relative;
+}
+.customer-auth-password input {
+  padding-right: 42px;
+}
+.customer-auth-password button {
+  position: absolute;
+  right: 8px;
+  top: 7px;
+  border: 0;
+  background: transparent;
+  color: #66809a;
+  cursor: pointer;
+}
+.customer-auth-primary,
+.customer-auth-secondary,
+.customer-auth-guest {
+  width: 100%;
+  min-height: 44px;
+  border-radius: 10px;
+  border: 0;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.customer-auth-primary {
+  margin-top: 3px;
+  color: #fff;
+  background: #087fea;
+}
+.customer-auth-secondary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  color: #173858;
+  background: #fff;
+  border: 1px solid #c6d9ed;
+}
+.customer-auth-guest {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  color: #0b5790;
+  background: #eaf5ff;
+}
+.customer-auth-switch {
+  margin: 16px auto 0;
+  border: 0;
+  background: transparent;
+  color: #0674d7;
+  cursor: pointer;
+}
+.customer-auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 20px 0;
+  color: #8293a5;
+  font-size: 12px;
+}
+.customer-auth-divider:before,
+.customer-auth-divider:after {
+  content: "";
+  height: 1px;
+  flex: 1;
+  background: #dbe5ef;
+}
+.customer-auth-note {
+  margin: 15px 0 0;
+  color: #8190a0;
+  text-align: center;
+  font-size: 11px;
+  line-height: 1.45;
+}
+.customer-auth-error {
+  margin: 0;
+  padding: 10px;
+  border-radius: 8px;
+  color: #a62b2b;
+  background: #fff0f0;
+  font-size: 13px;
+}
+```

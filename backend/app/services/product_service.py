@@ -550,6 +550,16 @@ def update_product(database, business_id, product_id, payload):
         if not isinstance(raw_variants, list) or not raw_variants:
             raise ApiError("validation_error", "At least one variant is required.", 422)
         existing_by_id = {snapshot.id: snapshot for snapshot in variants}
+        existing_by_sku = {
+            normalize_registry_key(snapshot.to_dict().get("sku", "")): snapshot
+            for snapshot in variants
+            if snapshot.to_dict().get("sku")
+        }
+        existing_by_barcode = {
+            normalize_registry_key(snapshot.to_dict().get("barcode", "")): snapshot
+            for snapshot in variants
+            if snapshot.to_dict().get("barcode")
+        }
         retained_ids = set()
         seen_skus = set()
         seen_barcodes = set()
@@ -575,6 +585,16 @@ def update_product(database, business_id, product_id, payload):
             seen_barcodes.add(normalized_barcode)
 
             snapshot = existing_by_id.get(variant_id)
+            if snapshot is None:
+                sku_match = existing_by_sku.get(normalized_sku)
+                barcode_match = existing_by_barcode.get(normalized_barcode)
+                if sku_match and barcode_match and sku_match.id != barcode_match.id:
+                    raise ApiError(
+                        "variant_identifier_conflict",
+                        "The SKU and barcode belong to different variants.",
+                        409,
+                    )
+                snapshot = sku_match or barcode_match
             if snapshot:
                 current = snapshot.to_dict()
                 reserved = current.get("stockReserved", 0)

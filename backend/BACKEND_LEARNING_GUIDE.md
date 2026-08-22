@@ -255,3 +255,7 @@ For every new backend feature:
 - Use HTTPS in production and restrict CORS to your real domains.
 
 The best way to study this backend is to trace one feature end-to-end: start at `frontend/src/services/productService.js`, follow the matching route in `backend/app/api/products.py`, then read the called function in `backend/app/services/product_service.py` and its tests.
+
+### Study example: chatbot contact state machine
+
+Trace `sendPublicChatMessage` from `StorefrontPage.jsx` to the public chat API and then `answer_public_message` in `public_chat_service.py`. Each reply updates `publicChatSessions/{sessionId}.state` and `customerDraft`. The current checkout sequence collects name, primary phone, optional second phone, street address, district, nearest city, optional delivery note, and explicit confirmation. Optional answers use a `skip` branch; invalid required values keep the same state.

@@ -19,8 +19,32 @@ def _message_rows(reference):
 
 
 def _customer_details(database, session):
+    # Completed orders keep a stable customer summary on the conversation.
+    # Prefer it over the in-progress draft so the seller inbox immediately
+    # changes from "Guest customer" to the submitted customer name.
+    summary = session.get("customerSummary") or {}
     draft = session.get("customerDraft") or {}
-    address = draft.get("address") or {}
+    details = {**draft, **summary}
+    if not details.get("name") and session.get("orderId"):
+        order_snapshot = (
+            database.collection("businesses")
+            .document(session.get("businessId", ""))
+            .collection("orders")
+            .document(session["orderId"])
+            .get()
+        )
+        if order_snapshot.exists:
+            order = order_snapshot.to_dict()
+            customer = order.get("customerSnapshot") or {}
+            details = {
+                **details,
+                "name": customer.get("name", ""),
+                "phoneNumber": customer.get("normalizedPhone", ""),
+                "secondaryPhoneNumber": customer.get("normalizedSecondaryPhone", ""),
+                "email": customer.get("email", ""),
+                "address": order.get("deliveryAddress") or {},
+            }
+    address = details.get("address") or {}
     account = {}
     if session.get("customerUid"):
         account_snapshot = (
@@ -29,10 +53,10 @@ def _customer_details(database, session):
         account = account_snapshot.to_dict() if account_snapshot.exists else {}
     return {
         "uid": session.get("customerUid"),
-        "name": draft.get("name") or account.get("displayName") or "Guest customer",
-        "phoneNumber": draft.get("phoneNumber") or "",
-        "secondaryPhoneNumber": draft.get("secondaryPhoneNumber") or "",
-        "email": draft.get("email") or account.get("email") or "",
+        "name": details.get("name") or account.get("displayName") or "Guest customer",
+        "phoneNumber": details.get("phoneNumber") or "",
+        "secondaryPhoneNumber": details.get("secondaryPhoneNumber") or "",
+        "email": details.get("email") or account.get("email") or "",
         "address": address,
     }
 

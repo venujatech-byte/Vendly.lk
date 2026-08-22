@@ -369,3 +369,7 @@ The first milestone is deliberately small but production-shaped:
 8. Firestore-backed order table.
 
 After this milestone is verified, the chatbot will use the same product, customer, order, and stock services instead of implementing a separate order system.
+
+## Public chatbot checkout state
+
+The chatbot stores its current state and contact draft in Firestore. The draft includes one required phone, an optional second phone, street address, district, nearest city, and an optional delivery note. Flask owns validation and order creation; React only sends replies and renders the returned draft. The confirmed order reuses the standard customer, order, delivery-price, fraud-warning, and stock transaction services.

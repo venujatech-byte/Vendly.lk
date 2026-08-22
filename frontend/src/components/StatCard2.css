@@ -4,7 +4,13 @@
   grid-template-columns: repeat(7, minmax(135px, 1fr));
   gap: 10px;
   overflow-x: auto;
+  /* Keep mobile swipe scrolling without showing a browser scrollbar. */
+  scrollbar-width: none;
   padding: 6px 3px;
+}
+
+.order-stats-grid::-webkit-scrollbar {
+  display: none;
 }
 
 /* Compact statistic card container. */

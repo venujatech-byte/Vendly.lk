@@ -170,15 +170,18 @@ function AddProductModal({ isOpen, businessId, categories, product = null, onClo
     setErrorMessage("");
     setIsSaving(true);
 
+    const existingBaseVariant = formData.variants[0] || {};
     const variants = formData.hasSizes
       ? formData.variants
       : [{
+          id: existingBaseVariant.id,
           size: formData.productSize,
           sku: formData.baseSku,
           barcode: formData.baseBarcode,
           stock: formData.stock,
           sellingPrice: formData.sellingPrice,
           costPrice: formData.costPrice,
+          imageUrl: existingBaseVariant.imageUrl || "",
         }];
 
     try {
