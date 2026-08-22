@@ -42,6 +42,18 @@ export function mapOrderForTable(order) {
     total: formatCurrency(order.totalAmountMinor),
     subtotal: formatCurrency(order.subtotalMinor),
     deliveryFee: formatCurrency(order.deliveryFeeMinor),
+    discount: formatCurrency(order.discountTotalMinor),
+    deposit: formatCurrency(order.depositAmountMinor),
+    paidAmount: formatCurrency(order.paidAmountMinor),
+    // What the courier still has to collect once any deposit is deducted.
+    balanceDue: formatCurrency(order.balanceAmountMinor),
+    // Keep the raw minor units so callers can test "is there a discount?"
+    // without having to parse a formatted currency string.
+    discountMinor: order.discountTotalMinor ?? 0,
+    depositMinor: order.depositAmountMinor ?? 0,
+    paidAmountMinor: order.paidAmountMinor ?? 0,
+    balanceMinor: order.balanceAmountMinor ?? 0,
+    paymentStatus: order.paymentStatus ?? "unpaid",
     deliveryAddress: [
       order.deliveryAddress?.line1,
       order.deliveryAddress?.line2,

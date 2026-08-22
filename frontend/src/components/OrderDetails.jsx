@@ -223,6 +223,13 @@ function OrderDetails({
           <strong>{order.subtotal ?? order.total}</strong>
         </div>
 
+        {order.discountMinor > 0 && (
+          <div>
+            <span>Discount</span>
+            <strong>-{order.discount}</strong>
+          </div>
+        )}
+
         <div>
           <span>Delivery Fee</span>
           <strong>{order.deliveryFee ?? "Not calculated"}</strong>
@@ -232,6 +239,24 @@ function OrderDetails({
           <span>Total</span>
           <strong>{order.total}</strong>
         </div>
+
+        {/* Anything already paid is deducted, so the courier only collects
+            the remaining balance. */}
+        {order.paidAmountMinor > 0 && (
+          <>
+            <div>
+              <span>
+                {order.paymentMethod === "deposit" ? "Deposit paid" : "Paid"}
+              </span>
+              <strong>-{order.paidAmount}</strong>
+            </div>
+
+            <div className="order-details__total">
+              <span>Balance to collect</span>
+              <strong>{order.balanceDue}</strong>
+            </div>
+          </>
+        )}
 
         <div className="order-details__waybill-row">
           <label htmlFor={`waybill-${order.id}`}>Waybill No</label>
