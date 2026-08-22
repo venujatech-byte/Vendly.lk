@@ -13,6 +13,16 @@ function displayStatus(status) {
 
 export function mapOrderForTable(order) {
   const createdAt = order.createdAt ? new Date(order.createdAt) : null;
+  const fraudWarning = order.fraudRiskSnapshot?.matched
+    ? {
+        score: order.fraudRiskSnapshot.score ?? 0,
+        riskLevel: order.fraudRiskSnapshot.riskLevel ?? "high",
+        reportCount: order.fraudRiskSnapshot.reportCount ?? 0,
+        returnedOrderCount: order.fraudRiskSnapshot.returnedOrderCount ?? 0,
+        message:
+          "This customer matches the shared fraud registry. Review the order details before dispatch.",
+      }
+    : null;
 
   return {
     ...order,
@@ -28,6 +38,7 @@ export function mapOrderForTable(order) {
     fulfilmentStatus: order.fulfilmentStatus,
     paymentMethod: order.paymentMethod ?? "cod",
     privateNote: order.privateNote ?? "",
+    fraudWarning,
     total: formatCurrency(order.totalAmountMinor),
     subtotal: formatCurrency(order.subtotalMinor),
     deliveryFee: formatCurrency(order.deliveryFeeMinor),

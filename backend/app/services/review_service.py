@@ -16,7 +16,8 @@ REVIEW_STATUSES = {"pending", "approved", "rejected"}
 def validate_review_payload(payload):
     try:
         order_number = required_text(payload.get("orderNumber"), "Order number", 40).upper()
-        normalized_phone = normalize_sri_lankan_phone(payload.get("phoneNumber"))
+        phone_value = payload.get("phoneNumber")
+        normalized_phone = normalize_sri_lankan_phone(phone_value) if phone_value else ""
         product_id = optional_text(payload.get("productId"), 120)
         review_text = required_text(payload.get("reviewText"), "Review", 2000)
         rating = non_negative_integer(payload.get("rating"), "Rating")
@@ -32,10 +33,18 @@ def validate_review_payload(payload):
         "productId": product_id,
         "reviewText": review_text,
         "rating": rating,
+        "media": [
+            {
+                "type": str(item.get("type", "image")),
+                "url": str(item.get("url", "")),
+            }
+            for item in (payload.get("media") or [])[:4]
+            if isinstance(item, dict) and item.get("url")
+        ],
     }
 
 
-def create_verified_review(database, store_code, payload):
+def create_verified_review(database, store_code, payload, customer_uid=None):
     review = validate_review_payload(payload)
     link = resolve_short_link(database, store_code, "store")
     business_id = link["businessId"]
@@ -57,7 +66,16 @@ def create_verified_review(database, store_code, payload):
     order_snapshot = order_snapshots[0]
     order = order_snapshot.to_dict()
 
-    if order.get("customerSnapshot", {}).get("normalizedPhone") != review["normalizedPhone"]:
+    order_customer_uid = order.get("customerUid") or ""
+    if customer_uid and order_customer_uid:
+        is_verified_customer = order_customer_uid == customer_uid
+    else:
+        is_verified_customer = (
+            bool(review["normalizedPhone"])
+            and order.get("customerSnapshot", {}).get("normalizedPhone")
+            == review["normalizedPhone"]
+        )
+    if not is_verified_customer:
         raise ApiError(
             "review_order_not_found",
             "The order number and phone number could not be verified.",
@@ -107,7 +125,7 @@ def create_verified_review(database, store_code, payload):
             "customerEmail": order.get("customerSnapshot", {}).get("email", ""),
             "rating": review["rating"],
             "reviewText": review["reviewText"],
-            "media": [],
+            "media": review["media"],
             "status": "pending",
             "verifiedPurchase": True,
             "createdAt": firestore.SERVER_TIMESTAMP,

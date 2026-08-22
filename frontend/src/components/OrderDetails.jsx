@@ -129,6 +129,24 @@ function OrderDetails({
 
   return (
     <div className="order-details">
+      {order.fraudWarning && (
+        <section className="order-details__warning" role="alert">
+          <CircleAlert size={19} aria-hidden="true" />
+          <div>
+            <strong>Fraud warning</strong>
+            <p>{order.fraudWarning.message}</p>
+            <span>
+              Risk: {order.fraudWarning.riskLevel} · Score: {order.fraudWarning.score}
+              {order.fraudWarning.reportCount
+                ? ` · ${order.fraudWarning.reportCount} report(s)`
+                : ""}
+              {order.fraudWarning.returnedOrderCount
+                ? ` · ${order.fraudWarning.returnedOrderCount} return(s)`
+                : ""}
+            </span>
+          </div>
+        </section>
+      )}
       {/* These values replace the columns hidden from the compact phone row. */}
       <section className="order-details__mobile-meta" aria-label="Order summary details">
         <div>

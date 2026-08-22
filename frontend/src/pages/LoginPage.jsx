@@ -116,7 +116,7 @@ function LoginPage() {
     setTimeout(() => {
     console.log("This runs after 2 seconds");
     window.location.replace("/");
-  }, 2000);
+  }, 1000);
 
     } catch (error) {
       setErrorMessage(getAuthErrorMessage(error));
@@ -139,7 +139,7 @@ function LoginPage() {
        setTimeout(() => {
     console.log("This runs after 2 seconds");
     window.location.replace("/");
-  }, 2000);
+  }, 1000);
     } catch (error) {
       setErrorMessage(getAuthErrorMessage(error));
     } finally {

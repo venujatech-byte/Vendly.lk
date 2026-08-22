@@ -1,6 +1,6 @@
 from flask import Blueprint, g, jsonify, request
 
-from app.core.auth import require_firebase_user
+from app.core.auth import optional_firebase_user, require_firebase_user
 from app.core.authorization import require_business_member
 from app.core.firebase import get_firestore_client
 from app.core.rate_limit import limiter
@@ -30,12 +30,16 @@ def public_product_reviews(short_code):
 
 
 @reviews_blueprint.post("/public/stores/<store_code>/reviews")
-@limiter.limit("5 per hour")
+# Customers may retry after correcting an order/review, so keep protection
+# against abuse without blocking normal testing and genuine submissions.
+@limiter.limit("20 per hour")
+@optional_firebase_user
 def submit_public_review(store_code):
     review = create_verified_review(
         get_firestore_client(),
         store_code,
         get_json_object(),
+        customer_uid=(g.current_user or {}).get("uid"),
     )
     return jsonify({"review": review}), 201
 

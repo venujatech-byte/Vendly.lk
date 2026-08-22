@@ -56,6 +56,15 @@ CONFIRMATION_PHRASES = {
     "okay",
 }
 
+NEW_ORDER_PHRASES = {
+    "another order",
+    "new order",
+    "order again",
+    "place another order",
+    "make another order",
+    "buy something else",
+}
+
 
 def message_tokens(value):
     return {
@@ -569,6 +578,82 @@ def answer_public_message(database, session_id, provided_token, payload):
             "customerDraft": customer_draft,
         }
 
+    # Once an order is submitted, normal conversation stays attached to that
+    # order. Do not treat "ok", "thanks" or a status question as a brand-new
+    # shopping session. A new catalogue is shown only when the customer clearly
+    # asks to place another order.
+    if current_state == "completed" or session.get("status") == "completed":
+        starts_new_order = (
+            any(phrase in lowered_message for phrase in NEW_ORDER_PHRASES)
+            or any(phrase in lowered_message for phrase in ORDER_INTENT_PHRASES)
+        )
+
+        if starts_new_order:
+            cart = []
+            cart_summary = []
+            customer_draft = {}
+            session_snapshot.reference.update(
+                {
+                    "status": "active",
+                    "updatedAt": firestore.SERVER_TIMESTAMP,
+                },
+            )
+            return respond(
+                "Of course. Here is the catalogue for your new order. Choose a "
+                "product to see its details, sizes and available stock.",
+                "start-another-order",
+                next_state="browsing",
+                response_products=products,
+                selected_product_id=(
+                    None if not session.get("productId") else "unchanged"
+                ),
+            )
+
+        order = None
+        order_id = session.get("orderId")
+        if order_id:
+            order_snapshot = (
+                database.collection("businesses")
+                .document(session["businessId"])
+                .collection("orders")
+                .document(order_id)
+                .get()
+            )
+            if order_snapshot.exists:
+                order = {"id": order_snapshot.id, **order_snapshot.to_dict()}
+
+        if order:
+            status = str(
+                order.get("fulfilmentStatus") or "needs-confirmation"
+            ).replace("-", " ")
+            response_parts = [
+                f"Your order {order.get('orderNumber', '')} is currently {status}.",
+                f"Order total: LKR {order.get('totalAmountMinor', 0) / 100:,.2f}.",
+            ]
+            courier_name = (order.get("courierSnapshot") or {}).get("name")
+            if courier_name:
+                response_parts.append(f"Courier: {courier_name}.")
+            if order.get("waybillNumber"):
+                response_parts.append(
+                    f"Waybill number: {order['waybillNumber']}."
+                )
+            response_parts.append(
+                "Ask me about this order, or say 'another order' to shop again."
+            )
+            response_message = " ".join(response_parts)
+        else:
+            response_message = (
+                "Your order has already been submitted. Ask me about that order, "
+                "or say 'another order' to shop again."
+            )
+
+        return respond(
+            response_message,
+            "show-order-info",
+            next_state="completed",
+            response_products=[],
+        )
+
     # Contact collection is deterministic so invalid details never reach orders.
     if current_state == "collecting-name":
         try:
@@ -663,6 +748,15 @@ def answer_public_message(database, session_id, provided_token, payload):
                 "assistant",
                 response_message,
                 {"action": "order-confirmed", "orderId": order["id"]},
+            )
+            session_snapshot.reference.update(
+                {
+                    "state": "completed",
+                    "status": "completed",
+                    "cart": [],
+                    "selectedProductId": firestore.DELETE_FIELD,
+                    "updatedAt": firestore.SERVER_TIMESTAMP,
+                },
             )
             return {
                 "message": response_message,
@@ -974,6 +1068,8 @@ def create_public_chat_order(database, session_id, provided_token, payload):
     session_snapshot.reference.update(
         {
             "status": "completed",
+            "state": "completed",
+            "cart": [],
             "orderId": order["id"],
             "updatedAt": firestore.SERVER_TIMESTAMP,
         },

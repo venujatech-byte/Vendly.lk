@@ -70,6 +70,8 @@ export function submitPublicReview(storeCode, reviewData) {
   return apiRequest(`/public/stores/${storeCode}/reviews`, {
     method: "POST",
     body: reviewData,
-    requiresAuthentication: false,
+    // Send the Firebase token when the customer is signed in. Guests remain
+    // supported and are verified by the order phone number on the server.
+    requiresAuthentication: "optional",
   });
 }

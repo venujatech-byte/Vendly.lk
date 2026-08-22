@@ -134,11 +134,15 @@ function OrderTable({
               // Row-specific display values for the current order.
               const isExpanded = expandedOrderId === order.id;
               const isSelected = selectedOrderIds.includes(order.id);
+              const hasWarning = Boolean(order.fraudWarning?.matched ?? order.fraudWarning);
 
               return (
               <Fragment key={order.id}>
               <tr
-               className={isSelected ? "orders-table__row--selected" : ""}
+               className={[
+                 isSelected ? "orders-table__row--selected" : "",
+                 hasWarning ? "orders-table__row--warning" : "",
+               ].filter(Boolean).join(" ")}
               >
                   <td>
                     <input

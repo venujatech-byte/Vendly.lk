@@ -62,6 +62,20 @@
   background-color: rgba(22, 140, 245, 0.075);
 }
 
+/* Orders matched by the shared fraud registry remain visibly actionable. */
+.orders-table__row--warning {
+  background-color: rgba(220, 38, 38, 0.09);
+  box-shadow: inset 4px 0 0 #dc2626;
+}
+
+.orders-table__row--warning:hover {
+  background-color: rgba(220, 38, 38, 0.14);
+}
+
+.orders-table__row--warning .orders-table__order-number {
+  color: #b42318;
+}
+
 .orders-table__checkbox-column {
   width: 42px;
 }
@@ -335,6 +349,19 @@ html[data-theme="dark"] .orders-table tbody tr:hover {
 
 html[data-theme="dark"] .orders-table__row--selected {
   background-color: rgba(41, 151, 255, 0.1);
+}
+
+html[data-theme="dark"] .orders-table__row--warning {
+  background-color: rgba(220, 38, 38, 0.16);
+  box-shadow: inset 4px 0 0 #ff6b6b;
+}
+
+html[data-theme="dark"] .orders-table__row--warning:hover {
+  background-color: rgba(220, 38, 38, 0.22);
+}
+
+html[data-theme="dark"] .orders-table__row--warning .orders-table__order-number {
+  color: #ffb4b4;
 }
 
 html[data-theme="dark"] .orders-table__item-count {

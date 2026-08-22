@@ -38,6 +38,7 @@ import {
   getPublicProductReviews,
   getPublicStore,
   getCustomerChats,
+  getCustomerOrders,
   getPublicChatMessages,
   sendPublicChatMessage,
   submitPublicReview,
@@ -73,7 +74,7 @@ function money(minor = 0) {
 
 function getInitialView() {
   const view = window.location.hash.replace("#", "");
-  return ["catalog", "chatbot", "contact"].includes(view) ? view : "catalog";
+  return ["catalog", "chatbot", "reviews", "contact"].includes(view) ? view : "catalog";
 }
 
 function getInitialTheme() {
@@ -106,6 +107,17 @@ function StorefrontPage({ linkType }) {
   const [confirmedOrder, setConfirmedOrder] = useState(null);
   const [copiedField, setCopiedField] = useState("");
   const [reviews, setReviews] = useState([]);
+  const [customerOrders, setCustomerOrders] = useState([]);
+  const [storefrontReviewDraft, setStorefrontReviewDraft] = useState({
+    orderNumber: "",
+    phoneNumber: "",
+    productId: "",
+    type: "product",
+    rating: "5",
+    reviewText: "",
+  });
+  const [storefrontReviewMessage, setStorefrontReviewMessage] = useState("");
+  const [storefrontReviewFiles, setStorefrontReviewFiles] = useState([]);
   const [reviewForm, setReviewForm] = useState({
     orderNumber: "",
     phoneNumber: "",
@@ -146,11 +158,22 @@ function StorefrontPage({ linkType }) {
         if (!requestIsCurrent) return;
 
         setBusiness(catalog.business);
+        const customerOrderResponse = await getCustomerOrders(catalog.business.shortCode).catch(() => ({ orders: [] }));
+        setCustomerOrders(customerOrderResponse.orders || []);
         setProducts(
           linkType === "product" ? [catalog.product] : catalog.products,
         );
         setSession(chatSession);
         const historyResponse = await getCustomerChats(catalog.business.shortCode).catch(() => ({ chats: [] }));
+        // Mark messages already rendered from history so the live poller does
+        // not append them a second time.
+        historyResponse.chats?.forEach((chat) => {
+          chat.messages?.forEach((message) => {
+            if (message.role === "seller" && message.id) {
+              receivedSellerMessageIds.current.add(message.id);
+            }
+          });
+        });
         const previousChat = historyResponse.chats?.find((chat) =>
           chat.sessionId !== chatSession.sessionId && chat.messages?.length > 1,
         );
@@ -196,14 +219,22 @@ function StorefrontPage({ linkType }) {
     let isCurrent = true;
     async function loadSellerReplies() {
       try {
-        const response = await getPublicChatMessages(
-          session.sessionId,
-          session.sessionToken,
-        );
-        const unseen = (response.messages || []).filter(
-          (message) =>
-            message.role === "seller" &&
-            !receivedSellerMessageIds.current.has(message.id),
+        // Status updates are written to the chat session that created the
+        // order, while the customer may now be viewing a newer session. Read
+        // both the current session and the customer's other store chats.
+        const [currentResponse, historyResponse] = await Promise.all([
+          getPublicChatMessages(session.sessionId, session.sessionToken),
+          business?.shortCode
+            ? getCustomerChats(business.shortCode).catch(() => ({ chats: [] }))
+            : Promise.resolve({ chats: [] }),
+        ]);
+        const candidates = [
+          ...(currentResponse.messages || []),
+          ...(historyResponse.chats || []).flatMap((chat) => chat.messages || []),
+        ];
+        const unseen = candidates.filter(
+          (message) => message.role === "seller" && message.id
+            && !receivedSellerMessageIds.current.has(message.id),
         );
         if (!isCurrent || unseen.length === 0) return;
         unseen.forEach((message) => receivedSellerMessageIds.current.add(message.id));
@@ -227,7 +258,7 @@ function StorefrontPage({ linkType }) {
       isCurrent = false;
       window.clearInterval(timer);
     };
-  }, [session?.sessionId, session?.sessionToken]);
+  }, [business?.shortCode, session?.sessionId, session?.sessionToken]);
 
   useEffect(() => {
     localStorage.setItem("vendly-storefront-theme", theme);
@@ -532,6 +563,33 @@ function StorefrontPage({ linkType }) {
     }
   }
 
+  async function submitStorefrontReview(event) {
+    event.preventDefault();
+    if (!business?.shortCode || !storefrontReviewDraft.orderNumber) return;
+
+    setIsSending(true);
+    setErrorMessage("");
+    setStorefrontReviewMessage("");
+    try {
+      await submitPublicReview(business.shortCode, {
+        orderNumber: storefrontReviewDraft.orderNumber,
+        productId: storefrontReviewDraft.type === "product"
+          ? storefrontReviewDraft.productId
+          : "",
+        rating: Number(storefrontReviewDraft.rating),
+        reviewText: storefrontReviewDraft.reviewText,
+        media: storefrontReviewFiles,
+      });
+      setStorefrontReviewMessage("Thank you. Your review is waiting for approval.");
+      setStorefrontReviewDraft((current) => ({ ...current, productId: "", reviewText: "" }));
+      setStorefrontReviewFiles([]);
+    } catch (error) {
+      setErrorMessage(error.message);
+    } finally {
+      setIsSending(false);
+    }
+  }
+
   async function copyContact(value, field) {
     if (!value) return;
     await navigator.clipboard.writeText(value);
@@ -601,6 +659,13 @@ function StorefrontPage({ linkType }) {
             <MessageCircleQuestion size={20} /> Contact
           </button>
           <button
+            className={activeView === "reviews" ? "is-active" : ""}
+            type="button"
+            onClick={() => changeView("reviews")}
+          >
+            <Star size={20} /> Reviews
+          </button>
+          <button
             type="button"
             onClick={() => {
               setIsMobileMenuOpen(false);
@@ -637,6 +702,7 @@ function StorefrontPage({ linkType }) {
                 {activeView === "catalog" && "Catalog"}
                 {activeView === "chatbot" &&
                   `${business.name} – AI Ordering Assistant`}
+                {activeView === "reviews" && "Reviews"}
                 {activeView === "contact" && "Contact"}
               </strong>
               <small>{business.name}</small>
@@ -742,6 +808,27 @@ function StorefrontPage({ linkType }) {
               )
             }
             onOpenCheckout={() => setIsCheckoutOpen(true)}
+          />
+        )}
+
+        {activeView === "reviews" && (
+          <StorefrontReviewCenter
+            orders={customerOrders}
+            draft={storefrontReviewDraft}
+            message={storefrontReviewMessage}
+            isSending={isSending}
+            onChange={setStorefrontReviewDraft}
+            onSubmit={submitStorefrontReview}
+            onFilesChange={async (event) => {
+              const selectedFiles = Array.from(event.target.files || []).slice(0, 4);
+              const encodedFiles = await Promise.all(selectedFiles.map((file) => new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve({ type: "image", url: reader.result });
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+              })));
+              setStorefrontReviewFiles(encodedFiles);
+            }}
           />
         )}
 
@@ -1795,6 +1882,134 @@ function OrderSuccess({ business, order, onClose, closeLabel }) {
     </div>
   );
   */
+}
+
+function StorefrontReviewCenter({
+  orders,
+  draft,
+  message,
+  isSending,
+  onChange,
+  onSubmit,
+  onFilesChange,
+}) {
+  const selectedOrder = orders.find(
+    (order) => order.orderNumber === draft.orderNumber,
+  );
+  const productItems = selectedOrder?.items || [];
+
+  return (
+    <div className="storefront-page storefront-review-center">
+      <section className="storefront-review-center__hero">
+        <h1>Reviews</h1>
+        <p>Share your experience with the products and seller.</p>
+      </section>
+      <form className="storefront-review-center__form" onSubmit={onSubmit}>
+        <h2>Review a delivered order</h2>
+        <label>
+          Order
+          <select
+            value={draft.orderNumber}
+            onChange={(event) => onChange((current) => ({
+              ...current,
+              orderNumber: event.target.value,
+              productId: "",
+            }))}
+            required
+          >
+            <option value="">Select an order</option>
+            {orders.map((order) => (
+              <option key={order.id} value={order.orderNumber}>
+                {order.orderNumber} ({order.fulfilmentStatus || "processing"})
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          What would you like to review?
+          <select
+            value={draft.type}
+            onChange={(event) => onChange((current) => ({
+              ...current,
+              type: event.target.value,
+              productId: "",
+            }))}
+          >
+            <option value="product">A product</option>
+            <option value="seller">The seller</option>
+          </select>
+        </label>
+        {draft.type === "product" && (
+          <label>
+            Product
+            <select
+              value={draft.productId}
+              onChange={(event) => onChange((current) => ({
+                ...current,
+                productId: event.target.value,
+              }))}
+              required
+            >
+              <option value="">Select a product</option>
+              {productItems.map((item) => (
+                <option key={item.productId} value={item.productId}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        <label>
+          Rating
+          <select
+            value={draft.rating}
+            onChange={(event) => onChange((current) => ({
+              ...current,
+              rating: event.target.value,
+            }))}
+          >
+            <option value="5">★★★★★ Excellent</option>
+            <option value="4">★★★★ Good</option>
+            <option value="3">★★★ Average</option>
+            <option value="2">★★ Poor</option>
+            <option value="1">★ Very poor</option>
+          </select>
+        </label>
+        <label>
+          Your review
+          <textarea
+            value={draft.reviewText}
+            onChange={(event) => onChange((current) => ({
+              ...current,
+              reviewText: event.target.value,
+            }))}
+            placeholder="Tell us about your experience"
+            rows={5}
+            required
+          />
+        </label>
+        <label>
+          Review images (optional)
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={onFilesChange}
+          />
+          <small>Select up to 4 images. They will be sent with your review.</small>
+        </label>
+        <button type="submit" disabled={isSending || orders.length === 0}>
+          {isSending ? "Submitting..." : "Submit review"}
+        </button>
+        {orders.length === 0 && (
+          <p className="storefront-review-center__hint">
+            Your signed-in delivered orders will appear here.
+          </p>
+        )}
+        {message && <p className="storefront-reviews__success">{message}</p>}
+      </form>
+    </div>
+  );
 }
 
 function ProductReviews({

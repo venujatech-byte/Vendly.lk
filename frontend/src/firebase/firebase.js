@@ -1,3 +1,17 @@
+//firestore emulator
+import {
+  getFirestore,
+  connectFirestoreEmulator,
+} from "firebase/firestore";
+import {
+  getStorage,
+  connectStorageEmulator,
+} from "firebase/storage";
+//
+
+
+
+
 // Firebase application setup.
 import { initializeApp } from "firebase/app";
 
@@ -31,9 +45,25 @@ googleProvider.setCustomParameters({
   prompt: "select_account",
 });
 
-// Export these objects so authentication components can use them.
+
+
+//emulator
+const db = getFirestore(firebaseApp);
+const storage = getStorage(firebaseApp);
+
+if (import.meta.env.DEV) {
+  connectFirestoreEmulator(db, "127.0.0.1", 8080);
+  connectStorageEmulator(storage, "127.0.0.1", 9199);
+}
+//
+
+
+
+// Export these objects so authentication components can use them.remove db and storage
 export {
   firebaseApp,
   auth,
+  db,
+  storage,
   googleProvider,
 };
