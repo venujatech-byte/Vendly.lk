@@ -72,6 +72,10 @@ function money(minor = 0) {
   })}`;
 }
 
+function publicMediaUrl(item) {
+  return item?.url || item?.secureUrl || item?.secure_url || item?.downloadUrl || "";
+}
+
 function loadImageFile(file) {
   return new Promise((resolve, reject) => {
     const image = new Image();
@@ -538,6 +542,9 @@ function StorefrontPage({ linkType }) {
             action: response.action,
             product: response.product,
             products: response.products,
+            reviews: response.reviews,
+            reviewSummary: response.reviewSummary,
+            sellerRating: response.sellerRating,
             cartSummary: response.cartSummary,
             customerDraft: response.customerDraft,
           },
@@ -894,6 +901,7 @@ function StorefrontPage({ linkType }) {
               )
             }
             onOpenCheckout={() => setIsCheckoutOpen(true)}
+            onOpenReviews={() => changeView("reviews")}
           />
         )}
 
@@ -1229,6 +1237,136 @@ function ChatProductVariantControl({
   );
 }
 
+function ReviewStars({ rating = 0, size = 14 }) {
+  const roundedRating = Math.round(Number(rating) || 0);
+  return (
+    <span className="chat-reviews__stars" aria-label={`${rating} out of 5 stars`}>
+      {Array.from({ length: 5 }, (_, index) => (
+        <Star
+          key={index}
+          size={size}
+          fill={index < roundedRating ? "currentColor" : "none"}
+        />
+      ))}
+    </span>
+  );
+}
+
+function reviewInitials(name = "Customer") {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
+}
+
+function reviewDate(value) {
+  if (!value) return "Verified purchase";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? "Verified purchase"
+    : date.toLocaleDateString("en-LK", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      });
+}
+
+function ChatReviewCollection({
+  product,
+  reviews,
+  summary,
+  sellerRating,
+  onOpenReviews,
+  onAskProduct,
+}) {
+  const productImage = product?.media?.[0]?.url;
+
+  return (
+    <section className="chat-reviews" aria-label={`Reviews for ${product?.name || "product"}`}>
+      <header className="chat-reviews__product">
+        <span className="chat-reviews__product-image">
+          {productImage ? <img src={productImage} alt="" /> : <Package size={28} />}
+        </span>
+        <div>
+          <strong>{product?.name || "Product"}</strong>
+          <span className="chat-reviews__rating-line">
+            <ReviewStars rating={summary?.averageRating} />
+            <b>{Number(summary?.averageRating || 0).toFixed(1)}</b>
+            <small>{summary?.reviewCount || 0} reviews</small>
+          </span>
+        </div>
+      </header>
+
+      <div className="chat-reviews__list">
+        {reviews.map((review) => (
+          <article className="chat-review-card" key={review.id}>
+            <header>
+              <span className="chat-review-card__avatar">
+                {reviewInitials(review.customerName)}
+              </span>
+              <div>
+                <strong>{review.customerName || "Customer"}</strong>
+                {review.verifiedPurchase && (
+                  <small><ShieldCheck size={12} /> Verified purchase</small>
+                )}
+              </div>
+              <ReviewStars rating={review.rating} size={13} />
+            </header>
+            <p>{review.reviewText || "The customer left a rating for this product."}</p>
+            {review.media?.some((item) => publicMediaUrl(item)) && (
+              <div className="chat-review-card__media">
+                {review.media.filter((item) => publicMediaUrl(item)).slice(0, 4).map((item, index) => (
+                  <a
+                    href={publicMediaUrl(item)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    key={`${review.id}-media-${index}`}
+                    aria-label={`Open review image ${index + 1}`}
+                  >
+                    <img src={publicMediaUrl(item)} alt="Customer review" loading="lazy" />
+                  </a>
+                ))}
+              </div>
+            )}
+            <time>{reviewDate(review.createdAt)}</time>
+          </article>
+        ))}
+        {reviews.length === 0 && (
+          <p className="chat-reviews__empty">No approved product reviews yet.</p>
+        )}
+      </div>
+
+      <article className="chat-reviews__seller">
+        <span className="chat-reviews__seller-avatar">
+          {reviewInitials(sellerRating?.businessName || "Seller")}
+        </span>
+        <div>
+          <small>Seller rating</small>
+          <strong>{sellerRating?.businessName || "Seller"}</strong>
+          <span className="chat-reviews__rating-line">
+            <ReviewStars rating={sellerRating?.averageRating} size={13} />
+            <b>{Number(sellerRating?.averageRating || 0).toFixed(1)}</b>
+            <small>{sellerRating?.reviewCount || 0} ratings</small>
+          </span>
+          <div className="chat-reviews__tags">
+            <span>Verified seller</span>
+            <span>Good service</span>
+            <span>Reliable orders</span>
+          </div>
+        </div>
+      </article>
+
+      <footer>
+        <button type="button" onClick={onOpenReviews}>View all reviews</button>
+        <button type="button" onClick={onAskProduct}>Ask about this product</button>
+      </footer>
+    </section>
+  );
+}
+
 function ChatbotView({
   business,
   cart,
@@ -1247,6 +1385,7 @@ function ChatbotView({
   onSetItemQuantity,
   onRemoveItem,
   onOpenCheckout,
+  onOpenReviews,
 }) {
   return (
     <div className="storefront-page storefront-chat-page">
@@ -1303,7 +1442,9 @@ function ChatbotView({
                     </div>
                   )}
 
-                {message.role === "assistant" && message.product && (
+                {message.role === "assistant" &&
+                  message.product &&
+                  message.action !== "show-reviews" && (
                   <div className="storefront-chat-product">
                     <div>
                       {message.product.media?.[0]?.url ? (
@@ -1339,6 +1480,20 @@ function ChatbotView({
                     </div>
                   </div>
                 )}
+
+                {message.role === "assistant" &&
+                  message.action === "show-reviews" && (
+                    <ChatReviewCollection
+                      product={message.product}
+                      reviews={message.reviews || []}
+                      summary={message.reviewSummary}
+                      sellerRating={message.sellerRating}
+                      onOpenReviews={onOpenReviews}
+                      onAskProduct={() =>
+                        onQuickMessage(`Tell me more about ${message.product?.name || "this product"}`)
+                      }
+                    />
+                  )}
 
                 {message.role === "assistant" &&
                   message.action === "confirm-order" && (

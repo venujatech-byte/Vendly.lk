@@ -615,6 +615,36 @@ function CustomersPage() {
 function ReviewsTable({ reviews, isLoading, onModerate }) {
   const [expandedReviewId, setExpandedReviewId] = useState(null);
 
+  function mediaUrl(item) {
+    return item?.url || item?.secureUrl || item?.secure_url || item?.downloadUrl || "";
+  }
+
+  function ReviewImages({ media = [], compact = false }) {
+    const images = media.filter((item) => mediaUrl(item));
+    if (images.length === 0) return <span className="review-images__empty">—</span>;
+
+    return (
+      <div className={`review-images ${compact ? "review-images--compact" : ""}`}>
+        {images.slice(0, 4).map((item, index) => {
+          const url = mediaUrl(item);
+          return (
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              key={`${url}-${index}`}
+              title="Open review image in a new tab"
+              aria-label={`Open review image ${index + 1} in a new tab`}
+            >
+              <img src={url} alt={`Customer review ${index + 1}`} loading="lazy" />
+            </a>
+          );
+        })}
+        {images.length > 4 && <span className="review-images__more">+{images.length - 4}</span>}
+      </div>
+    );
+  }
+
   return (
     <section className="customer-table-card" aria-label="Customer reviews list">
     <div className="customer-table-scroll">
@@ -654,7 +684,7 @@ function ReviewsTable({ reviews, isLoading, onModerate }) {
             </td>
             <td><span className="customer-rating">{"★".repeat(Math.max(0, Math.min(5, Number(review.rating) || 0)))}{"☆".repeat(Math.max(0, 5 - (Number(review.rating) || 0)))}</span></td>
             <td>{review.reviewText || review.comment || "No written review"}</td>
-            <td>{review.media?.length ? `${review.media.length} image(s)` : "—"}</td>
+            <td><ReviewImages media={review.media} compact /></td>
             <td>{review.createdAt ? new Date(review.createdAt).toLocaleDateString("en-LK") : "—"}</td>
             <td><span className={`management-table__badge management-table__badge--${review.status || "pending"}`}>{review.status || "pending"}</span></td>
             <td>
@@ -674,7 +704,7 @@ function ReviewsTable({ reviews, isLoading, onModerate }) {
                 <div className="customer-expanded-details">
                   <div><strong>Customer</strong><span>{review.customerName || "Customer"}</span><span>{review.customerPhone ? `+${review.customerPhone}` : "No phone"}</span><span>{review.customerEmail || "No email"}</span></div>
                   <div><strong>Product</strong><span>{review.productName || review.itemName || "Product review"}</span><span>Rating: {review.rating || 0}/5</span></div>
-                  <div><strong>Review</strong><span>{review.reviewText || review.comment || "No written review"}</span><span>{review.media?.length ? `${review.media.length} review image(s)` : "No review images"}</span></div>
+                  <div className="review-expanded-content"><strong>Review</strong><span>{review.reviewText || review.comment || "No written review"}</span><ReviewImages media={review.media} /></div>
                   <div><strong>Review status</strong><span>{review.status || "pending"}</span><span>{review.createdAt ? new Date(review.createdAt).toLocaleDateString("en-LK") : "No date"}</span></div>
                 </div>
               </td>

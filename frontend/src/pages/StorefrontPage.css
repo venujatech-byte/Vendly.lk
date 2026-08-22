@@ -865,6 +865,232 @@
   gap: 8px;
 }
 
+/* Structured product and seller reviews shown inside the chatbot. */
+.chat-reviews {
+  display: grid;
+  width: min(560px, 100%);
+  overflow: hidden;
+  border: 1px solid var(--sf-border);
+  border-radius: 18px;
+  background: var(--sf-surface);
+  box-shadow: 0 10px 28px rgba(7, 55, 91, 0.08);
+}
+
+.chat-reviews__product {
+  display: flex;
+  padding: 13px;
+  align-items: center;
+  gap: 11px;
+  border-bottom: 1px solid var(--sf-border);
+  background: color-mix(in srgb, var(--sf-primary) 5%, var(--sf-surface));
+}
+
+.chat-reviews__product-image {
+  display: grid;
+  width: 58px;
+  height: 58px;
+  flex: 0 0 58px;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 12px;
+  color: var(--sf-primary);
+  background: var(--sf-surface-muted);
+}
+
+.chat-reviews__product-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.chat-reviews__product > div,
+.chat-review-card header > div,
+.chat-reviews__seller > div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.chat-reviews__product strong,
+.chat-reviews__seller strong {
+  overflow: hidden;
+  font-size: 0.86rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-reviews__rating-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chat-reviews__rating-line b {
+  font-size: 0.76rem;
+}
+
+.chat-reviews__rating-line small,
+.chat-reviews__seller > div > small {
+  color: var(--sf-muted);
+  font-size: 0.67rem;
+}
+
+.chat-reviews__stars {
+  display: inline-flex;
+  color: #f5a300;
+}
+
+.chat-reviews__list {
+  display: grid;
+  padding: 11px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.chat-review-card {
+  display: grid;
+  min-width: 0;
+  padding: 10px;
+  gap: 8px;
+  border: 1px solid var(--sf-border);
+  border-radius: 13px;
+  background: var(--sf-soft);
+}
+
+.chat-review-card header {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+}
+
+.chat-review-card__avatar,
+.chat-reviews__seller-avatar {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border-radius: 50%;
+  color: #07569a;
+  background: #dceeff;
+  font-size: 0.65rem;
+  font-weight: 800;
+}
+
+.chat-review-card header strong {
+  overflow: hidden;
+  font-size: 0.72rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-review-card header small {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: #11815b;
+  font-size: 0.58rem;
+}
+
+.chat-review-card p {
+  color: var(--sf-text);
+  font-size: 0.7rem;
+  line-height: 1.45;
+}
+
+.chat-review-card time {
+  color: var(--sf-muted);
+  font-size: 0.6rem;
+}
+
+.chat-review-card__media {
+  display: flex;
+  gap: 5px;
+}
+
+.chat-review-card__media a {
+  display: block;
+  width: 48px;
+  height: 48px;
+  overflow: hidden;
+  border: 1px solid var(--sf-border);
+  border-radius: 8px;
+}
+
+.chat-review-card__media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.chat-reviews__empty {
+  grid-column: 1 / -1;
+  padding: 15px;
+  color: var(--sf-muted);
+  text-align: center;
+  font-size: 0.72rem;
+}
+
+.chat-reviews__seller {
+  display: grid;
+  margin: 0 11px 11px;
+  padding: 11px;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 9px;
+  border: 1px solid color-mix(in srgb, var(--sf-primary) 25%, var(--sf-border));
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--sf-primary) 5%, var(--sf-surface));
+}
+
+.chat-reviews__seller-avatar {
+  width: 34px;
+  height: 34px;
+  color: #fff;
+  background: var(--sf-primary);
+}
+
+.chat-reviews__tags {
+  display: flex;
+  margin-top: 3px;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.chat-reviews__tags span {
+  padding: 3px 6px;
+  border-radius: 999px;
+  color: #087657;
+  background: #dcf8ee;
+  font-size: 0.56rem;
+  font-weight: 700;
+}
+
+.chat-reviews > footer {
+  display: grid;
+  padding: 10px 11px;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  border-top: 1px solid var(--sf-border);
+}
+
+.chat-reviews > footer button {
+  min-height: 35px;
+  padding: 7px 10px;
+  border: 1px solid var(--sf-primary);
+  border-radius: 9px;
+  color: var(--sf-primary);
+  background: var(--sf-surface);
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.chat-reviews > footer button:last-child {
+  color: #fff;
+  background: var(--sf-primary);
+}
+
 .storefront-chat-product__variant-row {
   display: flex;
   min-height: 46px;
@@ -2267,6 +2493,22 @@
 
   .storefront-chat-message__content {
     max-width: 86%;
+  }
+
+  .storefront-chat-message--assistant:has(.chat-reviews) .storefront-chat-message__content {
+    max-width: calc(100% - 39px);
+  }
+
+  .chat-reviews__list {
+    grid-template-columns: 1fr;
+  }
+
+  .chat-review-card header {
+    grid-template-columns: 28px minmax(0, 1fr) auto;
+  }
+
+  .chat-reviews > footer {
+    grid-template-columns: 1fr;
   }
 
   .storefront-chat-message__content > p,
