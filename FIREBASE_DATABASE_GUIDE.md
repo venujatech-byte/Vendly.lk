@@ -157,3 +157,22 @@ Use the Firebase Emulator Suite later for safe local tests.
 - Use a Firestore transaction when reserving stock and creating an order.
 - Keep customer phone numbers and addresses private and restrict staff roles.
 - Cloudinary or another object store should hold media; Firestore stores URLs.
+
+## Chatbot customer and delivery fields
+
+The public chat session stores an in-progress `customerDraft` map. Keep it on the session document so the customer can continue after navigation or a temporary network retry:
+
+```text
+publicChatSessions/{sessionId}
+  customerDraft.name
+  customerDraft.phoneNumber
+  customerDraft.secondaryPhoneNumber   // optional; empty string is valid
+  customerDraft.address.line1
+  customerDraft.address.city           // nearest city
+  customerDraft.address.district
+  customerDraft.address.line2
+  customerDraft.address.postalCode
+  customerDraft.deliveryNote            // optional
+```
+
+After confirmation, copy the same fields into the customer document and the order snapshot. `secondaryPhoneNumber` may be empty, but `phoneNumber`, `address.line1`, `address.city`, and `address.district` are required. Firestore security rules must allow a customer to update only their own public session and must prevent a public client from changing calculated totals, stock, seller ownership, or order status.

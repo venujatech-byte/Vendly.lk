@@ -1679,6 +1679,9 @@ function ChatbotView({
           <DraftField label="Customer Name" value={customer.name} />
           <DraftField label="Phone No" value={customer.phoneNumber} />
           {customer.secondaryPhoneNumber && (
+            <DraftField label="Second phone" value={customer.secondaryPhoneNumber} />
+          )}
+          {customer.secondaryPhoneNumber && (
             <DraftField label="2nd Phone No" value={customer.secondaryPhoneNumber} />
           )}
           <DraftField

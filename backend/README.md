@@ -39,3 +39,7 @@ The catalogue, chatbot and public checkout endpoints are rate limited. The
 default `memory://` storage is suitable for local development and one API
 process. Before scaling the API to multiple processes or servers, configure a
 shared rate-limit storage service through `RATE_LIMIT_STORAGE_URI`.
+
+### Chatbot checkout contact fields
+
+The public chat endpoint collects a required primary phone and an optional `secondaryPhoneNumber` (customers may reply `skip`), followed by `address.line1`, `address.district`, `address.city`, and optional `deliveryNote`. The session draft is saved after each message and the order is created only after an explicit confirmation.

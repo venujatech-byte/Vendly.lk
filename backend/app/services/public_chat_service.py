@@ -357,6 +357,22 @@ def parse_delivery_address(message):
     }
 
 
+def is_optional_phone_skip(message):
+    """Return True when the customer intentionally has no second number."""
+    return str(message).strip().lower() in {
+        "skip", "no", "none", "n/a", "na", "no second number",
+        "i don't have one", "i do not have one", "continue",
+    }
+
+
+def parse_required_location(message, field_name):
+    """Validate a single free-text location field collected by the chatbot."""
+    value = str(message).strip()
+    if len(value) < 2 or not any(character.isalpha() for character in value):
+        raise ValueError(f"Please enter a valid {field_name}.")
+    return required_text(value, field_name, 120)
+
+
 def token_hash(token):
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
@@ -748,21 +764,91 @@ def answer_public_message(database, session_id, provided_token, payload):
 
         customer_draft["phoneNumber"] = message.strip()
         return respond(
-            "Please send the street address, nearest city and district separated "
-            "by commas. Example: No. 45 Park Road, Dehiwala, Colombo.",
+            "Do you have a second phone number? Send it, or type 'skip' if you "
+            "only have one number.",
+            "collect-secondary-phone",
+            next_state="collecting-secondary-phone",
+        )
+
+    if current_state == "collecting-secondary-phone":
+        if is_optional_phone_skip(message):
+            customer_draft["secondaryPhoneNumber"] = ""
+        else:
+            try:
+                normalize_sri_lankan_phone(message)
+            except ValueError as error:
+                return respond(
+                    f"{error} Send a valid second number, or type 'skip' to "
+                    "continue with one number.",
+                    "collect-secondary-phone",
+                    next_state="collecting-secondary-phone",
+                )
+            customer_draft["secondaryPhoneNumber"] = message.strip()
+
+        return respond(
+            "Please send your street address (for example: No. 45 Park Road).",
             "collect-address",
             next_state="collecting-address",
         )
 
     if current_state == "collecting-address":
         try:
-            customer_draft["address"] = parse_delivery_address(message)
+            address_line = required_text(message.strip(), "Street address", 200)
         except ValueError as error:
             return respond(
                 str(error),
                 "collect-address",
                 next_state="collecting-address",
             )
+
+        customer_draft["address"] = {
+            "line1": address_line,
+            "line2": "",
+            "city": "",
+            "district": "",
+            "postalCode": "",
+        }
+        return respond(
+            "Which district should we deliver to?",
+            "collect-district",
+            next_state="collecting-district",
+        )
+
+    if current_state == "collecting-district":
+        try:
+            customer_draft["address"]["district"] = parse_required_location(
+                message, "district"
+            )
+        except ValueError as error:
+            return respond(str(error), "collect-district", next_state="collecting-district")
+
+        return respond(
+            "What is the nearest city?",
+            "collect-nearest-city",
+            next_state="collecting-nearest-city",
+        )
+
+    if current_state == "collecting-nearest-city":
+        try:
+            customer_draft["address"]["city"] = parse_required_location(
+                message, "nearest city"
+            )
+        except ValueError as error:
+            return respond(
+                str(error),
+                "collect-nearest-city",
+                next_state="collecting-nearest-city",
+            )
+
+        return respond(
+            "Do you have any extra delivery note? Type it, or type 'skip' if "
+            "there is no note.",
+            "collect-delivery-note",
+            next_state="collecting-delivery-note",
+        )
+
+    if current_state == "collecting-delivery-note":
+        customer_draft["deliveryNote"] = "" if is_optional_phone_skip(message) else message.strip()
 
         item_text = ", ".join(
             f"{item['quantity']} × {item['productName']}"
@@ -772,10 +858,13 @@ def answer_public_message(database, session_id, provided_token, payload):
         address = customer_draft["address"]
         response_message = (
             f"Please confirm your order: {item_text}. Customer: "
-            f"{customer_draft['name']}, {customer_draft['phoneNumber']}. Delivery: "
+            f"{customer_draft['name']}, {customer_draft['phoneNumber']}"
+            + (f" / {customer_draft['secondaryPhoneNumber']}" if customer_draft.get("secondaryPhoneNumber") else "")
+            + ". Delivery: "
             f"{address['line1']}, {address['city']}, {address['district']}. "
-            "The delivery fee will be calculated from the district and total weight. "
-            "Reply 'confirm order' to submit, or 'change order' to edit the details."
+            + (f"Note: {customer_draft['deliveryNote']}. " if customer_draft.get("deliveryNote") else "")
+            + "The delivery fee will be calculated from the district and total weight. "
+            + "Reply 'confirm order' to submit, or 'change order' to edit the details."
         )
         return respond(
             response_message,
@@ -802,6 +891,7 @@ def answer_public_message(database, session_id, provided_token, payload):
                     "customer": {
                         "name": customer_draft.get("name"),
                         "phoneNumber": customer_draft.get("phoneNumber"),
+                        "secondaryPhoneNumber": customer_draft.get("secondaryPhoneNumber", ""),
                         "email": customer_draft.get("email", ""),
                         "address": customer_draft.get("address"),
                     },

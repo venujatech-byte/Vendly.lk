@@ -141,3 +141,7 @@ npm.cmd run build
 ```
 
 See [`docs/api-endpoints.md`](docs/api-endpoints.md) for the current REST API.
+
+### Chatbot checkout fields
+
+The public chatbot collects a customer name, one required phone number, an optional second phone number, street address, district, nearest city, and an optional delivery note. It keeps these values in the active Firestore chat session and asks the customer to confirm before creating the order. See `FEATURE_BY_FEATURE_IMPLEMENTATION_GUIDE.md`, `BACKEND_API_FROM_SCRATCH.md`, and `FIREBASE_DATABASE_GUIDE.md` for the implementation details.

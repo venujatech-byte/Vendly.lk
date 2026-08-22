@@ -204,3 +204,31 @@ pytest
 Test unauthorized requests, wrong-business access, invalid phone/address,
 duplicate waybill numbers, concurrent stock deductions and multi-item orders.
 Only after these tests pass should the frontend depend on the endpoint.
+
+## Chatbot checkout contact flow
+
+`POST /api/v1/public/chat/sessions/{sessionId}/messages` drives checkout using the session `state` field. After the name and primary phone are validated, the service asks for a second phone. The second phone is optional: `skip`, `no`, and `none` store an empty `secondaryPhoneNumber` and continue.
+
+The service then collects the street address, district, nearest city, and an optional `deliveryNote`. It stores the draft on the public chat session after every message, so a refresh does not lose progress. Before checkout it sends a summary and only calls `create_public_chat_order` after `confirm order`.
+
+Example draft saved on `publicChatSessions/{sessionId}`:
+
+```json
+{
+  "customerDraft": {
+    "name": "Sanjaya Perera",
+    "phoneNumber": "0771234567",
+    "secondaryPhoneNumber": "0711234567",
+    "address": {
+      "line1": "No. 45 Park Road",
+      "city": "Dehiwala",
+      "district": "Colombo",
+      "line2": "",
+      "postalCode": ""
+    },
+    "deliveryNote": "Call before dispatch"
+  }
+}
+```
+
+`create_public_chat_order` passes both phone fields to the customer service and passes `deliveryNote` into the order private note. The server validates the values again, calculates delivery and totals, and stores the final snapshot; browser values are never trusted for totals or stock.

@@ -27217,3 +27217,18 @@ The setup references are split into three smaller documents:
 - `PROGRAMMING_LEARNING_PATH.md` — JavaScript, React, Python, Flask and Firestore concepts in learning order.
 
 For every feature: define its Firestore document, add a protected Flask endpoint, test validation and permissions, connect one React component, then add loading and error states. Trusted totals, stock deductions and role checks must never exist only in the browser.
+
+## Chatbot contact collection (latest)
+
+When a customer checks out through the chatbot, collect these values in order:
+
+1. Full name.
+2. Primary Sri Lankan phone number.
+3. Optional second phone number. Accept `skip`, `no`, or `none` when the customer has only one number.
+4. Street address.
+5. District.
+6. Nearest city.
+7. Optional delivery note. Accept `skip` when there is no note.
+8. Show the complete order summary and wait for `confirm order`.
+
+The chatbot state machine uses `collecting-secondary-phone`, `collecting-address`, `collecting-district`, `collecting-nearest-city`, and `collecting-delivery-note`. Invalid phone numbers and empty location fields keep the customer in the same state and display a correction message. The final customer object contains `phoneNumber`, `secondaryPhoneNumber`, and an address with `line1`, `city`, and `district`; `deliveryNote` is saved with the order.

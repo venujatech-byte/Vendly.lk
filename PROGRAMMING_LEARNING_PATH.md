@@ -159,3 +159,5 @@ states. Commit after each working feature.
 - Use descriptive names and small functions.
 - Do not duplicate business calculations in React and Flask.
 - Write a small test when a bug is fixed.
+
+For the chatbot checkout, practise state machines: each user answer moves from one named state to the next. Learn Python validation functions, React controlled inputs, and Firestore document updates together. The optional second phone and delivery note are good examples of optional fields with a `skip` branch.

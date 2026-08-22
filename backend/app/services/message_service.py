@@ -31,6 +31,7 @@ def _customer_details(database, session):
         "uid": session.get("customerUid"),
         "name": draft.get("name") or account.get("displayName") or "Guest customer",
         "phoneNumber": draft.get("phoneNumber") or "",
+        "secondaryPhoneNumber": draft.get("secondaryPhoneNumber") or "",
         "email": draft.get("email") or account.get("email") or "",
         "address": address,
     }

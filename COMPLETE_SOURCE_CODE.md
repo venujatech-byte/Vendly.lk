@@ -26801,6 +26801,10 @@ function CustomerAuthGate({ linkType }) {
 export default CustomerAuthGate;
 ````
 
+## Latest chatbot checkout additions
+
+The chatbot checkout now collects `name`, required `phoneNumber`, optional `secondaryPhoneNumber`, street address, district, nearest city, and optional `deliveryNote`. Customers can type `skip` for the optional fields. The state sequence is `collecting-name` → `collecting-phone` → `collecting-secondary-phone` → `collecting-address` → `collecting-district` → `collecting-nearest-city` → `collecting-delivery-note` → `awaiting-confirmation`. The server stores the draft in Firestore after each reply and creates the order only after confirmation.
+
 #### `frontend/src/pages/CustomerAuthGate.css`
 
 ````css

@@ -561,3 +561,7 @@ Same React data and business logic
 ```
 
 This keeps one maintainable codebase while giving desktop and mobile users layouts suited to their screen sizes.
+
+## Chatbot contact form on mobile
+
+Keep each contact question as a normal chat message and input. The second phone field is optional; the customer can type `skip`. Use full-width controls for the street address, district, nearest city, and delivery note. Show the collected draft in the fixed order-summary panel and allow scrolling inside the chat panel so the checkout controls remain reachable on small screens.

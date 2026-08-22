@@ -95,3 +95,5 @@ session was created:
 ```http
 X-Chat-Session-Token: SESSION_TOKEN
 ```
+
+During chatbot checkout, send the customer draft through the messages endpoint. The final order payload supports `phoneNumber`, optional `secondaryPhoneNumber`, `address.line1`, `address.city`, `address.district`, and optional `deliveryNote`. The server validates these fields and calculates the final delivery fee and total.

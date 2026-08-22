@@ -1592,3 +1592,7 @@ For database and server implementation use `FIREBASE_DATABASE_GUIDE.md` and
 `BACKEND_API_FROM_SCRATCH.md`. They introduce small fragments first—authentication,
 a route, a product document and a transactional order—before showing how the
 pieces connect.
+
+## Implementing the latest chatbot fields
+
+Add one state handler per question instead of parsing all contact details in one message. Validate the primary and optional secondary Sri Lankan numbers, then save `address.line1`, `address.city`, `address.district`, and `deliveryNote` in the session draft. Render the returned draft in React so the seller/customer can verify it before confirmation. The order POST must send both phone fields and the delivery note; Flask validates them again before writing Firestore.
