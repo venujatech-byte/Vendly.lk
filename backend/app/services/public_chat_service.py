@@ -22,7 +22,10 @@ from app.services.public_catalog_service import (
     public_product,
 )
 from app.services.text import optional_text, required_text
-from app.services.review_service import list_public_product_reviews
+from app.services.review_service import (
+    list_public_product_reviews,
+    list_public_seller_reviews,
+)
 
 
 PRODUCT_STOP_WORDS = {
@@ -64,6 +67,77 @@ NEW_ORDER_PHRASES = {
     "make another order",
     "buy something else",
 }
+
+ORDER_ENQUIRY_WORDS = {
+    "status",
+    "ship",
+    "shipped",
+    "shipping",
+    "deliver",
+    "delivered",
+    "delivery",
+    "track",
+    "tracking",
+    "waybill",
+    "packed",
+    "dispatch",
+    "arrive",
+    "arrival",
+}
+
+
+def is_explicit_new_order_request(message):
+    """Only an unmistakable request may reset a completed order chat."""
+    clean_message = str(message).strip().casefold()
+    return any(phrase in clean_message for phrase in NEW_ORDER_PHRASES)
+
+
+def is_order_enquiry(message):
+    """Recognise delivery, tracking and existing-order questions."""
+    words = set(re.findall(r"[a-z0-9]+", str(message).casefold()))
+    return bool(words & ORDER_ENQUIRY_WORDS) or "order info" in str(message).casefold() \
+        or "order details" in str(message).casefold()
+
+
+def latest_order_for_session(database, session):
+    """Find the linked order, or the latest order owned by this customer."""
+    orders_reference = (
+        database.collection("businesses")
+        .document(session["businessId"])
+        .collection("orders")
+    )
+    order_id = session.get("orderId")
+    if order_id:
+        snapshot = orders_reference.document(order_id).get()
+        if snapshot.exists:
+            return {"id": snapshot.id, **snapshot.to_dict()}
+
+    customer_uid = session.get("customerUid")
+    if not customer_uid:
+        return None
+
+    snapshots = orders_reference.where("customerUid", "==", customer_uid).stream()
+    orders = [{"id": item.id, **item.to_dict()} for item in snapshots]
+    if not orders:
+        return None
+    return max(orders, key=lambda item: str(item.get("createdAt", "")))
+
+
+def order_information_message(order):
+    status = str(order.get("fulfilmentStatus") or "needs-confirmation").replace(
+        "-", " "
+    )
+    parts = [
+        f"Your order {order.get('orderNumber', '')} is currently {status}.",
+        f"Order total: LKR {order.get('totalAmountMinor', 0) / 100:,.2f}.",
+    ]
+    courier_name = (order.get("courierSnapshot") or {}).get("name")
+    if courier_name:
+        parts.append(f"Courier: {courier_name}.")
+    if order.get("waybillNumber"):
+        parts.append(f"Waybill number: {order['waybillNumber']}.")
+    parts.append("Ask me about this order, or say 'another order' to shop again.")
+    return " ".join(parts)
 
 
 def message_tokens(value):
@@ -372,7 +446,10 @@ def authorize_public_chat_session(
         token_hash(provided_token),
     ):
         raise ApiError("invalid_chat_session", "Chat session is invalid.", 401)
-    if not allow_closed and session.get("status") != "active":
+    # A completed order does not end the customer conversation. Customers must
+    # still be able to ask about delivery, tracking and their order status.
+    # Only explicitly closed sessions are blocked from receiving messages.
+    if not allow_closed and session.get("status") not in {"active", "completed"}:
         raise ApiError("chat_session_closed", "Chat session is closed.", 409)
 
     expires_at = session.get("expiresAt")
@@ -540,6 +617,9 @@ def answer_public_message(database, session_id, provided_token, payload):
         next_state=None,
         product=None,
         response_products=None,
+        response_reviews=None,
+        review_summary=None,
+        seller_rating=None,
         selected_product_id="unchanged",
     ):
         state = next_state or current_state
@@ -570,6 +650,9 @@ def answer_public_message(database, session_id, provided_token, payload):
             "state": state,
             "product": product,
             "products": response_products or [],
+            "reviews": response_reviews or [],
+            "reviewSummary": review_summary,
+            "sellerRating": seller_rating,
             "cart": cart,
             "cartSummary": cart_summary,
             "cartSubtotalMinor": sum(
@@ -582,11 +665,28 @@ def answer_public_message(database, session_id, provided_token, payload):
     # order. Do not treat "ok", "thanks" or a status question as a brand-new
     # shopping session. A new catalogue is shown only when the customer clearly
     # asks to place another order.
+    latest_order = None
+    if is_order_enquiry(lowered_message):
+        latest_order = latest_order_for_session(database, session)
+        if latest_order:
+            session_snapshot.reference.set(
+                {
+                    "orderId": latest_order["id"],
+                    "status": "completed",
+                    "state": "completed",
+                    "updatedAt": firestore.SERVER_TIMESTAMP,
+                },
+                merge=True,
+            )
+            return respond(
+                order_information_message(latest_order),
+                "show-order-info",
+                next_state="completed",
+                response_products=[],
+            )
+
     if current_state == "completed" or session.get("status") == "completed":
-        starts_new_order = (
-            any(phrase in lowered_message for phrase in NEW_ORDER_PHRASES)
-            or any(phrase in lowered_message for phrase in ORDER_INTENT_PHRASES)
-        )
+        starts_new_order = is_explicit_new_order_request(lowered_message)
 
         if starts_new_order:
             cart = []
@@ -609,38 +709,10 @@ def answer_public_message(database, session_id, provided_token, payload):
                 ),
             )
 
-        order = None
-        order_id = session.get("orderId")
-        if order_id:
-            order_snapshot = (
-                database.collection("businesses")
-                .document(session["businessId"])
-                .collection("orders")
-                .document(order_id)
-                .get()
-            )
-            if order_snapshot.exists:
-                order = {"id": order_snapshot.id, **order_snapshot.to_dict()}
+        order = latest_order_for_session(database, session)
 
         if order:
-            status = str(
-                order.get("fulfilmentStatus") or "needs-confirmation"
-            ).replace("-", " ")
-            response_parts = [
-                f"Your order {order.get('orderNumber', '')} is currently {status}.",
-                f"Order total: LKR {order.get('totalAmountMinor', 0) / 100:,.2f}.",
-            ]
-            courier_name = (order.get("courierSnapshot") or {}).get("name")
-            if courier_name:
-                response_parts.append(f"Courier: {courier_name}.")
-            if order.get("waybillNumber"):
-                response_parts.append(
-                    f"Waybill number: {order['waybillNumber']}."
-                )
-            response_parts.append(
-                "Ask me about this order, or say 'another order' to shop again."
-            )
-            response_message = " ".join(response_parts)
+            response_message = order_information_message(order)
         else:
             response_message = (
                 "Your order has already been submitted. Ask me about that order, "
@@ -900,16 +972,40 @@ def answer_public_message(database, session_id, provided_token, payload):
                 session["businessId"],
                 selected_product["id"],
             )
-            selected_product = {
-                **selected_product,
-                "approvedReviewSnippets": [
-                    {
-                        "rating": review["rating"],
-                        "reviewText": review["reviewText"],
-                    }
-                    for review in reviews[:5]
-                ],
-            }
+            seller_reviews = list_public_seller_reviews(
+                database,
+                session["businessId"],
+            )
+            product_rating = round(
+                sum(review["rating"] for review in reviews) / len(reviews), 1
+            ) if reviews else 0
+            seller_average = round(
+                sum(review["rating"] for review in seller_reviews) / len(seller_reviews),
+                1,
+            ) if seller_reviews else 0
+
+            return respond(
+                (
+                    f"Here are verified reviews for {selected_product['name']}."
+                    if reviews
+                    else f"{selected_product['name']} does not have approved reviews yet."
+                ),
+                "show-reviews",
+                next_state="browsing",
+                product=selected_product,
+                response_reviews=reviews[:6],
+                review_summary={
+                    "averageRating": product_rating,
+                    "reviewCount": len(reviews),
+                },
+                seller_rating={
+                    "businessName": catalog["business"].get("name", "Seller"),
+                    "averageRating": seller_average,
+                    "reviewCount": len(seller_reviews),
+                    "recentReviews": seller_reviews[:3],
+                },
+                selected_product_id=selected_product["id"],
+            )
 
         deterministic_description = (
             selected_product.get("aiDescription")
@@ -917,15 +1013,7 @@ def answer_public_message(database, session_id, provided_token, payload):
             or "The seller has not added a detailed description yet."
         )
 
-        if "review" in lowered_message and selected_product.get("approvedReviewSnippets"):
-            review_text = "; ".join(
-                f"{review['rating']}/5 - {review['reviewText']}"
-                for review in selected_product["approvedReviewSnippets"]
-            )
-            response_message = f"Verified customer reviews: {review_text}"
-        elif "review" in lowered_message:
-            response_message = "This product does not have approved customer reviews yet."
-        elif is_catalog_number_choice(message) or explicitly_selected_product:
+        if is_catalog_number_choice(message) or explicitly_selected_product:
             available_sizes = [
                 variant.get("size")
                 for variant in selected_product.get("variants", [])

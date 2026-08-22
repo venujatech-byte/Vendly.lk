@@ -5,12 +5,14 @@ from google.cloud.firestore_v1.base_query import FieldFilter
 from app.core.errors import ApiError
 from app.core.serialization import serialize_snapshot
 from app.services.customer_service import normalize_sri_lankan_phone
+from app.services.media_service import upload_review_data_url
 from app.services.numbers import non_negative_integer
 from app.services.public_catalog_service import resolve_short_link
 from app.services.text import optional_text, required_text
 
 
 REVIEW_STATUSES = {"pending", "approved", "rejected"}
+MAX_REVIEW_MEDIA_CHARACTERS = 800_000
 
 
 def validate_review_payload(payload):
@@ -27,24 +29,38 @@ def validate_review_payload(payload):
     if rating < 1 or rating > 5:
         raise ApiError("validation_error", "Rating must be between 1 and 5.", 422)
 
+    media = [
+        {
+            "type": str(item.get("type", "image")),
+            "url": str(item.get("url", "")),
+        }
+        for item in (payload.get("media") or [])[:4]
+        if isinstance(item, dict) and item.get("url")
+    ]
+    if sum(len(item["url"]) for item in media) > MAX_REVIEW_MEDIA_CHARACTERS:
+        raise ApiError(
+            "review_media_too_large",
+            "The review images are too large. Please choose smaller images.",
+            413,
+        )
+
     return {
         "orderNumber": order_number,
         "normalizedPhone": normalized_phone,
         "productId": product_id,
         "reviewText": review_text,
         "rating": rating,
-        "media": [
-            {
-                "type": str(item.get("type", "image")),
-                "url": str(item.get("url", "")),
-            }
-            for item in (payload.get("media") or [])[:4]
-            if isinstance(item, dict) and item.get("url")
-        ],
+        "media": media,
     }
 
 
-def create_verified_review(database, store_code, payload, customer_uid=None):
+def create_verified_review(
+    database,
+    store_code,
+    payload,
+    customer_uid=None,
+    cloudinary_config=None,
+):
     review = validate_review_payload(payload)
     link = resolve_short_link(database, store_code, "store")
     business_id = link["businessId"]
@@ -110,6 +126,16 @@ def create_verified_review(database, store_code, payload, customer_uid=None):
             409,
         )
 
+    uploaded_media = [
+        upload_review_data_url(
+            item["url"],
+            business_id,
+            review_id,
+            cloudinary_config or {},
+        )
+        for item in review["media"]
+    ]
+
     reference.set(
         {
             "type": review_type,
@@ -125,7 +151,9 @@ def create_verified_review(database, store_code, payload, customer_uid=None):
             "customerEmail": order.get("customerSnapshot", {}).get("email", ""),
             "rating": review["rating"],
             "reviewText": review["reviewText"],
-            "media": review["media"],
+            # Firestore stores only Cloudinary metadata and secure URLs, not
+            # the base64 image contents sent by the browser.
+            "media": uploaded_media,
             "status": "pending",
             "verifiedPurchase": True,
             "createdAt": firestore.SERVER_TIMESTAMP,
@@ -201,6 +229,7 @@ def list_public_product_reviews(database, business_id, product_id):
             "reviewText": review.get("reviewText", ""),
             "verifiedPurchase": review.get("verifiedPurchase", False),
             "createdAt": review.get("createdAt"),
+            "media": review.get("media") or [],
         }
         for review in list_reviews(
             database,
@@ -208,6 +237,23 @@ def list_public_product_reviews(database, business_id, product_id):
             status="approved",
             product_id=product_id,
         )
+    ]
+
+
+def list_public_seller_reviews(database, business_id):
+    """Return approved seller reviews without exposing private customer data."""
+    return [
+        {
+            "id": review["id"],
+            "customerName": review.get("customerName", "Customer"),
+            "rating": review.get("rating", 0),
+            "reviewText": review.get("reviewText", ""),
+            "verifiedPurchase": review.get("verifiedPurchase", False),
+            "createdAt": review.get("createdAt"),
+            "media": review.get("media") or [],
+        }
+        for review in list_reviews(database, business_id, status="approved")
+        if review.get("type") == "seller"
     ]
 
 

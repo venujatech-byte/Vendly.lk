@@ -1,4 +1,7 @@
 import hashlib
+import base64
+import binascii
+import re
 import time
 from pathlib import Path
 from urllib.parse import quote
@@ -25,6 +28,9 @@ ALLOWED_MEDIA_TYPES = {
 MAX_IMAGE_BYTES = 10 * 1024 * 1024
 MAX_VIDEO_BYTES = 50 * 1024 * 1024
 CLOUDINARY_UPLOAD_URL = "https://api.cloudinary.com/v1_1/{cloud_name}/{resource_type}/upload"
+REVIEW_DATA_URL = re.compile(
+    r"^data:(image/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=\r\n]+)$",
+)
 
 
 def file_size(upload: FileStorage):
@@ -148,6 +154,81 @@ def upload_to_cloudinary(upload, business_id, product_id, cloudinary_config):
         "fileName": safe_name,
         "contentType": upload.mimetype,
         "sizeBytes": size,
+        "provider": "cloudinary",
+    }
+
+
+def upload_review_data_url(data_url, business_id, review_id, cloudinary_config):
+    """Upload one browser-compressed review image to Cloudinary."""
+    cloud_name = cloudinary_config.get("cloud_name")
+    api_key = cloudinary_config.get("api_key")
+    api_secret = cloudinary_config.get("api_secret")
+    if not all((cloud_name, api_key, api_secret)):
+        raise ApiError(
+            "media_storage_not_configured",
+            "Review image storage is not configured. Add the Cloudinary credentials to the backend .env file.",
+            503,
+        )
+
+    match = REVIEW_DATA_URL.fullmatch(str(data_url).strip())
+    if not match:
+        raise ApiError(
+            "unsupported_review_image",
+            "Review images must be JPEG, PNG or WebP files.",
+            422,
+        )
+    try:
+        image_bytes = base64.b64decode(match.group(2), validate=True)
+    except (ValueError, binascii.Error) as error:
+        raise ApiError("invalid_review_image", "A review image is invalid.", 422) from error
+    if not image_bytes or len(image_bytes) > MAX_IMAGE_BYTES:
+        raise ApiError(
+            "review_image_too_large",
+            "Each review image must be 10 MB or smaller.",
+            413,
+        )
+
+    public_id = f"businesses/{business_id}/reviews/{review_id}/{uuid4().hex}"
+    timestamp = int(time.time())
+    parameters = {"public_id": public_id, "timestamp": timestamp}
+    signature = cloudinary_signature(parameters, api_secret)
+    try:
+        response = httpx.post(
+            CLOUDINARY_UPLOAD_URL.format(
+                cloud_name=cloud_name,
+                resource_type="image",
+            ),
+            data={
+                "api_key": api_key,
+                "public_id": public_id,
+                "timestamp": timestamp,
+                "signature": signature,
+                "file": data_url,
+            },
+            timeout=60.0,
+        )
+        response_data = response.json()
+    except (httpx.HTTPError, ValueError) as error:
+        raise ApiError(
+            "cloudinary_upload_failed",
+            "The review image upload service could not be reached.",
+            502,
+        ) from error
+    if response.status_code >= 400:
+        message = response_data.get("error", {}).get("message")
+        raise ApiError(
+            "cloudinary_upload_failed",
+            message or "Cloudinary rejected the review image.",
+            422 if response.status_code < 500 else 502,
+        )
+
+    return {
+        "id": response_data.get("asset_id") or response_data.get("public_id"),
+        "type": "image",
+        "path": response_data.get("public_id", public_id),
+        "url": response_data.get("secure_url") or response_data.get("url", ""),
+        "contentType": match.group(1),
+        "sizeBytes": len(image_bytes),
         "provider": "cloudinary",
     }
 

@@ -72,6 +72,48 @@ function money(minor = 0) {
   })}`;
 }
 
+function loadImageFile(file) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    image.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve(image);
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error("The selected review image could not be opened."));
+    };
+    image.src = objectUrl;
+  });
+}
+
+async function compressReviewImage(file) {
+  if (!file.type.startsWith("image/")) {
+    throw new Error("Review attachments must be image files.");
+  }
+
+  const image = await loadImageFile(file);
+  const maximumSide = 1100;
+  const scale = Math.min(1, maximumSide / Math.max(image.width, image.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(image.width * scale));
+  canvas.height = Math.max(1, Math.round(image.height * scale));
+  canvas.getContext("2d").drawImage(image, 0, 0, canvas.width, canvas.height);
+
+  let quality = 0.78;
+  let dataUrl = canvas.toDataURL("image/jpeg", quality);
+  // Four images must still fit inside Firestore's 1 MiB document limit.
+  while (dataUrl.length > 170_000 && quality > 0.38) {
+    quality -= 0.08;
+    dataUrl = canvas.toDataURL("image/jpeg", quality);
+  }
+  if (dataUrl.length > 220_000) {
+    throw new Error("This image is too large. Please choose a smaller image.");
+  }
+  return { type: "image", url: dataUrl };
+}
+
 function getInitialView() {
   const view = window.location.hash.replace("#", "");
   return ["catalog", "chatbot", "reviews", "contact"].includes(view) ? view : "catalog";
@@ -81,6 +123,12 @@ function getInitialTheme() {
   return localStorage.getItem("vendly-storefront-theme") === "dark"
     ? "dark"
     : "light";
+}
+
+function chatSessionStorageKey(storeCode, productCode, user) {
+  const customerKey = user?.uid || "guest";
+  const linkKey = productCode ? `product:${productCode}` : `store:${storeCode}`;
+  return `vendly-chat-session:${linkKey}:${customerKey}`;
 }
 
 function StorefrontPage({ linkType }) {
@@ -141,21 +189,55 @@ function StorefrontPage({ linkType }) {
           linkType === "product"
             ? getPublicProduct(productCode)
             : getPublicStore(storeCode);
-        const sessionRequest = createPublicChatSession({
-          storeCode: linkType === "store" ? storeCode : undefined,
-          productCode: linkType === "product" ? productCode : undefined,
-        });
+        const sessionKey = chatSessionStorageKey(
+          storeCode,
+          productCode,
+          user,
+        );
+        const savedSession = JSON.parse(
+          localStorage.getItem(sessionKey) || "null",
+        );
+        let sessionRequest;
+        if (savedSession?.sessionId && savedSession?.sessionToken) {
+          // Reuse the existing conversation. The token check below also
+          // detects an expired/invalid saved session and creates a new one.
+          sessionRequest = getPublicChatMessages(
+            savedSession.sessionId,
+            savedSession.sessionToken,
+          )
+            .then(() => ({ ...savedSession, _reused: true }))
+            .catch(() => createPublicChatSession({
+              storeCode: linkType === "store" ? storeCode : undefined,
+              productCode: linkType === "product" ? productCode : undefined,
+            }));
+        } else {
+          sessionRequest = createPublicChatSession({
+            storeCode: linkType === "store" ? storeCode : undefined,
+            productCode: linkType === "product" ? productCode : undefined,
+          });
+        }
         const reviewRequest =
           linkType === "product"
             ? getPublicProductReviews(productCode)
             : Promise.resolve({ reviews: [] });
-        const [catalog, chatSession, reviewResponse] = await Promise.all([
+        const [catalog, sessionResponse, reviewResponse] = await Promise.all([
           catalogRequest,
           sessionRequest,
           reviewRequest,
         ]);
 
         if (!requestIsCurrent) return;
+
+        const chatSession = sessionResponse._reused
+          ? {
+              ...sessionResponse,
+              business: catalog.business,
+              product: linkType === "product" ? catalog.product : null,
+              products: linkType === "product" ? [catalog.product] : catalog.products,
+              message: `Welcome back to ${catalog.business.name}. Ask me about your order or say “another order” to shop again.`,
+              action: "show-order-info",
+            }
+          : sessionResponse;
 
         setBusiness(catalog.business);
         const customerOrderResponse = await getCustomerOrders(catalog.business.shortCode).catch(() => ({ orders: [] }));
@@ -164,6 +246,7 @@ function StorefrontPage({ linkType }) {
           linkType === "product" ? [catalog.product] : catalog.products,
         );
         setSession(chatSession);
+        localStorage.setItem(sessionKey, JSON.stringify(chatSession));
         const historyResponse = await getCustomerChats(catalog.business.shortCode).catch(() => ({ chats: [] }));
         // Mark messages already rendered from history so the live poller does
         // not append them a second time.
@@ -174,8 +257,11 @@ function StorefrontPage({ linkType }) {
             }
           });
         });
-        const previousChat = historyResponse.chats?.find((chat) =>
-          chat.sessionId !== chatSession.sessionId && chat.messages?.length > 1,
+        const currentChat = historyResponse.chats?.find(
+          (chat) => chat.sessionId === chatSession.sessionId,
+        );
+        const previousChat = currentChat || historyResponse.chats?.find((chat) =>
+          chat.messages?.length > 1,
         );
         const previousMessages = previousChat?.messages?.map((message) => ({
           role: message.role === "seller" ? "assistant" : message.role,
@@ -820,14 +906,17 @@ function StorefrontPage({ linkType }) {
             onChange={setStorefrontReviewDraft}
             onSubmit={submitStorefrontReview}
             onFilesChange={async (event) => {
-              const selectedFiles = Array.from(event.target.files || []).slice(0, 4);
-              const encodedFiles = await Promise.all(selectedFiles.map((file) => new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = () => resolve({ type: "image", url: reader.result });
-                reader.onerror = reject;
-                reader.readAsDataURL(file);
-              })));
-              setStorefrontReviewFiles(encodedFiles);
+              try {
+                setErrorMessage("");
+                const selectedFiles = Array.from(event.target.files || []).slice(0, 4);
+                const encodedFiles = await Promise.all(
+                  selectedFiles.map(compressReviewImage),
+                );
+                setStorefrontReviewFiles(encodedFiles);
+              } catch (error) {
+                setStorefrontReviewFiles([]);
+                setErrorMessage(error.message);
+              }
             }}
           />
         )}

@@ -1,4 +1,4 @@
-from flask import Blueprint, g, jsonify, request
+from flask import Blueprint, current_app, g, jsonify, request
 
 from app.core.auth import optional_firebase_user, require_firebase_user
 from app.core.authorization import require_business_member
@@ -40,6 +40,11 @@ def submit_public_review(store_code):
         store_code,
         get_json_object(),
         customer_uid=(g.current_user or {}).get("uid"),
+        cloudinary_config={
+            "cloud_name": current_app.config.get("CLOUDINARY_CLOUD_NAME"),
+            "api_key": current_app.config.get("CLOUDINARY_API_KEY"),
+            "api_secret": current_app.config.get("CLOUDINARY_API_SECRET"),
+        },
     )
     return jsonify({"review": review}), 201
 
