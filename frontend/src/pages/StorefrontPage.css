@@ -736,14 +736,15 @@
 .storefront-chat-catalog-card {
   display: grid;
   min-width: 0;
-  padding: 10px;
-  gap: 7px;
-  border: 2px solid var(--sf-border);
-  border-radius: 18px;
+  padding: 9px;
+  gap: 9px;
+  border: 1px solid var(--sf-border);
+  border-radius: 17px;
   color: var(--sf-text);
   text-align: left;
   background: var(--sf-surface);
-  box-shadow: 0 7px 18px rgba(7, 55, 91, 0.06);
+  box-shadow: 0 7px 20px rgba(7, 55, 91, 0.07);
+  transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
 }
 
 .storefront-chat-catalog-card:hover,
@@ -751,30 +752,59 @@
   border-color: var(--sf-primary);
 }
 
-.storefront-chat-catalog img,
-.storefront-chat-catalog-card > svg {
+.storefront-chat-catalog-card.is-selected {
+  border-width: 2px;
+  padding: 8px;
+  background: color-mix(in srgb, var(--sf-primary) 7%, var(--sf-surface));
+  box-shadow: 0 9px 22px rgba(8, 114, 217, 0.14);
+}
+
+.storefront-chat-catalog-card__image {
+  display: grid;
   width: 100%;
   height: 150px;
+  place-items: center;
+  overflow: hidden;
   border-radius: 13px;
+  color: var(--sf-primary);
+  background: var(--sf-soft);
+}
+
+.storefront-chat-catalog-card__image img {
+  width: 100%;
+  height: 100%;
   object-fit: cover;
 }
 
-.storefront-chat-catalog strong,
-.storefront-chat-catalog small {
+.storefront-chat-catalog-card__details {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+  padding: 0 2px;
+}
+
+.storefront-chat-catalog-card__details strong,
+.storefront-chat-catalog-card__details span,
+.storefront-chat-catalog-card__details small {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.storefront-chat-catalog strong {
+.storefront-chat-catalog-card__details strong {
   font-size: 0.92rem;
   line-height: 1.3;
 }
 
-.storefront-chat-catalog small {
-  margin-top: 3px;
+.storefront-chat-catalog-card__details span {
+  color: var(--sf-text);
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+
+.storefront-chat-catalog-card__details small {
   color: var(--sf-muted);
-  font-size: 0.78rem;
+  font-size: 0.72rem;
 }
 
 .storefront-chat-catalog-card > button,
@@ -782,10 +812,12 @@
   width: 100%;
   min-height: 38px;
   padding: 8px 9px;
-  border: 0;
-  border-radius: 12px;
-  color: var(--sf-text);
-  background: var(--sf-surface-muted);
+  border: 1px solid color-mix(in srgb, var(--sf-primary) 22%, var(--sf-border));
+  border-radius: 11px;
+  color: var(--sf-primary-dark);
+  background: color-mix(in srgb, var(--sf-primary) 7%, var(--sf-surface));
+  font-size: 0.72rem;
+  font-weight: 700;
   cursor: pointer;
 }
 
@@ -796,6 +828,7 @@
 .storefront-chat-catalog-card.is-selected .storefront-chat-catalog-card__select {
   color: #fff;
   background: var(--sf-primary);
+  border-color: var(--sf-primary);
 }
 
 .storefront-chat-catalog-card__quantity {
@@ -815,6 +848,12 @@
   background: transparent;
   font-size: 1.25rem;
   font-weight: 700;
+  cursor: pointer;
+}
+
+.storefront-chat-catalog-card__quantity button:not(:disabled):hover {
+  color: #fff;
+  background: var(--sf-primary);
 }
 
 .storefront-chat-catalog-card button:disabled {
@@ -827,24 +866,74 @@
   border: 1px solid var(--sf-border);
   border-radius: 18px;
   background: var(--sf-surface);
+  transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
 }
 
-.storefront-chat-product > div:first-child {
+.storefront-chat-product__header {
   display: flex;
   align-items: center;
   gap: 9px;
 }
 
-.storefront-chat-product img,
-.storefront-chat-product > div:first-child > svg {
+.storefront-chat-product__image {
+  display: grid;
   width: 76px;
   height: 76px;
+  flex: 0 0 76px;
+  place-items: center;
+  overflow: hidden;
   border-radius: 13px;
+  color: var(--sf-primary);
+  background: var(--sf-soft);
+}
+
+.storefront-chat-product__image img {
+  width: 100%;
+  height: 100%;
   object-fit: cover;
 }
 
 .storefront-chat-product span {
   display: grid;
+}
+
+.storefront-chat-product.is-in-cart {
+  width: min(260px, 100%);
+  padding: 9px;
+  border: 2px solid var(--sf-primary);
+  background: color-mix(in srgb, var(--sf-primary) 7%, var(--sf-surface));
+  box-shadow: 0 9px 22px rgba(8, 114, 217, 0.14);
+}
+
+.storefront-chat-product.is-in-cart .storefront-chat-product__header {
+  display: grid;
+  gap: 8px;
+}
+
+.storefront-chat-product.is-in-cart .storefront-chat-product__image {
+  width: 100%;
+  height: 155px;
+}
+
+.storefront-chat-product.is-in-cart .storefront-chat-product__heading {
+  padding: 0 2px;
+  gap: 3px;
+}
+
+.storefront-chat-product.is-in-cart .storefront-chat-product__heading strong {
+  font-size: 0.9rem;
+}
+
+.storefront-chat-product__selected-label {
+  display: grid;
+  min-height: 36px;
+  margin-top: 9px;
+  place-items: center;
+  border-radius: 10px;
+  color: #fff;
+  background: var(--sf-primary);
+  font-size: 0.75rem;
+  font-weight: 800;
 }
 
 .storefront-chat-product__description {
@@ -1108,6 +1197,12 @@
   background: color-mix(in srgb, var(--sf-primary) 8%, var(--sf-surface));
 }
 
+.storefront-chat-product.is-in-cart .storefront-chat-product__variant-row {
+  padding: 6px;
+  border: 0;
+  background: transparent;
+}
+
 .storefront-chat-product__variant-row > span {
   display: grid;
   gap: 2px;
@@ -1157,6 +1252,12 @@
 .storefront-chat-product__variant-row > button:disabled {
   cursor: not-allowed;
   opacity: 0.4;
+}
+
+.storefront-chat-product__quantity button:not(:disabled):hover,
+.storefront-chat-product__variant-row > button:not(:disabled):hover {
+  color: #fff;
+  background: var(--sf-primary);
 }
 
 .storefront-chat-confirmation {
@@ -2546,19 +2647,22 @@
     padding: 8px;
   }
 
-  .storefront-chat-catalog img,
-  .storefront-chat-catalog-card > svg {
+  .storefront-chat-catalog-card__image {
     width: 100%;
     height: 140px;
     margin-bottom: 0;
   }
 
-  .storefront-chat-catalog strong {
+  .storefront-chat-catalog-card__details strong {
     display: block;
     font-size: 0.74rem;
   }
 
-  .storefront-chat-catalog small {
+  .storefront-chat-catalog-card__details span {
+    font-size: 0.69rem;
+  }
+
+  .storefront-chat-catalog-card__details small {
     font-size: 0.66rem;
   }
 
