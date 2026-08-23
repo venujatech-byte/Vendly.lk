@@ -315,7 +315,7 @@ function OrdersPage() {
       {/* Page title, description, and order export action. */}
       <div className="dashboard__intro">
         <div className="orders-page__heading">
-          <h2>Sales Orders</h2>
+          <p><b>View and manage all customer orders.</b></p>
 
           <div className="orders-page__heading-actions">
             <button className="orders-page__export-button" type="button" onClick={handleScanWaybill}>
@@ -358,7 +358,7 @@ function OrdersPage() {
             </button>
           </div>
         </div>
-        <p>View and manage all customer orders.</p>
+
       </div>
       {(accountError || ordersError) && (
         <p className="orders-page__notice orders-page__notice--error" role="alert">
@@ -392,13 +392,13 @@ function OrdersPage() {
           role="tab"
           aria-selected={activeTab === "shopOrders"}
           className={`inventory-tabs__button ${activeTab === "shopOrders"
-              ? "inventory-tabs__button--active"
-              : ""
+            ? "inventory-tabs__button--active"
+            : ""
             }`}
           onClick={() => setActiveTab("shopOrders")}
         >
           <Store size={17} aria-hidden="true" />
-          Shop Orders
+          Shop Sales
         </button>
       </nav>
 
