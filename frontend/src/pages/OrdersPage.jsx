@@ -12,6 +12,8 @@ import {
   Link2,
   Check,
   ScanLine,
+  Store,
+  GlobeCheck,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
@@ -39,8 +41,10 @@ import {
 } from "../services/operationService";
 
 import "./OrdersPage.css";
+import "./InventoryPage.css";
 
 function OrdersPage() {
+  const [activeTab, setActiveTab] = useState("onlineOrders");
   const [searchParameters, setSearchParameters] = useSearchParams();
   const routeSearch = searchParameters.get("search") ?? "";
   const { business, accountError } = useAuth();
@@ -310,51 +314,51 @@ function OrdersPage() {
     <main className="dashboard orders-page">
       {/* Page title, description, and order export action. */}
       <div className="dashboard__intro">
- <div className="orders-page__heading">
-  <h2>Sales Orders</h2>
+        <div className="orders-page__heading">
+          <h2>Sales Orders</h2>
 
- <div className="orders-page__heading-actions">
-   <button className="orders-page__export-button" type="button" onClick={handleScanWaybill}>
-     <ScanLine size={19} aria-hidden="true" />
-     <span>Scan Waybill</span>
-   </button>
-   <button
-     className="orders-page__share-button"
-     type="button"
-     onClick={handleCopyChatbotLink}
-     disabled={!business?.shortCode}
-     title="Copy the seller-specific catalogue and chatbot link"
-   >
-     {linkWasCopied ? (
-       <Check size={19} aria-hidden="true" />
-     ) : (
-       <Link2 size={19} aria-hidden="true" />
-     )}
-     <span>{linkWasCopied ? "Link Copied" : "Chatbot Link"}</span>
-   </button>
+          <div className="orders-page__heading-actions">
+            <button className="orders-page__export-button" type="button" onClick={handleScanWaybill}>
+              <ScanLine size={19} aria-hidden="true" />
+              <span>Scan Waybill</span>
+            </button>
+            <button
+              className="orders-page__share-button"
+              type="button"
+              onClick={handleCopyChatbotLink}
+              disabled={!business?.shortCode}
+              title="Copy the seller-specific catalogue and chatbot link"
+            >
+              {linkWasCopied ? (
+                <Check size={19} aria-hidden="true" />
+              ) : (
+                <Link2 size={19} aria-hidden="true" />
+              )}
+              <span>{linkWasCopied ? "Link Copied" : "Chatbot Link"}</span>
+            </button>
 
-   <button
-     className="orders-page__export-button"
-     type="button"
-     onClick={handleExport}
-     disabled={isExporting || !business?.id}
-   >
-    <Download size={19} strokeWidth={1.8} />
-    <span>{isExporting ? "Exporting..." : "Export Orders"}</span>
-   </button>
+            <button
+              className="orders-page__export-button"
+              type="button"
+              onClick={handleExport}
+              disabled={isExporting || !business?.id}
+            >
+              <Download size={19} strokeWidth={1.8} />
+              <span>{isExporting ? "Exporting..." : "Export Orders"}</span>
+            </button>
 
-   <button
-     className="orders-page__add-button"
-     type="button"
-     onClick={() => setIsAddOrderOpen(true)}
-     disabled={!business?.id}
-   >
-     <Plus size={19} aria-hidden="true" />
-     Add Order
-   </button>
- </div>
-</div>
-         <p>View and manage all customer orders.</p>
+            <button
+              className="orders-page__add-button"
+              type="button"
+              onClick={() => setIsAddOrderOpen(true)}
+              disabled={!business?.id}
+            >
+              <Plus size={19} aria-hidden="true" />
+              Add Order
+            </button>
+          </div>
+        </div>
+        <p>View and manage all customer orders.</p>
       </div>
       {(accountError || ordersError) && (
         <p className="orders-page__notice orders-page__notice--error" role="alert">
@@ -364,43 +368,104 @@ function OrdersPage() {
       {isLoading && (
         <p className="orders-page__notice" role="status">Loading orders...</p>
       )}
-      {/* Order status summary cards. */}
-      <section aria-labelledby="order-dashboard-title">
 
-        <div className="order-stats-grid">
-          {orderStats2.map((stat) => (
-            <StatCard2
-              key={stat.label}
-              label={stat.label}
-              value={stat.value}
-              icon={stat.icon}
-              tone={stat.tone}
-              isActive={(statusFilter === "" && stat.label === "All") || statusFilter === stat.label.toLowerCase()}
-              onClick={() => setStatusFilter(stat.label === "All" ? "" : stat.label.toLowerCase())}
-            />
-          ))}
-        </div>
-      </section>
-      {/* Filters narrow the orders shown in the table below. */}
-      <OrderFilters
-        couriers={couriers}
-        onApply={setFilters}
-        onReset={resetOrderFilters}
-      />
 
-      {/* Main expandable orders table. */}
-      <OrderTable
-        orders={visibleOrders}
-        onStatusChange={handleStatusChange}
-        onGenerateWaybill={handleGenerateWaybill}
-        onFraudReport={handleFraudReport}
-        onCourierIssue={handleCourierIssue}
-        onEditOrder={setEditingOrder}
-        onRemoveOrder={setRemovalTarget}
-        onBulkStatusChange={handleBulkStatusChange}
-        onExportSelected={handleExportSelected}
-        onWaybillSave={handleWaybillSave}
-      />
+
+      <nav
+        className="inventory-tabs"
+        role="tablist"
+        aria-label="Inventory sections"
+      >
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === "onlineOrders"}
+          className={`inventory-tabs__button ${activeTab === "onlineOrders" ? "inventory-tabs__button--active" : ""}`}
+          onClick={() => setActiveTab("onlineOrders")}
+        >
+          <GlobeCheck size={17} aria-hidden="true" />
+          Online Orders
+        </button>
+
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === "shopOrders"}
+          className={`inventory-tabs__button ${activeTab === "shopOrders"
+              ? "inventory-tabs__button--active"
+              : ""
+            }`}
+          onClick={() => setActiveTab("shopOrders")}
+        >
+          <Store size={17} aria-hidden="true" />
+          Shop Orders
+        </button>
+      </nav>
+
+
+
+
+      {activeTab === "onlineOrders" && (
+        <>
+
+          {/* Order status summary cards. */}
+          <section aria-labelledby="order-dashboard-title">
+
+            <div className="order-stats-grid">
+              {orderStats2.map((stat) => (
+                <StatCard2
+                  key={stat.label}
+                  label={stat.label}
+                  value={stat.value}
+                  icon={stat.icon}
+                  tone={stat.tone}
+                  isActive={(statusFilter === "" && stat.label === "All") || statusFilter === stat.label.toLowerCase()}
+                  onClick={() => setStatusFilter(stat.label === "All" ? "" : stat.label.toLowerCase())}
+                />
+              ))}
+            </div>
+          </section>
+
+
+          {/* Filters narrow the orders shown in the table below. */}
+          <OrderFilters
+            couriers={couriers}
+            onApply={setFilters}
+            onReset={resetOrderFilters}
+          />
+
+          {/* Main expandable orders table. */}
+          <OrderTable
+            orders={visibleOrders}
+            onStatusChange={handleStatusChange}
+            onGenerateWaybill={handleGenerateWaybill}
+            onFraudReport={handleFraudReport}
+            onCourierIssue={handleCourierIssue}
+            onEditOrder={setEditingOrder}
+            onRemoveOrder={setRemovalTarget}
+            onBulkStatusChange={handleBulkStatusChange}
+            onExportSelected={handleExportSelected}
+            onWaybillSave={handleWaybillSave}
+          />
+
+        </>
+      )}
+
+
+
+
+
+      {activeTab === "shopOrders" && (
+        <>
+
+        </>
+      )}
+
+
+
+
+
+
 
       <AddOrderModal
         isOpen={isAddOrderOpen}
