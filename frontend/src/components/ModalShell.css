@@ -52,6 +52,10 @@
   overflow: hidden;
 }
 
+.modal-shell--full .modal-shell__header {
+  padding: 12px 20px;
+}
+
 .modal-shell__header {
   position: sticky;
   top: 0;

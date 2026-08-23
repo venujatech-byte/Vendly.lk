@@ -737,18 +737,44 @@
 .order-dialog--fit { display: flex; flex-direction: column; height: 100%; }
 .order-dialog--fit .order-dialog__body {
   display: grid;
-  grid-template-columns: 300px minmax(0, 1fr);
+  grid-template-columns: 280px minmax(0, 1fr);
   flex: 1;
   min-height: 0;
 }
+/* The two panels never scroll as a whole -- everything inside is sized to
+   fit. Only the small, already-bounded lists (search results, the variant
+   matrix, the order-items table) get their own tiny internal scroll once
+   they hold more rows than fit, same as a native dropdown would. */
 .order-dialog--fit .order-dialog__customer,
 .order-dialog--fit .order-dialog__items {
   min-height: 0;
+  /* Compacted to fit typical window heights without scrolling; falls back
+     to scrolling the whole panel only on an unusually short window, rather
+     than silently clipping a required field off the bottom. */
   overflow-y: auto;
-  padding: 18px 20px;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
 }
-.order-dialog--fit .order-dialog__customer-fields { margin-top: 16px; padding: 16px 0 18px; }
-.order-dialog--fit .order-dialog__wide textarea { min-height: 56px; }
+.order-dialog--fit label { gap: 3px; font-size: 11px; }
+.order-dialog--fit input,
+.order-dialog--fit select,
+.order-dialog--fit textarea { min-height: 32px; padding: 6px 10px; font-size: 12px; }
+.order-dialog--fit .order-dialog__customer > header { margin-bottom: 8px; }
+.order-dialog--fit .order-dialog__customer-fields { gap: 8px; margin-top: 8px; padding: 8px 0 10px; }
+.order-dialog--fit .order-dialog__wide textarea { min-height: 40px; }
+.order-dialog--fit .order-dialog__section-label { margin: 8px 0 5px; }
+.order-dialog--fit .order-dialog__courier-chip { min-height: 32px; }
+.order-dialog--fit .order-dialog__hint { margin-top: 6px; padding: 5px 8px; font-size: 10px; }
+.order-dialog--fit .order-dialog__filters { margin: 8px 0; }
+.order-dialog--fit .order-dialog__results { min-height: 0; max-height: 130px; overflow-y: auto; flex-wrap: wrap; }
+.order-dialog--fit .order-dialog__matrix-head,
+.order-dialog--fit .order-dialog__matrix-row { padding: 5px 12px; font-size: 11px; }
+.order-dialog--fit .order-dialog__matrix { margin-top: 6px; max-height: 210px; overflow-y: auto; }
+.order-dialog--fit .order-dialog__items-heading { margin-top: 8px; }
+.order-dialog--fit .order-dialog__table { margin-top: 8px; }
+.order-dialog--fit .order-dialog__table-body { max-height: 130px; overflow-y: auto; }
+.order-dialog--fit .order-dialog__subtotal { margin-top: 8px; flex-shrink: 0; }
 
 .mono { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 10.5px; }
 

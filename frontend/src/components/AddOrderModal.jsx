@@ -313,7 +313,7 @@ function AddOrderModal({ isOpen, businessId, business, onClose, onCreated }) {
                 )}
               </div>
 
-              <p className="order-dialog__hint"><Info size={13} /> District sets the courier surcharge, so it must be entered before a delivery quote.</p>
+              <p className="order-dialog__hint"><Info size={13} /> District sets the courier surcharge.</p>
             </section>
 
             <section className="order-dialog__items">
