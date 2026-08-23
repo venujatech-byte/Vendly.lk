@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronDown,
-  Info,
   Minus,
   Package,
   Plus,
@@ -269,51 +268,6 @@ function AddOrderModal({ isOpen, businessId, business, onClose, onCreated }) {
                 <label>City <em>*</em><input name="address.city" value={customer.address.city} onChange={updateCustomer} required /></label>
                 <label>District <em>*</em><input name="address.district" value={customer.address.district} onChange={updateCustomer} required /></label>
               </div>
-
-              <div className="order-dialog__courier" ref={courierPickerRef}>
-                <span className="order-dialog__section-label">Courier</span>
-                <button
-                  type="button"
-                  className="order-dialog__courier-chip"
-                  onClick={() => setIsCourierPickerOpen((open) => !open)}
-                  disabled={courierQuotes.length === 0}
-                >
-                  <span className="order-dialog__courier-dot" />
-                  <span className="order-dialog__courier-name">
-                    {selectedQuote
-                      ? selectedQuote.courier.name
-                      : couriers.length === 0
-                        ? "No couriers configured"
-                        : isLoadingQuotes
-                          ? "Fetching rates…"
-                          : "Add items & address for rates"}
-                  </span>
-                  {selectedQuote && <strong>{money(deliveryFee)}</strong>}
-                  <ChevronDown size={14} />
-                </button>
-
-                {isCourierPickerOpen && courierQuotes.length > 0 && (
-                  <div className="order-dialog__courier-popover">
-                    {courierQuotes.map((quote, index) => (
-                      <button
-                        type="button"
-                        key={quote.courier.id}
-                        className={quote.courier.id === courierId ? "is-active" : ""}
-                        onClick={() => { setCourierId(quote.courier.id); setIsCourierPickerOpen(false); }}
-                      >
-                        <span className="order-dialog__courier-radio" />
-                        <span className="order-dialog__courier-info">
-                          <strong>{quote.courier.name}</strong>
-                          <small>{quote.courier.averageDeliveryDays ? `${quote.courier.averageDeliveryDays} day(s)` : ""}{index === 0 ? " · Recommended" : ""}</small>
-                        </span>
-                        <b>{money(quote.deliveryFeeMinor / 100)}</b>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <p className="order-dialog__hint"><Info size={13} /> District sets the courier surcharge.</p>
             </section>
 
             <section className="order-dialog__items">
@@ -370,7 +324,51 @@ function AddOrderModal({ isOpen, businessId, business, onClose, onCreated }) {
           {errorMessage && <p className="order-dialog__error">{errorMessage}</p>}
           <footer className="order-dialog__footer">
             <div className="order-dialog__footer-total"><span>Items subtotal</span><strong>{money(subtotal)}</strong></div>
-            <div className="order-dialog__footer-delivery"><span>Delivery</span><strong>{selectedQuote ? money(deliveryFee) : "Calculated at checkout"}</strong></div>
+
+            <div className="order-dialog__courier" ref={courierPickerRef}>
+              <span className="order-dialog__footer-label">Courier</span>
+              <button
+                type="button"
+                className="order-dialog__courier-chip"
+                onClick={() => setIsCourierPickerOpen((open) => !open)}
+                disabled={courierQuotes.length === 0}
+                title="District sets the courier surcharge, so it must be entered before a delivery quote."
+              >
+                <span className="order-dialog__courier-dot" />
+                <span className="order-dialog__courier-name">
+                  {selectedQuote
+                    ? selectedQuote.courier.name
+                    : couriers.length === 0
+                      ? "No couriers configured"
+                      : isLoadingQuotes
+                        ? "Fetching rates…"
+                        : "Needs items & district"}
+                </span>
+                {selectedQuote && <strong>{money(deliveryFee)}</strong>}
+                <ChevronDown size={14} />
+              </button>
+
+              {isCourierPickerOpen && courierQuotes.length > 0 && (
+                <div className="order-dialog__courier-popover">
+                  {courierQuotes.map((quote, index) => (
+                    <button
+                      type="button"
+                      key={quote.courier.id}
+                      className={quote.courier.id === courierId ? "is-active" : ""}
+                      onClick={() => { setCourierId(quote.courier.id); setIsCourierPickerOpen(false); }}
+                    >
+                      <span className="order-dialog__courier-radio" />
+                      <span className="order-dialog__courier-info">
+                        <strong>{quote.courier.name}</strong>
+                        <small>{quote.courier.averageDeliveryDays ? `${quote.courier.averageDeliveryDays} day(s)` : ""}{index === 0 ? " · Recommended" : ""}</small>
+                      </span>
+                      <b>{money(quote.deliveryFeeMinor / 100)}</b>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <div className="order-dialog__footer-actions"><button type="button" onClick={onClose}>Cancel</button><button className="order-dialog__checkout" type="submit">Checkout</button></div>
           </footer>
         </form>}

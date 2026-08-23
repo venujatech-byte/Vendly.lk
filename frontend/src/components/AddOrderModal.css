@@ -601,16 +601,16 @@
 .order-summary > header { display: flex; align-items: center; justify-content: space-between; padding: 18px 24px; border-bottom: 1px solid #dbe2ea; }
 .order-summary h2 { margin: 0; font-size: 1.12rem; }
 .order-summary header button { border: 0; color: #94a3b8; background: transparent; cursor: pointer; }
-.order-summary__body { display: grid; gap: 19px; min-height: 0; padding: 25px 24px; overflow-y: auto; overscroll-behavior: contain; }
+.order-summary__body { display: grid; gap: 12px; min-height: 0; padding: 16px 20px; overflow-y: auto; overscroll-behavior: contain; }
 .order-summary__body > div,
 .order-summary__body > label:not(.order-summary__courier) { display: flex; align-items: center; justify-content: space-between; }
 .order-summary__discount { display: grid; grid-template-columns: 20px 90px; align-items: center; }
 .order-summary__discount input { width: 90px; height: 38px; border: 1px solid #d5dee9; border-radius: 6px; text-align: right; }
 .order-summary__total { padding-top: 18px; border-top: 1px solid #dbe2ea; font-size: 1rem; }
 .order-summary__total strong:last-child { color: #0ea5e9; font-size: 1.13rem; }
-.order-summary fieldset { display: grid; align-content: start; gap: 15px; min-height: 250px; padding: 34px 16px 16px; border: 1px solid #d5dee9; border-radius: 7px; background: #fbfcfe; }
-.order-summary legend { padding: 0 8px; font-weight: 700; }
-.order-summary fieldset > label { display: flex; align-items: center; gap: 10px; min-height: 46px; padding: 0 12px; border: 1px solid #dbe2ea; border-radius: 6px; background: #fff; }
+.order-summary fieldset { display: grid; align-content: start; gap: 8px; min-height: 0; padding: 10px 14px 14px; border: 1px solid #d5dee9; border-radius: 7px; background: #fbfcfe; }
+.order-summary legend { padding: 0 8px; font-weight: 700; font-size: .82rem; }
+.order-summary fieldset > label { display: flex; align-items: center; gap: 10px; min-height: 38px; padding: 0 12px; border: 1px solid #dbe2ea; border-radius: 6px; background: #fff; }
 .order-summary fieldset input[type="radio"] { width: 17px; height: 17px; accent-color: #0ea5e9; }
 .order-summary fieldset .order-summary__deposit { display: grid; grid-template-columns: 1fr 120px; }
 .order-summary__deposit input,
@@ -842,12 +842,17 @@
 .order-dialog__table-body { max-height: 220px; overflow-y: auto; }
 
 /* Footer: subtotal + delivery status shown alongside the actions. */
-.order-dialog__footer { grid-column: auto; display: flex; align-items: center; gap: 20px; flex-shrink: 0; }
-.order-dialog__footer-total,
-.order-dialog__footer-delivery { display: grid; gap: 1px; font-size: 11px; color: #65758b; }
-.order-dialog__footer-total strong,
-.order-dialog__footer-delivery strong { color: #08213f; font-size: 14px; }
+.order-dialog__footer { grid-column: auto; position: relative; display: flex; align-items: center; gap: 18px; flex-shrink: 0; }
+.order-dialog__footer-total { display: grid; gap: 1px; font-size: 11px; color: #65758b; }
+.order-dialog__footer-total strong { color: #08213f; font-size: 14px; }
 .order-dialog__footer-actions { display: flex; gap: 10px; margin-left: auto; }
+
+/* The courier chip lives in the always-visible footer instead of the
+   scrolling customer column, so it can never be scrolled out of view. */
+.order-dialog__footer .order-dialog__courier { display: flex; align-items: center; gap: 8px; width: 260px; }
+.order-dialog__footer-label { flex-shrink: 0; color: #65758b; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; }
+.order-dialog__footer .order-dialog__courier-chip { min-height: 34px; }
+.order-dialog__footer .order-dialog__courier-popover { top: auto; bottom: calc(100% + 8px); left: auto; right: 0; width: 260px; }
 
 /* ---- Order summary: recap cards, item lines, confirmed fee, balance ---- */
 .order-summary__recap { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
