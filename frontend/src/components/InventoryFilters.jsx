@@ -98,7 +98,6 @@ function InventoryFilters({ categories = [], onApply, onReset }) {
 
         {/* Category selector. */}
         <div className="inventory-filters__field">
-          <label htmlFor="category">Category</label>
 
           <select
             id="category"
@@ -117,7 +116,6 @@ function InventoryFilters({ categories = [], onApply, onReset }) {
 
         {/* Stock-status selector. */}
         <div className="inventory-filters__field">
-          <label htmlFor="stockStatus">Stock Status</label>
 
           <select
             id="stockStatus"

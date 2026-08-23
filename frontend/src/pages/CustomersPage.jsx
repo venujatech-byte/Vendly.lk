@@ -74,13 +74,13 @@ function CustomersPage() {
 
   const searchedCustomers = routeSearch
     ? customers.filter((customer) =>
-        [customer.name, customer.normalizedPhone, customer.email].some(
-          (value) =>
-            String(value ?? "")
-              .toLowerCase()
-              .includes(routeSearch),
-        ),
-      )
+      [customer.name, customer.normalizedPhone, customer.email].some(
+        (value) =>
+          String(value ?? "")
+            .toLowerCase()
+            .includes(routeSearch),
+      ),
+    )
     : customers;
 
   const filteredCustomers = searchedCustomers.filter((customer) => {
@@ -310,11 +310,6 @@ function CustomersPage() {
 
   return (
     <main className="dashboard customers-page">
-      <div className="dashboard__intro">
-        <h2>Customer Management</h2>
-        <p>Review customer loyalty, order history and return risk.</p>
-      </div>
-
 
       <nav className="customer-tabs" aria-label="Customer sections">
         {customerTabs.map((tab) => {
@@ -324,9 +319,8 @@ function CustomersPage() {
           return (
             <button
               key={tab.id}
-              className={`customer-tabs__button ${
-                isActive ? "customer-tabs__button--active" : ""
-              }`}
+              className={`customer-tabs__button ${isActive ? "customer-tabs__button--active" : ""
+                }`}
               type="button"
               onClick={() => setActiveCustomerTab(tab.id)}
               aria-current={isActive ? "page" : undefined}
@@ -344,67 +338,67 @@ function CustomersPage() {
       </nav>
 
       {activeCustomerTab === "all" && (
-<>
-      <section
-        className="customers-summary"
-        aria-labelledby="customer-management-title"
-      >
-        <div className="stats-grid">
-          {customerStats.map((stat) => (
-            <StatCard
-              key={stat.label}
-              label={stat.label}
-              value={stat.value}
-              icon={stat.icon}
-              tone={stat.tone}
-            />
-          ))}
-        </div>
-      </section>
-
-
-        <section className="customers-filters" aria-label="Customer filters">
-          <button
-            className="customers-filters__mobile-toggle"
-            type="button"
-            onClick={() => setAreMobileFiltersOpen((isOpen) => !isOpen)}
-            aria-expanded={areMobileFiltersOpen}
-            aria-controls="customer-filter-fields"
+        <>
+          <section
+            className="customers-summary"
+            aria-labelledby="customer-management-title"
           >
-            <span><Filter size={17} /> {areMobileFiltersOpen ? "Hide filters" : "Show filters"}</span>
-            {areMobileFiltersOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-          </button>
-          <div id="customer-filter-fields" className={`customers-filters__form ${areMobileFiltersOpen ? "is-open" : ""}`}>
-          <label className="customers-filters__search">
-            <input
-              value={filters.search}
-              onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
-              placeholder="Search by name, phone or email..."
-            />
-          </label>
-          <select value={filters.risk} onChange={(event) => setFilters((current) => ({ ...current, risk: event.target.value }))} aria-label="Risk level">
-            <option value="all">All Risk Levels</option>
-            <option value="low">Low</option>
-            <option value="medium">Medium</option>
-            <option value="high">High</option>
-            <option value="fraud">Fraud</option>
-          </select>
-          <select value={filters.rating} onChange={(event) => setFilters((current) => ({ ...current, rating: event.target.value }))} aria-label="Rating">
-            <option value="all">All Ratings</option>
-            <option value="5">5 stars</option>
-            <option value="4">4 stars</option>
-            <option value="3">3 stars</option>
-            <option value="2">2 stars</option>
-            <option value="1">1 star</option>
-          </select>
-          <select value={filters.location} onChange={(event) => setFilters((current) => ({ ...current, location: event.target.value }))} aria-label="Location">
-            <option value="all">All Locations</option>
-            {[...new Set(customers.map((customer) => (customer.defaultAddress || customer.address || {}).district).filter(Boolean))].map((district) => <option key={district} value={district}>{district}</option>)}
-          </select>
-          <button type="button" className="customers-filters__button"><Filter size={15} /> More Filters</button>
-          <button type="button" className="customers-filters__reset" onClick={() => setFilters({ search: "", risk: "all", rating: "all", location: "all" })}><RotateCcw size={15} /> Reset</button>
-          </div>
-        </section></>
+            <div className="stats-grid">
+              {customerStats.map((stat) => (
+                <StatCard
+                  key={stat.label}
+                  label={stat.label}
+                  value={stat.value}
+                  icon={stat.icon}
+                  tone={stat.tone}
+                />
+              ))}
+            </div>
+          </section>
+
+
+          <section className="customers-filters" aria-label="Customer filters">
+            <button
+              className="customers-filters__mobile-toggle"
+              type="button"
+              onClick={() => setAreMobileFiltersOpen((isOpen) => !isOpen)}
+              aria-expanded={areMobileFiltersOpen}
+              aria-controls="customer-filter-fields"
+            >
+              <span><Filter size={17} /> {areMobileFiltersOpen ? "Hide filters" : "Show filters"}</span>
+              {areMobileFiltersOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+            </button>
+            <div id="customer-filter-fields" className={`customers-filters__form ${areMobileFiltersOpen ? "is-open" : ""}`}>
+              <label className="customers-filters__search">
+                <input
+                  value={filters.search}
+                  onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
+                  placeholder="Search by name, phone or email..."
+                />
+              </label>
+              <select value={filters.risk} onChange={(event) => setFilters((current) => ({ ...current, risk: event.target.value }))} aria-label="Risk level">
+                <option value="all">All Risk Levels</option>
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+                <option value="fraud">Fraud</option>
+              </select>
+              <select value={filters.rating} onChange={(event) => setFilters((current) => ({ ...current, rating: event.target.value }))} aria-label="Rating">
+                <option value="all">All Ratings</option>
+                <option value="5">5 stars</option>
+                <option value="4">4 stars</option>
+                <option value="3">3 stars</option>
+                <option value="2">2 stars</option>
+                <option value="1">1 star</option>
+              </select>
+              <select value={filters.location} onChange={(event) => setFilters((current) => ({ ...current, location: event.target.value }))} aria-label="Location">
+                <option value="all">All Locations</option>
+                {[...new Set(customers.map((customer) => (customer.defaultAddress || customer.address || {}).district).filter(Boolean))].map((district) => <option key={district} value={district}>{district}</option>)}
+              </select>
+              <button type="button" className="customers-filters__button"><Filter size={15} /> More Filters</button>
+              <button type="button" className="customers-filters__reset" onClick={() => setFilters({ search: "", risk: "all", rating: "all", location: "all" })}><RotateCcw size={15} /> Reset</button>
+            </div>
+          </section></>
       )}
 
       {isLoading && (
@@ -468,109 +462,109 @@ function CustomersPage() {
           />
         </>
       ) : <section className="customer-table-card" aria-label="Customers list">
-      <div className="customer-table-scroll">
-      <table className="management-table all-customers-table">
-        <colgroup>
-          <col className="customer-column--expand" />
-          <col className="customer-column--select" />
-          <col className="customer-column--name" />
-          <col className="customer-column--phone" />
-          <col className="customer-column--email" />
-          <col className="customer-column--address" />
-          <col className="customer-column--orders" />
-          <col className="customer-column--spent" />
-          <col className="customer-column--rating" />
-          <col className="customer-column--risk" />
-          <col className="customer-column--actions" />
-        </colgroup>
-        <thead>
-          <tr>
-            <th className="management-table__expand-heading" aria-label="Expand" />
-            <th aria-label="Select" />
-            <th>Customer</th>
-            <th>Phone</th>
-            <th>Email</th>
-            <th>Address</th>
-            <th>Orders</th>
-            <th>Total Spent</th>
-            <th>Rating</th>
-            <th>Risk Level</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {visibleCustomers.map((customer) => (
-            <Fragment key={customer.id}>
-            <tr>
-              <td className="management-table__expand-cell">
-                <button type="button" onClick={() => setExpandedCustomerId((current) => current === customer.id ? null : customer.id)} aria-label={`Show details for ${customer.name}`}>
-                  {expandedCustomerId === customer.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                </button>
-              </td>
-              <td><input type="checkbox" aria-label={`Select ${customer.name}`} /></td>
-              <td>
-                <div className="customer-cell"><span className="customer-cell__avatar">{String(customer.name || "C").slice(0, 2).toUpperCase()}</span><strong>{customer.name}</strong></div>
-              </td>
-              <td>+{customer.normalizedPhone}</td>
-              <td>{customer.email || "No email"}</td>
-              <td>{[customer.defaultAddress?.line1, customer.defaultAddress?.city, customer.defaultAddress?.district].filter(Boolean).join(", ") || "No address"}</td>
-              <td>{customer.completedOrderCount ?? 0}</td>
-              <td>
-                LKR{" "}
-                {((customer.totalSpentMinor ?? 0) / 100).toLocaleString(
-                  "en-LK",
-                )}
-              </td>
-              <td><span className="customer-rating">{customer.rating ? `${customer.rating} ★` : "—"}</span></td>
-              <td>
-                <span
-                  className={`management-table__badge management-table__badge--${customer.riskLevel}`}
-                >
-                  {customer.riskLevel}
-                </span>
-              </td>
-              <td>
-                <ActionMenu
-                  label={`Open actions for ${customer.name}`}
-                  items={[
-                    {
-                      label: "Report customer",
-                      icon: <Flag size={16} aria-hidden="true" />,
-                      onClick: () => setCustomerAction({ type: "report", customer }),
-                    },
-                    {
-                      label: "Remove customer",
-                      icon: <Trash2 size={16} aria-hidden="true" />,
-                      danger: true,
-                      onClick: () => setCustomerAction({ type: "remove", customer }),
-                    },
-                  ]}
-                />
-              </td>
-            </tr>
-            {expandedCustomerId === customer.id && (
-              <tr key={`${customer.id}-details`} className="management-table__expanded-row">
-                <td colSpan={11}>
-                  <div className="customer-expanded-details">
-                    <div><strong>{customer.name}</strong><span>Customer ID: {customer.id}</span><span>Joined: {customer.createdAt ? new Date(customer.createdAt).toLocaleDateString("en-LK") : "—"}</span></div>
-                    <div><strong>Contact</strong><span>☎ +{customer.normalizedPhone}</span>{customer.normalizedSecondaryPhone && <span>☎ +{customer.normalizedSecondaryPhone}</span>}<span>✉ {customer.email || "No email"}</span></div>
-                    <div><strong>Delivery Address</strong><span>{[customer.defaultAddress?.line1, customer.defaultAddress?.line2, customer.defaultAddress?.city, customer.defaultAddress?.district, customer.defaultAddress?.postalCode, customer.defaultAddress?.country].filter(Boolean).join(", ") || "No address saved"}</span></div>
-                    <div><strong>Recent orders</strong><span>{customer.completedOrderCount ?? 0} completed · {customer.returnedOrderCount ?? 0} returned</span><span>Preferred contact: Phone</span></div>
-                  </div>
-                </td>
+        <div className="customer-table-scroll">
+          <table className="management-table all-customers-table">
+            <colgroup>
+              <col className="customer-column--expand" />
+              <col className="customer-column--select" />
+              <col className="customer-column--name" />
+              <col className="customer-column--phone" />
+              <col className="customer-column--email" />
+              <col className="customer-column--address" />
+              <col className="customer-column--orders" />
+              <col className="customer-column--spent" />
+              <col className="customer-column--rating" />
+              <col className="customer-column--risk" />
+              <col className="customer-column--actions" />
+            </colgroup>
+            <thead>
+              <tr>
+                <th className="management-table__expand-heading" aria-label="Expand" />
+                <th aria-label="Select" />
+                <th>Customer</th>
+                <th>Phone</th>
+                <th>Email</th>
+                <th>Address</th>
+                <th>Orders</th>
+                <th>Total Spent</th>
+                <th>Rating</th>
+                <th>Risk Level</th>
+                <th>Actions</th>
               </tr>
-            )}
-            </Fragment>
-          ))}
-          {!isLoading && visibleCustomers.length === 0 && (
-            <tr>
-              <td colSpan={11}>No matching customers found.</td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-      </div>
-      <CustomerTableFooter count={visibleCustomers.length} label="customers" />
+            </thead>
+            <tbody>
+              {visibleCustomers.map((customer) => (
+                <Fragment key={customer.id}>
+                  <tr>
+                    <td className="management-table__expand-cell">
+                      <button type="button" onClick={() => setExpandedCustomerId((current) => current === customer.id ? null : customer.id)} aria-label={`Show details for ${customer.name}`}>
+                        {expandedCustomerId === customer.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                      </button>
+                    </td>
+                    <td><input type="checkbox" aria-label={`Select ${customer.name}`} /></td>
+                    <td>
+                      <div className="customer-cell"><span className="customer-cell__avatar">{String(customer.name || "C").slice(0, 2).toUpperCase()}</span><strong>{customer.name}</strong></div>
+                    </td>
+                    <td>+{customer.normalizedPhone}</td>
+                    <td>{customer.email || "No email"}</td>
+                    <td>{[customer.defaultAddress?.line1, customer.defaultAddress?.city, customer.defaultAddress?.district].filter(Boolean).join(", ") || "No address"}</td>
+                    <td>{customer.completedOrderCount ?? 0}</td>
+                    <td>
+                      LKR{" "}
+                      {((customer.totalSpentMinor ?? 0) / 100).toLocaleString(
+                        "en-LK",
+                      )}
+                    </td>
+                    <td><span className="customer-rating">{customer.rating ? `${customer.rating} ★` : "—"}</span></td>
+                    <td>
+                      <span
+                        className={`management-table__badge management-table__badge--${customer.riskLevel}`}
+                      >
+                        {customer.riskLevel}
+                      </span>
+                    </td>
+                    <td>
+                      <ActionMenu
+                        label={`Open actions for ${customer.name}`}
+                        items={[
+                          {
+                            label: "Report customer",
+                            icon: <Flag size={16} aria-hidden="true" />,
+                            onClick: () => setCustomerAction({ type: "report", customer }),
+                          },
+                          {
+                            label: "Remove customer",
+                            icon: <Trash2 size={16} aria-hidden="true" />,
+                            danger: true,
+                            onClick: () => setCustomerAction({ type: "remove", customer }),
+                          },
+                        ]}
+                      />
+                    </td>
+                  </tr>
+                  {expandedCustomerId === customer.id && (
+                    <tr key={`${customer.id}-details`} className="management-table__expanded-row">
+                      <td colSpan={11}>
+                        <div className="customer-expanded-details">
+                          <div><strong>{customer.name}</strong><span>Customer ID: {customer.id}</span><span>Joined: {customer.createdAt ? new Date(customer.createdAt).toLocaleDateString("en-LK") : "—"}</span></div>
+                          <div><strong>Contact</strong><span>☎ +{customer.normalizedPhone}</span>{customer.normalizedSecondaryPhone && <span>☎ +{customer.normalizedSecondaryPhone}</span>}<span>✉ {customer.email || "No email"}</span></div>
+                          <div><strong>Delivery Address</strong><span>{[customer.defaultAddress?.line1, customer.defaultAddress?.line2, customer.defaultAddress?.city, customer.defaultAddress?.district, customer.defaultAddress?.postalCode, customer.defaultAddress?.country].filter(Boolean).join(", ") || "No address saved"}</span></div>
+                          <div><strong>Recent orders</strong><span>{customer.completedOrderCount ?? 0} completed · {customer.returnedOrderCount ?? 0} returned</span><span>Preferred contact: Phone</span></div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              ))}
+              {!isLoading && visibleCustomers.length === 0 && (
+                <tr>
+                  <td colSpan={11}>No matching customers found.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        <CustomerTableFooter count={visibleCustomers.length} label="customers" />
       </section>}
 
       <ConfirmDialog
@@ -647,76 +641,76 @@ function ReviewsTable({ reviews, isLoading, onModerate }) {
 
   return (
     <section className="customer-table-card" aria-label="Customer reviews list">
-    <div className="customer-table-scroll">
-    <table className="management-table customer-reviews-table">
-      <thead>
-        <tr>
-          <th className="management-table__expand-heading" aria-label="Expand" />
-          <th>Customer</th>
-          <th>Phone</th>
-          <th>Email</th>
-          <th>Product</th>
-          <th>Rating</th>
-          <th>Review</th>
-          <th>Review images</th>
-          <th>Date</th>
-          <th>Status</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {reviews.map((review) => (
-          <Fragment key={review.id}>
-          <tr>
-            <td className="management-table__expand-cell">
-              <button type="button" aria-label={`${expandedReviewId === review.id ? "Collapse" : "Expand"} review`} aria-expanded={expandedReviewId === review.id} onClick={() => setExpandedReviewId((current) => current === review.id ? null : review.id)}>
-                {expandedReviewId === review.id ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-              </button>
-            </td>
-            <td><strong>{review.customerName || "Customer"}</strong></td>
-            <td>{review.customerPhone ? `+${review.customerPhone}` : "—"}</td>
-            <td>{review.customerEmail || "—"}</td>
-            <td>
-              <div className="review-product-cell">
-                {review.productImageUrl && <img src={review.productImageUrl} alt="" />}
-                <span>{review.productName || review.itemName || "Product review"}</span>
-              </div>
-            </td>
-            <td><span className="customer-rating">{"★".repeat(Math.max(0, Math.min(5, Number(review.rating) || 0)))}{"☆".repeat(Math.max(0, 5 - (Number(review.rating) || 0)))}</span></td>
-            <td>{review.reviewText || review.comment || "No written review"}</td>
-            <td><ReviewImages media={review.media} compact /></td>
-            <td>{review.createdAt ? new Date(review.createdAt).toLocaleDateString("en-LK") : "—"}</td>
-            <td><span className={`management-table__badge management-table__badge--${review.status || "pending"}`}>{review.status || "pending"}</span></td>
-            <td>
-              {review.status === "pending" ? (
-                <span className="review-moderation-actions">
-                  <button type="button" onClick={() => onModerate(review.id, "approved")}>Approve</button>
-                  <button type="button" onClick={() => onModerate(review.id, "rejected")}>Reject</button>
-                </span>
-              ) : (
-                <span className="review-moderated-label">Moderated</span>
-              )}
-            </td>
-          </tr>
-          {expandedReviewId === review.id && (
-            <tr className="management-table__expanded-row review-expanded-row">
-              <td colSpan={11}>
-                <div className="customer-expanded-details">
-                  <div><strong>Customer</strong><span>{review.customerName || "Customer"}</span><span>{review.customerPhone ? `+${review.customerPhone}` : "No phone"}</span><span>{review.customerEmail || "No email"}</span></div>
-                  <div><strong>Product</strong><span>{review.productName || review.itemName || "Product review"}</span><span>Rating: {review.rating || 0}/5</span></div>
-                  <div className="review-expanded-content"><strong>Review</strong><span>{review.reviewText || review.comment || "No written review"}</span><ReviewImages media={review.media} /></div>
-                  <div><strong>Review status</strong><span>{review.status || "pending"}</span><span>{review.createdAt ? new Date(review.createdAt).toLocaleDateString("en-LK") : "No date"}</span></div>
-                </div>
-              </td>
+      <div className="customer-table-scroll">
+        <table className="management-table customer-reviews-table">
+          <thead>
+            <tr>
+              <th className="management-table__expand-heading" aria-label="Expand" />
+              <th>Customer</th>
+              <th>Phone</th>
+              <th>Email</th>
+              <th>Product</th>
+              <th>Rating</th>
+              <th>Review</th>
+              <th>Review images</th>
+              <th>Date</th>
+              <th>Status</th>
+              <th>Actions</th>
             </tr>
-          )}
-          </Fragment>
-        ))}
-        {!isLoading && reviews.length === 0 && <tr><td colSpan={11}>No reviews found.</td></tr>}
-      </tbody>
-    </table>
-    </div>
-    <CustomerTableFooter count={reviews.length} label="reviews" />
+          </thead>
+          <tbody>
+            {reviews.map((review) => (
+              <Fragment key={review.id}>
+                <tr>
+                  <td className="management-table__expand-cell">
+                    <button type="button" aria-label={`${expandedReviewId === review.id ? "Collapse" : "Expand"} review`} aria-expanded={expandedReviewId === review.id} onClick={() => setExpandedReviewId((current) => current === review.id ? null : review.id)}>
+                      {expandedReviewId === review.id ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                    </button>
+                  </td>
+                  <td><strong>{review.customerName || "Customer"}</strong></td>
+                  <td>{review.customerPhone ? `+${review.customerPhone}` : "—"}</td>
+                  <td>{review.customerEmail || "—"}</td>
+                  <td>
+                    <div className="review-product-cell">
+                      {review.productImageUrl && <img src={review.productImageUrl} alt="" />}
+                      <span>{review.productName || review.itemName || "Product review"}</span>
+                    </div>
+                  </td>
+                  <td><span className="customer-rating">{"★".repeat(Math.max(0, Math.min(5, Number(review.rating) || 0)))}{"☆".repeat(Math.max(0, 5 - (Number(review.rating) || 0)))}</span></td>
+                  <td>{review.reviewText || review.comment || "No written review"}</td>
+                  <td><ReviewImages media={review.media} compact /></td>
+                  <td>{review.createdAt ? new Date(review.createdAt).toLocaleDateString("en-LK") : "—"}</td>
+                  <td><span className={`management-table__badge management-table__badge--${review.status || "pending"}`}>{review.status || "pending"}</span></td>
+                  <td>
+                    {review.status === "pending" ? (
+                      <span className="review-moderation-actions">
+                        <button type="button" onClick={() => onModerate(review.id, "approved")}>Approve</button>
+                        <button type="button" onClick={() => onModerate(review.id, "rejected")}>Reject</button>
+                      </span>
+                    ) : (
+                      <span className="review-moderated-label">Moderated</span>
+                    )}
+                  </td>
+                </tr>
+                {expandedReviewId === review.id && (
+                  <tr className="management-table__expanded-row review-expanded-row">
+                    <td colSpan={11}>
+                      <div className="customer-expanded-details">
+                        <div><strong>Customer</strong><span>{review.customerName || "Customer"}</span><span>{review.customerPhone ? `+${review.customerPhone}` : "No phone"}</span><span>{review.customerEmail || "No email"}</span></div>
+                        <div><strong>Product</strong><span>{review.productName || review.itemName || "Product review"}</span><span>Rating: {review.rating || 0}/5</span></div>
+                        <div className="review-expanded-content"><strong>Review</strong><span>{review.reviewText || review.comment || "No written review"}</span><ReviewImages media={review.media} /></div>
+                        <div><strong>Review status</strong><span>{review.status || "pending"}</span><span>{review.createdAt ? new Date(review.createdAt).toLocaleDateString("en-LK") : "No date"}</span></div>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
+            ))}
+            {!isLoading && reviews.length === 0 && <tr><td colSpan={11}>No reviews found.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+      <CustomerTableFooter count={reviews.length} label="reviews" />
     </section>
   );
 }
@@ -730,12 +724,12 @@ function FraudFilters({ filters, setFilters }) {
       {areMobileFiltersOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
     </button>
     <div id="fraud-filter-fields" className={`fraud-filters__form ${areMobileFiltersOpen ? "is-open" : ""}`}>
-    <label className="customers-filters__search"><input value={filters.search} onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))} placeholder="Search customers by name, phone or email..." /></label>
-    <select value={filters.risk} onChange={(event) => setFilters((current) => ({ ...current, risk: event.target.value }))} aria-label="Risk status"><option value="all">All Risk Levels</option><option value="high">High Risk</option><option value="medium">Medium Risk</option><option value="low">Low Risk</option></select>
-    <select value={filters.reason} onChange={(event) => setFilters((current) => ({ ...current, reason: event.target.value }))} aria-label="Return reason"><option value="all">All Ratings</option><option value="Unreachable">Unreachable</option><option value="Refused Delivery">Refused Delivery</option><option value="Change of Mind">Change of Mind</option><option value="Address Incomplete">Address Incomplete</option></select>
-    <select value={filters.score} onChange={(event) => setFilters((current) => ({ ...current, score: event.target.value }))} aria-label="Fraud score"><option value="all">All Locations</option><option value="high">High score</option><option value="medium">Medium score</option><option value="low">Low score</option></select>
-    <button type="button" className="customers-filters__button"><Filter size={15} /> More Filters</button>
-    <button type="button" className="customers-filters__reset" onClick={() => setFilters({ search: "", risk: "all", reason: "all", score: "all" })}><RotateCcw size={15} /> Reset</button>
+      <label className="customers-filters__search"><input value={filters.search} onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))} placeholder="Search customers by name, phone or email..." /></label>
+      <select value={filters.risk} onChange={(event) => setFilters((current) => ({ ...current, risk: event.target.value }))} aria-label="Risk status"><option value="all">All Risk Levels</option><option value="high">High Risk</option><option value="medium">Medium Risk</option><option value="low">Low Risk</option></select>
+      <select value={filters.reason} onChange={(event) => setFilters((current) => ({ ...current, reason: event.target.value }))} aria-label="Return reason"><option value="all">All Ratings</option><option value="Unreachable">Unreachable</option><option value="Refused Delivery">Refused Delivery</option><option value="Change of Mind">Change of Mind</option><option value="Address Incomplete">Address Incomplete</option></select>
+      <select value={filters.score} onChange={(event) => setFilters((current) => ({ ...current, score: event.target.value }))} aria-label="Fraud score"><option value="all">All Locations</option><option value="high">High score</option><option value="medium">Medium score</option><option value="low">Low score</option></select>
+      <button type="button" className="customers-filters__button"><Filter size={15} /> More Filters</button>
+      <button type="button" className="customers-filters__reset" onClick={() => setFilters({ search: "", risk: "all", reason: "all", score: "all" })}><RotateCcw size={15} /> Reset</button>
     </div>
   </section>;
 }

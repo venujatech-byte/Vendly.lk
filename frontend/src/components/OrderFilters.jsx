@@ -85,7 +85,7 @@ function OrderFilters({ couriers = [], onApply, onReset }) {
       >
         {/* Start and end date range. */}
         <div className="order-filters__field order-filters__date-field">
-          <label htmlFor="date-from">Order date</label>
+
 
           <div className="order-filters__date-control">
             <CalendarDays size={17} aria-hidden="true" />
@@ -111,14 +111,12 @@ function OrderFilters({ couriers = [], onApply, onReset }) {
         </div>
 
         <div className="order-filters__field">
-          <label htmlFor="waybill-number">Waybill number</label>
           <input id="waybill-number" name="waybillNumber" type="search" placeholder="Scan or enter waybill" value={filters.waybillNumber} onChange={handleInputChange} />
           {filters.waybillNumber && <button type="button" className="order-filters__clear" onClick={() => handleInputChange({ target: { name: "waybillNumber", value: "" } })} aria-label="Clear waybill number"><X size={15} /></button>}
         </div>
 
         {/* Search by order number. */}
         <div className="order-filters__field">
-          <label htmlFor="order-number">Order number</label>
 
             <input
               id="order-number"
@@ -133,7 +131,6 @@ function OrderFilters({ couriers = [], onApply, onReset }) {
 
         {/* Search by product/item name. */}
         <div className="order-filters__field">
-          <label htmlFor="item-name">Item name</label>
 
           <input
             id="item-name"
@@ -148,7 +145,6 @@ function OrderFilters({ couriers = [], onApply, onReset }) {
 
         {/* Search by customer name or phone number. */}
         <div className="order-filters__field">
-          <label htmlFor="customer">Customer / Phone</label>
 
           <input
             id="customer"
@@ -163,7 +159,7 @@ function OrderFilters({ couriers = [], onApply, onReset }) {
 
         {/* Restrict results to a selected courier. */}
         <div className="order-filters__field">
-          <label htmlFor="courier">Courier</label>
+
 
           <select
             id="courier"

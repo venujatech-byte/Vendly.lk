@@ -58,9 +58,7 @@
 }
 
 /* Orders-page spacing that does not affect the Overview page. */
-.orders-page {
-  padding-top: 15px;
-}
+
 
 .orders-page__export-button svg,
 .orders-page__share-button svg {

@@ -30,6 +30,7 @@ import { downloadInventoryCsv, getProducts, removeProduct, updateProduct, update
 import { getProductStockStatus } from "../utils/inventory";
 
 import "./InventoryPage.css";
+import "./Buttons.css";
 
 function InventoryPage() {
   const [searchParameters, setSearchParameters] = useSearchParams();
@@ -280,7 +281,7 @@ function InventoryPage() {
         <p>Manage products, sizes, stock levels, SKUs and barcodes.</p>
 
         {activeTab === "products" && (
-          <div className="inventory-page__actions">
+          <div className="page__actions">
             <button type="button">
               <ScanBarcode size={18} aria-hidden="true" />
               Scan Barcode
@@ -290,7 +291,7 @@ function InventoryPage() {
               {isExporting ? "Exporting..." : "Export Inventory"}
             </button>
             <button
-              className="inventory-page__add-button"
+              className="page__add-button"
               type="button"
               onClick={() => setIsAddProductOpen(true)}
               disabled={!business?.id}

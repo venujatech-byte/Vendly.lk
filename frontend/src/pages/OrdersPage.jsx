@@ -41,7 +41,7 @@ import {
 } from "../services/operationService";
 
 import "./OrdersPage.css";
-import "./InventoryPage.css";
+import "./Buttons.css";
 
 function OrdersPage() {
   const [activeTab, setActiveTab] = useState("onlineOrders");
@@ -314,16 +314,15 @@ function OrdersPage() {
     <main className="dashboard orders-page">
       {/* Page title, description, and order export action. */}
       <div className="dashboard__intro">
-        <div className="orders-page__heading">
-          <p><b>View and manage all customer orders.</b></p>
+        <div className="inventory-page__heading">
+          <p>View and manage all customer orders.</p>
 
-          <div className="orders-page__heading-actions">
-            <button className="orders-page__export-button" type="button" onClick={handleScanWaybill}>
+          <div className="page__actions">
+            <button type="button" onClick={handleScanWaybill}>
               <ScanLine size={19} aria-hidden="true" />
               <span>Scan Waybill</span>
             </button>
             <button
-              className="orders-page__share-button"
               type="button"
               onClick={handleCopyChatbotLink}
               disabled={!business?.shortCode}
@@ -338,7 +337,6 @@ function OrdersPage() {
             </button>
 
             <button
-              className="orders-page__export-button"
               type="button"
               onClick={handleExport}
               disabled={isExporting || !business?.id}
@@ -348,7 +346,7 @@ function OrdersPage() {
             </button>
 
             <button
-              className="orders-page__add-button"
+              className="page__add-button"
               type="button"
               onClick={() => setIsAddOrderOpen(true)}
               disabled={!business?.id}
