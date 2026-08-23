@@ -277,57 +277,62 @@ function InventoryPage() {
   return (
     <main className="dashboard">
       <div className="inventory-page__heading">
-        <h2>Product Inventory</h2>
+        <p>Manage products, sizes, stock levels, SKUs and barcodes.</p>
 
-{/* inventory page buttons starts here*/}
+        {activeTab === "products" && (
+          <div className="inventory-page__actions">
+            <button type="button">
+              <ScanBarcode size={18} aria-hidden="true" />
+              Scan Barcode
+            </button>
+            <button type="button" onClick={handleExportInventory} disabled={isExporting}>
+              <Download size={18} aria-hidden="true" />
+              {isExporting ? "Exporting..." : "Export Inventory"}
+            </button>
+            <button
+              className="inventory-page__add-button"
+              type="button"
+              onClick={() => setIsAddProductOpen(true)}
+              disabled={!business?.id}
+            >
+              <Plus size={18} aria-hidden="true" />
+              Add Product
+            </button>
+          </div>
 
-{activeTab === "products" && (
-        <>
-        <div className="inventory-page__actions">
-          <button type="button">
-            <ScanBarcode size={18} aria-hidden="true" />
-            Scan Barcode
-          </button>
-          <button type="button" onClick={handleExportInventory} disabled={isExporting}>
-            <Download size={18} aria-hidden="true" />
-            {isExporting ? "Exporting..." : "Export Inventory"}
-          </button>
-          <button
-            className="inventory-page__add-button"
-            type="button"
-            onClick={() => setIsAddProductOpen(true)}
-            disabled={!business?.id}
-          >
-            <Plus size={18} aria-hidden="true" />
-            Add Product
-          </button>
-        </div>
-        </>
-)}
+        )}
 
-{activeTab === "categories" && (
-        <>
-        <div className="inventory-page__actions">
-          <button
-            className="inventory-page__add-button"
-            type="button"
-            onClick={() => setIsAddCategoryOpen(true)}
-            disabled={!business?.id}
-          >
-            <Plus size={18} aria-hidden="true" />
-            Add Category
-          </button>
-        </div>
-        </>
-)}
 
-{/* inventory page buttons ends here*/}
+
+        {activeTab === "categories" && (
+          <div className="inventory-page__actions">
+            <button
+              className="inventory-page__add-button"
+              type="button"
+              onClick={() => setIsAddCategoryOpen(true)}
+              disabled={!business?.id}
+            >
+              <Plus size={18} aria-hidden="true" />
+              Add Category
+            </button>
+          </div>
+
+        )}
+
+
+
+
+
+
+
+        {/* inventory page buttons starts here*/}
+
+
+
+
+        {/* inventory page buttons ends here*/}
 
       </div>
-
-      <p className="inventory-page__description">
-        Manage products, sizes, stock levels, SKUs and barcodes.
-      </p>
 
       {(accountError || inventoryError) && (
         <p className="inventory-page__notice inventory-page__notice--error" role="alert">
@@ -342,113 +347,116 @@ function InventoryPage() {
         </p>
       )}
 
-{/* Inventory dashboard starts here */}
+              <nav
+          className="inventory-tabs"
+          role="tablist"
+          aria-label="Inventory sections"
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "products"}
+            className={`inventory-tabs__button ${activeTab === "products"
+              ? "inventory-tabs__button--active"
+              : ""
+              }`}
+            onClick={() => setActiveTab("products")}
+          >
+            <Package size={17} aria-hidden="true" />
+            Products
+          </button>
 
-{activeTab === "products" && (
-      <>
-      <section aria-label="Inventory dashboard">
-        <div className="stats-grid">
-          {inventoryStats.map((stat) => (
-            <StatCard
-              key={stat.label}
-              label={stat.label}
-              value={stat.value}
-              icon={stat.icon}
-              tone={stat.tone}
-            />
-          ))}
-        </div>
-      </section>
-      </>
-)}
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === "categories"}
+            className={`inventory-tabs__button ${activeTab === "categories"
+              ? "inventory-tabs__button--active"
+              : ""
+              }`}
+            onClick={() => setActiveTab("categories")}
+          >
+            <Tags size={17} aria-hidden="true" />
+            Categories
+          </button>
+        </nav>
 
-{activeTab === "categories" && (
-      <>
-      <section aria-label="Inventory dashboard">
-        <div className="stats-grid">
-          {categoryStats.map((stat) => (
-            <StatCard
-              key={stat.label}
-              label={stat.label}
-              value={stat.value}
-              icon={stat.icon}
-              tone={stat.tone}
-            />
-          ))}
-        </div>
-      </section>
-      </>
-)}
-
-{/* Inventory dashboard ends here */}
-
-{/* Tabs allow the same Inventory page to switch between two sections. */}
-
-<nav
-  className="inventory-tabs"
-  role="tablist"
-  aria-label="Inventory sections"
->
-  <button
-    type="button"
-    role="tab"
-    aria-selected={activeTab === "products"}
-    className={`inventory-tabs__button ${
-      activeTab === "products"
-        ? "inventory-tabs__button--active"
-        : ""
-    }`}
-    onClick={() => setActiveTab("products")}
-  >
-    <Package size={17} aria-hidden="true" />
-    Products
-  </button>
-
-  <button
-    type="button"
-    role="tab"
-    aria-selected={activeTab === "categories"}
-    className={`inventory-tabs__button ${
-      activeTab === "categories"
-        ? "inventory-tabs__button--active"
-        : ""
-    }`}
-    onClick={() => setActiveTab("categories")}
-  >
-    <Tags size={17} aria-hidden="true" />
-    Categories
-  </button>
-</nav>
+      {/* Inventory dashboard starts here */}
 
 
-{/* Product filters and table are rendered only while Products is active. */}
-{activeTab === "products" && (
-  <>
-    <InventoryFilters
-      categories={categories}
-      onApply={setInventoryFilters}
-      onReset={resetInventoryFilters}
-    />
-    <InventoryTable
-      products={visibleProducts}
-      onViewReviews={setReviewProduct}
-      onEditProduct={setEditingProduct}
-      onRemoveProduct={(product) => setRemovalTarget({ type: "product", record: product })}
-      onChangeStatus={handleBulkStatusChange}
-      categories={categories}
-      onChangeCategory={handleBulkCategoryChange}
-      onExportSelected={handleExportSelected}
-      onAdjustStock={(product, variantId) =>
-        setStockAdjustment({ product, variantId })
-      }
-    />
-  </>
-)}
 
-{/* Temporary category content shown while Categories is active. */}
-{activeTab === "categories" && (
-  <CategoryTable categories={categories} products={products} onEditCategory={setEditingCategory} onRemoveCategory={(category) => setRemovalTarget({ type: "category", record: category })} />
-)}
+      {/* Inventory dashboard ends here */}
+
+      {/* Tabs allow the same Inventory page to switch between two sections. */}
+
+
+
+      {/* Product filters and table are rendered only while Products is active. */}
+      {activeTab === "products" && (
+        <>
+
+
+
+          <section aria-label="Inventory dashboard">
+            <div className="stats-grid">
+              {inventoryStats.map((stat) => (
+                <StatCard
+                  key={stat.label}
+                  label={stat.label}
+                  value={stat.value}
+                  icon={stat.icon}
+                  tone={stat.tone}
+                />
+              ))}
+            </div>
+          </section>
+
+
+          <InventoryFilters
+            categories={categories}
+            onApply={setInventoryFilters}
+            onReset={resetInventoryFilters}
+          />
+          <InventoryTable
+            products={visibleProducts}
+            onViewReviews={setReviewProduct}
+            onEditProduct={setEditingProduct}
+            onRemoveProduct={(product) => setRemovalTarget({ type: "product", record: product })}
+            onChangeStatus={handleBulkStatusChange}
+            categories={categories}
+            onChangeCategory={handleBulkCategoryChange}
+            onExportSelected={handleExportSelected}
+            onAdjustStock={(product, variantId) =>
+              setStockAdjustment({ product, variantId })
+            }
+          />
+        </>
+      )}
+
+      {/* Temporary category content shown while Categories is active. */}
+      {activeTab === "categories" && (
+        <>
+
+
+
+          <section aria-label="Inventory dashboard">
+            <div className="stats-grid">
+              {categoryStats.map((stat) => (
+                <StatCard
+                  key={stat.label}
+                  label={stat.label}
+                  value={stat.value}
+                  icon={stat.icon}
+                  tone={stat.tone}
+                />
+              ))}
+            </div>
+          </section>
+
+
+          <CategoryTable categories={categories} products={products} onEditCategory={setEditingCategory} onRemoveCategory={(category) => setRemovalTarget({ type: "category", record: category })} />
+        </>
+      )}
 
       <AddCategoryModal
         isOpen={isAddCategoryOpen}
@@ -514,10 +522,10 @@ function InventoryPage() {
             current.map((product) =>
               product.id === productId
                 ? {
-                    ...product,
-                    approvedReviews: (product.approvedReviews ?? 0) + 1,
-                    approvedReviewCount: (product.approvedReviewCount ?? 0) + 1,
-                  }
+                  ...product,
+                  approvedReviews: (product.approvedReviews ?? 0) + 1,
+                  approvedReviewCount: (product.approvedReviewCount ?? 0) + 1,
+                }
                 : product,
             ),
           )
