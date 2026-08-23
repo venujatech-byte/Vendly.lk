@@ -26,13 +26,15 @@
   /* The desktop sidebar becomes a thumb-friendly bottom navigation. */
   .sidebar,
   .sidebar.sidebar--collapsed {
-    position: fixed;
+    position: fixed !important;
+    top: auto !important;
     right: 0;
     bottom: 0;
     left: 0;
     z-index: 900;
     display: block;
     width: 100%;
+    flex: 0 0 auto;
     min-height: 0;
     height: calc(66px + env(safe-area-inset-bottom));
     padding: 6px 7px env(safe-area-inset-bottom);
