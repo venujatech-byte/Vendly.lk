@@ -301,21 +301,16 @@ def build_orders_workbook(orders):
     sheet = workbook.active
     sheet.title = "Orders"
     headers = [
-        "Order No",
-        "Created At",
-        "Customer",
-        "Phone",
+        "Waybill Id",
+        "Order Number",
+        "Receiver Name",
         "Delivery Address",
-        "Items",
-        "Quantity",
-        "Subtotal (LKR)",
-        "Discount (LKR)",
-        "Delivery Fee (LKR)",
-        "Total (LKR)",
-        "Courier",
-        "Waybill No",
-        "Payment",
-        "Status",
+        "District Name",
+        "City",
+        "Receiver Phone",
+        "COD",
+        "Description",
+        "Actual Value",
     ]
     sheet.append(headers)
     header_fill = PatternFill("solid", fgColor="0B3B6E")
@@ -326,28 +321,43 @@ def build_orders_workbook(orders):
 
     for order in orders:
         items = order.get("items", [])
+        address = order.get("deliveryAddress", {}) or {}
+        customer = order.get("customerSnapshot", {}) or {}
+        phone_numbers = [
+            customer.get("phoneNumber") or customer.get("normalizedPhone") or "",
+            customer.get("secondaryPhoneNumber")
+            or customer.get("normalizedSecondaryPhone")
+            or "",
+        ]
+        phone_value = ", ".join(phone for phone in phone_numbers if phone)
+        total_minor = order.get("totalAmountMinor", 0) or 0
+        delivery_minor = order.get("deliveryFeeMinor", 0) or 0
+        paid_minor = order.get("paidAmountMinor", 0) or 0
         sheet.append(
             [
-                order.get("orderNumber", ""),
-                str(order.get("createdAt", "")),
-                order.get("customerSnapshot", {}).get("name", ""),
-                order.get("customerSnapshot", {}).get("normalizedPhone", ""),
-                format_address(order.get("deliveryAddress", {})),
-                "; ".join(
+                order.get("waybillNumber", ""),
+                order.get("orderNumber") or order.get("id", ""),
+                customer.get("name", ""),
+                format_address(address),
+                address.get("district", ""),
+                address.get("city", ""),
+                phone_value,
+                (total_minor - paid_minor) / 100,
+                ", ".join(
                     f"{item.get('name', '')} {item.get('size', '')}".strip()
                     for item in items
+                    if item.get("name")
                 ),
-                order.get("itemCount", 0),
-                order.get("subtotalMinor", 0) / 100,
-                order.get("discountTotalMinor", 0) / 100,
-                order.get("deliveryFeeMinor", 0) / 100,
-                order.get("totalAmountMinor", 0) / 100,
-                order.get("courierSnapshot", {}).get("name", ""),
-                order.get("waybillNumber", ""),
-                order.get("paymentStatus", ""),
-                order.get("fulfilmentStatus", ""),
+                (total_minor - delivery_minor) / 100,
             ],
         )
+
+    sheet.freeze_panes = "A2"
+    sheet.auto_filter.ref = sheet.dimensions
+    for row in sheet.iter_rows(min_row=2, min_col=8, max_col=8):
+        row[0].number_format = '#,##0.00'
+    for row in sheet.iter_rows(min_row=2, min_col=10, max_col=10):
+        row[0].number_format = '#,##0.00'
 
     for column in sheet.columns:
         maximum_length = max(len(str(cell.value or "")) for cell in column)

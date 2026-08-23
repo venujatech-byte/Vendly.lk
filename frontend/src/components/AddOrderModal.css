@@ -488,6 +488,26 @@
   }
 }
 
+/* Modern Add Order treatment, scoped to this dialog. */
+.modal-shell:has(.order-dialog) { border: 1px solid rgba(148,163,184,.42); border-radius: 14px; box-shadow: 0 24px 70px rgba(15,35,60,.24); }
+.modal-shell:has(.order-dialog) .modal-shell__header { min-height: 66px; padding: 14px 24px; border-bottom-color: #dce6f1; background: linear-gradient(180deg,#fff,#f8fbff); }
+.order-dialog--fit .order-dialog__customer, .order-dialog--fit .order-dialog__items { background: #fff; }
+.order-dialog--fit .order-dialog__customer { border-right-color: #e1e9f3; }
+.order-dialog--fit label { color: #42536b; font-weight: 600; }
+.order-dialog--fit input, .order-dialog--fit select, .order-dialog--fit textarea { border-color: #cfdae8; border-radius: 8px; background: #fbfdff; color: #102a4c; transition: border-color 160ms ease,box-shadow 160ms ease,background 160ms ease; }
+.order-dialog--fit input:focus, .order-dialog--fit select:focus, .order-dialog--fit textarea:focus { border-color: #1686f7; outline: 0; background: #fff; box-shadow: 0 0 0 3px rgba(22,134,247,.14); }
+.order-dialog--fit .order-dialog__search svg { pointer-events: none; }
+.order-dialog--fit .order-dialog__filters select { padding-left: 12px; }
+.order-dialog--fit .order-dialog__results, .order-dialog--fit .order-dialog__matrix, .order-dialog--fit .order-dialog__table { border-color: #d7e2ef; border-radius: 11px; }
+.order-dialog--fit .order-dialog__results > button { border-color: #d7e2ef; border-radius: 9px; }
+.order-dialog--fit .order-dialog__results > button:hover { border-color: #1686f7; background: #f3f8ff; }
+.order-dialog--fit .order-dialog__matrix > header, .order-dialog--fit .order-dialog__matrix > footer, .order-dialog--fit .order-dialog__table-head { background: #f5f8fc; }
+.order-dialog--fit .order-dialog__matrix-row.is-selected { background: #eef7ff; }
+.order-dialog--fit .order-dialog__add-item, .order-dialog--fit .order-dialog__footer .order-dialog__checkout { border: 0; border-radius: 8px; background: linear-gradient(135deg,#1686f7,#0870d8); box-shadow: 0 5px 14px rgba(22,134,247,.2); font-weight: 700; }
+.order-dialog--fit .order-dialog__add-item:disabled { opacity: .45; box-shadow: none; }
+.order-dialog--fit .order-dialog__footer { padding: 12px 24px; background: #f8fafc; }
+.order-dialog--fit .order-dialog__footer-actions button, .order-dialog--fit .order-dialog__footer button { border-radius: 8px; }
+
 @media (max-width: 720px) {
   .add-order__steps {
     gap: 8px;

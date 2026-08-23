@@ -43,6 +43,7 @@ import {
 
 import "./OrdersPage.css";
 import "./Buttons.css";
+import "./InventoryPage.css";
 
 function OrdersPage() {
   const [activeTab, setActiveTab] = useState("onlineOrders");
