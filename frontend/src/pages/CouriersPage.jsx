@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useState } from "react";
-import { ChevronDown, ChevronRight, Plus, Truck } from "lucide-react";
+import { ChevronDown, ChevronRight, MoreVertical, Plus, Truck } from "lucide-react";
 
 import AddCourierModal from "../components/AddCourierModal";
 import { useAuth } from "../context/authContextValue";
@@ -46,8 +46,8 @@ function CouriersPage() {
       {isLoading && <p className="management-page__notice">Loading couriers...</p>}
       {errorMessage && <p className="management-page__notice" role="alert">{errorMessage}</p>}
 
-      <table className="management-table">
-        <thead><tr><th className="management-table__expand-heading"></th><th>Courier</th><th>First 1 kg</th><th>Extra 1 kg</th><th>Success</th><th>Returns</th><th>Delivery</th><th>Status</th></tr></thead>
+      <table className="management-table courier-table">
+        <thead><tr><th className="management-table__expand-heading" /><th>Courier</th><th>First 1 kg</th><th>Extra 1 kg</th><th>Success</th><th>Returns</th><th>Delivery</th><th>Status</th><th>Actions</th></tr></thead>
         <tbody>
           {couriers.map((courier) => {
             const isExpanded = expandedCourierId === courier.id;
@@ -65,17 +65,18 @@ function CouriersPage() {
                       {isExpanded ? <ChevronDown size={17} /> : <ChevronRight size={17} />}
                     </button>
                   </td>
-                  <td><Truck size={17} aria-hidden="true" /> <strong>{courier.name}</strong> ({courier.code})</td>
+                  <td><span className="courier-table__name"><span className="courier-table__icon"><Truck size={16} aria-hidden="true" /></span><strong>{courier.name}</strong><small>{courier.code}</small></span></td>
                   <td>{money(courier.firstKgPriceMinor)}</td>
                   <td>{money(courier.extraKgPriceMinor)}</td>
                   <td>{Math.round((courier.successRate ?? 0) * 100)}%</td>
                   <td>{Math.round((courier.returnRate ?? 0) * 100)}%</td>
                   <td>{courier.averageDeliveryDays} days</td>
                   <td><span className="management-table__badge">{courier.status}</span></td>
+                  <td><button className="courier-table__actions" type="button" aria-label={`Actions for ${courier.name}`}><MoreVertical size={17} /></button></td>
                 </tr>
                 {isExpanded && (
                   <tr className="management-table__mobile-details-row">
-                    <td colSpan={8}>
+                    <td colSpan={9}>
                       <div className="management-table__mobile-details">
                         <div><span>First 1 kg</span><strong>{money(courier.firstKgPriceMinor)}</strong></div>
                         <div><span>Extra 1 kg</span><strong>{money(courier.extraKgPriceMinor)}</strong></div>
@@ -89,9 +90,15 @@ function CouriersPage() {
               </Fragment>
             );
           })}
-          {!isLoading && couriers.length === 0 && <tr><td colSpan={8}>No couriers configured yet.</td></tr>}
+          {!isLoading && couriers.length === 0 && <tr><td colSpan={9}>No couriers configured yet.</td></tr>}
         </tbody>
       </table>
+      {!isLoading && couriers.length > 0 && (
+        <div className="courier-table__footer">
+          <span>Showing 1 to {couriers.length} couriers</span>
+          <div><button type="button" disabled>Previous</button><button className="is-active" type="button">1</button><button type="button" disabled>Next</button></div>
+        </div>
+      )}
 
       <AddCourierModal
         isOpen={isAddCourierOpen}

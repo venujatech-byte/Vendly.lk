@@ -2,8 +2,8 @@
 .order-filters {
   margin-top: 10px;
   padding: 10px;
-  padding-left: 5px;
-  padding-right: 5px;
+  padding-left: 8px;
+  padding-right: 8px;
 
   border: 1px solid var(--color-border);
   border-radius: 12px;
