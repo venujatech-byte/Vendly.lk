@@ -731,3 +731,136 @@
   .order-dialog__wide { grid-column: auto; }
   .order-dialog__picker { grid-template-columns: 1fr 100px 60px; }
 }
+
+/* ---- Fit-to-window layout: the dialog is a fixed-height column, and only
+   the two body panels scroll internally, so the page never scrolls. ---- */
+.order-dialog--fit { display: flex; flex-direction: column; height: 100%; }
+.order-dialog--fit .order-dialog__body {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  flex: 1;
+  min-height: 0;
+}
+.order-dialog--fit .order-dialog__customer,
+.order-dialog--fit .order-dialog__items {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 18px 20px;
+}
+.order-dialog--fit .order-dialog__customer-fields { margin-top: 16px; padding: 16px 0 18px; }
+.order-dialog--fit .order-dialog__wide textarea { min-height: 56px; }
+
+.mono { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 10.5px; }
+
+.order-dialog__section-label { display: block; margin: 16px 0 7px; color: #65758b; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+
+/* Courier: a compact confirmation chip that opens a small quote list. */
+.order-dialog__courier { position: relative; }
+.order-dialog__courier-chip {
+  display: flex; align-items: center; gap: 8px; width: 100%; min-height: 40px;
+  padding: 0 12px; border: 1px solid #dbe2ea; border-radius: 8px; background: #fff;
+  cursor: pointer; text-align: left;
+}
+.order-dialog__courier-chip:disabled { cursor: default; opacity: .7; }
+.order-dialog__courier-dot { width: 9px; height: 9px; border-radius: 50%; background: #22a474; flex-shrink: 0; }
+.order-dialog__courier-chip:disabled .order-dialog__courier-dot { background: #cbd6e4; }
+.order-dialog__courier-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.order-dialog__courier-chip strong { color: #08213f; }
+.order-dialog__courier-chip svg:last-child { color: #8da0b8; flex-shrink: 0; }
+
+.order-dialog__courier-popover {
+  position: absolute; z-index: 20; top: calc(100% + 6px); left: 0; right: 0;
+  padding: 6px; border: 1px solid #dbe2ea; border-radius: 10px; background: #fff;
+  box-shadow: 0 14px 34px rgba(16,24,40,.16);
+}
+.order-dialog__courier-popover button {
+  display: flex; align-items: center; gap: 9px; width: 100%; padding: 9px 8px;
+  border: 0; border-radius: 8px; background: transparent; cursor: pointer; text-align: left;
+}
+.order-dialog__courier-popover button:hover,
+.order-dialog__courier-popover button.is-active { background: #f1f8ff; }
+.order-dialog__courier-radio { width: 14px; height: 14px; border: 1px solid #cbd6e4; border-radius: 50%; flex-shrink: 0; }
+.order-dialog__courier-popover button.is-active .order-dialog__courier-radio { border: 4px solid #168cf5; }
+.order-dialog__courier-info { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.order-dialog__courier-info small { color: #65758b; font-size: 11px; }
+
+.order-dialog__hint { display: flex; align-items: flex-start; gap: 6px; margin-top: 10px; padding: 9px 10px; border-radius: 8px; background: #f6f8fa; color: #65758b; font-size: 11px; line-height: 1.45; }
+.order-dialog__hint svg { flex-shrink: 0; margin-top: 1px; }
+
+/* Variant matrix: replaces the old single select + qty + add-button row. */
+.order-dialog__matrix { margin-top: 10px; border: 1px solid #dbe2ea; border-radius: 10px; overflow: hidden; }
+.order-dialog__matrix > header { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: #f6f8fa; border-bottom: 1px solid #dbe2ea; }
+.order-dialog__matrix > header span { flex: 1; display: grid; gap: 2px; min-width: 0; }
+.order-dialog__matrix > header small { color: #65758b; }
+.order-dialog__matrix > header button { border: 0; background: transparent; color: #168cf5; font-weight: 600; cursor: pointer; }
+.order-dialog__matrix-thumb { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 7px; background: #fff; border: 1px solid #dbe2ea; color: #8da0b8; flex-shrink: 0; }
+.order-dialog__matrix-thumb img { width: 100%; height: 100%; object-fit: cover; border-radius: 7px; }
+.order-dialog__matrix-head,
+.order-dialog__matrix-row {
+  display: grid; grid-template-columns: 44px 1fr 56px 88px 100px 88px;
+  align-items: center; gap: 8px; padding: 7px 12px; font-size: 12px;
+}
+.order-dialog__matrix-head { background: #f1f5f9; color: #65758b; font-size: 10px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; }
+.order-dialog__matrix-row { border-top: 1px solid #e3e8ef; }
+.order-dialog__matrix-row.is-selected { background: #f5faff; }
+.order-dialog__matrix-row.is-sold-out span:first-child { color: #a9b6c6; text-decoration: line-through; }
+.order-dialog__matrix-row .mono { display: block; color: #65758b; }
+.order-dialog__barcode { color: #a9b6c6 !important; }
+.order-dialog__low-tag { padding: 1px 6px; border-radius: 999px; background: #fff4df; color: #b45309; font-weight: 700; font-size: 11px; font-style: normal; }
+.order-dialog__soldout-tag { color: #ef4444; font-weight: 700; font-size: 11px; font-style: normal; }
+.order-dialog__matrix .order-dialog__quantity { grid-template-columns: 22px 20px 22px; }
+.order-dialog__matrix .order-dialog__quantity button { min-height: 22px; }
+.order-dialog__matrix > footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 12px; background: #f6f8fa; }
+.order-dialog__matrix > footer span { color: #65758b; font-size: 11px; }
+
+.order-dialog__table-body { max-height: 220px; overflow-y: auto; }
+
+/* Footer: subtotal + delivery status shown alongside the actions. */
+.order-dialog__footer { grid-column: auto; display: flex; align-items: center; gap: 20px; flex-shrink: 0; }
+.order-dialog__footer-total,
+.order-dialog__footer-delivery { display: grid; gap: 1px; font-size: 11px; color: #65758b; }
+.order-dialog__footer-total strong,
+.order-dialog__footer-delivery strong { color: #08213f; font-size: 14px; }
+.order-dialog__footer-actions { display: flex; gap: 10px; margin-left: auto; }
+
+/* ---- Order summary: recap cards, item lines, confirmed fee, balance ---- */
+.order-summary__recap { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.order-summary__recap-card { display: grid; gap: 3px; padding: 10px 12px; border: 1px solid #dbe2ea; border-radius: 10px; background: #f6f8fa; font-size: 12px; }
+.order-summary__recap-card small { color: #65758b; }
+.order-summary__items { display: grid; gap: 8px; padding: 10px 12px; border: 1px solid #dbe2ea; border-radius: 10px; }
+.order-summary__item-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 12px; }
+.order-summary__item-row span { display: grid; gap: 2px; min-width: 0; }
+.order-summary__item-row small { color: #65758b; }
+.order-summary__confirmed { color: #22a474; font-weight: 600; margin-left: 6px; }
+.order-summary__balance { display: grid; gap: 3px; margin-top: 2px; padding: 12px; border-radius: 10px; background: #0b3b6e; color: #fff; }
+.order-summary__balance span { color: #b9d4ef; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.order-summary__balance strong { font-size: 22px; }
+.order-summary__balance small { color: #9dc3e8; font-size: 11px; }
+.order-summary__submit { display: flex; align-items: center; gap: 10px; }
+.order-summary__submit span { color: #65758b; font-size: 12px; font-weight: 600; }
+
+[data-theme="dark"] .order-dialog__courier-chip,
+[data-theme="dark"] .order-dialog__courier-popover,
+[data-theme="dark"] .order-dialog__matrix,
+[data-theme="dark"] .order-dialog__matrix > header,
+[data-theme="dark"] .order-dialog__matrix-head,
+[data-theme="dark"] .order-dialog__matrix > footer,
+[data-theme="dark"] .order-dialog__hint,
+[data-theme="dark"] .order-summary__recap-card,
+[data-theme="dark"] .order-summary__items {
+  border-color: #38516d;
+  color: #e5edf7;
+  background: #172a40;
+}
+[data-theme="dark"] .order-dialog__matrix-row { border-color: #263b52; }
+[data-theme="dark"] .order-dialog__matrix-row.is-selected { background: #142438; }
+[data-theme="dark"] .order-dialog__courier-popover button:hover,
+[data-theme="dark"] .order-dialog__courier-popover button.is-active { background: #142438; }
+
+@media (max-width: 1050px) {
+  .order-dialog--fit .order-dialog__body { grid-template-columns: 1fr; overflow-y: auto; }
+  .order-dialog--fit .order-dialog__customer,
+  .order-dialog--fit .order-dialog__items { overflow-y: visible; }
+  .order-dialog__matrix-head,
+  .order-dialog__matrix-row { grid-template-columns: 36px 1fr 44px 74px 86px 74px; font-size: 11px; }
+}

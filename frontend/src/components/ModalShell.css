@@ -34,6 +34,24 @@
   width: min(100%, 1320px);
 }
 
+/* Fills the viewport instead of growing with content, so a dialog with
+   internally-scrolling panels never scrolls the page itself. */
+.modal-shell--full {
+  display: flex;
+  flex-direction: column;
+  width: min(100%, 1440px);
+  height: calc(100vh - 48px);
+  max-height: calc(100vh - 48px);
+  overflow: hidden;
+}
+
+.modal-shell--full .modal-shell__content {
+  flex: 1;
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
 .modal-shell__header {
   position: sticky;
   top: 0;
