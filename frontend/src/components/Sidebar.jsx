@@ -11,7 +11,6 @@ import {
   Truck,
   Users,
   ChartNoAxesCombined,
-  Sparkles,
   Box,
   ChevronsRight,
   SquareMenu,
@@ -90,13 +89,8 @@ function Sidebar({ isCollapsed, onToggleSidebar }) {
         })}
       </nav>
 
-     {/* Business assistant and current-store controls stay at the bottom. */}
+     {/* Keep the business switcher anchored at the bottom of the sidebar. */}
      <div className="sidebar__footer">
-  <button className="sidebar__assistant" type="button">
-    <Sparkles size={20} aria-hidden="true" />
-    <span className="sidebar__label">Business Assistant</span>
-  </button>
-
   <button
     className="sidebar__business"
     type="button"

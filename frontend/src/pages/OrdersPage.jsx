@@ -14,6 +14,7 @@ import {
   ScanLine,
   Store,
   GlobeCheck,
+  ShieldCheck,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
@@ -83,7 +84,7 @@ function OrdersPage() {
 
       try {
         const orderRecords = await getOrders(business.id, {
-          search: filters.orderNumber || filters.waybillNumber || filters.itemName || filters.customer,
+          search: filters.search,
           dateFrom: filters.dateFrom,
           dateTo: filters.dateTo,
           courierId: filters.courier,
@@ -303,10 +304,7 @@ function OrdersPage() {
     if (!waybill?.trim()) return;
     setFilters((current) => ({
       ...current,
-      waybillNumber: waybill.trim(),
-      orderNumber: "",
-      itemName: "",
-      customer: "",
+      search: waybill.trim(),
     }));
   }
 
@@ -398,6 +396,21 @@ function OrdersPage() {
           <Store size={17} aria-hidden="true" />
           Shop Sales
         </button>
+
+
+                <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === "warrantyClaims"}
+          className={`inventory-tabs__button ${activeTab === "warrantyClaims"
+            ? "inventory-tabs__button--active"
+            : ""
+            }`}
+          onClick={() => setActiveTab("warrantyClaims")}
+        >
+          <ShieldCheck size={17} aria-hidden="true" />
+          Warranty claims
+        </button>
       </nav>
 
 
@@ -454,6 +467,12 @@ function OrdersPage() {
 
 
       {activeTab === "shopOrders" && (
+        <>
+
+        </>
+      )}
+
+      {activeTab === "warrantyClaims" && (
         <>
 
         </>

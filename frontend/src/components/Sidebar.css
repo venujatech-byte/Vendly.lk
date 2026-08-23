@@ -115,6 +115,10 @@
   margin-top: auto;
 }
 
+.sidebar__footer:empty {
+  display: none;
+}
+
 /* Current business/store button. */
 .sidebar__business {
   display: flex;

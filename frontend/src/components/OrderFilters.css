@@ -24,7 +24,8 @@
 
   grid-template-columns:
     minmax(220px, 1.5fr)
-    repeat(4, minmax(105px, 1fr))
+    minmax(280px, 2fr)
+    minmax(150px, 1fr)
     auto
     auto;
 

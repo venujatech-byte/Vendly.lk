@@ -14,11 +14,8 @@ import "./OrderFilters.css";
 const initialFilters = {
   dateFrom: "",
   dateTo: "",
-  orderNumber: "",
-  itemName: "",
-  customer: "",
+  search: "",
   courier: "",
-  waybillNumber: "",
 };
 
 function OrderFilters({ couriers = [], onApply, onReset }) {
@@ -39,7 +36,8 @@ function OrderFilters({ couriers = [], onApply, onReset }) {
       ...currentFilters,
       [fieldName]: fieldValue,
     }));
-    if (!fieldValue && ["orderNumber", "itemName", "customer"].includes(fieldName)) onApply?.(nextFilters);
+    // Search is live: the parent reloads matching orders on every keystroke.
+    onApply?.(nextFilters);
   }
 
   // Stop the browser refresh and prepare filters for future API/database use.
@@ -110,51 +108,10 @@ function OrderFilters({ couriers = [], onApply, onReset }) {
           </div>
         </div>
 
+        {/* One live search covers order number, waybill, item, customer and phone. */}
         <div className="order-filters__field">
-          <input id="waybill-number" name="waybillNumber" type="search" placeholder="Scan or enter waybill" value={filters.waybillNumber} onChange={handleInputChange} />
-          {filters.waybillNumber && <button type="button" className="order-filters__clear" onClick={() => handleInputChange({ target: { name: "waybillNumber", value: "" } })} aria-label="Clear waybill number"><X size={15} /></button>}
-        </div>
-
-        {/* Search by order number. */}
-        <div className="order-filters__field">
-
-            <input
-              id="order-number"
-              name="orderNumber"
-              type="search"
-            placeholder="e.g. VD-100001"
-            value={filters.orderNumber}
-              onChange={handleInputChange}
-            />
-            {filters.orderNumber && <button type="button" className="order-filters__clear" onClick={() => { const event = { target: { name: "orderNumber", value: "" } }; handleInputChange(event); }} aria-label="Clear order number"><X size={15} /></button>}
-        </div>
-
-        {/* Search by product/item name. */}
-        <div className="order-filters__field">
-
-          <input
-            id="item-name"
-            name="itemName"
-            type="search"
-            placeholder="Search item"
-            value={filters.itemName}
-            onChange={handleInputChange}
-          />
-          {filters.itemName && <button type="button" className="order-filters__clear" onClick={() => handleInputChange({ target: { name: "itemName", value: "" } })} aria-label="Clear item name"><X size={15} /></button>}
-        </div>
-
-        {/* Search by customer name or phone number. */}
-        <div className="order-filters__field">
-
-          <input
-            id="customer"
-            name="customer"
-            type="search"
-            placeholder="Name or phone"
-            value={filters.customer}
-            onChange={handleInputChange}
-          />
-          {filters.customer && <button type="button" className="order-filters__clear" onClick={() => handleInputChange({ target: { name: "customer", value: "" } })} aria-label="Clear customer search"><X size={15} /></button>}
+          <input id="order-search" name="search" type="search" placeholder="Search orders, customers, phone, items or waybill..." value={filters.search} onChange={handleInputChange} />
+          {filters.search && <button type="button" className="order-filters__clear" onClick={() => handleInputChange({ target: { name: "search", value: "" } })} aria-label="Clear order search"><X size={15} /></button>}
         </div>
 
         {/* Restrict results to a selected courier. */}

@@ -3,6 +3,7 @@ import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
 import { lazy, Suspense, useEffect, useState } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
+import { Bot, Send, Sparkles, X } from "lucide-react";
 
 // Shared layout components and the individual dashboard pages.
 import "./App.css";
@@ -40,6 +41,7 @@ function App() {
   // Application-wide UI state shared by the sidebar and header.
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [theme, setTheme] = useState(getInitialTheme);
+  const [isAssistantOpen, setIsAssistantOpen] = useState(false);
 
   // Apply the selected theme to the HTML element and remember the choice.
   useEffect(() => {
@@ -202,6 +204,33 @@ function App() {
                 />
               </Routes>
             </div>
+            <button
+              className="floating-assistant-button"
+              type="button"
+              onClick={() => setIsAssistantOpen((current) => !current)}
+              aria-label="Open business assistant"
+              aria-expanded={isAssistantOpen}
+              title="Business Assistant"
+            >
+              {isAssistantOpen ? <X size={23} /> : <Sparkles size={23} />}
+            </button>
+            {isAssistantOpen && (
+              <section className="floating-assistant-panel" role="dialog" aria-label="Business Assistant">
+                <header>
+                  <span><Bot size={18} /> Business Assistant</span>
+                  <button type="button" onClick={() => setIsAssistantOpen(false)} aria-label="Close assistant"><X size={17} /></button>
+                </header>
+                <div className="floating-assistant-panel__body">
+                  <Bot size={28} aria-hidden="true" />
+                  <strong>How can I help your business?</strong>
+                  <p>Ask about orders, inventory, customers or sales.</p>
+                </div>
+                <form onSubmit={(event) => event.preventDefault()}>
+                  <input placeholder="Ask your business assistant..." aria-label="Assistant question" />
+                  <button type="submit" aria-label="Send question"><Send size={16} /></button>
+                </form>
+              </section>
+            )}
           </div>
         </ProtectedRoute>
       }
