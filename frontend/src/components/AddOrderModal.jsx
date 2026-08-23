@@ -1,11 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronDown,
+  CheckCircle2,
+  CreditCard,
   Minus,
   Package,
   Plus,
   Search,
+  ShoppingBag,
   Trash2,
+  Truck,
+  UserRound,
   X,
 } from "lucide-react";
 
@@ -260,13 +265,14 @@ function AddOrderModal({ isOpen, businessId, business, onClose, onCreated }) {
               <header><strong>CUSTOMER</strong><button type="button" onClick={startNewCustomer}><Plus size={14} /> New</button></header>
               <label className="order-dialog__search"><Search size={15} /><select value={customerId} onChange={chooseCustomer}><option value="">Search or choose customer...</option>{customers.map((row) => <option key={row.id} value={row.id}>{row.name} — {row.normalizedPhone}</option>)}</select></label>
               <div className="order-dialog__customer-fields">
-                <label>Name <em>*</em><input name="name" value={customer.name} onChange={updateCustomer} required /></label>
+                <label>Name<input name="name" value={customer.name} onChange={updateCustomer} required /></label>
                 <label>Email Address<input name="email" type="email" value={customer.email} onChange={updateCustomer} /></label>
-                <label>1st Phone No. <em>*</em><input name="phoneNumber" value={customer.phoneNumber} onChange={updateCustomer} placeholder="07XXXXXXXX" required /></label>
+                <label>1st Phone No.<input name="phoneNumber" value={customer.phoneNumber} onChange={updateCustomer} placeholder="07XXXXXXXX" required /></label>
                 <label>2nd Phone No.<input name="secondaryPhoneNumber" value={customer.secondaryPhoneNumber} onChange={updateCustomer} placeholder="Optional" /></label>
-                <label className="order-dialog__wide">Address <em>*</em><textarea name="address.line1" value={customer.address.line1} onChange={updateCustomer} required /></label>
-                <label>City <em>*</em><input name="address.city" value={customer.address.city} onChange={updateCustomer} required /></label>
-                <label>District <em>*</em><input name="address.district" value={customer.address.district} onChange={updateCustomer} required /></label>
+                <label className="order-dialog__wide">Address<textarea name="address.line1" value={customer.address.line1} onChange={updateCustomer} placeholder="Street address" required /></label>
+                <label>City<input name="address.city" value={customer.address.city} onChange={updateCustomer} placeholder="Nearest city" required /></label>
+                <label>District<input name="address.district" value={customer.address.district} onChange={updateCustomer} placeholder="District" required /></label>
+                <label className="order-dialog__wide">Order note<textarea value={privateNote} onChange={(event) => setPrivateNote(event.target.value)} placeholder="Add delivery instructions or a private note about this order..." /></label>
               </div>
             </section>
 
@@ -285,20 +291,16 @@ function AddOrderModal({ isOpen, businessId, business, onClose, onCreated }) {
                     <span><strong>{selectedProduct.name}{selectedProduct.colour ? ` · ${selectedProduct.colour}` : ""}</strong><small>{selectedProduct.sizes.length} sizes · {selectedProduct.stock} in stock</small></span>
                     <button type="button" onClick={() => { setSelectedProductId(""); setVariantQuantities({}); }}>Change</button>
                   </header>
-                  <div className="order-dialog__matrix-head">
-                    <span>Size</span><span>SKU / barcode</span><span>Stock</span><span>Price</span><span>Qty</span><span>Line total</span>
-                  </div>
                   {selectedProduct.sizes.map((variant) => {
                     const quantity = variantQuantities[variant.id] || 0;
                     const soldOut = variant.stock <= 0;
                     return (
                       <div className={`order-dialog__matrix-row${soldOut ? " is-sold-out" : ""}${quantity > 0 ? " is-selected" : ""}`} key={variant.id}>
-                        <span>{variant.size || "—"}</span>
-                        <span><small className="mono">{variant.sku}</small>{variant.barcode && <small className="mono order-dialog__barcode">{variant.barcode}</small>}</span>
-                        <span>{soldOut ? <em className="order-dialog__soldout-tag">Sold out</em> : variant.stock <= 5 ? <em className="order-dialog__low-tag">{variant.stock}</em> : variant.stock}</span>
-                        <span>{money(variant.sellingPrice)}</span>
+                        <span className="order-dialog__variant-main"><small>Variant</small><strong>{variant.size ? `Size ${variant.size}` : "Standard option"}</strong><small className="mono">{variant.sku}{variant.barcode ? ` · ${variant.barcode}` : ""}</small></span>
+                        <span className="order-dialog__variant-stat"><small>Stock</small><strong>{soldOut ? <em className="order-dialog__soldout-tag">Sold out</em> : variant.stock <= 5 ? <em className="order-dialog__low-tag">{variant.stock}</em> : variant.stock}</strong></span>
+                        <span className="order-dialog__variant-stat"><small>Price</small><strong>{money(variant.sellingPrice)}</strong></span>
                         <span className="order-dialog__quantity"><button type="button" disabled={soldOut} onClick={() => changeVariantQuantity(variant, -1)}><Minus size={12} /></button><b>{quantity}</b><button type="button" disabled={soldOut || quantity >= variant.stock} onClick={() => changeVariantQuantity(variant, 1)}><Plus size={12} /></button></span>
-                        <span>{quantity > 0 ? money(variant.sellingPrice * quantity) : "—"}</span>
+                        <span className="order-dialog__variant-stat order-dialog__variant-total"><small>Line total</small><strong>{quantity > 0 ? money(variant.sellingPrice * quantity) : "—"}</strong></span>
                       </div>
                     );
                   })}
@@ -376,15 +378,23 @@ function AddOrderModal({ isOpen, businessId, business, onClose, onCreated }) {
 
     {isOpen && isCheckoutOpen && <div className="order-summary__backdrop" role="presentation">
       <section className="order-summary" role="dialog" aria-modal="true" aria-labelledby="order-summary-title">
-        <header><h2 id="order-summary-title">Order Summary</h2><button type="button" onClick={() => setIsCheckoutOpen(false)}><X size={20} /></button></header>
+        <header>
+          <div className="order-summary__heading">
+            <span className="order-summary__heading-icon"><ShoppingBag size={18} /></span>
+            <span><h2 id="order-summary-title">Review order</h2><small>Check the details before creating this order.</small></span>
+          </div>
+          <button type="button" aria-label="Close order summary" onClick={() => setIsCheckoutOpen(false)}><X size={19} /></button>
+        </header>
         <div className="order-summary__body">
           <div className="order-summary__recap">
             <div className="order-summary__recap-card">
+              <span className="order-summary__card-label"><UserRound size={12} /> Customer</span>
               <strong>{customer.name}</strong>
               <small>{customer.phoneNumber}</small>
               <small>{[customer.address.line1, customer.address.city, customer.address.district].filter(Boolean).join(", ")}</small>
             </div>
             <div className="order-summary__recap-card">
+              <span className="order-summary__card-label"><Truck size={12} /> Delivery</span>
               <strong>{selectedQuote?.courier.name || "No courier"}</strong>
               <small>{(totalWeightGrams / 1000).toFixed(2)} kg to {customer.address.district}</small>
               <small>{selectedQuote?.courier.averageDeliveryDays ? `${selectedQuote.courier.averageDeliveryDays} day(s)` : ""}</small>
@@ -392,6 +402,7 @@ function AddOrderModal({ isOpen, businessId, business, onClose, onCreated }) {
           </div>
 
           <div className="order-summary__items">
+            <strong className="order-summary__section-title"><Package size={13} /> Order items <em>{items.length}</em></strong>
             {items.map((item) => (
               <div key={item.variantId} className="order-summary__item-row">
                 <span><strong>{item.productName}{item.size ? ` · ${item.size}` : ""}</strong><small className="mono">{item.sku} · {item.quantity} × {money(item.sellingPrice)}</small></span>
@@ -400,16 +411,18 @@ function AddOrderModal({ isOpen, businessId, business, onClose, onCreated }) {
             ))}
           </div>
 
-          <div><span>Items subtotal</span><strong>{money(subtotal)}</strong></div>
-          <label><span>Discount</span><span className="order-summary__discount">− <input type="number" min="0" max={subtotal} value={discountAmount} onChange={(event) => setDiscountAmount(event.target.value)} /></span></label>
-          <div><span>Delivery fee <small className="order-summary__confirmed">✓ confirmed</small></span><strong>{money(deliveryFee)}</strong></div>
-          <div className="order-summary__total"><strong>Order total</strong><strong>{money(total)}</strong></div>
+          <div className="order-summary__totals">
+            <div><span>Items subtotal</span><strong>{money(subtotal)}</strong></div>
+            <label><span>Discount</span><span className="order-summary__discount">− <input aria-label="Discount amount" type="number" min="0" max={subtotal} value={discountAmount} onChange={(event) => setDiscountAmount(event.target.value)} /></span></label>
+            <div><span>Delivery fee <small className="order-summary__confirmed"><CheckCircle2 size={10} /> Confirmed</small></span><strong>{money(deliveryFee)}</strong></div>
+            <div className="order-summary__total"><strong>Order total</strong><strong>{money(total)}</strong></div>
+          </div>
 
-          <fieldset><legend>Payment</legend>
-            <label><input type="radio" name="payment" checked={paymentMethod === "cod"} onChange={() => setPaymentMethod("cod")} /> Cash on delivery</label>
-            <label><input type="radio" name="payment" checked={paymentMethod === "deposit"} onChange={() => setPaymentMethod("deposit")} /> Deposit paid</label>
+          <fieldset className="order-summary__payment"><legend>Payment method</legend>
+            <label><input type="radio" name="payment" checked={paymentMethod === "cod"} onChange={() => setPaymentMethod("cod")} /><CreditCard size={16} /><span><strong>Cash on delivery</strong><small>Collect the total when delivered</small></span></label>
+            <label><input type="radio" name="payment" checked={paymentMethod === "deposit"} onChange={() => setPaymentMethod("deposit")} /><CreditCard size={16} /><span><strong>Deposit paid</strong><small>Record an advance payment</small></span></label>
             {paymentMethod === "deposit" && <label className="order-summary__deposit">Deposit amount<input type="number" min="0" max={total} value={depositAmount} onChange={(event) => setDepositAmount(event.target.value)} /></label>}
-            <label><input type="radio" name="payment" checked={paymentMethod === "paid"} onChange={() => setPaymentMethod("paid")} /> Fully paid</label>
+            <label><input type="radio" name="payment" checked={paymentMethod === "paid"} onChange={() => setPaymentMethod("paid")} /><CheckCircle2 size={16} /><span><strong>Fully paid</strong><small>No payment due on delivery</small></span></label>
           </fieldset>
 
           {paidAmount > 0 && (

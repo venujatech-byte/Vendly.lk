@@ -289,13 +289,13 @@ function AddProductModal({ isOpen, businessId, categories, product = null, onClo
             <div className="stitch-product__variant-head"><span>Variant</span><span>Image</span><span>SKU</span><span>Barcode</span><span>Stock</span><span>Selling price</span><span>Cost price</span><span /></div>
             {formData.variants.map((variant, index) => (
               <div className="stitch-product__variant-row" key={variant.id}>
-                <input value={variant.size} onChange={(event) => updateVariant(variant.id, "size", event.target.value)} placeholder="e.g. Red, Small" aria-label={`Variant ${index + 1}`} required />
-                <label className="stitch-product__variant-image">{variant.imageFile ? <img src={URL.createObjectURL(variant.imageFile)} alt="" /> : variant.imageUrl ? <img src={variant.imageUrl} alt="" /> : <ImageIcon size={16} />}<input type="file" accept="image/*" onChange={(event) => updateVariant(variant.id, "imageFile", event.target.files[0] || null)} /></label>
+                <label className="stitch-product__variant-field"><small>Variant</small><input value={variant.size} onChange={(event) => updateVariant(variant.id, "size", event.target.value)} placeholder="e.g. Red, Small" aria-label={`Variant ${index + 1}`} required /></label>
+                <label className="stitch-product__variant-image"><small>Image</small>{variant.imageFile ? <img src={URL.createObjectURL(variant.imageFile)} alt="" /> : variant.imageUrl ? <img src={variant.imageUrl} alt="" /> : <ImageIcon size={16} />}<input type="file" accept="image/*" onChange={(event) => updateVariant(variant.id, "imageFile", event.target.files[0] || null)} /></label>
                 <GeneratedInput value={variant.sku} onChange={(value) => updateVariant(variant.id, "sku", value)} onGenerate={() => fillVariantIdentifier(variant.id, "sku")} label={`SKU ${index + 1}`} />
                 <GeneratedInput value={variant.barcode} onChange={(value) => updateVariant(variant.id, "barcode", value)} onGenerate={() => fillVariantIdentifier(variant.id, "barcode")} label={`Barcode ${index + 1}`} />
-                <input type="number" min="0" value={variant.stock} onChange={(event) => updateVariant(variant.id, "stock", event.target.value)} aria-label={`Stock ${index + 1}`} required />
-                <input type="number" min="0.01" step="0.01" value={variant.sellingPrice} onChange={(event) => updateVariant(variant.id, "sellingPrice", event.target.value)} aria-label={`Selling price ${index + 1}`} required />
-                <input type="number" min="0" step="0.01" value={variant.costPrice} onChange={(event) => updateVariant(variant.id, "costPrice", event.target.value)} aria-label={`Cost price ${index + 1}`} required />
+                <label className="stitch-product__variant-field"><small>Stock</small><input type="number" min="0" value={variant.stock} onChange={(event) => updateVariant(variant.id, "stock", event.target.value)} aria-label={`Stock ${index + 1}`} required /></label>
+                <label className="stitch-product__variant-field"><small>Selling price</small><input type="number" min="0.01" step="0.01" value={variant.sellingPrice} onChange={(event) => updateVariant(variant.id, "sellingPrice", event.target.value)} aria-label={`Selling price ${index + 1}`} required /></label>
+                <label className="stitch-product__variant-field"><small>Cost price</small><input type="number" min="0" step="0.01" value={variant.costPrice} onChange={(event) => updateVariant(variant.id, "costPrice", event.target.value)} aria-label={`Cost price ${index + 1}`} required /></label>
                 <button type="button" onClick={() => setFormData((current) => ({ ...current, variants: current.variants.filter(({ id }) => id !== variant.id) }))} aria-label={`Remove variant ${index + 1}`}><Trash2 size={15} /></button>
               </div>
             ))}
@@ -320,7 +320,7 @@ function IdentifierField({ label, onGenerate, disabled, ...inputProps }) {
 }
 
 function GeneratedInput({ value, onChange, onGenerate, label }) {
-  return <span className="stitch-product__generated"><input value={value} onChange={(event) => onChange(event.target.value)} aria-label={label} required /><button type="button" onClick={onGenerate} aria-label={`Generate ${label}`}><WandSparkles size={14} /></button></span>;
+  return <span className="stitch-product__generated stitch-product__variant-field"><small>{label.replace(/\s\d+$/, "")}</small><input value={value} onChange={(event) => onChange(event.target.value)} aria-label={label} required /><button type="button" onClick={onGenerate} aria-label={`Generate ${label}`}><WandSparkles size={14} /></button></span>;
 }
 
 export default AddProductModal;
