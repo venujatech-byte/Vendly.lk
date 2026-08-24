@@ -549,9 +549,8 @@ function OrdersPage() {
 
       {activeTab === "shopOrders" && (
         <>
-          <div className="shop-sales-heading"><div><h2>Physical shop sales</h2><p>Record counter sales and keep the same inventory up to date.</p></div></div>
           <section aria-label="Shop sales summary">
-            <div className="stats-grid">
+            <div className="stats-grid shop-sales-stats">
               {shopStats.map((stat) => (
                 <StatCard
                   key={stat.label}

@@ -34,7 +34,9 @@ function InventoryFilters({ categories = [], onApply, onReset }) {
       ...currentFilters,
       [fieldName]: fieldValue,
     }));
-    if (fieldName === "searchProduct" && !fieldValue) onApply?.(nextFilters);
+    // Apply every change immediately; the Filter button remains available as
+    // an explicit confirmation action and closes the mobile filter panel.
+    onApply?.(nextFilters);
   }
 
   // Prevent a page reload and send the selected values to InventoryPage.

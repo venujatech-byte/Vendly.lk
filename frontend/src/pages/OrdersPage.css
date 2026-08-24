@@ -198,4 +198,5 @@ html[data-theme="dark"] .orders-page__share-button:hover svg {
   }
 }
 .shop-sales-heading{display:flex;align-items:center;justify-content:space-between;gap:18px;margin:18px 0 12px}.shop-sales-heading h2{margin:0;font-size:1.15rem}.shop-sales-heading p{margin:4px 0 0;color:var(--color-text-muted);font-size:.84rem}.shop-sales-heading button{display:flex;align-items:center;gap:7px}
+.shop-sales-stats{align-items:start}.shop-sales-stats .stat-card{height:82px;min-height:82px;max-height:82px;overflow:hidden}.shop-sales-stats .stat-card__content{min-width:0}.shop-sales-stats .stat-card__label{font-size:12px}.shop-sales-stats .stat-card__value{display:-webkit-box;overflow:hidden;font-size:21px;line-height:1.12;-webkit-box-orient:vertical;-webkit-line-clamp:2}
 @media(max-width:720px){.shop-sales-heading{align-items:stretch;flex-direction:column}.shop-sales-heading button{justify-content:center}}
