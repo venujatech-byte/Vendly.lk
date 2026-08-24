@@ -306,9 +306,9 @@ function InventoryPage() {
 
 
         {activeTab === "categories" && (
-          <div className="inventory-page__actions">
+          <div className="page__actions">
             <button
-              className="inventory-page__add-button"
+              className="page__add-button"
               type="button"
               onClick={() => setIsAddCategoryOpen(true)}
               disabled={!business?.id}
