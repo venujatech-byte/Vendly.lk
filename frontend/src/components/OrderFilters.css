@@ -365,3 +365,251 @@ html[data-theme="dark"] .order-filters__mobile-toggle {
   color: var(--color-text);
   background: rgba(13, 31, 48, 0.9);
 }
+
+/*
+ * Shared filter design
+ * --------------------
+ * Every page keeps its own filter state and field names, but uses this small
+ * class contract for one consistent card, control, button and mobile layout.
+ */
+.filter-panel.filter-panel {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface);
+  box-shadow: 0 4px 14px rgba(15, 59, 110, 0.06);
+}
+
+.filter-panel .filter-panel__form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.filter-panel .filter-panel__field {
+  position: relative;
+  display: flex;
+  flex: 1 1 150px;
+  min-width: 0;
+}
+
+.filter-panel .filter-panel__form > select {
+  flex: 1 1 150px;
+}
+
+.filter-panel .filter-panel__field--search {
+  flex: 2 1 260px;
+}
+
+.filter-panel .filter-panel__field--date {
+  flex: 1.5 1 240px;
+}
+
+.filter-panel .filter-panel__field > input,
+.filter-panel .filter-panel__field > select,
+.filter-panel .filter-panel__form > select {
+  width: 100%;
+  min-width: 0;
+  height: 40px;
+  padding: 0 11px;
+  border: 1px solid var(--color-border);
+  border-radius: 7px;
+  outline: none;
+  color: var(--color-text);
+  background: var(--color-control);
+  font: inherit;
+  font-size: 13px;
+  transition: border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
+}
+
+.filter-panel .filter-panel__field > input:focus,
+.filter-panel .filter-panel__field > select:focus,
+.filter-panel .filter-panel__form > select:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(41, 151, 255, 0.14);
+}
+
+.filter-panel .filter-panel__icon-field {
+  align-items: center;
+}
+
+.filter-panel .filter-panel__icon-field > svg {
+  position: absolute;
+  left: 11px;
+  z-index: 1;
+  color: var(--color-muted);
+  pointer-events: none;
+}
+
+.filter-panel .filter-panel__icon-field > input {
+  padding-left: 36px;
+}
+
+.filter-panel .filter-panel__date-control {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 40px;
+  padding: 0 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 7px;
+  background: var(--color-control);
+}
+
+.filter-panel .filter-panel__date-control:focus-within {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(41, 151, 255, 0.14);
+}
+
+.filter-panel .filter-panel__date-control > svg {
+  flex: 0 0 auto;
+  color: var(--color-accent);
+}
+
+.filter-panel .filter-panel__date-control input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  color: var(--color-text);
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+}
+
+.filter-panel .filter-panel__date-control span {
+  color: var(--color-muted);
+  font-size: 12px;
+}
+
+.filter-panel .filter-panel__apply,
+.filter-panel .filter-panel__reset {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  height: 40px;
+  border-radius: 7px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.filter-panel .filter-panel__apply {
+  min-width: 104px;
+  padding: 0 16px;
+  border: 1px solid var(--color-accent);
+  color: #fff;
+  background: var(--color-accent);
+  box-shadow: 0 4px 10px rgba(22, 140, 245, 0.2);
+}
+
+.filter-panel .filter-panel__reset {
+  width: 42px;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  color: var(--color-accent);
+  background: var(--color-control);
+}
+
+.filter-panel .filter-panel__reset--text {
+  width: auto;
+  min-width: 78px;
+  padding: 0 12px;
+}
+
+.filter-panel .filter-panel__apply:hover,
+.filter-panel .filter-panel__reset:hover {
+  border-color: #0879dd;
+  color: #fff;
+  background: #0879dd;
+}
+
+.filter-panel .filter-panel__mobile-toggle {
+  display: none;
+}
+
+html[data-theme="dark"] .filter-panel.filter-panel {
+  border-color: rgba(78, 111, 145, 0.45);
+  background: rgba(12, 29, 45, 0.88);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+html[data-theme="dark"] .filter-panel .filter-panel__field > input,
+html[data-theme="dark"] .filter-panel .filter-panel__field > select,
+html[data-theme="dark"] .filter-panel .filter-panel__form > select,
+html[data-theme="dark"] .filter-panel .filter-panel__date-control,
+html[data-theme="dark"] .filter-panel .filter-panel__reset {
+  border-color: #31506d;
+  color: var(--color-text);
+  background: rgba(13, 31, 48, 0.9);
+}
+
+@media (max-width: 1050px) {
+  .filter-panel .filter-panel__form {
+    flex-wrap: wrap;
+  }
+
+  .filter-panel .filter-panel__field,
+  .filter-panel .filter-panel__form > select {
+    flex: 1 1 calc(50% - 8px);
+  }
+}
+
+@media (max-width: 620px) {
+  .filter-panel.filter-panel {
+    padding: 8px;
+  }
+
+  .filter-panel .filter-panel__mobile-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    min-height: 38px;
+    padding: 0 10px;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    color: var(--color-text-strong);
+    background: var(--color-control);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .filter-panel .filter-panel__mobile-toggle > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .filter-panel .filter-panel__mobile-toggle > svg {
+    transition: transform 180ms ease;
+  }
+
+  .filter-panel .filter-panel__mobile-toggle > svg.is-open {
+    transform: rotate(180deg);
+  }
+
+  .filter-panel .filter-panel__form {
+    display: none;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    padding: 10px 4px 4px;
+  }
+
+  .filter-panel .filter-panel__form.is-open {
+    display: grid;
+  }
+
+  .filter-panel .filter-panel__field,
+  .filter-panel .filter-panel__form > select,
+  .filter-panel .filter-panel__apply,
+  .filter-panel .filter-panel__reset {
+    width: 100%;
+  }
+}

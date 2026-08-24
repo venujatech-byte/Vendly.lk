@@ -39,6 +39,7 @@ import ConfirmDialog from "../components/ConfirmDialog";
 import ModalShell from "../components/ModalShell";
 
 import "./ManagementPage.css";
+import "../components/OrderFilters.css";
 import "./CustomersPage.css";
 
 function CustomersPage() {
@@ -357,9 +358,9 @@ function CustomersPage() {
           </section>
 
 
-          <section className="customers-filters" aria-label="Customer filters">
+          <section className="customers-filters filter-panel" aria-label="Customer filters">
             <button
-              className="customers-filters__mobile-toggle"
+              className="customers-filters__mobile-toggle filter-panel__mobile-toggle"
               type="button"
               onClick={() => setAreMobileFiltersOpen((isOpen) => !isOpen)}
               aria-expanded={areMobileFiltersOpen}
@@ -368,8 +369,8 @@ function CustomersPage() {
               <span><Filter size={17} /> {areMobileFiltersOpen ? "Hide filters" : "Show filters"}</span>
               {areMobileFiltersOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
             </button>
-            <div id="customer-filter-fields" className={`customers-filters__form ${areMobileFiltersOpen ? "is-open" : ""}`}>
-              <label className="customers-filters__search">
+            <div id="customer-filter-fields" className={`customers-filters__form filter-panel__form ${areMobileFiltersOpen ? "is-open" : ""}`}>
+              <label className="customers-filters__search filter-panel__field filter-panel__field--search">
                 <input
                   value={filters.search}
                   onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
@@ -395,8 +396,8 @@ function CustomersPage() {
                 <option value="all">All Locations</option>
                 {[...new Set(customers.map((customer) => (customer.defaultAddress || customer.address || {}).district).filter(Boolean))].map((district) => <option key={district} value={district}>{district}</option>)}
               </select>
-              <button type="button" className="customers-filters__button"><Filter size={15} /> More Filters</button>
-              <button type="button" className="customers-filters__reset" onClick={() => setFilters({ search: "", risk: "all", rating: "all", location: "all" })}><RotateCcw size={15} /> Reset</button>
+              <button type="button" className="customers-filters__button filter-panel__apply"><Filter size={15} /> More Filters</button>
+              <button type="button" className="customers-filters__reset filter-panel__reset filter-panel__reset--text" onClick={() => setFilters({ search: "", risk: "all", rating: "all", location: "all" })}><RotateCcw size={15} /> Reset</button>
             </div>
           </section></>
       )}
@@ -718,18 +719,18 @@ function ReviewsTable({ reviews, isLoading, onModerate }) {
 function FraudFilters({ filters, setFilters }) {
   const [areMobileFiltersOpen, setAreMobileFiltersOpen] = useState(false);
 
-  return <section className="customers-filters fraud-filters" aria-label="Fraud report filters">
-    <button className="customers-filters__mobile-toggle" type="button" onClick={() => setAreMobileFiltersOpen((isOpen) => !isOpen)} aria-expanded={areMobileFiltersOpen} aria-controls="fraud-filter-fields">
+  return <section className="customers-filters fraud-filters filter-panel" aria-label="Fraud report filters">
+    <button className="customers-filters__mobile-toggle filter-panel__mobile-toggle" type="button" onClick={() => setAreMobileFiltersOpen((isOpen) => !isOpen)} aria-expanded={areMobileFiltersOpen} aria-controls="fraud-filter-fields">
       <span><Filter size={17} /> {areMobileFiltersOpen ? "Hide filters" : "Show filters"}</span>
       {areMobileFiltersOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
     </button>
-    <div id="fraud-filter-fields" className={`fraud-filters__form ${areMobileFiltersOpen ? "is-open" : ""}`}>
-      <label className="customers-filters__search"><input value={filters.search} onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))} placeholder="Search customers by name, phone or email..." /></label>
+    <div id="fraud-filter-fields" className={`fraud-filters__form filter-panel__form ${areMobileFiltersOpen ? "is-open" : ""}`}>
+      <label className="customers-filters__search filter-panel__field filter-panel__field--search"><input value={filters.search} onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))} placeholder="Search customers by name, phone or email..." /></label>
       <select value={filters.risk} onChange={(event) => setFilters((current) => ({ ...current, risk: event.target.value }))} aria-label="Risk status"><option value="all">All Risk Levels</option><option value="high">High Risk</option><option value="medium">Medium Risk</option><option value="low">Low Risk</option></select>
       <select value={filters.reason} onChange={(event) => setFilters((current) => ({ ...current, reason: event.target.value }))} aria-label="Return reason"><option value="all">All Ratings</option><option value="Unreachable">Unreachable</option><option value="Refused Delivery">Refused Delivery</option><option value="Change of Mind">Change of Mind</option><option value="Address Incomplete">Address Incomplete</option></select>
       <select value={filters.score} onChange={(event) => setFilters((current) => ({ ...current, score: event.target.value }))} aria-label="Fraud score"><option value="all">All Locations</option><option value="high">High score</option><option value="medium">Medium score</option><option value="low">Low score</option></select>
-      <button type="button" className="customers-filters__button"><Filter size={15} /> More Filters</button>
-      <button type="button" className="customers-filters__reset" onClick={() => setFilters({ search: "", risk: "all", reason: "all", score: "all" })}><RotateCcw size={15} /> Reset</button>
+      <button type="button" className="customers-filters__button filter-panel__apply"><Filter size={15} /> More Filters</button>
+      <button type="button" className="customers-filters__reset filter-panel__reset filter-panel__reset--text" onClick={() => setFilters({ search: "", risk: "all", reason: "all", score: "all" })}><RotateCcw size={15} /> Reset</button>
     </div>
   </section>;
 }
