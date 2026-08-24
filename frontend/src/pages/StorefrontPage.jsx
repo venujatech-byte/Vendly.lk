@@ -470,25 +470,6 @@ function StorefrontPage({ linkType }) {
     );
   }
 
-  function setCartQuantity(variantId, requestedQuantity) {
-    const parsedQuantity = Number.parseInt(requestedQuantity, 10);
-
-    setCart((current) =>
-      current
-        .map((item) => {
-          if (item.variantId !== variantId) return item;
-          return {
-            ...item,
-            quantity: Math.min(
-              item.availableStock,
-              Math.max(0, Number.isNaN(parsedQuantity) ? 0 : parsedQuantity),
-            ),
-          };
-        })
-        .filter((item) => item.quantity > 0),
-    );
-  }
-
   async function requestChatMessage(cleanMessage) {
     if (!cleanMessage || !session || isSending) return;
 
@@ -563,12 +544,18 @@ function StorefrontPage({ linkType }) {
   }
 
   function addFromChat(product, variant) {
+    if (!variant || variant.availableStock < 1) return;
+
+    const selectedItem = cart.find((item) => item.variantId === variant.id);
+
+    if (selectedItem?.quantity >= variant.availableStock) return;
+
     addToCart(product, variant);
     setMessages((current) => [
       ...current,
       {
         role: "assistant",
-        text: `${product.name}${variant.size ? `, size ${variant.size}` : ""} was added to your order draft. You can add another item or continue to checkout.`,
+        text: `${product.name}${variant.size ? `, size ${variant.size}` : ""} was added to your cart. Do you want to add any other item?`,
         action: "cart-updated",
       },
     ]);
@@ -894,7 +881,6 @@ function StorefrontPage({ linkType }) {
             onAddFromChat={addFromChat}
             onDecreaseItem={(variantId) => updateCartQuantity(variantId, -1)}
             onIncreaseItem={(variantId) => updateCartQuantity(variantId, 1)}
-            onSetItemQuantity={setCartQuantity}
             onRemoveItem={(variantId) =>
               setCart((current) =>
                 current.filter((item) => item.variantId !== variantId),
@@ -1172,8 +1158,8 @@ function ChatCatalogCard({ product, productIndex, isOrderMode, cart, onQuickMess
         <span>{money(product.sellingPriceMinor)}</span>
         <small>{availableStock} available</small>
       </div>
-      <button className="storefront-chat-catalog-card__select" type="button" disabled={!variant || availableStock < 1} onClick={() => onAddFromChat(product, variant)}>
-        {quantity ? "Selected" : "Select"}
+      <button className="storefront-chat-catalog-card__select" type="button" disabled={!variant || availableStock < 1 || quantity >= availableStock} onClick={() => onAddFromChat(product, variant)}>
+        Add
       </button>
       <div className="storefront-chat-catalog-card__quantity" aria-label={`Quantity for ${product.name}`}>
         <button type="button" aria-label={`Remove one ${product.name}`} disabled={!quantity} onClick={() => onDecreaseItem(variant.id)}>-</button>
@@ -1181,122 +1167,6 @@ function ChatCatalogCard({ product, productIndex, isOrderMode, cart, onQuickMess
         <button type="button" aria-label={`Add one ${product.name}`} disabled={!variant || quantity >= availableStock} onClick={() => quantity ? onIncreaseItem(variant.id) : onAddFromChat(product, variant)}>+</button>
       </div>
     </article>
-  );
-}
-
-function ChatProductVariantControl({
-  product,
-  variant,
-  cart,
-  onAddFromChat,
-  onDecreaseItem,
-  onIncreaseItem,
-  onSetItemQuantity,
-}) {
-  const selectedItem = cart.find((item) => item.variantId === variant.id);
-  const quantity = selectedItem?.quantity ?? 0;
-  const availableStock = variant.availableStock ?? 0;
-  const variantLabel = variant.size ? `Size ${variant.size}` : "Standard option";
-
-  return (
-    <div className={`storefront-chat-product__variant-row ${quantity ? "is-selected" : ""}`}>
-      <span>
-        <strong>{variantLabel}</strong>
-        <small>{availableStock} available</small>
-      </span>
-
-      {quantity === 0 ? (
-        <button
-          type="button"
-          disabled={availableStock < 1}
-          onClick={() => onAddFromChat(product, variant)}
-        >
-          <Plus size={14} /> Add
-        </button>
-      ) : (
-        <div className="storefront-chat-product__quantity">
-          <button
-            type="button"
-            onClick={() => onDecreaseItem(variant.id)}
-            aria-label={`Remove one ${product.name}, ${variantLabel}`}
-          >
-            <Minus size={14} />
-          </button>
-          <input
-            type="number"
-            min="1"
-            max={availableStock}
-            value={quantity}
-            aria-label={`Quantity for ${product.name}, ${variantLabel}`}
-            onChange={(event) =>
-              onSetItemQuantity(variant.id, event.target.value)
-            }
-          />
-          <button
-            type="button"
-            disabled={quantity >= availableStock}
-            onClick={() => onIncreaseItem(variant.id)}
-            aria-label={`Add one ${product.name}, ${variantLabel}`}
-          >
-            <Plus size={14} />
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function ChatProductDetailsCard({
-  product,
-  cart,
-  onAddFromChat,
-  onDecreaseItem,
-  onIncreaseItem,
-  onSetItemQuantity,
-}) {
-  const productVariantIds = new Set((product.variants || []).map((variant) => variant.id));
-  const isInCart = cart.some(
-    (item) => productVariantIds.has(item.variantId) && item.quantity > 0,
-  );
-
-  return (
-    <div className={`storefront-chat-product ${isInCart ? "is-in-cart" : ""}`}>
-      <div className="storefront-chat-product__header">
-        <span className="storefront-chat-product__image">
-          {product.media?.[0]?.url ? (
-            <img src={product.media[0].url} alt={product.name} />
-          ) : (
-            <Package size={28} />
-          )}
-        </span>
-        <span className="storefront-chat-product__heading">
-          <strong>{product.name}</strong>
-          <small>{money(product.sellingPriceMinor)}</small>
-        </span>
-      </div>
-      {!isInCart && (
-        <p className="storefront-chat-product__description">
-          {product.description ||
-            product.aiDescription ||
-            "The seller has not added a product description yet."}
-        </p>
-      )}
-      {isInCart && <div className="storefront-chat-product__selected-label">Selected</div>}
-      <div className="storefront-chat-product__variants">
-        {product.variants?.map((variant) => (
-          <ChatProductVariantControl
-            key={variant.id}
-            product={product}
-            variant={variant}
-            cart={cart}
-            onAddFromChat={onAddFromChat}
-            onDecreaseItem={onDecreaseItem}
-            onIncreaseItem={onIncreaseItem}
-            onSetItemQuantity={onSetItemQuantity}
-          />
-        ))}
-      </div>
-    </div>
   );
 }
 
@@ -1445,7 +1315,6 @@ function ChatbotView({
   onAddFromChat,
   onDecreaseItem,
   onIncreaseItem,
-  onSetItemQuantity,
   onRemoveItem,
   onOpenCheckout,
   onOpenReviews,
@@ -1453,16 +1322,6 @@ function ChatbotView({
   return (
     <div className="storefront-page storefront-chat-page">
       <section className="storefront-chat-panel">
-        <header className="storefront-chat-panel__header">
-          <div>
-            <span />
-            <strong>Order Chat</strong>
-          </div>
-          <small>
-            <CheckCircle2 size={14} /> Ready
-          </small>
-        </header>
-
         <div className="storefront-chat-messages">
           {messages.map((message, index) => (
             <div
@@ -1504,19 +1363,6 @@ function ChatbotView({
                       ))}
                     </div>
                   )}
-
-                {message.role === "assistant" &&
-                  message.product &&
-                  message.action !== "show-reviews" && (
-                  <ChatProductDetailsCard
-                    product={message.product}
-                    cart={cart}
-                    onAddFromChat={onAddFromChat}
-                    onDecreaseItem={onDecreaseItem}
-                    onIncreaseItem={onIncreaseItem}
-                    onSetItemQuantity={onSetItemQuantity}
-                  />
-                )}
 
                 {message.role === "assistant" &&
                   message.action === "show-reviews" && (

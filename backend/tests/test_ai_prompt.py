@@ -15,3 +15,7 @@ def test_product_prompt_contains_guardrails_and_seller_facts():
     assert "IP67 water resistance" in prompt
     assert "Never invent features" in prompt
     assert "Is it waterproof?" in prompt
+    assert "real seller" in prompt
+    assert "English and Sinhala" in prompt
+    assert "three short sentences" in prompt
+    assert "no web-search tool is connected" in prompt

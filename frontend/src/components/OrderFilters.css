@@ -560,7 +560,7 @@ html[data-theme="dark"] .filter-panel .filter-panel__reset {
   }
 }
 
-@media (max-width: 620px) {
+@media (max-width: 700px) {
   .filter-panel.filter-panel {
     padding: 8px;
   }

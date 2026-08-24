@@ -561,53 +561,7 @@
 }
 
 @media (max-width: 700px) {
-  .customers-filters { padding: 8px; }
-  .customers-filters__mobile-toggle { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 38px; padding: 0 10px; border: 1px solid var(--color-border); border-radius: 8px; color: var(--color-text-strong); background: var(--color-control); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
-  .customers-filters__mobile-toggle span { display: inline-flex; align-items: center; gap: 7px; }
-  .customers-filters__form { display: none; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding-top: 9px; }
-  .customers-filters__form.is-open { display: grid; }
-  .customers-filters__search { grid-column: 1 / -1; }
-  .customers-filters__search, .customers-filters select, .customers-filters__button, .customers-filters__reset { width: 100%; min-width: 0; }
   .customer-expanded-details { grid-template-columns: 1fr 1fr; }
-}
-
-.customers-filters { margin-top: 10px; padding: 14px; border: 1px solid var(--color-border); border-radius: 12px; background: var(--color-surface); }
-.customers-filters__form { display: flex; align-items: center; gap: 12px; }
-.customers-filters__mobile-toggle { display: none; }
-.customers-filters__search { flex: 1 1 260px; }
-.customers-filters input, .customers-filters select { width: 100%; min-height: 38px; padding: 0 12px; border: 1px solid var(--color-border); border-radius: 8px; color: var(--color-text); background: var(--color-surface); font: inherit; font-size: .82rem; }
-.customers-filters select { flex: 0 1 150px; }
-.customers-filters__button, .customers-filters__reset { display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding: 0 12px; border: 1px solid var(--color-border); border-radius: 8px; color: var(--color-accent); background: var(--color-surface); font: inherit; font-size: .8rem; white-space: nowrap; cursor: pointer; }
-.customers-filters__button { color: var(--color-text); background: var(--color-surface-muted); }
-.customers-filters__reset { border-color: transparent; }
-
-/* Fraud reports use the same single-line filter bar as All Customers. */
-.fraud-filters { display: grid; grid-template-columns: minmax(250px, 1.8fr) repeat(3, minmax(130px, 1fr)) auto auto; align-items: center; gap: 12px; }
-.fraud-filters__form { display: grid; grid-template-columns: minmax(250px, 1.8fr) repeat(3, minmax(130px, 1fr)) auto auto; align-items: center; gap: 12px; width: 100%; }
-.fraud-filters > .customers-filters__mobile-toggle { display: none; }
-.fraud-filters .customers-filters__search { min-width: 0; }
-.fraud-filters select { min-width: 0; }
-
-@media (max-width: 900px) and (min-width: 701px) {
-  .fraud-filters { grid-template-columns: minmax(220px, 1fr) repeat(2, minmax(130px, 1fr)); }
-  .fraud-filters__form { grid-template-columns: minmax(220px, 1fr) repeat(2, minmax(130px, 1fr)); }
-  .fraud-filters .customers-filters__button, .fraud-filters .customers-filters__reset { justify-self: start; }
-}
-
-@media (max-width: 700px) {
-  .customers-filters { padding: 8px; }
-  .customers-filters__mobile-toggle { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 38px; padding: 0 10px; border: 1px solid var(--color-border); border-radius: 8px; color: var(--color-text-strong); background: var(--color-control); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
-  .customers-filters__mobile-toggle span { display: inline-flex; align-items: center; gap: 7px; }
-  .customers-filters__form { display: none; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding-top: 9px; }
-  .customers-filters__form.is-open { display: grid; }
-  .customers-filters__search { grid-column: 1 / -1; }
-  .customers-filters__search, .customers-filters select, .customers-filters__button, .customers-filters__reset { width: 100%; min-width: 0; }
-  .fraud-filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .fraud-filters { display: block; }
-  .fraud-filters > .customers-filters__mobile-toggle { display: flex; }
-  .fraud-filters__form { display: none; grid-template-columns: repeat(2, minmax(0, 1fr)); padding-top: 9px; }
-  .fraud-filters__form.is-open { display: grid; }
-  .fraud-filters .customers-filters__search { grid-column: 1 / -1; }
 }
 
 /* Keep the collapsed customer row compact on phones. */
