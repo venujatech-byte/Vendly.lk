@@ -1,5 +1,5 @@
 // React state remembers whether Products or Categories is selected.
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 // Icons used by statistics, tabs, and page action buttons.
@@ -24,6 +24,7 @@ import AddProductModal from "../components/AddProductModal";
 import ConfirmDialog from "../components/ConfirmDialog";
 import ReviewsModal from "../components/ReviewsModal";
 import AdjustStockModal from "../components/AdjustStockModal";
+import BarcodeScannerModal from "../components/BarcodeScannerModal";
 import { useAuth } from "../context/authContextValue";
 import { getCategories, removeCategory } from "../services/categoryService";
 import { downloadInventoryCsv, getProducts, removeProduct, updateProduct, updateProductStatus } from "../services/productService";
@@ -54,6 +55,7 @@ function InventoryPage() {
   const [isExporting, setIsExporting] = useState(false);
   const [inventoryFilters, setInventoryFilters] = useState({});
   const [inventoryRefreshKey, setInventoryRefreshKey] = useState(0);
+  const [isBarcodeScannerOpen, setIsBarcodeScannerOpen] = useState(false);
 
   // Reset local and URL filters, then reload the source data for a clean table.
   function resetInventoryFilters() {
@@ -240,6 +242,12 @@ function InventoryPage() {
     }
   }
 
+  const handleBarcodeDetected = useCallback((barcode) => {
+    setActiveTab("products");
+    setSearchParameters({ search: barcode }, { replace: true });
+    setIsBarcodeScannerOpen(false);
+  }, [setSearchParameters]);
+
   function handleExportSelected(selectedIds) {
     const selectedProducts = visibleProducts.filter((product) => selectedIds.includes(product.id));
     downloadInventoryCsv(selectedProducts);
@@ -282,7 +290,7 @@ function InventoryPage() {
 
         {activeTab === "products" && (
           <div className="page__actions">
-            <button type="button">
+            <button type="button" onClick={() => setIsBarcodeScannerOpen(true)}>
               <ScanBarcode size={18} aria-hidden="true" />
               Scan Barcode
             </button>
@@ -545,6 +553,12 @@ function InventoryPage() {
             ),
           )
         }
+      />
+
+      <BarcodeScannerModal
+        isOpen={isBarcodeScannerOpen}
+        onClose={() => setIsBarcodeScannerOpen(false)}
+        onDetected={handleBarcodeDetected}
       />
     </main>
   );
