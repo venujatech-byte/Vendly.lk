@@ -56,9 +56,9 @@ function OrderFilters({ couriers = [], onApply, onReset }) {
   }
 
   return (
-    <section className="order-filters" aria-label="Order filters">
+    <section className="order-filters filter-panel" aria-label="Order filters">
       <button
-        className="order-filters__mobile-toggle"
+        className="order-filters__mobile-toggle filter-panel__mobile-toggle"
         type="button"
         onClick={() => setAreMobileFiltersOpen((isOpen) => !isOpen)}
         aria-expanded={areMobileFiltersOpen}
@@ -78,14 +78,14 @@ function OrderFilters({ couriers = [], onApply, onReset }) {
       {/* All fields below are controlled by the filters state object. */}
       <form
         id="order-filter-fields"
-        className={`order-filters__form ${areMobileFiltersOpen ? "is-open" : ""}`}
+        className={`order-filters__form filter-panel__form ${areMobileFiltersOpen ? "is-open" : ""}`}
         onSubmit={handleSubmit}
       >
         {/* Start and end date range. */}
-        <div className="order-filters__field order-filters__date-field">
+        <div className="order-filters__field order-filters__date-field filter-panel__field filter-panel__field--date">
 
 
-          <div className="order-filters__date-control">
+          <div className="order-filters__date-control filter-panel__date-control">
             <CalendarDays size={17} aria-hidden="true" />
 
             <input
@@ -109,13 +109,13 @@ function OrderFilters({ couriers = [], onApply, onReset }) {
         </div>
 
         {/* One live search covers order number, waybill, item, customer and phone. */}
-        <div className="order-filters__field">
+        <div className="order-filters__field filter-panel__field filter-panel__field--search">
           <input id="order-search" name="search" type="search" placeholder="Search orders, customers, phone, items or waybill..." value={filters.search} onChange={handleInputChange} />
           {filters.search && <button type="button" className="order-filters__clear" onClick={() => handleInputChange({ target: { name: "search", value: "" } })} aria-label="Clear order search"><X size={15} /></button>}
         </div>
 
         {/* Restrict results to a selected courier. */}
-        <div className="order-filters__field">
+        <div className="order-filters__field filter-panel__field">
 
 
           <select
@@ -132,13 +132,13 @@ function OrderFilters({ couriers = [], onApply, onReset }) {
         </div>
 
         {/* Apply or reset the completed filter form. */}
-        <button className="order-filters__apply" type="submit">
+        <button className="order-filters__apply filter-panel__apply" type="submit">
           <Funnel size={18} aria-hidden="true" />
           <span>Filter</span>
         </button>
 
         <button
-          className="order-filters__reset"
+          className="order-filters__reset filter-panel__reset"
           type="button"
           onClick={handleReset}
           aria-label="Reset order filters"

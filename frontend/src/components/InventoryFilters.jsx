@@ -7,7 +7,7 @@ import {
   X,
 } from "lucide-react";
 
-import "./InventoryFilters.css";
+import "./OrderFilters.css";
 
 // Empty values used when the form first loads or is reset.
 const initialFilters = {
@@ -52,9 +52,9 @@ function InventoryFilters({ categories = [], onApply, onReset }) {
   }
 
   return (
-    <section className="inventory-filters" aria-label="inventory filters">
+    <section className="inventory-filters filter-panel" aria-label="inventory filters">
       <button
-        className="inventory-filters__mobile-toggle"
+        className="inventory-filters__mobile-toggle filter-panel__mobile-toggle"
         type="button"
         onClick={() => setAreMobileFiltersOpen((isOpen) => !isOpen)}
         aria-expanded={areMobileFiltersOpen}
@@ -74,14 +74,14 @@ function InventoryFilters({ categories = [], onApply, onReset }) {
       {/* Controlled form: every value comes from the filters state object. */}
       <form
         id="inventory-filter-fields"
-        className={`inventory-filters__form ${areMobileFiltersOpen ? "is-open" : ""}`}
+        className={`inventory-filters__form filter-panel__form ${areMobileFiltersOpen ? "is-open" : ""}`}
         onSubmit={handleSubmit}
       >
     
 
 
         {/* Product name, SKU, or barcode search. */}
-        <div className="inventory-filters__field">
+        <div className="inventory-filters__field filter-panel__field filter-panel__field--search">
 
           <input
             id="searchProduct"
@@ -97,7 +97,7 @@ function InventoryFilters({ categories = [], onApply, onReset }) {
 
 
         {/* Category selector. */}
-        <div className="inventory-filters__field">
+        <div className="inventory-filters__field filter-panel__field">
 
           <select
             id="category"
@@ -115,7 +115,7 @@ function InventoryFilters({ categories = [], onApply, onReset }) {
 
 
         {/* Stock-status selector. */}
-        <div className="inventory-filters__field">
+        <div className="inventory-filters__field filter-panel__field">
 
           <select
             id="stockStatus"
@@ -131,13 +131,13 @@ function InventoryFilters({ categories = [], onApply, onReset }) {
         </div>
 
         {/* Submit and reset controls. */}
-        <button className="inventory-filters__apply" type="submit">
+        <button className="inventory-filters__apply filter-panel__apply" type="submit">
           <Funnel size={18} aria-hidden="true" />
           <span>Filter</span>
         </button>
 
         <button
-          className="inventory-filters__reset"
+          className="inventory-filters__reset filter-panel__reset"
           type="button"
           onClick={handleReset}
           aria-label="Reset inventory filters"
