@@ -292,6 +292,31 @@ function OrdersPage() {
     URL.revokeObjectURL(url);
   }
 
+  // Export only the currently loaded physical-shop sales, including active filters.
+  function handleExportShopSales() {
+    const activeSales = shopSales.filter((sale) => sale.status !== "voided");
+    const columns = ["Sale number", "Customer", "Items", "Subtotal", "Discount", "Total", "Date"];
+    const escape = (value) => `"${String(value ?? "").replaceAll('"', '""')}"`;
+    const rows = activeSales.map((sale) => [
+      sale.saleNumber,
+      sale.customerName || "Walk-in customer",
+      (sale.items ?? []).map((item) => `${item.productName || item.name} x ${item.quantity}`).join("; "),
+      sale.subtotal,
+      sale.discount,
+      sale.total,
+      `${sale.date} ${sale.time}`,
+    ]);
+    const csv = [columns, ...rows].map((row) => row.map(escape).join(",")).join("\r\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `vendly-shop-sales-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
   async function confirmOrderRemoval() {
     if (!removalTarget || !business?.id) return;
     setIsRemoving(true);
@@ -379,44 +404,35 @@ function OrdersPage() {
         <div className="inventory-page__heading">
           <p>View and manage all customer orders.</p>
 
-          <div className="page__actions">
-            <button type="button" onClick={handleScanWaybill}>
-              <ScanLine size={19} aria-hidden="true" />
-              <span>Scan Waybill</span>
-            </button>
-            <button
-              type="button"
-              onClick={handleCopyChatbotLink}
-              disabled={!business?.shortCode}
-              title="Copy the seller-specific catalogue and chatbot link"
-            >
-              {linkWasCopied ? (
-                <Check size={19} aria-hidden="true" />
-              ) : (
-                <Link2 size={19} aria-hidden="true" />
-              )}
-              <span>{linkWasCopied ? "Link Copied" : "Chatbot Link"}</span>
-            </button>
+          {activeTab === "onlineOrders" && <div className="page__actions">
+              <button type="button" onClick={handleScanWaybill}>
+                <ScanLine size={19} aria-hidden="true" />
+                <span>Scan Waybill</span>
+              </button>
+              <button type="button" onClick={handleCopyChatbotLink} disabled={!business?.shortCode} title="Copy the seller-specific catalogue and chatbot link">
+                {linkWasCopied ? <Check size={19} aria-hidden="true" /> : <Link2 size={19} aria-hidden="true" />}
+                <span>{linkWasCopied ? "Link Copied" : "Chatbot Link"}</span>
+              </button>
+              <button type="button" onClick={handleExport} disabled={isExporting || !business?.id}>
+                <Download size={19} strokeWidth={1.8} />
+                <span>{isExporting ? "Exporting..." : "Export Orders"}</span>
+              </button>
+              <button className="page__add-button" type="button" onClick={() => setIsAddOrderOpen(true)} disabled={!business?.id}>
+                <Plus size={19} aria-hidden="true" />
+                Add Order
+              </button>
+            </div>}
 
-            <button
-              type="button"
-              onClick={handleExport}
-              disabled={isExporting || !business?.id}
-            >
-              <Download size={19} strokeWidth={1.8} />
-              <span>{isExporting ? "Exporting..." : "Export Orders"}</span>
-            </button>
-
-            {activeTab === "onlineOrders" && <button
-              className="page__add-button"
-              type="button"
-              onClick={() => setIsAddOrderOpen(true)}
-              disabled={!business?.id}
-            >
-              <Plus size={19} aria-hidden="true" />
-              Add Order
-            </button>}
-          </div>
+          {activeTab === "shopOrders" && <div className="page__actions">
+              <button type="button" onClick={handleExportShopSales} disabled={!shopSales.length}>
+                <Download size={19} strokeWidth={1.8} aria-hidden="true" />
+                <span>Export Sales</span>
+              </button>
+              <button className="page__add-button" type="button" onClick={() => setIsAddShopSaleOpen(true)} disabled={!business?.id}>
+                <Plus size={19} aria-hidden="true" />
+                Add Shop Sale
+              </button>
+            </div>}
         </div>
 
       </div>
@@ -533,7 +549,7 @@ function OrdersPage() {
 
       {activeTab === "shopOrders" && (
         <>
-          <div className="shop-sales-heading"><div><h2>Physical shop sales</h2><p>Record counter sales and keep the same inventory up to date.</p></div><button className="page__add-button" type="button" onClick={() => setIsAddShopSaleOpen(true)}><Plus size={18}/>Add shop sale</button></div>
+          <div className="shop-sales-heading"><div><h2>Physical shop sales</h2><p>Record counter sales and keep the same inventory up to date.</p></div></div>
           <section aria-label="Shop sales summary">
             <div className="stats-grid">
               {shopStats.map((stat) => (
