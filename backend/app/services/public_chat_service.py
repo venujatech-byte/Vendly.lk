@@ -247,6 +247,22 @@ def category_products(products, category_name, excluded_product_id=None):
     ]
 
 
+def related_products(products, selected_product, limit=4):
+    """Recommend catalogue items without allowing the AI to invent products."""
+    if not selected_product:
+        return []
+
+    selected_id = selected_product.get("id")
+    category_name = selected_product.get("categoryName")
+    same_category = category_products(products, category_name, selected_id)
+    other_products = [
+        product
+        for product in products
+        if product.get("id") != selected_id and product not in same_category
+    ]
+    return (same_category + other_products)[:limit]
+
+
 def normalize_chat_cart(value):
     """Keep only variant identifiers and safe positive quantities in chat state."""
     if value is None:
@@ -1103,7 +1119,18 @@ def answer_public_message(database, session_id, provided_token, payload):
             or "The seller has not added a detailed description yet."
         )
 
-        if is_catalog_number_choice(message) or explicitly_selected_product:
+        is_product_overview_request = is_catalog_number_choice(message) or any(
+            phrase in lowered_message
+            for phrase in (
+                "tell me about",
+                "product details",
+                "view details",
+                "know more",
+                "more about",
+            )
+        )
+
+        if is_product_overview_request:
             available_sizes = [
                 variant.get("size")
                 for variant in selected_product.get("variants", [])
@@ -1117,8 +1144,8 @@ def answer_public_message(database, session_id, provided_token, payload):
             response_message = (
                 f"{selected_product['name']}: {deterministic_description} "
                 f"Price: LKR {selected_product['sellingPriceMinor'] / 100:,.2f}."
-                f"{size_text} Ask me about a specific feature, add it to your order, "
-                "or ask for other options in this category."
+                f"{size_text} Ask about a feature, compare similar products, or choose "
+                "Order this product when you are ready."
             )
         else:
             generated_answer = generate_product_answer(message, selected_product)
@@ -1151,6 +1178,11 @@ def answer_public_message(database, session_id, provided_token, payload):
             "show-product",
             next_state="browsing",
             product=selected_product,
+            response_products=(
+                related_products(products, selected_product)
+                if is_product_overview_request
+                else []
+            ),
             selected_product_id=selected_product["id"],
         )
 

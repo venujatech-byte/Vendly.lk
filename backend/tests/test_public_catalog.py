@@ -6,6 +6,7 @@ from app.services.public_chat_service import (
     normalize_chat_cart,
     parse_delivery_address,
     public_order_confirmation,
+    related_products,
     summarize_chat_cart,
     token_hash,
 )
@@ -99,6 +100,18 @@ def test_chat_category_request_finds_all_matching_products():
 
     assert find_category_request("show all smartwatches", products) == "Smartwatches"
     assert find_category_request("smartwatch", products) == "Smartwatches"
+
+
+def test_related_products_prioritize_the_selected_products_category():
+    products = [
+        {"id": "watch-1", "name": "Alpha Watch", "categoryName": "Smartwatches"},
+        {"id": "buds", "name": "Earbuds", "categoryName": "Audio"},
+        {"id": "watch-2", "name": "Beta Watch", "categoryName": "Smartwatches"},
+    ]
+
+    recommendations = related_products(products, products[0])
+
+    assert [product["id"] for product in recommendations] == ["watch-2", "buds"]
 
 
 def test_chat_cart_is_normalized_and_summarized_for_confirmation():

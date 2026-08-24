@@ -1126,7 +1126,7 @@ function ProductCard({ product, onAddToCart, onOpenChat }) {
   );
 }
 
-function ChatCatalogCard({ product, productIndex, isOrderMode, cart, onQuickMessage, onAddFromChat, onDecreaseItem, onIncreaseItem }) {
+function ChatCatalogCard({ product, isOrderMode, cart, onQuickMessage, onAddFromChat, onDecreaseItem, onIncreaseItem }) {
   const variant = product.variants?.[0];
   const selectedItem = cart.find((item) => item.variantId === variant?.id);
   const quantity = selectedItem?.quantity ?? 0;
@@ -1143,7 +1143,12 @@ function ChatCatalogCard({ product, productIndex, isOrderMode, cart, onQuickMess
           <span>{money(product.sellingPriceMinor)}</span>
           <small>{availableStock} available</small>
         </div>
-        <button type="button" onClick={() => onQuickMessage(String(productIndex + 1))}>View product details</button>
+        <button
+          type="button"
+          onClick={() => onQuickMessage(`Tell me about ${product.name}`)}
+        >
+          View product details
+        </button>
       </article>
     );
   }
@@ -1342,18 +1347,20 @@ function ChatbotView({
                   [
                     "show-catalog",
                     "start-order",
+                    "start-another-order",
                     "show-category",
                     "suggest-alternatives",
                   ].includes(message.action) &&
-                  !message.product &&
                   message.products?.length > 0 && (
                     <div className="storefront-chat-catalog">
-                      {message.products.map((product, productIndex) => (
+                      {message.products.map((product) => (
                         <ChatCatalogCard
                           key={product.id}
                           product={product}
-                          productIndex={productIndex}
-                          isOrderMode={message.action === "start-order"}
+                          isOrderMode={[
+                            "start-order",
+                            "start-another-order",
+                          ].includes(message.action)}
                           cart={cart}
                           onQuickMessage={onQuickMessage}
                           onAddFromChat={onAddFromChat}
@@ -1361,6 +1368,55 @@ function ChatbotView({
                           onIncreaseItem={onIncreaseItem}
                         />
                       ))}
+                    </div>
+                  )}
+
+                {message.role === "assistant" &&
+                  message.action === "show-product" &&
+                  message.product && (
+                    <div className="storefront-chat-product-decision">
+                      <div className="storefront-chat-product-decision__actions">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onQuickMessage(`I want to order ${message.product.name}`)
+                          }
+                          disabled={isSending}
+                        >
+                          <ShoppingCart size={14} /> Order this product
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onQuickMessage(
+                              `Show similar products to ${message.product.name}`,
+                            )
+                          }
+                          disabled={isSending}
+                        >
+                          Compare similar products
+                        </button>
+                      </div>
+
+                      {message.products?.length > 0 && (
+                        <div className="storefront-chat-product-decision__related">
+                          <small>You may also like</small>
+                          <div className="storefront-chat-catalog">
+                            {message.products.map((product) => (
+                              <ChatCatalogCard
+                                key={product.id}
+                                product={product}
+                                isOrderMode={false}
+                                cart={cart}
+                                onQuickMessage={onQuickMessage}
+                                onAddFromChat={onAddFromChat}
+                                onDecreaseItem={onDecreaseItem}
+                                onIncreaseItem={onIncreaseItem}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
 

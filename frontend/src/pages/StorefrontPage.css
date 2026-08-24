@@ -868,116 +868,52 @@
   opacity: 0.45;
 }
 
-.storefront-chat-product {
-  padding: 10px;
-  border: 1px solid var(--sf-border);
-  border-radius: 14px;
-  background: var(--sf-surface);
-  transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
+.storefront-chat-product-decision {
+  display: grid;
+  gap: 10px;
 }
 
-.storefront-chat-product__header {
+.storefront-chat-product-decision__actions {
   display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.storefront-chat-product-decision__actions button {
+  display: inline-flex;
+  min-height: 32px;
+  padding: 6px 10px;
   align-items: center;
-  gap: 8px;
-}
-
-.storefront-chat-product__image {
-  display: grid;
-  width: 62px;
-  height: 62px;
-  flex: 0 0 62px;
-  place-items: center;
-  overflow: hidden;
-  border-radius: 10px;
-  color: var(--sf-primary);
-  background: var(--sf-soft);
-}
-
-.storefront-chat-product__image img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  object-position: center;
-}
-
-.storefront-chat-product span {
-  display: grid;
-}
-
-.storefront-chat-product.is-in-cart {
-  width: min(224px, 100%);
-  padding: 7px;
-  border: 2px solid var(--sf-primary);
-  background: color-mix(in srgb, var(--sf-primary) 7%, var(--sf-surface));
-  box-shadow: 0 9px 22px rgba(8, 114, 217, 0.14);
-}
-
-.storefront-chat-product.is-in-cart .storefront-chat-product__header {
-  display: grid;
-  gap: 6px;
-}
-
-.storefront-chat-product.is-in-cart .storefront-chat-product__image {
-  width: 100%;
-  height: 148px;
-}
-
-.storefront-chat-product.is-in-cart .storefront-chat-product__heading {
-  padding: 0 2px;
-  gap: 3px;
-}
-
-.storefront-chat-product.is-in-cart .storefront-chat-product__heading strong {
-  font-size: 0.75rem;
-}
-
-.storefront-chat-product__heading strong {
-  font-size: 0.8rem;
-  line-height: 1.25;
-}
-
-.storefront-chat-product__heading small {
-  font-size: 0.66rem;
-}
-
-.storefront-chat-product__add-button {
-  display: grid;
-  width: 100%;
-  min-height: 29px;
-  margin-top: 6px;
-  padding: 5px 8px;
-  place-items: center;
+  justify-content: center;
+  gap: 5px;
   border: 1px solid var(--sf-primary);
-  border-radius: 8px;
-  color: #fff;
-  background: var(--sf-primary);
-  font-size: 0.64rem;
-  font-weight: 800;
+  border-radius: 9px;
+  color: var(--sf-primary);
+  background: var(--sf-surface);
+  font-size: 0.68rem;
+  font-weight: 750;
   cursor: pointer;
 }
 
-.storefront-chat-product__add-button:disabled {
+.storefront-chat-product-decision__actions button:first-child {
+  color: #fff;
+  background: var(--sf-primary);
+}
+
+.storefront-chat-product-decision__actions button:disabled {
   cursor: not-allowed;
-  opacity: .5;
+  opacity: 0.5;
 }
 
-.storefront-chat-product__description {
-  margin-top: 8px !important;
-  color: var(--sf-muted);
-  font-size: 0.68rem;
-  line-height: 1.42;
-}
-
-.storefront-chat-product small {
-  margin-top: 3px;
-  color: var(--sf-primary);
-}
-
-.storefront-chat-product__variants {
+.storefront-chat-product-decision__related {
   display: grid;
-  margin-top: 7px;
   gap: 6px;
+}
+
+.storefront-chat-product-decision__related > small {
+  color: var(--sf-muted);
+  font-size: 0.66rem;
+  font-weight: 750;
 }
 
 /* Structured product and seller reviews shown inside the chatbot. */
@@ -1202,92 +1138,6 @@
 }
 
 .chat-reviews > footer button:last-child {
-  color: #fff;
-  background: var(--sf-primary);
-}
-
-.storefront-chat-product__variant-row {
-  display: flex;
-  min-height: 38px;
-  padding: 5px 6px 5px 8px;
-  align-items: center;
-  justify-content: space-between;
-  gap: 7px;
-  border: 1px solid var(--sf-border);
-  border-radius: 8px;
-  background: var(--sf-soft);
-}
-
-.storefront-chat-product__variant-row.is-selected {
-  border-color: var(--sf-primary);
-  background: color-mix(in srgb, var(--sf-primary) 8%, var(--sf-surface));
-}
-
-.storefront-chat-product.is-in-cart .storefront-chat-product__variant-row {
-  padding: 6px;
-  border: 0;
-  background: transparent;
-}
-
-.storefront-chat-product__variant-row > span {
-  display: grid;
-  gap: 2px;
-}
-
-.storefront-chat-product__variant-row > span strong {
-  font-size: 0.68rem;
-  line-height: 1.2;
-}
-
-.storefront-chat-product__variant-row > span small {
-  margin: 0;
-  color: var(--sf-muted);
-  font-size: 0.59rem;
-}
-
-.storefront-chat-product__variant-row > button,
-.storefront-chat-product__quantity button {
-  display: inline-flex;
-  min-width: 29px;
-  height: 29px;
-  padding: 0 8px;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  border: 1px solid var(--sf-primary);
-  border-radius: 8px;
-  color: var(--sf-primary);
-  font-size: 0.63rem;
-  background: transparent;
-  cursor: pointer;
-}
-
-.storefront-chat-product__quantity {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.storefront-chat-product__quantity input {
-  width: 40px;
-  height: 29px;
-  padding: 0 3px;
-  border: 1px solid var(--sf-border);
-  border-radius: 8px;
-  color: var(--sf-text);
-  text-align: center;
-  background: var(--sf-surface);
-  font-size: 0.68rem;
-}
-
-.storefront-chat-product__quantity button:disabled,
-.storefront-chat-product__variant-row > button:disabled {
-  cursor: not-allowed;
-  opacity: 0.4;
-}
-
-.storefront-chat-product__quantity button:not(:disabled):hover,
-.storefront-chat-product__variant-row > button:not(:disabled):hover {
   color: #fff;
   background: var(--sf-primary);
 }
@@ -2716,22 +2566,15 @@
     font-size: 0.66rem;
   }
 
-  .storefront-chat-product {
-    padding: 8px;
-    font-size: 0.69rem;
+  .storefront-chat-product-decision__actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .storefront-chat-product.is-in-cart {
-    width: min(205px, 100%);
-  }
-
-  .storefront-chat-product.is-in-cart .storefront-chat-product__image {
-    height: 136px;
-  }
-
-  .storefront-chat-product__description,
-  .storefront-chat-product small {
-    font-size: 0.61rem;
+  .storefront-chat-product-decision__actions button {
+    min-height: 29px;
+    padding: 5px 7px;
+    font-size: 0.6rem;
   }
 
   .storefront-chat-quick-actions button,
