@@ -8,6 +8,8 @@ def test_analytics_uses_only_delivered_orders_for_revenue_and_profit():
     analytics = calculate_analytics(
         [
             {
+                "id": "order-1",
+                "orderNumber": "VD-000001",
                 "fulfilmentStatus": "delivered",
                 "createdAt": now,
                 "subtotalMinor": 200000,
@@ -40,6 +42,11 @@ def test_analytics_uses_only_delivered_orders_for_revenue_and_profit():
     assert analytics["financials"]["grossProfitMinor"] == 90000
     assert analytics["orderCounts"]["returned"] == 1
     assert analytics["topProducts"][0]["quantity"] == 2
+    assert analytics["performance"]["ordersToday"] == 2
+    assert analytics["performance"]["deliverySuccessPercent"] == 50
+    assert analytics["performance"]["returnRatePercent"] == 50
+    assert analytics["performance"]["grossMarginPercent"] == 47.4
+    assert analytics["recentOrders"][0]["orderNumber"] == "VD-000001"
 
 
 def test_recent_months_crosses_year_boundary():

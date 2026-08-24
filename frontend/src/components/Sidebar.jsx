@@ -13,7 +13,6 @@ import {
   ChartNoAxesCombined,
   Box,
   ChevronsRight,
-  SquareMenu,
   ChevronRight,
   Store,
   ChevronsLeft,

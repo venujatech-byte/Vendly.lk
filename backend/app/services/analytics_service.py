@@ -56,6 +56,30 @@ def delivered_financials(order):
     return product_revenue, cost_of_goods, product_revenue - cost_of_goods
 
 
+def percentage(part, whole):
+    """Return a dashboard-friendly percentage without risking division by zero."""
+    return round((part / whole) * 100, 1) if whole else 0
+
+
+def recent_order_summary(order):
+    """Keep the Overview payload small while retaining useful order context."""
+    customer = order.get("customerSnapshot", {})
+    return {
+        "id": order.get("id", ""),
+        "orderNumber": order.get("orderNumber", "Order"),
+        "customerName": customer.get("name") or "Customer",
+        "itemCount": order.get("itemCount") or sum(
+            item.get("quantity", 0) for item in order.get("items", [])
+        ),
+        "totalAmountMinor": order.get("totalAmountMinor", 0),
+        "fulfilmentStatus": order.get(
+            "fulfilmentStatus",
+            "needs-confirmation",
+        ),
+        "createdAt": order.get("createdAt"),
+    }
+
+
 def calculate_analytics(
     orders,
     products,
@@ -124,6 +148,32 @@ def calculate_analytics(
     out_of_stock_count = sum(
         product.get("stockStatus") == "out-of-stock" for product in products
     )
+    completed_orders = status_counts["delivered"] + status_counts["returned"]
+    seven_days_ago = now - timedelta(days=7)
+    fourteen_days_ago = now - timedelta(days=14)
+    current_week_orders = 0
+    previous_week_orders = 0
+
+    for order in orders:
+        created_at = as_datetime(order.get("createdAt"))
+        if not created_at:
+            continue
+        if created_at >= seven_days_ago:
+            current_week_orders += 1
+        elif created_at >= fourteen_days_ago:
+            previous_week_orders += 1
+
+    weekly_order_change = (
+        percentage(current_week_orders - previous_week_orders, previous_week_orders)
+        if previous_week_orders
+        else (100 if current_week_orders else 0)
+    )
+    recent_orders = sorted(
+        orders,
+        key=lambda order: as_datetime(order.get("createdAt"))
+        or datetime.min.replace(tzinfo=timezone.utc),
+        reverse=True,
+    )[:5]
 
     return {
         "orderCounts": {"all": len(orders), **status_counts},
@@ -142,6 +192,23 @@ def calculate_analytics(
                 total_order_value // len(active_orders) if active_orders else 0
             ),
         },
+        "performance": {
+            "ordersToday": daily_counts[now.date().isoformat()],
+            "currentWeekOrders": current_week_orders,
+            "weeklyOrderChangePercent": weekly_order_change,
+            "deliverySuccessPercent": percentage(
+                status_counts["delivered"],
+                completed_orders,
+            ),
+            "returnRatePercent": percentage(
+                status_counts["returned"],
+                completed_orders,
+            ),
+            "grossMarginPercent": percentage(
+                gross_profit_minor,
+                product_revenue_minor,
+            ),
+        },
         "dailyOrders": [
             {"date": key, "count": daily_counts[key]} for key in day_keys
         ],
@@ -154,6 +221,9 @@ def calculate_analytics(
             key=lambda item: (item["quantity"], item["revenueMinor"]),
             reverse=True,
         )[:5],
+        "recentOrders": [
+            recent_order_summary(order) for order in recent_orders
+        ],
         "workCentre": {
             "needsConfirmation": status_counts["needs-confirmation"],
             "needsPacking": status_counts["confirmed"],
