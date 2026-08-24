@@ -42,13 +42,6 @@ function BarcodeScannerModal({ isOpen, onClose, onDetected }) {
     }
 
     async function startCamera() {
-      if (!("BarcodeDetector" in window)) {
-        setScannerError(
-          "Automatic barcode detection is not supported by this browser. Enter the barcode below instead.",
-        );
-        return;
-      }
-
       if (!navigator.mediaDevices?.getUserMedia) {
         setScannerError(
           "Camera access is unavailable. Open Vendly through HTTPS or localhost, or enter the barcode below.",
@@ -73,6 +66,16 @@ function BarcodeScannerModal({ isOpen, onClose, onDetected }) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
         setIsCameraReady(true);
+
+        // Opening a camera and detecting a barcode are separate browser
+        // capabilities. Keep the preview working even if the native detector
+        // is unavailable.
+        if (!("BarcodeDetector" in window)) {
+          setScannerError(
+            "The camera is open, but automatic barcode detection is not supported by this browser. Try Chrome or Edge, or enter the barcode below.",
+          );
+          return;
+        }
 
         const detector = new window.BarcodeDetector({ formats: BARCODE_FORMATS });
 
