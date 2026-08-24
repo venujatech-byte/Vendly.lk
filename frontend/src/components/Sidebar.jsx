@@ -16,6 +16,7 @@ import {
   SquareMenu,
   ChevronRight,
   Store,
+  ChevronsLeft,
 } from "lucide-react";
 
 // Central list of sidebar pages; map() below turns each item into a link.
@@ -63,7 +64,7 @@ function Sidebar({ isCollapsed, onToggleSidebar }) {
     aria-expanded={!isCollapsed}
     title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
   >
-    {isCollapsed ? <ChevronsRight size={25} /> : <SquareMenu className="Panel_icon" size={20} />}
+    {isCollapsed ? <ChevronsRight size={20} /> : < ChevronsLeft className="Panel_icon" size={20} />}
   </button>
 </div>
       {/* Main navigation links. NavLink reports which route is active. */}

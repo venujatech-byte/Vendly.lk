@@ -2,8 +2,8 @@
 .sidebar {
   display: flex;
   flex-direction: column;
-  width: 200px;
-  flex: 0 0 200px;
+  width: 180px;
+  flex: 0 0 180px;
   align-self: flex-start;
   position: sticky;
   top: 0;
@@ -26,7 +26,7 @@
 
 /* Narrow sidebar state used after pressing the toggle button. */
 .sidebar--collapsed {
-  width: 76px;
+  width: 68px;
   flex-basis: 76px;
   padding-right: 10px;
   padding-left: 10px;
@@ -64,10 +64,11 @@
 
 .sidebar__logo-image {
   display: block;
-  width: 140px;
+  width: 120px;
   max-width: none;
   height: auto;
   object-fit: contain;
+  margin-bottom: 15px;
 }
 
 /* Main navigation link layout and spacing. */
@@ -220,7 +221,7 @@
   height: 38px;
   padding: 0;
   border: 0;
-  border-radius: 7px;
+  border-radius: 10px;
   color: white;
   background-color: rgba(59, 138, 202, 0);
   transition:
@@ -229,12 +230,11 @@
 }
 
 .Panel_icon{
-border-radius: 7px;
+border-radius: 15px;
 }
 
 .sidebar__toggle:hover {
-  background-color: #0879dd;
-  transform: scale(1.06);
+  transform: scale(1.2);
 }
 
 .sidebar--collapsed .sidebar__top {
@@ -271,4 +271,83 @@ html[data-theme="dark"] .sidebar__link--active {
       #075fae 0%,
       #064b89 100%
     );
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* Navigation text */
+.sidebar__link {
+  font-family: "Inter", sans-serif;
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+/* Active navigation text */
+.sidebar__link--active {
+  font-weight: 650;
+}
+
+/* Navigation icons */
+.sidebar__link svg {
+  width: 22px;
+  height: 22px;
+  stroke-width: 1.8;
+}
+
+/* Navigation item dimensions */
+.sidebar__link {
+  min-height: 44px;
+  padding: 0 13px;
+  gap: 13px;
+  border-radius: 9px;
+}
+
+/* Space between items */
+.sidebar__nav {
+  gap: 7px;
+}
+
+/* Business name */
+.sidebar__business strong {
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.25;
+}
+
+/* Owner label */
+.sidebar__business small {
+  font-size: 9px;
+  font-weight: 500;
+  opacity: 0.78;
+}
+
+/* Business/store icon */
+.sidebar__business-icon {
+  width: 32px;
+  height: 32px;
+}
+
+.sidebar__business-icon svg {
+  width: 17px;
+  height: 17px;
+}
+
+.sidebar__nav {
+  margin-top: 22px;
+}
+
+.sidebar__link svg {
+  transform: translateY(1px);
 }
