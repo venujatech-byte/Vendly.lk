@@ -9,6 +9,7 @@ import {
   Download,
   Pencil,
   Trash2,
+  ShieldCheck,
 } from "lucide-react";
 import ActionMenu from "./ActionMenu";
 
@@ -30,6 +31,7 @@ function OrderTable({
   onBulkStatusChange,
   onExportSelected,
   onWaybillSave,
+  onWarrantyClaim,
 }) {
   // Remember which row is expanded and which rows are checkbox-selected.
   const [expandedOrderId, setExpandedOrderId] = useState(null);
@@ -231,6 +233,7 @@ function OrderTable({
                   <td>
                       <ActionMenu label={`More actions for ${order.orderNumber}`} items={[
                         { label: "Edit order", icon: <Pencil size={16} />, onClick: () => onEditOrder?.(order) },
+                        { label: "Warranty claim", icon: <ShieldCheck size={16} />, onClick: () => onWarrantyClaim?.(order) },
                         { label: "Remove order", icon: <Trash2 size={16} />, danger: true, onClick: () => onRemoveOrder?.(order) },
                       ]} />
                   </td>
@@ -246,6 +249,7 @@ function OrderTable({
                     onFraudReport={onFraudReport}
                     onCourierIssue={onCourierIssue}
                     onWaybillSave={onWaybillSave}
+                    onWarrantyClaim={onWarrantyClaim}
                   />
     </td>
   </tr>

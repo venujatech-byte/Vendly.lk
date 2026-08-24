@@ -7,6 +7,7 @@ import {
   Phone,
   Printer,
   User,
+  ShieldCheck,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { printWaybill } from "../services/operationService";
@@ -34,6 +35,7 @@ function OrderDetails({
   onFraudReport,
   onCourierIssue,
   onWaybillSave,
+  onWarrantyClaim,
 }) {
   const [actionError, setActionError] = useState("");
   const [isWorking, setIsWorking] = useState(false);
@@ -320,6 +322,16 @@ function OrderDetails({
         >
           <CircleAlert size={17} />
           Report Courier Issue
+        </button>
+
+        <button
+          className="order-details__print-button"
+          type="button"
+          onClick={() => onWarrantyClaim?.(order)}
+          disabled={isWorking}
+        >
+          <ShieldCheck size={17} />
+          Warranty Claim
         </button>
 
         <button

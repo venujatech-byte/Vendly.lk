@@ -15,12 +15,17 @@ import {
   Store,
   GlobeCheck,
   ShieldCheck,
+  Banknote,
+  ShoppingBasket,
+  Trophy,
+  ReceiptText,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 // Reusable components that build the Orders page.
 import StatCard2 from "../components/StatCard2";
+import StatCard from "../components/StatCard";
 import OrderFilters from "../components/OrderFilters";
 import OrderTable from "../components/OrderTable";
 import { useAuth } from "../context/authContextValue";
@@ -33,6 +38,11 @@ import {
 import AddOrderModal from "../components/AddOrderModal";
 import EditOrderModal from "../components/EditOrderModal";
 import ConfirmDialog from "../components/ConfirmDialog";
+import AddShopSaleModal from "../components/AddShopSaleModal";
+import ShopSaleFilters from "../components/ShopSaleFilters";
+import ShopSalesTable from "../components/ShopSalesTable";
+import WarrantyClaimModal from "../components/WarrantyClaimModal";
+import WarrantyClaimsTable from "../components/WarrantyClaimsTable";
 import { getCouriers } from "../services/courierService";
 import {
   downloadOrderExport,
@@ -40,6 +50,13 @@ import {
   reportCourierIssue,
   reportFraudOrder,
 } from "../services/operationService";
+import {
+  createWarrantyClaim,
+  getShopSales,
+  getWarrantyClaims,
+  removeShopSale,
+} from "../services/shopSaleService";
+import { downloadReceiptPdf } from "../services/receiptService";
 
 import "./OrdersPage.css";
 import "./Buttons.css";
@@ -62,6 +79,12 @@ function OrdersPage() {
   const [editingOrder, setEditingOrder] = useState(null);
   const [removalTarget, setRemovalTarget] = useState(null);
   const [isRemoving, setIsRemoving] = useState(false);
+  const [shopSales, setShopSales] = useState([]);
+  const [shopFilters, setShopFilters] = useState({});
+  const [isAddShopSaleOpen, setIsAddShopSaleOpen] = useState(false);
+  const [shopRemovalTarget, setShopRemovalTarget] = useState(null);
+  const [warrantyClaims, setWarrantyClaims] = useState([]);
+  const [warrantySource, setWarrantySource] = useState(null);
 
   // Reset field, status-card, and URL filters so the complete table is shown again.
   function resetOrderFilters() {
@@ -112,6 +135,16 @@ function OrdersPage() {
       requestIsCurrent = false;
     };
   }, [business?.id, filters, routeSearch]);
+
+  useEffect(() => {
+    if (!business?.id) return;
+    getShopSales(business.id, shopFilters).then(setShopSales).catch(setOrdersError);
+  }, [business?.id, shopFilters]);
+
+  useEffect(() => {
+    if (!business?.id) return;
+    getWarrantyClaims(business.id).then(setWarrantyClaims).catch(setOrdersError);
+  }, [business?.id]);
 
   const visibleOrders = useMemo(() => {
     if (!statusFilter) return orders;
@@ -168,6 +201,36 @@ function OrdersPage() {
     ],
     [orders],
   );
+
+  const shopStats = useMemo(() => {
+    const activeSales = shopSales.filter((sale) => sale.status !== "voided");
+    const itemCounts = new Map();
+    activeSales.forEach((sale) => sale.items.forEach((item) => itemCounts.set(item.name, (itemCounts.get(item.name) ?? 0) + item.quantity)));
+    const topItem = [...itemCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "—";
+    return [
+      { label: "Total sales", value: activeSales.length, icon: ReceiptText, tone: "blue" },
+      { label: "Sold items", value: activeSales.reduce((sum, sale) => sum + sale.itemCount, 0), icon: ShoppingBasket, tone: "green" },
+      { label: "Revenue", value: `LKR ${(activeSales.reduce((sum, sale) => sum + sale.totalAmountMinor, 0) / 100).toLocaleString("en-LK")}`, icon: Banknote, tone: "orange" },
+      { label: "Top item", value: topItem, icon: Trophy, tone: "purple" },
+    ];
+  }, [shopSales]);
+
+  function openOnlineWarranty(order) { setWarrantySource({ ...order, sourceType: "online-order" }); }
+  function openShopWarranty(sale) { setWarrantySource({ ...sale, sourceType: "shop-sale" }); }
+
+  async function confirmShopSaleRemoval() {
+    if (!shopRemovalTarget || !business?.id) return;
+    setIsRemoving(true);
+    try {
+      await removeShopSale(business.id, shopRemovalTarget.id);
+      setShopSales((current) => current.filter((sale) => sale.id !== shopRemovalTarget.id));
+      setShopRemovalTarget(null);
+    } catch (error) { setOrdersError(error); } finally { setIsRemoving(false); }
+  }
+
+  function printShopReceipt(sale) {
+    downloadReceiptPdf(business, { ...sale, orderNumber: sale.saleNumber, deliveryFeeMinor: 0, taxTotalMinor: 0, deliveryAddress: {}, paymentMethod: "paid" });
+  }
 
   async function handleStatusChange(orderId, status) {
     if (!business?.id) return;
@@ -344,7 +407,7 @@ function OrdersPage() {
               <span>{isExporting ? "Exporting..." : "Export Orders"}</span>
             </button>
 
-            <button
+            {activeTab === "onlineOrders" && <button
               className="page__add-button"
               type="button"
               onClick={() => setIsAddOrderOpen(true)}
@@ -352,7 +415,7 @@ function OrdersPage() {
             >
               <Plus size={19} aria-hidden="true" />
               Add Order
-            </button>
+            </button>}
           </div>
         </div>
 
@@ -458,6 +521,7 @@ function OrdersPage() {
             onBulkStatusChange={handleBulkStatusChange}
             onExportSelected={handleExportSelected}
             onWaybillSave={handleWaybillSave}
+            onWarrantyClaim={openOnlineWarranty}
           />
 
         </>
@@ -469,13 +533,29 @@ function OrdersPage() {
 
       {activeTab === "shopOrders" && (
         <>
-
+          <div className="shop-sales-heading"><div><h2>Physical shop sales</h2><p>Record counter sales and keep the same inventory up to date.</p></div><button className="page__add-button" type="button" onClick={() => setIsAddShopSaleOpen(true)}><Plus size={18}/>Add shop sale</button></div>
+          <section aria-label="Shop sales summary">
+            <div className="stats-grid">
+              {shopStats.map((stat) => (
+                <StatCard
+                  key={stat.label}
+                  label={stat.label}
+                  value={stat.value}
+                  icon={stat.icon}
+                  tone={stat.tone}
+                />
+              ))}
+            </div>
+          </section>
+          <ShopSaleFilters onChange={setShopFilters}/>
+          <ShopSalesTable sales={shopSales.filter((sale) => sale.status !== "voided")} onPrint={printShopReceipt} onWarranty={openShopWarranty} onRemove={setShopRemovalTarget}/>
         </>
       )}
 
       {activeTab === "warrantyClaims" && (
         <>
-
+          <div className="shop-sales-heading"><div><h2>Warranty claims</h2><p>Claims from online orders and physical shop sales appear together.</p></div></div>
+          <WarrantyClaimsTable claims={warrantyClaims}/>
         </>
       )}
 
@@ -492,9 +572,12 @@ function OrdersPage() {
         onClose={() => setIsAddOrderOpen(false)}
         onCreated={(order) => setOrders((current) => [order, ...current])}
       />
+      <AddShopSaleModal isOpen={isAddShopSaleOpen} businessId={business?.id} onClose={() => setIsAddShopSaleOpen(false)} onCreated={(sale) => setShopSales((current) => [sale, ...current])}/>
+      <WarrantyClaimModal source={warrantySource} businessId={business?.id} onClose={() => setWarrantySource(null)} onCreate={async (businessId, payload) => { const claim = await createWarrantyClaim(businessId, payload); setWarrantyClaims((current) => [claim, ...current]); }}/>
 
       <EditOrderModal isOpen={Boolean(editingOrder)} businessId={business?.id} order={editingOrder} onClose={() => setEditingOrder(null)} onUpdated={(updated) => { setOrders((current) => current.map((order) => order.id === updated.id ? updated : order)); setEditingOrder(null); }} />
       <ConfirmDialog isOpen={Boolean(removalTarget)} title="Remove order?" message={`This cancels ${removalTarget?.orderNumber ?? "this order"} and releases its reserved stock.`} isWorking={isRemoving} onCancel={() => setRemovalTarget(null)} onConfirm={confirmOrderRemoval} />
+      <ConfirmDialog isOpen={Boolean(shopRemovalTarget)} title="Delete shop sale?" message={`Deleting ${shopRemovalTarget?.saleNumber ?? "this sale"} restores every sold item to inventory. This action is recorded in stock history.`} isWorking={isRemoving} onCancel={() => setShopRemovalTarget(null)} onConfirm={confirmShopSaleRemoval} />
     </main>
   );
 }

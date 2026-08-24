@@ -197,3 +197,5 @@ html[data-theme="dark"] .orders-page__share-button:hover svg {
     height: 14px;
   }
 }
+.shop-sales-heading{display:flex;align-items:center;justify-content:space-between;gap:18px;margin:18px 0 12px}.shop-sales-heading h2{margin:0;font-size:1.15rem}.shop-sales-heading p{margin:4px 0 0;color:var(--color-text-muted);font-size:.84rem}.shop-sales-heading button{display:flex;align-items:center;gap:7px}
+@media(max-width:720px){.shop-sales-heading{align-items:stretch;flex-direction:column}.shop-sales-heading button{justify-content:center}}

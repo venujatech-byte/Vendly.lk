@@ -30,7 +30,12 @@ export function mapProductForInventory(product) {
       size: variant.size,
       sku: variant.sku,
       barcode: variant.barcode,
+      // Tables show sellable stock, while the edit form must preserve the
+      // complete on-hand quantity (including units reserved by open orders).
       stock: variant.stockAvailable,
+      stockOnHand: variant.stockOnHand ?? variant.stockAvailable ?? 0,
+      stockReserved: variant.stockReserved ?? 0,
+      stockAvailable: variant.stockAvailable ?? 0,
       costPrice: minorUnitsToAmount(variant.costPriceMinor ?? product.costPriceMinor),
       sellingPrice: minorUnitsToAmount(variant.sellingPriceMinor ?? product.sellingPriceMinor),
       imageUrl: variant.imageUrl ?? "",
