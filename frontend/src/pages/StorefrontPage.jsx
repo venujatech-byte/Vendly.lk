@@ -46,7 +46,9 @@ import {
   getPublicChatMessages,
   sendPublicChatMessage,
   submitPublicReview,
+  transcribePublicChatAudio,
 } from "../services/publicService";
+import { useAudioTranscription } from "../hooks/useAudioTranscription";
 import OrderReceipt from "../components/OrderReceipt";
 import CustomerAccountModal from "../components/CustomerAccountModal";
 import { useAuth } from "../context/authContextValue";
@@ -159,7 +161,6 @@ function StorefrontPage({ linkType }) {
   const [messages, setMessages] = useState([]);
   const receivedSellerMessageIds = useRef(new Set());
   const [messageText, setMessageText] = useState("");
-  const [isListening, setIsListening] = useState(false);
   const [speechEnabled, setSpeechEnabled] = useState(
     () => localStorage.getItem("vendly-storefront-spoken-replies") === "true",
   );
@@ -201,7 +202,32 @@ function StorefrontPage({ linkType }) {
   const [reviewMessage, setReviewMessage] = useState("");
   const [isAccountOpen, setIsAccountOpen] = useState(false);
   const messagesEndRef = useRef(null);
-  const recognitionRef = useRef(null);
+
+  const {
+    isRecording: isListening,
+    isTranscribing,
+    startRecording: startVoiceInput,
+    stopRecording: stopVoiceInput,
+  } = useAudioTranscription({
+    language: voiceLanguage,
+    transcribe: (audio, filename, language) => {
+      if (!session?.sessionId || !session?.sessionToken) {
+        throw new Error("The chat is still loading. Please try again.");
+      }
+      return transcribePublicChatAudio(
+        session.sessionId,
+        session.sessionToken,
+        audio,
+        filename,
+        language,
+      );
+    },
+    onTranscript: (transcript) => {
+      setMessageText(transcript);
+      requestChatMessage(transcript);
+    },
+    onError: (error) => setErrorMessage(error.message),
+  });
 
   useEffect(() => {
     let requestIsCurrent = true;
@@ -391,7 +417,6 @@ function StorefrontPage({ linkType }) {
   }, [voiceLanguage]);
 
   useEffect(() => () => {
-    recognitionRef.current?.abort();
     window.speechSynthesis?.cancel();
   }, []);
 
@@ -596,73 +621,6 @@ function StorefrontPage({ linkType }) {
     utterance.lang = voiceLanguage;
     utterance.rate = 1;
     window.speechSynthesis.speak(utterance);
-  }
-
-  function voiceErrorMessage(errorName) {
-    if (!window.isSecureContext) {
-      return "Voice input needs HTTPS or localhost. You can still type your message.";
-    }
-    if (errorName === "not-allowed" || errorName === "service-not-allowed") {
-      return "Microphone access was blocked. Allow microphone permission and try again.";
-    }
-    if (errorName === "audio-capture") {
-      return "No microphone was found on this device.";
-    }
-    if (errorName === "no-speech") {
-      return "I could not hear anything. Please try speaking again.";
-    }
-    return "Voice input could not start. Please try again or type your message.";
-  }
-
-  function startVoiceInput() {
-    const SpeechRecognition =
-      window.SpeechRecognition || window.webkitSpeechRecognition;
-
-    if (!SpeechRecognition) {
-      setErrorMessage(
-        "Voice input is not supported by this browser. Try Chrome on HTTPS or localhost.",
-      );
-      return;
-    }
-
-    if (!window.isSecureContext) {
-      setErrorMessage(voiceErrorMessage("insecure-context"));
-      return;
-    }
-
-    recognitionRef.current?.abort();
-    const recognition = new SpeechRecognition();
-    recognition.lang = voiceLanguage;
-    recognition.interimResults = false;
-    recognition.maxAlternatives = 1;
-    recognitionRef.current = recognition;
-
-    recognition.onstart = () => {
-      setErrorMessage("");
-      setIsListening(true);
-    };
-    recognition.onend = () => setIsListening(false);
-    recognition.onerror = (event) => {
-      setIsListening(false);
-      setErrorMessage(voiceErrorMessage(event.error));
-    };
-    recognition.onresult = (event) => {
-      const transcript = event.results?.[0]?.[0]?.transcript?.trim() || "";
-      setMessageText(transcript);
-      if (transcript) requestChatMessage(transcript);
-    };
-
-    try {
-      recognition.start();
-    } catch {
-      setIsListening(false);
-      setErrorMessage(voiceErrorMessage("start-failed"));
-    }
-  }
-
-  function stopVoiceInput() {
-    recognitionRef.current?.stop();
-    setIsListening(false);
   }
 
   function addFromChat(product, variant) {
@@ -1000,6 +958,7 @@ function StorefrontPage({ linkType }) {
             onMessageTextChange={setMessageText}
             onSendMessage={sendMessage}
             isListening={isListening}
+            isTranscribing={isTranscribing}
             speechEnabled={speechEnabled}
             voiceLanguage={voiceLanguage}
             onToggleListening={isListening ? stopVoiceInput : startVoiceInput}
@@ -1520,6 +1479,7 @@ function ChatbotView({
   messageText,
   isSending,
   isListening,
+  isTranscribing,
   speechEnabled,
   voiceLanguage,
   messagesEndRef,
@@ -1747,10 +1707,10 @@ function ChatbotView({
             className={`storefront-chat-input__voice ${isListening ? "is-listening" : ""}`}
             type="button"
             onClick={onToggleListening}
-            disabled={isSending}
-            aria-label={isListening ? "Stop voice input" : "Use voice input"}
+            disabled={isSending || isTranscribing}
+            aria-label={isTranscribing ? "Transcribing voice" : isListening ? "Stop voice input" : "Use voice input"}
             aria-pressed={isListening}
-            title={isListening ? "Stop listening" : "Speak your message"}
+            title={isTranscribing ? "Transcribing..." : isListening ? "Stop listening" : "Speak your message"}
           >
             {isListening ? <MicOff size={18} /> : <Mic size={18} />}
           </button>

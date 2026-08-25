@@ -51,6 +51,29 @@ export function getPublicChatMessages(sessionId, sessionToken) {
   });
 }
 
+export async function transcribePublicChatAudio(
+  sessionId,
+  sessionToken,
+  audio,
+  filename,
+  language,
+) {
+  const body = new FormData();
+  body.append("audio", audio, filename);
+  body.append("language", language);
+
+  const response = await apiRequest(
+    `/public/chat/sessions/${sessionId}/transcriptions`,
+    {
+      method: "POST",
+      body,
+      headers: { "X-Chat-Session-Token": sessionToken },
+      requiresAuthentication: false,
+    },
+  );
+  return response.transcript;
+}
+
 export function createPublicChatOrder(sessionId, sessionToken, orderData) {
   return apiRequest(`/public/chat/sessions/${sessionId}/orders`, {
     method: "POST",

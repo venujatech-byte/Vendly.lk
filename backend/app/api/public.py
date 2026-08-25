@@ -11,7 +11,9 @@ from app.services.public_chat_service import (
     create_public_chat_session,
     claim_public_chat_session,
     get_public_chat_messages,
+    authorize_public_chat_session,
 )
+from app.services.speech_to_text_service import transcribe_audio
 from app.services.customer_portal_service import (
     get_customer_order,
     list_customer_chats,
@@ -67,6 +69,21 @@ def public_chat_messages(session_id):
         request.headers.get("X-Chat-Session-Token", ""),
     )
     return jsonify({"messages": messages})
+
+
+@public_blueprint.post("/chat/sessions/<session_id>/transcriptions")
+@limiter.limit("20 per minute", key_func=public_chat_key)
+def public_chat_transcription(session_id):
+    authorize_public_chat_session(
+        get_firestore_client(),
+        session_id,
+        request.headers.get("X-Chat-Session-Token", ""),
+    )
+    transcript = transcribe_audio(
+        request.files.get("audio"),
+        request.form.get("language"),
+    )
+    return jsonify({"transcript": transcript})
 
 
 @public_blueprint.post("/chat/sessions/<session_id>/orders")

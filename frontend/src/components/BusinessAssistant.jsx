@@ -13,7 +13,11 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { useAuth } from "../context/authContextValue";
-import { sendBusinessAssistantMessage } from "../services/businessAssistantService";
+import { useAudioTranscription } from "../hooks/useAudioTranscription";
+import {
+  sendBusinessAssistantMessage,
+  transcribeBusinessAssistantAudio,
+} from "../services/businessAssistantService";
 import { downloadOrderExport } from "../services/operationService";
 import { downloadInventoryCsv, getProducts } from "../services/productService";
 import { downloadCustomersCsv, getCustomers } from "../services/customerService";
@@ -50,11 +54,32 @@ function BusinessAssistant({ isOpen, onToggle, onClose }) {
   const [messages, setMessages] = useState([starterMessage]);
   const [draft, setDraft] = useState("");
   const [isSending, setIsSending] = useState(false);
-  const [isListening, setIsListening] = useState(false);
   const [speechEnabled, setSpeechEnabled] = useState(false);
   const [voiceLanguage, setVoiceLanguage] = useState("en-LK");
   const messageListRef = useRef(null);
-  const recognitionRef = useRef(null);
+
+  const {
+    isRecording: isListening,
+    isTranscribing,
+    startRecording: startVoiceInput,
+    stopRecording: stopVoiceInput,
+  } = useAudioTranscription({
+    language: voiceLanguage,
+    transcribe: (audio, filename, language) => {
+      if (!business?.id) throw new Error("Your business account is still loading.");
+      return transcribeBusinessAssistantAudio(
+        business.id,
+        audio,
+        filename,
+        language,
+      );
+    },
+    onTranscript: (transcript) => {
+      setDraft(transcript);
+      sendMessage(transcript);
+    },
+    onError: (error) => appendAssistantResponse({ message: friendlyError(error) }),
+  });
 
   useEffect(() => {
     if (!isOpen || !messageListRef.current) return;
@@ -62,7 +87,6 @@ function BusinessAssistant({ isOpen, onToggle, onClose }) {
   }, [isOpen, messages, isSending]);
 
   useEffect(() => () => {
-    recognitionRef.current?.abort();
     window.speechSynthesis?.cancel();
   }, []);
 
@@ -192,45 +216,6 @@ function BusinessAssistant({ isOpen, onToggle, onClose }) {
         ? { ...message, pendingAction: null, actionState: "cancelled" }
         : message
     )));
-  }
-
-  function startVoiceInput() {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-
-    if (!SpeechRecognition) {
-      appendAssistantResponse({
-        message: "Voice input is not supported by this browser. Try Chrome on HTTPS or localhost.",
-      });
-      return;
-    }
-
-    recognitionRef.current?.abort();
-    const recognition = new SpeechRecognition();
-    recognition.lang = voiceLanguage;
-    recognition.interimResults = false;
-    recognition.maxAlternatives = 1;
-    recognitionRef.current = recognition;
-
-    recognition.onstart = () => setIsListening(true);
-    recognition.onend = () => setIsListening(false);
-    recognition.onerror = () => {
-      setIsListening(false);
-      appendAssistantResponse({
-        message: "I could not hear that clearly. Please try again or type your request.",
-      });
-    };
-    recognition.onresult = (event) => {
-      const transcript = event.results?.[0]?.[0]?.transcript?.trim() || "";
-      setDraft(transcript);
-      if (transcript) sendMessage(transcript);
-    };
-
-    recognition.start();
-  }
-
-  function stopVoiceInput() {
-    recognitionRef.current?.stop();
-    setIsListening(false);
   }
 
   return (
@@ -387,7 +372,9 @@ function BusinessAssistant({ isOpen, onToggle, onClose }) {
               type="button"
               className={`business-assistant__voice ${isListening ? "is-listening" : ""}`}
               onClick={isListening ? stopVoiceInput : startVoiceInput}
-              aria-label={isListening ? "Stop listening" : "Use voice input"}
+              disabled={isTranscribing || isSending}
+              aria-label={isTranscribing ? "Transcribing voice" : isListening ? "Stop listening" : "Use voice input"}
+              title={isTranscribing ? "Transcribing..." : undefined}
             >
               {isListening ? <MicOff aria-hidden="true" /> : <Mic aria-hidden="true" />}
             </button>

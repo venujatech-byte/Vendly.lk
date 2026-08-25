@@ -18,3 +18,20 @@ export async function sendBusinessAssistantMessage(
 
   return response.assistant;
 }
+
+export async function transcribeBusinessAssistantAudio(
+  businessId,
+  audio,
+  filename,
+  language,
+) {
+  const body = new FormData();
+  body.append("audio", audio, filename);
+  body.append("language", language);
+
+  const response = await apiRequest(
+    `/businesses/${businessId}/assistant/transcriptions`,
+    { method: "POST", body },
+  );
+  return response.transcript;
+}
