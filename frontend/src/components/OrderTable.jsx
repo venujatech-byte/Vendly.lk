@@ -5,19 +5,41 @@ import OrderDetails from "./OrderDetails";
 import {
   ChevronDown,
   ChevronRight,
+  CircleAlert,
   Package,
   Download,
+  Flag,
+  Hash,
   Pencil,
+  Printer,
+  RefreshCw,
   Trash2,
   ShieldCheck,
 } from "lucide-react";
 import ActionMenu from "./ActionMenu";
+import { printWaybill } from "../services/operationService";
 
 import "./OrderTable.css";
 
 // Capitalize an order status for display inside its coloured status badge.
 function formatStatus(status) {
   return status.charAt(0).toUpperCase() + status.slice(1);
+}
+
+// Only valid next states are offered in the row action menu.
+const nextStatuses = {
+  pending: ["confirmed", "cancelled"],
+  "needs-confirmation": ["confirmed", "cancelled"],
+  confirmed: ["packed", "cancelled"],
+  packed: ["shipped", "cancelled"],
+  shipped: ["delivered", "returned"],
+};
+
+function readableStatus(status) {
+  return status
+    .split("-")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
 }
 
 function OrderTable({
@@ -71,6 +93,73 @@ function OrderTable({
     }
 
     setSelectedOrderIds(orders.map((order) => order.id));
+  }
+
+  function showActionError(error) {
+    window.alert(error?.message || "The order action could not be completed.");
+  }
+
+  async function printOrderWaybill(order) {
+    const printWindow = window.open("", "_blank", "width=900,height=700");
+
+    try {
+      const printableOrder = order.waybillNumber
+        ? order
+        : await onGenerateWaybill?.(order.id);
+      printWaybill(printableOrder, printWindow);
+    } catch (error) {
+      printWindow?.close();
+      showActionError(error);
+    }
+  }
+
+  async function editOrderWaybill(order) {
+    const waybillNumber = window.prompt(
+      "Enter the waybill number:",
+      order.waybillNumber ?? "",
+    );
+
+    if (waybillNumber === null) return;
+    if (!waybillNumber.trim()) {
+      window.alert("Enter a waybill number before saving.");
+      return;
+    }
+
+    try {
+      await onWaybillSave?.(order.id, waybillNumber.trim());
+    } catch (error) {
+      showActionError(error);
+    }
+  }
+
+  async function reportOrderCourierIssue(order) {
+    const note = window.prompt(
+      "Describe the courier branch problem:",
+      "Delivery was affected by a courier branch problem.",
+    );
+
+    if (note === null) return;
+
+    try {
+      await onCourierIssue?.(order.id, note);
+    } catch (error) {
+      showActionError(error);
+    }
+  }
+
+  async function reportOrderAsFake(order) {
+    const note = window.prompt(
+      "Add a private note explaining why this appears to be a fake order:",
+      "Customer details could not be verified.",
+    );
+
+    if (note === null) return;
+
+    try {
+      await onFraudReport?.(order.id, note);
+    } catch (error) {
+      showActionError(error);
+    }
   }
 
   return (
@@ -137,6 +226,8 @@ function OrderTable({
               const isExpanded = expandedOrderId === order.id;
               const isSelected = selectedOrderIds.includes(order.id);
               const hasWarning = Boolean(order.fraudWarning?.matched ?? order.fraudWarning);
+              const currentStatus = order.fulfilmentStatus || order.status || "pending";
+              const availableStatuses = nextStatuses[currentStatus] ?? [];
 
               return (
               <Fragment key={order.id}>
@@ -231,11 +322,54 @@ function OrderTable({
                   </td>
 
                   <td>
-                      <ActionMenu label={`More actions for ${order.orderNumber}`} items={[
-                        { label: "Edit order", icon: <Pencil size={16} />, onClick: () => onEditOrder?.(order) },
-                        { label: "Warranty claim", icon: <ShieldCheck size={16} />, onClick: () => onWarrantyClaim?.(order) },
-                        { label: "Remove order", icon: <Trash2 size={16} />, danger: true, onClick: () => onRemoveOrder?.(order) },
-                      ]} />
+                    <ActionMenu
+                      label={`More actions for ${order.orderNumber}`}
+                      items={[
+                        {
+                          label: "Edit order",
+                          icon: <Pencil size={16} aria-hidden="true" />,
+                          onClick: () => onEditOrder?.(order),
+                        },
+                        {
+                          label: "Edit waybill number",
+                          icon: <Hash size={16} aria-hidden="true" />,
+                          onClick: () => editOrderWaybill(order),
+                        },
+                        {
+                          label: "Print waybill",
+                          icon: <Printer size={16} aria-hidden="true" />,
+                          onClick: () => printOrderWaybill(order),
+                        },
+                        ...availableStatuses.map((status) => ({
+                          label: `Mark as ${readableStatus(status)}`,
+                          icon: <RefreshCw size={16} aria-hidden="true" />,
+                          onClick: () => onStatusChange?.(order.id, status),
+                        })),
+                        {
+                          label: "Report courier issue",
+                          icon: <CircleAlert size={16} aria-hidden="true" />,
+                          onClick: () => reportOrderCourierIssue(order),
+                        },
+                        {
+                          label: "Warranty claim",
+                          icon: <ShieldCheck size={16} aria-hidden="true" />,
+                          onClick: () => onWarrantyClaim?.(order),
+                        },
+                        {
+                          label: order.fraudReport ? "Fraud already reported" : "Report fake order",
+                          icon: <Flag size={16} aria-hidden="true" />,
+                          disabled: Boolean(order.fraudReport),
+                          danger: true,
+                          onClick: () => reportOrderAsFake(order),
+                        },
+                        {
+                          label: "Remove order",
+                          icon: <Trash2 size={16} aria-hidden="true" />,
+                          danger: true,
+                          onClick: () => onRemoveOrder?.(order),
+                        },
+                      ]}
+                    />
                   </td>
                 </tr>
                 {/* Insert the detailed order information directly below its row. */}

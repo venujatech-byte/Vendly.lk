@@ -13,6 +13,17 @@ export async function createCourier(businessId, courierData) {
   return response.courier;
 }
 
+export async function updateCourier(businessId, courierId, courierData) {
+  const response = await apiRequest(
+    `/businesses/${businessId}/couriers/${courierId}`,
+    {
+      method: "PATCH",
+      body: courierData,
+    },
+  );
+  return response.courier;
+}
+
 export async function recommendCouriers(businessId, totalWeightGrams, district) {
   const response = await apiRequest(
     `/businesses/${businessId}/couriers/recommend`,

@@ -52,3 +52,19 @@ def test_analytics_uses_only_delivered_orders_for_revenue_and_profit():
 def test_recent_months_crosses_year_boundary():
     months = recent_months(datetime(2026, 2, 1, tzinfo=timezone.utc), count=4)
     assert months == ["2025-11", "2025-12", "2026-01", "2026-02"]
+
+
+def test_warranty_claims_reduce_revenue_only_by_the_saved_claim_impact():
+    now = datetime(2026, 8, 17, 12, tzinfo=timezone.utc)
+    analytics = calculate_analytics(
+        [{"fulfilmentStatus": "delivered", "createdAt": now, "subtotalMinor": 50000,
+          "discountTotalMinor": 0, "items": []}], [], now=now,
+        warranty_claims=[
+            {"claimType": "supplier-warranty", "revenueImpactMinor": 0, "sourceType": "online-order", "status": "open"},
+            {"claimType": "shop-warranty", "revenueImpactMinor": 20000, "sourceType": "online-order", "status": "open"},
+            {"claimType": "shop-repair", "revenueImpactMinor": 5000, "sourceType": "online-order", "status": "open"},
+            {"claimType": "shop-warranty", "revenueImpactMinor": 9000, "sourceType": "online-order", "status": "cancelled"},
+        ],
+    )
+    assert analytics["financials"]["warrantyDeductionsMinor"] == 25000
+    assert analytics["financials"]["productRevenueMinor"] == 25000

@@ -16,9 +16,10 @@ const initialFilters = {
   dateTo: "",
   search: "",
   courier: "",
+  status: "",
 };
 
-function OrderFilters({ couriers = [], onApply, onReset }) {
+function OrderFilters({ couriers = [], onApply, onReset, onStatusChange, appliedFilters }) {
   // One state object keeps all order-filter values together.
   const [filters, setFilters] = useState(initialFilters);
   const [areMobileFiltersOpen, setAreMobileFiltersOpen] = useState(false);
@@ -33,6 +34,17 @@ function OrderFilters({ couriers = [], onApply, onReset }) {
     return () => window.removeEventListener("vendly:reset-filters", resetAssistantFilters);
   }, []);
 
+  // Assistant links contain the exact filter values in the URL. Mirror those
+  // values in the form so the table and the visible controls always agree.
+  useEffect(() => {
+    if (!appliedFilters) return;
+
+    setFilters({
+      ...initialFilters,
+      ...appliedFilters,
+    });
+  }, [appliedFilters]);
+
   // Use the input name to update only the field that changed.
   function handleInputChange(event) {
     const fieldName = event.target.name;
@@ -46,6 +58,7 @@ function OrderFilters({ couriers = [], onApply, onReset }) {
       ...currentFilters,
       [fieldName]: fieldValue,
     }));
+    if (fieldName === "status") onStatusChange?.(fieldValue);
     // Search is live: the parent reloads matching orders on every keystroke.
     onApply?.(nextFilters);
   }
@@ -138,6 +151,26 @@ function OrderFilters({ couriers = [], onApply, onReset }) {
             {couriers.map((courier) => (
               <option key={courier.id} value={courier.id}>{courier.name}</option>
             ))}
+          </select>
+        </div>
+
+        {/* Status remains a normal dropdown as well as being available from the
+            summary cards, which is useful for assistant-applied filters. */}
+        <div className="order-filters__field filter-panel__field">
+          <select
+            id="order-status"
+            name="status"
+            value={filters.status}
+            onChange={handleInputChange}
+          >
+            <option value="">All statuses</option>
+            <option value="pending">Pending</option>
+            <option value="confirmed">Confirmed</option>
+            <option value="packed">Packed</option>
+            <option value="shipped">Shipped</option>
+            <option value="delivered">Delivered</option>
+            <option value="returned">Returned</option>
+            <option value="cancelled">Cancelled</option>
           </select>
         </div>
 

@@ -75,6 +75,9 @@ def download_orders(business_id):
         business_id,
         status=request.args.get("status"),
         search=request.args.get("search"),
+        date_from=request.args.get("dateFrom"),
+        date_to=request.args.get("dateTo"),
+        courier_id=request.args.get("courierId"),
     )
     date_stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     return send_file(

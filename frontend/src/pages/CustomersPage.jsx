@@ -57,6 +57,7 @@ function CustomersPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [chatSummary, setChatSummary] = useState({ count: 0, unread: 0 });
   const [activeCustomerTab, setActiveCustomerTab] = useState("all");
+  const [customerSegment, setCustomerSegment] = useState("all");
   const [expandedCustomerId, setExpandedCustomerId] = useState(null);
   const [areMobileFiltersOpen, setAreMobileFiltersOpen] = useState(false);
   const [fraudFilters, setFraudFilters] = useState({ search: "", risk: "all", reason: "all", score: "all" });
@@ -70,6 +71,7 @@ function CustomersPage() {
   useEffect(() => {
     function handleAssistantFilterReset() {
       setFilters({ search: "", risk: "all", rating: "all", location: "all" });
+      setCustomerSegment("all");
       setFraudFilters({ search: "", risk: "all", reason: "all", score: "all" });
       setAreMobileFiltersOpen(false);
       setSearchParameters({}, { replace: true });
@@ -109,6 +111,10 @@ function CustomersPage() {
   });
 
   const visibleCustomers = filteredCustomers.filter((customer) => {
+    if (customerSegment === "repeat" && (customer.completedOrderCount ?? 0) <= 1) {
+      return false;
+    }
+
     if (activeCustomerTab === "all") {
       return true;
     }
@@ -145,12 +151,14 @@ function CustomersPage() {
 
   const customerStats = [
     {
+      id: "all",
       label: "Total Customers",
       value: customers.length.toLocaleString("en-LK"),
       icon: UsersRound,
       tone: "blue",
     },
     {
+      id: "repeat",
       label: "Repeat Customers",
       value: customers
         .filter((customer) => (customer.completedOrderCount ?? 0) > 1)
@@ -364,6 +372,8 @@ function CustomersPage() {
                   value={stat.value}
                   icon={stat.icon}
                   tone={stat.tone}
+                  onClick={stat.id ? () => setCustomerSegment(stat.id) : undefined}
+                  isActive={stat.id === customerSegment}
                 />
               ))}
             </div>
@@ -409,7 +419,7 @@ function CustomersPage() {
                 {[...new Set(customers.map((customer) => (customer.defaultAddress || customer.address || {}).district).filter(Boolean))].map((district) => <option key={district} value={district}>{district}</option>)}
               </select>
               <button type="button" className="customers-filters__button filter-panel__apply"><Filter size={15} /> More Filters</button>
-              <button type="button" className="customers-filters__reset filter-panel__reset filter-panel__reset--text" onClick={() => setFilters({ search: "", risk: "all", rating: "all", location: "all" })}><RotateCcw size={15} /> Reset</button>
+              <button type="button" className="customers-filters__reset filter-panel__reset filter-panel__reset--text" onClick={() => { setFilters({ search: "", risk: "all", rating: "all", location: "all" }); setCustomerSegment("all"); }}><RotateCcw size={15} /> Reset</button>
             </div>
           </section></>
       )}

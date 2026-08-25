@@ -1,30 +1,58 @@
 import { useEffect, useState } from "react";
 
-import { createCourier } from "../services/courierService";
+import { createCourier, updateCourier } from "../services/courierService";
 import ModalShell from "./ModalShell";
 
 import "./InventoryForm.css";
 
-function AddCourierModal({ isOpen, businessId, onClose, onCreated }) {
+const emptyForm = {
+  name: "",
+  code: "",
+  firstKgPrice: "450",
+  extraKgPrice: "100",
+  averageDeliveryDays: "3",
+  trackingUrlTemplate: "",
+  surchargeDistrict: "",
+  surchargeAmount: "0",
+  waybillPrefix: "VWB",
+  waybillStart: "1",
+  waybillEnd: "999999",
+};
+
+function formFromCourier(courier) {
+  if (!courier) return emptyForm;
+
+  const [surchargeDistrict = "", surchargeMinor = 0] = Object.entries(
+    courier.districtSurchargesMinor ?? {},
+  )[0] ?? [];
+
+  return {
+    name: courier.name ?? "",
+    code: courier.code ?? "",
+    firstKgPrice: String((courier.firstKgPriceMinor ?? 0) / 100),
+    extraKgPrice: String((courier.extraKgPriceMinor ?? 0) / 100),
+    averageDeliveryDays: String(courier.averageDeliveryDays ?? 3),
+    trackingUrlTemplate: courier.trackingUrlTemplate ?? "",
+    surchargeDistrict,
+    surchargeAmount: String(surchargeMinor / 100),
+    waybillPrefix: courier.waybillPrefix ?? "VWB",
+    waybillStart: String(courier.waybillStart ?? 1),
+    waybillEnd: String(courier.waybillEnd ?? 999999),
+  };
+}
+
+function AddCourierModal({ isOpen, businessId, courier = null, onClose, onCreated, onUpdated }) {
   const [formData, setFormData] = useState({
-    name: "",
-    code: "",
-    firstKgPrice: "450",
-    extraKgPrice: "100",
-    averageDeliveryDays: "3",
-    trackingUrlTemplate: "",
-    surchargeDistrict: "",
-    surchargeAmount: "0",
-    waybillPrefix: "VWB",
-    waybillStart: "1",
-    waybillEnd: "999999",
+    ...emptyForm,
   });
   const [errorMessage, setErrorMessage] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    if (isOpen) setErrorMessage("");
-  }, [isOpen]);
+    if (!isOpen) return;
+    setFormData(formFromCourier(courier));
+    setErrorMessage("");
+  }, [courier, isOpen]);
 
   function updateField(event) {
     const { name, value } = event.target;
@@ -40,7 +68,7 @@ function AddCourierModal({ isOpen, businessId, onClose, onCreated }) {
       const districtSurcharges = formData.surchargeDistrict.trim()
         ? { [formData.surchargeDistrict.trim()]: formData.surchargeAmount }
         : {};
-      const courier = await createCourier(businessId, {
+      const payload = {
         name: formData.name,
         code: formData.code,
         firstKgPrice: formData.firstKgPrice,
@@ -51,8 +79,12 @@ function AddCourierModal({ isOpen, businessId, onClose, onCreated }) {
         waybillPrefix: formData.waybillPrefix,
         waybillStart: formData.waybillStart,
         waybillEnd: formData.waybillEnd,
-      });
-      onCreated(courier);
+      };
+      const savedCourier = courier
+        ? await updateCourier(businessId, courier.id, payload)
+        : await createCourier(businessId, payload);
+      if (courier) onUpdated?.(savedCourier);
+      else onCreated?.(savedCourier);
       onClose();
     } catch (error) {
       setErrorMessage(error.message);
@@ -64,8 +96,8 @@ function AddCourierModal({ isOpen, businessId, onClose, onCreated }) {
   return (
     <ModalShell
       isOpen={isOpen}
-      title="Add Courier"
-      description="Configure weight-based delivery pricing for one courier."
+      title={courier ? "Edit Courier" : "Add Courier"}
+      description="Configure weight-based delivery pricing and waybill allocation."
       onClose={onClose}
     >
       <form className="inventory-form" onSubmit={handleSubmit}>
@@ -91,7 +123,7 @@ function AddCourierModal({ isOpen, businessId, onClose, onCreated }) {
         {errorMessage && <p className="inventory-form__error">{errorMessage}</p>}
         <footer className="inventory-form__footer">
           <button type="button" onClick={onClose}>Cancel</button>
-          <button className="inventory-form__primary" type="submit" disabled={isSaving}>{isSaving ? "Saving..." : "Add Courier"}</button>
+          <button className="inventory-form__primary" type="submit" disabled={isSaving}>{isSaving ? "Saving..." : courier ? "Save Courier" : "Add Courier"}</button>
         </footer>
       </form>
     </ModalShell>

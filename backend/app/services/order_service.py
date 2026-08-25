@@ -1,6 +1,6 @@
 from collections import defaultdict
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from firebase_admin import firestore
 from google.cloud import firestore as google_firestore
@@ -26,6 +26,10 @@ from app.services.text import optional_text, required_text
 
 
 LOGGER = logging.getLogger(__name__)
+# Sri Lanka (Asia/Colombo) is permanently UTC+05:30 and has no daylight-saving
+# time. A fixed offset avoids requiring the optional `tzdata` package on
+# Windows development machines.
+SRI_LANKA_TIMEZONE = timezone(timedelta(hours=5, minutes=30), name="Asia/Colombo")
 
 
 ALLOWED_PAYMENT_METHODS = {"cod", "paid", "deposit"}
@@ -154,17 +158,35 @@ def filter_orders(
         orders = [order for order in orders if order.get("fulfilmentStatus") == status]
     if courier_id:
         orders = [order for order in orders if order.get("courierId") == courier_id]
+    # Firestore timestamps are stored in UTC. Sellers choose dates in Sri
+    # Lanka, so compare the calendar date after converting to Asia/Colombo.
+    # Without this conversion, orders placed between midnight and 5:30 AM
+    # local time appear under the previous UTC day.
+    def local_order_date(order):
+        value = order.get("createdAt")
+        if isinstance(value, datetime):
+            timestamp = value
+        else:
+            try:
+                timestamp = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+            except (TypeError, ValueError):
+                return str(value or "")[:10]
+
+        if timestamp.tzinfo is None:
+            timestamp = timestamp.replace(tzinfo=timezone.utc)
+        return timestamp.astimezone(SRI_LANKA_TIMEZONE).date().isoformat()
+
     if date_from:
         orders = [
             order
             for order in orders
-            if str(order.get("createdAt", ""))[:10] >= date_from
+            if local_order_date(order) >= date_from
         ]
     if date_to:
         orders = [
             order
             for order in orders
-            if str(order.get("createdAt", ""))[:10] <= date_to
+            if local_order_date(order) <= date_to
         ]
     if search:
         search_text = search.strip().casefold()

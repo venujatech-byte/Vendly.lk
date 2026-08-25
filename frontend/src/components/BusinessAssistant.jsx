@@ -14,9 +14,11 @@ import { useNavigate } from "react-router-dom";
 
 import { useAuth } from "../context/authContextValue";
 import { sendBusinessAssistantMessage } from "../services/businessAssistantService";
-import { downloadOrderExport } from "../services/operationService";
+import { downloadOrderExport, printWaybill } from "../services/operationService";
 import { downloadInventoryCsv, getProducts } from "../services/productService";
 import { downloadCustomersCsv, getCustomers } from "../services/customerService";
+import { getShopSales } from "../services/shopSaleService";
+import { downloadReceiptPdf } from "../services/receiptService";
 import "./BusinessAssistant.css";
 
 const starterMessage = {
@@ -44,6 +46,28 @@ function isResetFilterCommand(message) {
   );
 }
 
+function downloadShopSalesCsv(sales) {
+  const escape = (value) => `"${String(value ?? "").replaceAll('"', '""')}"`;
+  const headings = ["Sale number", "Customer", "Phone", "Items", "Subtotal", "Discount", "Total", "Date"];
+  const rows = sales.filter((sale) => sale.status !== "voided").map((sale) => [
+    sale.saleNumber,
+    sale.customerName || "Walk-in customer",
+    sale.phoneNumber || "",
+    (sale.items || []).map((item) => `${item.name} x ${item.quantity}`).join("; "),
+    (sale.subtotalMinor || 0) / 100,
+    (sale.discountTotalMinor || 0) / 100,
+    (sale.totalAmountMinor || 0) / 100,
+    String(sale.createdAt || "").slice(0, 10),
+  ]);
+  const csv = [headings, ...rows].map((row) => row.map(escape).join(",")).join("\r\n");
+  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `vendly-shop-sales-${new Date().toISOString().slice(0, 10)}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
 function BusinessAssistant({ isOpen, onToggle, onClose }) {
   const navigate = useNavigate();
   const { business } = useAuth();
@@ -55,6 +79,11 @@ function BusinessAssistant({ isOpen, onToggle, onClose }) {
   const [voiceLanguage, setVoiceLanguage] = useState("en-LK");
   const messageListRef = useRef(null);
   const recognitionRef = useRef(null);
+  const voiceHoldTimerRef = useRef(null);
+  const skipNextAssistantClickRef = useRef(false);
+  const voiceStopRequestedRef = useRef(false);
+  const [isHoldingVoiceButton, setIsHoldingVoiceButton] = useState(false);
+  const [voiceTranscript, setVoiceTranscript] = useState("");
 
   useEffect(() => {
     if (!isOpen || !messageListRef.current) return;
@@ -62,6 +91,7 @@ function BusinessAssistant({ isOpen, onToggle, onClose }) {
   }, [isOpen, messages, isSending]);
 
   useEffect(() => () => {
+    window.clearTimeout(voiceHoldTimerRef.current);
     recognitionRef.current?.abort();
     window.speechSynthesis?.cancel();
   }, []);
@@ -94,7 +124,42 @@ function BusinessAssistant({ isOpen, onToggle, onClose }) {
     const action = response?.clientAction;
 
     if (action?.type === "export_orders") {
-      await downloadOrderExport(business.id);
+      await downloadOrderExport(business.id, {
+        dateFrom: action.dateFrom || "",
+        dateTo: action.dateTo || "",
+        status: action.status || "",
+      });
+      return;
+    }
+
+    if (action?.type === "export_sales") {
+      const sales = await getShopSales(business.id, {
+        dateFrom: action.dateFrom || "",
+        dateTo: action.dateTo || "",
+      });
+      downloadShopSalesCsv(sales);
+      return;
+    }
+
+    if (action?.type === "print_waybills") {
+      action.orders?.forEach((order) => printWaybill(order));
+      return;
+    }
+
+    if (action?.type === "print_receipts") {
+      action.sales?.forEach((sale) => downloadReceiptPdf(business, {
+        ...sale,
+        orderNumber: sale.saleNumber,
+        deliveryFeeMinor: 0,
+        taxTotalMinor: 0,
+        deliveryAddress: {},
+        paymentMethod: "paid",
+      }));
+      return;
+    }
+
+    if (action?.type === "set_theme") {
+      window.dispatchEvent(new CustomEvent("vendly:set-theme", { detail: { theme: action.theme } }));
       return;
     }
 
@@ -122,7 +187,14 @@ function BusinessAssistant({ isOpen, onToggle, onClose }) {
       return;
     }
 
-    if (response?.navigateTo) navigate(response.navigateTo);
+    if (response?.navigateTo) {
+      // Assistant filtering is intentionally replace-not-additive. Reset the
+      // previous page's filter state before opening the requested filtered view.
+      if (/[?&](search|status|dateFrom|dateTo|stockStatus|sortBy)=/.test(response.navigateTo)) {
+        window.dispatchEvent(new CustomEvent("vendly:reset-filters"));
+      }
+      navigate(response.navigateTo);
+    }
   }
 
   async function sendMessage(text) {
@@ -205,9 +277,13 @@ function BusinessAssistant({ isOpen, onToggle, onClose }) {
     }
 
     recognitionRef.current?.abort();
+    voiceStopRequestedRef.current = false;
+    setVoiceTranscript("");
     const recognition = new SpeechRecognition();
     recognition.lang = voiceLanguage;
-    recognition.interimResults = false;
+    // Interim text lets the Siri-style overlay show the words while the
+    // browser is still listening, before the final command is submitted.
+    recognition.interimResults = true;
     recognition.maxAlternatives = 1;
     recognitionRef.current = recognition;
 
@@ -215,36 +291,101 @@ function BusinessAssistant({ isOpen, onToggle, onClose }) {
     recognition.onend = () => setIsListening(false);
     recognition.onerror = () => {
       setIsListening(false);
+      // Releasing the hold button can intentionally end recognition before a
+      // phrase is detected. Do not present that normal action as an error.
+      if (voiceStopRequestedRef.current) return;
       appendAssistantResponse({
         message: "I could not hear that clearly. Please try again or type your request.",
       });
     };
     recognition.onresult = (event) => {
-      const transcript = event.results?.[0]?.[0]?.transcript?.trim() || "";
-      setDraft(transcript);
-      if (transcript) sendMessage(transcript);
+      let transcript = "";
+      let finalTranscript = "";
+
+      for (let index = event.resultIndex; index < event.results.length; index += 1) {
+        const phrase = event.results[index]?.[0]?.transcript || "";
+        transcript += phrase;
+        if (event.results[index].isFinal) finalTranscript += phrase;
+      }
+
+      setVoiceTranscript(transcript.trim());
+      if (finalTranscript.trim()) {
+        setDraft(finalTranscript.trim());
+        sendMessage(finalTranscript.trim());
+      }
     };
 
     recognition.start();
   }
 
   function stopVoiceInput() {
+    voiceStopRequestedRef.current = true;
     recognitionRef.current?.stop();
     setIsListening(false);
+  }
+
+  function startHeldVoiceCommand(event) {
+    if (event.button !== undefined && event.button !== 0) return;
+
+    skipNextAssistantClickRef.current = false;
+    window.clearTimeout(voiceHoldTimerRef.current);
+    voiceHoldTimerRef.current = window.setTimeout(() => {
+      skipNextAssistantClickRef.current = true;
+      setIsHoldingVoiceButton(true);
+      startVoiceInput();
+    }, 280);
+  }
+
+  function finishHeldVoiceCommand() {
+    window.clearTimeout(voiceHoldTimerRef.current);
+    if (!skipNextAssistantClickRef.current) return;
+
+    setIsHoldingVoiceButton(false);
+    stopVoiceInput();
+  }
+
+  function cancelHeldVoiceCommand() {
+    finishHeldVoiceCommand();
+    // Pointer cancellation/leave does not dispatch the normal click that
+    // pointer-up does, so do not suppress the seller's next ordinary click.
+    skipNextAssistantClickRef.current = false;
+  }
+
+  function handleAssistantButtonClick() {
+    if (skipNextAssistantClickRef.current) {
+      skipNextAssistantClickRef.current = false;
+      return;
+    }
+    onToggle();
   }
 
   return (
     <>
       <button
-        className="floating-assistant-button"
+        className={`floating-assistant-button ${isListening || isHoldingVoiceButton ? "is-listening" : ""}`}
         type="button"
-        onClick={onToggle}
-        aria-label={isOpen ? "Close business assistant" : "Open business assistant"}
+        onClick={handleAssistantButtonClick}
+        onPointerDown={startHeldVoiceCommand}
+        onPointerUp={finishHeldVoiceCommand}
+        onPointerLeave={cancelHeldVoiceCommand}
+        onPointerCancel={cancelHeldVoiceCommand}
+        aria-label={isListening || isHoldingVoiceButton ? "Listening for a voice command" : isOpen ? "Close business assistant" : "Open business assistant"}
         aria-expanded={isOpen}
-        title="Business Assistant"
+        title="Click to open. Press and hold to speak."
       >
-        {isOpen ? <X aria-hidden="true" /> : <Sparkles aria-hidden="true" />}
+        {isListening || isHoldingVoiceButton ? <Mic aria-hidden="true" /> : isOpen ? <X aria-hidden="true" /> : <Sparkles aria-hidden="true" />}
       </button>
+
+      {(isListening || isHoldingVoiceButton) && (
+        <div className="business-assistant__voice-overlay" aria-live="polite">
+          <div className="business-assistant__voice-orb"><Mic aria-hidden="true" /></div>
+          <p className="business-assistant__voice-label">Listening…</p>
+          <p className="business-assistant__voice-transcript">
+            {voiceTranscript || "Speak your dashboard command"}
+          </p>
+          <p className="business-assistant__voice-hint">Release to finish</p>
+        </div>
+      )}
 
       {isOpen && (
         <section

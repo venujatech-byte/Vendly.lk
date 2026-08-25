@@ -5,7 +5,7 @@ import "./OrderFilters.css";
 
 const empty = { search: "", dateFrom: "", dateTo: "" };
 
-export default function ShopSaleFilters({ onChange }) {
+export default function ShopSaleFilters({ onChange, appliedFilters }) {
   const [filters, setFilters] = useState(empty);
   const [open, setOpen] = useState(false);
 
@@ -18,6 +18,13 @@ export default function ShopSaleFilters({ onChange }) {
     window.addEventListener("vendly:reset-filters", resetAssistantFilters);
     return () => window.removeEventListener("vendly:reset-filters", resetAssistantFilters);
   }, []);
+
+  // Keep the date/search fields in sync when the Business Assistant opens a
+  // filtered shop-sales view.
+  useEffect(() => {
+    if (!appliedFilters) return;
+    setFilters({ ...empty, ...appliedFilters });
+  }, [appliedFilters]);
   function update(name, value) {
     const next = { ...filters, [name]: value };
     setFilters(next);

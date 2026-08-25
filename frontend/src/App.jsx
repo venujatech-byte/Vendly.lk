@@ -85,6 +85,19 @@ function App() {
     return () => window.removeEventListener("vendly:open-settings", handleAssistantSettings);
   }, []);
 
+  // A Business Assistant theme request uses the same state as the header toggle.
+  useEffect(() => {
+    function handleAssistantTheme(event) {
+      const requestedTheme = event.detail?.theme;
+      if (requestedTheme === "light" || requestedTheme === "dark") {
+        setTheme(requestedTheme);
+      }
+    }
+
+    window.addEventListener("vendly:set-theme", handleAssistantTheme);
+    return () => window.removeEventListener("vendly:set-theme", handleAssistantTheme);
+  }, []);
+
   // Expand or collapse the left sidebar.
   function toggleSidebar() {
     setIsSidebarCollapsed((currentValue) => !currentValue);

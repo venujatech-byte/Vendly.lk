@@ -278,7 +278,10 @@ def create_warranty_claim(database, business_id, uid, payload):
     try:
         source_type = required_text(payload.get("sourceType"), "Sale type", 30)
         source_id = required_text(payload.get("sourceId"), "Order or sale", 120)
-        variant_id = required_text(payload.get("variantId"), "Item", 120)
+        item_index = non_negative_integer(payload.get("itemIndex", 0), "Item")
+        claim_quantity = non_negative_integer(payload.get("claimQuantity", 1), "Claim quantity")
+        claim_type = required_text(payload.get("claimType", "supplier-warranty"), "Claim handling", 30)
+        repair_cost_minor = money_to_minor_units(payload.get("repairCost", 0), "Repair cost")
         reason = required_text(payload.get("reason"), "Warranty reason", 300)
         details = optional_text(payload.get("details"), 1500)
     except ValueError as error:
@@ -286,14 +289,31 @@ def create_warranty_claim(database, business_id, uid, payload):
     collection_name = "orders" if source_type == "online-order" else "shopSales" if source_type == "shop-sale" else None
     if not collection_name:
         raise ApiError("validation_error", "Choose a valid warranty sale type.", 422)
+    if claim_type not in {"supplier-warranty", "shop-warranty", "shop-repair"}:
+        raise ApiError("validation_error", "Choose a valid claim handling option.", 422)
+    if claim_quantity < 1:
+        raise ApiError("validation_error", "Claim quantity must be at least one.", 422)
+    if claim_type != "shop-repair" and repair_cost_minor:
+        raise ApiError("validation_error", "Repair cost is only used for shop repairs.", 422)
     business_ref = database.collection("businesses").document(business_id)
     source_snapshot = business_ref.collection(collection_name).document(source_id).get()
     if not source_snapshot.exists:
         raise ApiError("sale_not_found", "The original order or shop sale was not found.", 404)
     source = source_snapshot.to_dict()
-    item = next((record for record in source.get("items", []) if record.get("variantId") == variant_id), None)
-    if not item:
+    source_items = source.get("items", [])
+    if item_index >= len(source_items):
         raise ApiError("item_not_found", "The selected item is not part of this sale.", 422)
+    item = source_items[item_index]
+    if claim_quantity > item.get("quantity", 0):
+        raise ApiError("validation_error", "Claim quantity cannot exceed the purchased quantity.", 422)
+
+    # Store the exact financial impact with the claim so it remains auditable
+    # even if a seller edits the product price later.
+    revenue_impact_minor = 0
+    if claim_type == "shop-warranty":
+        revenue_impact_minor = item.get("unitPriceMinor", 0) * claim_quantity
+    elif claim_type == "shop-repair":
+        revenue_impact_minor = repair_cost_minor
     business = business_ref.get().to_dict() or {}
     sequence = business.get("nextWarrantyClaimSequence", 1)
     claim_ref = business_ref.collection("warrantyClaims").document()
@@ -303,7 +323,10 @@ def create_warranty_claim(database, business_id, uid, payload):
         "sourceNumber": source.get("orderNumber") or source.get("saleNumber"),
         "customerName": source.get("customerSnapshot", {}).get("name") or source.get("customerName", "Walk-in customer"),
         "phoneNumber": source.get("customerSnapshot", {}).get("phoneNumber") or source.get("phoneNumber", ""),
-        "item": item, "reason": reason, "details": details, "status": "open",
+        "item": item, "itemIndex": item_index, "claimQuantity": claim_quantity,
+        "claimType": claim_type, "repairCostMinor": repair_cost_minor,
+        "revenueImpactMinor": revenue_impact_minor,
+        "reason": reason, "details": details, "status": "open",
         "createdBy": uid, "createdAt": timestamp, "updatedAt": timestamp,
     })
     business_ref.update({"nextWarrantyClaimSequence": sequence + 1, "updatedAt": timestamp})

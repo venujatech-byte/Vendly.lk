@@ -177,6 +177,15 @@ BUSINESS_ASSISTANT_INTENTS = {
     "customer_view",
     "edit_product",
     "inventory_view",
+    "shop_sale_view",
+    "sales_metric",
+    "export_sales",
+    "print_waybills",
+    "print_receipts",
+    "scan_waybill",
+    "scan_barcode",
+    "set_theme",
+    "bulk_update_order_status",
     "help",
     "unknown",
 }
@@ -214,13 +223,16 @@ def generate_business_assistant_intent(message):
         return None
 
     prompt = (
-        "Classify a Vendly seller dashboard command. Return one JSON object only; "
+        "Classify a Vendly seller dashboard command. The seller may write in English, Sinhala, "
+        "or a natural Sinhala-English mix. Return one JSON object only; "
         "do not add Markdown or explanations. Allowed intents: business_summary, "
         "navigate, pending_orders, low_stock, search_order, search_product, "
         "update_order_status, adjust_stock, export_orders, export_inventory, "
         "open_add_order, open_add_product, open_shop_sale, open_add_courier, "
         "open_section, open_settings, order_view, customer_view, edit_product, "
-        "inventory_view, export_customers, help, unknown. "
+        "inventory_view, export_customers, shop_sale_view, sales_metric, export_sales, "
+        "print_waybills, print_receipts, scan_waybill, scan_barcode, set_theme, "
+        "bulk_update_order_status, help, unknown. "
         "For navigation include page, which must be one of overview, orders, "
         "inventory, couriers, customers or analytics. "
         "Use open_add_order for a new online/delivery order, open_shop_sale for "
@@ -231,13 +243,19 @@ def generate_business_assistant_intent(message):
         "to general, staff or billing. Use order_view for filtered/searchable "
         "order lists, customer_view for customer searches, and export_customers "
         "for a customer CSV export. "
-        "For edit_product include productQuery. For inventory_view include "
+        "For order_view, shop_sale_view, export_orders, export_sales, sales_metric, print_waybills "
+        "and print_receipts include dateFrom/dateTo in YYYY-MM-DD when the seller names a date. "
+        "Interpret today/yesterday using the current calendar year 2026 when no year is stated. "
+        "For sales_metric set metric to revenue, total_sales, sold_items, or top_item. "
+        "For set_theme use theme dark or light. For edit_product include productQuery. For inventory_view include "
         "productQuery plus optional stockStatus (in-stock, low-stock, or "
         "out-of-stock), sortBy (name, price, or stock), and sortDirection "
         "(asc or desc). "
         "Allowed order-view statuses: pending, confirmed, packed, shipped, delivered, "
-        "returned, cancelled. For an order command include orderQuery and status. For an "
-        "inventory adjustment include productQuery, optional variantQuery, and a "
+        "returned, cancelled. For an order command include orderQuery, status, and courierName "
+        "only when the seller explicitly names a courier. For an "
+        "bulk_update_order_status must include sourceStatus, status, and optional dateFrom/dateTo. "
+        "For inventory adjustment include productQuery, optional variantQuery, and a "
         "signed integer quantityChange. Never invent an ID or value that is not in "
         "the seller's message. Example shape: "
         '{"intent":"search_order","page":"","orderQuery":"VD-000012","status":"",'

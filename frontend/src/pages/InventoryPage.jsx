@@ -35,7 +35,8 @@ import "./Buttons.css";
 
 function InventoryPage() {
   const [searchParameters, setSearchParameters] = useSearchParams();
-  const routeSearch = (searchParameters.get("search") ?? "").trim().toLowerCase();
+  const routeSearchValue = searchParameters.get("search") ?? "";
+  const routeSearch = routeSearchValue.trim().toLowerCase();
   const routeStockStatus = searchParameters.get("stockStatus") ?? "";
   const routeSortBy = searchParameters.get("sortBy") ?? "";
   const routeSortDirection = searchParameters.get("sortDirection") === "desc" ? "desc" : "asc";
@@ -62,6 +63,20 @@ function InventoryPage() {
   const [inventoryRefreshKey, setInventoryRefreshKey] = useState(0);
   const [isBarcodeScannerOpen, setIsBarcodeScannerOpen] = useState(false);
 
+  const assistantInventoryFilters = useMemo(() => {
+    if (!routeSearchValue && !routeStockStatus) return null;
+    return {
+      searchProduct: routeSearchValue,
+      stockStatus: routeStockStatus,
+    };
+  }, [routeSearchValue, routeStockStatus]);
+
+  useEffect(() => {
+    // Clear stale manually-entered values before applying the assistant's URL
+    // filter, so the current table is filtered by one clear instruction.
+    if (assistantInventoryFilters) setInventoryFilters({});
+  }, [assistantInventoryFilters]);
+
   useEffect(() => {
     if (!assistantAction) return;
 
@@ -73,6 +88,11 @@ function InventoryPage() {
 
     if (assistantAction === "open-categories") {
       setActiveTab("categories");
+    }
+
+    if (assistantAction === "scan-barcode") {
+      setActiveTab("products");
+      setIsBarcodeScannerOpen(true);
     }
 
     if (assistantAction === "edit-product" && assistantProductId && products.length > 0) {
@@ -504,6 +524,7 @@ function InventoryPage() {
             categories={categories}
             onApply={setInventoryFilters}
             onReset={resetInventoryFilters}
+            appliedFilters={assistantInventoryFilters}
           />
           <InventoryTable
             products={visibleProducts}

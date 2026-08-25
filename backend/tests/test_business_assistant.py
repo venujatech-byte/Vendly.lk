@@ -45,6 +45,31 @@ def test_assistant_recognizes_exports_and_existing_dashboard_forms():
     assert deterministic_intent("Export customers")["intent"] == "export_customers"
 
 
+def test_assistant_opens_online_orders_instead_of_the_add_order_form():
+    assert deterministic_intent("Show me online orders") == {
+        "intent": "order_view",
+        "orderQuery": "",
+        "status": "",
+    }
+    assert deterministic_intent("Add an online order")["intent"] == "open_add_order"
+
+
+def test_assistant_does_not_use_conversational_me_as_a_filter_value():
+    orders = deterministic_intent("Show me orders")
+    assert orders["intent"] == "order_view"
+    assert orders["orderQuery"] == ""
+
+    inventory = deterministic_intent("Show me inventory")
+    assert inventory["intent"] == "inventory_view"
+    assert inventory["productQuery"] == ""
+
+
+def test_assistant_prints_a_specific_shop_sale_receipt_from_short_sale_number():
+    intent = deterministic_intent("Print receipt on sales no 2")
+    assert intent["intent"] == "print_receipts"
+    assert intent["saleQuery"] == "POS-000002"
+
+
 def test_assistant_recognizes_product_edit_filter_and_sort_commands():
     edit = deterministic_intent("Edit product Lenovo GM2 pro")
     assert edit == {"intent": "edit_product", "productQuery": "lenovo gm2 pro"}
@@ -121,6 +146,13 @@ def test_assistant_recognizes_dashboard_sections_and_filtered_views():
     }
 
 
+def test_assistant_understands_month_first_calendar_dates():
+    intent = deterministic_intent("Show me August 23rd orders")
+    assert intent["intent"] == "order_view"
+    assert intent["dateFrom"] == "2026-08-23"
+    assert intent["dateTo"] == "2026-08-23"
+
+
 def test_assistant_returns_routes_for_new_dashboard_features():
     owner = {"role": "owner", "permissions": ["*"]}
 
@@ -130,7 +162,7 @@ def test_assistant_returns_routes_for_new_dashboard_features():
         owner,
         {"intent": "order_view", "orderQuery": "", "status": "packed"},
     )
-    assert packed_orders["navigateTo"] == "/orders?status=packed"
+    assert packed_orders["navigateTo"] == "/orders?assistantAction=open-online-orders&status=packed"
 
     messages = process_read_intent(
         None,

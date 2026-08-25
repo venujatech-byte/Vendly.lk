@@ -67,6 +67,9 @@ function OrdersPage() {
   const [searchParameters, setSearchParameters] = useSearchParams();
   const routeSearch = searchParameters.get("search") ?? "";
   const routeStatus = searchParameters.get("status") ?? "";
+  const routeDateFrom = searchParameters.get("dateFrom") ?? "";
+  const routeDateTo = searchParameters.get("dateTo") ?? "";
+  const routeCourier = searchParameters.get("courier") ?? "";
   const assistantAction = searchParameters.get("assistantAction") ?? "";
   const { business, accountError } = useAuth();
   const [orders, setOrders] = useState([]);
@@ -88,6 +91,24 @@ function OrdersPage() {
   const [warrantyClaims, setWarrantyClaims] = useState([]);
   const [warrantySource, setWarrantySource] = useState(null);
 
+  // URL filters are created by the Business Assistant. Keep them separate
+  // from the form state so a new assistant request replaces old form filters.
+  const assistantOrderFilters = useMemo(() => {
+    if (!routeSearch && !routeDateFrom && !routeDateTo && !routeStatus && !routeCourier) return null;
+    return {
+      search: routeSearch,
+      dateFrom: routeDateFrom,
+      dateTo: routeDateTo,
+      status: routeStatus,
+      courier: routeCourier,
+    };
+  }, [routeSearch, routeDateFrom, routeDateTo, routeStatus, routeCourier]);
+
+  const assistantShopSaleFilters = useMemo(() => {
+    if (!routeDateFrom && !routeDateTo) return null;
+    return { dateFrom: routeDateFrom, dateTo: routeDateTo };
+  }, [routeDateFrom, routeDateTo]);
+
   // The business assistant reuses the same validated forms as the page buttons.
   useEffect(() => {
     if (!assistantAction) return;
@@ -95,6 +116,8 @@ function OrdersPage() {
     if (assistantAction === "add-order") {
       setActiveTab("onlineOrders");
       setIsAddOrderOpen(true);
+    } else if (assistantAction === "open-online-orders") {
+      setActiveTab("onlineOrders");
     } else if (assistantAction === "add-shop-sale") {
       setActiveTab("shopOrders");
       setIsAddShopSaleOpen(true);
@@ -102,6 +125,9 @@ function OrdersPage() {
       setActiveTab("shopOrders");
     } else if (assistantAction === "open-warranty-claims") {
       setActiveTab("warrantyClaims");
+    } else if (assistantAction === "scan-waybill") {
+      setActiveTab("onlineOrders");
+      window.setTimeout(handleScanWaybill, 50);
     }
 
     const nextParameters = new URLSearchParams(searchParameters);
@@ -121,6 +147,13 @@ function OrdersPage() {
     ]);
     setStatusFilter(validStatuses.has(routeStatus) ? routeStatus : "");
   }, [routeStatus]);
+
+  useEffect(() => {
+    // A new route-based filter starts from a clean local form state. The
+    // route values above then become the only active filter values.
+    if (assistantOrderFilters) setFilters({});
+    if (assistantShopSaleFilters) setShopFilters({});
+  }, [assistantOrderFilters, assistantShopSaleFilters]);
 
   // Reset field, status-card, and URL filters so the complete table is shown again.
   function resetOrderFilters() {
@@ -161,6 +194,9 @@ function OrdersPage() {
           dateTo: filters.dateTo,
           courierId: filters.courier,
           ...(routeSearch ? { search: routeSearch } : {}),
+          ...(routeDateFrom ? { dateFrom: routeDateFrom } : {}),
+          ...(routeDateTo ? { dateTo: routeDateTo } : {}),
+          ...(routeCourier ? { courierId: routeCourier } : {}),
         });
 
         if (requestIsCurrent) {
@@ -182,12 +218,16 @@ function OrdersPage() {
     return () => {
       requestIsCurrent = false;
     };
-  }, [business?.id, filters, routeSearch]);
+  }, [business?.id, filters, routeSearch, routeDateFrom, routeDateTo, routeCourier]);
 
   useEffect(() => {
     if (!business?.id) return;
-    getShopSales(business.id, shopFilters).then(setShopSales).catch(setOrdersError);
-  }, [business?.id, shopFilters]);
+    getShopSales(business.id, {
+      ...shopFilters,
+      ...(routeDateFrom ? { dateFrom: routeDateFrom } : {}),
+      ...(routeDateTo ? { dateTo: routeDateTo } : {}),
+    }).then(setShopSales).catch(setOrdersError);
+  }, [business?.id, shopFilters, routeDateFrom, routeDateTo]);
 
   useEffect(() => {
     if (!business?.id) return;
@@ -252,16 +292,20 @@ function OrdersPage() {
 
   const shopStats = useMemo(() => {
     const activeSales = shopSales.filter((sale) => sale.status !== "voided");
+    // Supplier claims do not cost the seller. Shop claims and repairs do.
+    const shopWarrantyDeductions = warrantyClaims
+      .filter((claim) => claim.sourceType === "shop-sale" && claim.status !== "cancelled")
+      .reduce((sum, claim) => sum + (claim.revenueImpactMinor ?? 0), 0);
     const itemCounts = new Map();
     activeSales.forEach((sale) => sale.items.forEach((item) => itemCounts.set(item.name, (itemCounts.get(item.name) ?? 0) + item.quantity)));
     const topItem = [...itemCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "—";
     return [
       { label: "Total sales", value: activeSales.length, icon: ReceiptText, tone: "blue" },
       { label: "Sold items", value: activeSales.reduce((sum, sale) => sum + sale.itemCount, 0), icon: ShoppingBasket, tone: "green" },
-      { label: "Revenue", value: `LKR ${(activeSales.reduce((sum, sale) => sum + sale.totalAmountMinor, 0) / 100).toLocaleString("en-LK")}`, icon: Banknote, tone: "orange" },
+      { label: "Revenue", value: `LKR ${((activeSales.reduce((sum, sale) => sum + sale.totalAmountMinor, 0) - shopWarrantyDeductions) / 100).toLocaleString("en-LK")}`, icon: Banknote, tone: "orange" },
       { label: "Top item", value: topItem, icon: Trophy, tone: "purple" },
     ];
-  }, [shopSales]);
+  }, [shopSales, warrantyClaims]);
 
   function openOnlineWarranty(order) { setWarrantySource({ ...order, sourceType: "online-order" }); }
   function openShopWarranty(sale) { setWarrantySource({ ...sale, sourceType: "shop-sale" }); }
@@ -571,6 +615,8 @@ function OrdersPage() {
             couriers={couriers}
             onApply={setFilters}
             onReset={resetOrderFilters}
+            onStatusChange={setStatusFilter}
+            appliedFilters={assistantOrderFilters}
           />
 
           {/* Main expandable orders table. */}
@@ -610,7 +656,7 @@ function OrdersPage() {
               ))}
             </div>
           </section>
-          <ShopSaleFilters onChange={setShopFilters}/>
+          <ShopSaleFilters onChange={setShopFilters} appliedFilters={assistantShopSaleFilters} />
           <ShopSalesTable sales={shopSales.filter((sale) => sale.status !== "voided")} onPrint={printShopReceipt} onWarranty={openShopWarranty} onRemove={setShopRemovalTarget}/>
         </>
       )}
