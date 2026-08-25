@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useState } from "react";
 import { ChevronDown, ChevronRight, MoreVertical, Plus, Truck } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 
 import AddCourierModal from "../components/AddCourierModal";
 import { useAuth } from "../context/authContextValue";
@@ -12,12 +13,23 @@ function money(minor = 0) {
 }
 
 function CouriersPage() {
+  const [searchParameters, setSearchParameters] = useSearchParams();
+  const assistantAction = searchParameters.get("assistantAction") ?? "";
   const { business } = useAuth();
   const [couriers, setCouriers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
   const [isAddCourierOpen, setIsAddCourierOpen] = useState(false);
   const [expandedCourierId, setExpandedCourierId] = useState(null);
+
+  useEffect(() => {
+    if (assistantAction !== "add-courier") return;
+
+    setIsAddCourierOpen(true);
+    const nextParameters = new URLSearchParams(searchParameters);
+    nextParameters.delete("assistantAction");
+    setSearchParameters(nextParameters, { replace: true });
+  }, [assistantAction, searchParameters, setSearchParameters]);
 
   useEffect(() => {
     if (!business?.id) {

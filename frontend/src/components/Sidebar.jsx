@@ -3,6 +3,8 @@ import "./Sidebar.css";
 import vendlyLogo from "../assets/vendly-logo.png";
 import { NavLink } from "react-router-dom";
 import { useAuth } from "../context/authContextValue";
+import { useEffect, useRef, useState } from "react";
+import { logoutUser } from "../services/authService";
 
 // Icons paired with sidebar links and footer actions.
 import {
@@ -16,6 +18,12 @@ import {
   ChevronRight,
   Store,
   ChevronsLeft,
+  CreditCard,
+  LogOut,
+  Settings,
+  Sparkles,
+  UserRound,
+  UsersRound,
 } from "lucide-react";
 
 // Central list of sidebar pages; map() below turns each item into a link.
@@ -39,9 +47,26 @@ function readableRole(role = "viewer") {
   return role.split("_").map((word) => word[0].toUpperCase() + word.slice(1)).join(" ");
 }
 
-function Sidebar({ isCollapsed, onToggleSidebar }) {
+function Sidebar({ isCollapsed, onToggleSidebar, onOpenProfile, onOpenSettings }) {
   const { sellerProfile, membership } = useAuth();
   const businessName = sellerProfile?.businessName ?? "Your Business";
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const profileMenuReference = useRef(null);
+
+  useEffect(() => {
+    function closeProfileMenu(event) {
+      if (!profileMenuReference.current?.contains(event.target)) {
+        setIsProfileMenuOpen(false);
+      }
+    }
+    document.addEventListener("pointerdown", closeProfileMenu);
+    return () => document.removeEventListener("pointerdown", closeProfileMenu);
+  }, []);
+
+  function openSettings(section) {
+    setIsProfileMenuOpen(false);
+    onOpenSettings(section);
+  }
 
   return (
     <aside id="sidebar-navigation" className={`sidebar ${isCollapsed ? "sidebar--collapsed" : ""}`} >
@@ -90,11 +115,24 @@ function Sidebar({ isCollapsed, onToggleSidebar }) {
       </nav>
 
      {/* Keep the business switcher anchored at the bottom of the sidebar. */}
-     <div className="sidebar__footer">
+     <div className="sidebar__footer" ref={profileMenuReference}>
+  {isProfileMenuOpen && (
+    <div className="sidebar__profile-menu" role="menu">
+      <button type="button" onClick={() => { setIsProfileMenuOpen(false); onOpenProfile(); }} role="menuitem"><UserRound size={16} />My Profile</button>
+      <button type="button" onClick={() => openSettings("staff")} role="menuitem"><UsersRound size={16} />Staff & permissions</button>
+      <button type="button" onClick={() => openSettings("plan")} role="menuitem"><Sparkles size={16} />Current plan</button>
+      <button type="button" onClick={() => openSettings("billing")} role="menuitem"><CreditCard size={16} />Billing</button>
+      <button type="button" onClick={() => openSettings("general")} role="menuitem"><Settings size={16} />All settings</button>
+      <button className="sidebar__profile-menu-danger" type="button" onClick={logoutUser} role="menuitem"><LogOut size={16} />Log out</button>
+    </div>
+  )}
   <button
     className="sidebar__business"
     type="button"
+    onClick={() => setIsProfileMenuOpen((current) => !current)}
     title={isCollapsed ? businessName : undefined}
+    aria-haspopup="menu"
+    aria-expanded={isProfileMenuOpen}
   >
     <span className="sidebar__business-icon">
       <Store size={18} aria-hidden="true" />
@@ -106,7 +144,7 @@ function Sidebar({ isCollapsed, onToggleSidebar }) {
     </span>
 
     <ChevronRight
-      className="sidebar__business-arrow"
+      className={`sidebar__business-arrow ${isProfileMenuOpen ? "is-open" : ""}`}
       size={16}
       aria-hidden="true"
     />

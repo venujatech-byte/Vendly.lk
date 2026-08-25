@@ -3,6 +3,7 @@ from app.services.public_chat_service import (
     find_category_request,
     find_product_in_message,
     is_catalog_number_choice,
+    is_finished_selecting_items,
     normalize_chat_cart,
     parse_delivery_address,
     public_order_confirmation,
@@ -89,6 +90,15 @@ def test_catalog_number_choice_only_matches_a_direct_selection():
     assert is_catalog_number_choice("2") is True
     assert is_catalog_number_choice("Product #2") is True
     assert is_catalog_number_choice("Does product 2 have Bluetooth?") is False
+
+
+def test_finished_selecting_items_recognises_short_checkout_replies():
+    assert is_finished_selecting_items("no") is True
+    assert is_finished_selecting_items("No thanks") is True
+    assert is_finished_selecting_items("That's all") is True
+    assert is_finished_selecting_items("done") is True
+    assert is_finished_selecting_items("නැහැ") is True
+    assert is_finished_selecting_items("No, show another product") is False
 
 
 def test_chat_category_request_finds_all_matching_products():

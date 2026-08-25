@@ -43,7 +43,7 @@ import "../components/OrderFilters.css";
 import "./CustomersPage.css";
 
 function CustomersPage() {
-  const [searchParameters] = useSearchParams();
+  const [searchParameters, setSearchParameters] = useSearchParams();
   const routeSearch = (searchParameters.get("search") ?? "")
     .trim()
     .toLowerCase();
@@ -66,6 +66,18 @@ function CustomersPage() {
   const [fraudAction, setFraudAction] = useState(null);
   const [fraudRiskLevel, setFraudRiskLevel] = useState("low");
   const [isFraudActionWorking, setIsFraudActionWorking] = useState(false);
+
+  useEffect(() => {
+    function handleAssistantFilterReset() {
+      setFilters({ search: "", risk: "all", rating: "all", location: "all" });
+      setFraudFilters({ search: "", risk: "all", reason: "all", score: "all" });
+      setAreMobileFiltersOpen(false);
+      setSearchParameters({}, { replace: true });
+    }
+
+    window.addEventListener("vendly:reset-filters", handleAssistantFilterReset);
+    return () => window.removeEventListener("vendly:reset-filters", handleAssistantFilterReset);
+  }, [setSearchParameters]);
 
   useEffect(() => {
     if (["all", "messages", "reviews", "fraud"].includes(requestedTab)) {

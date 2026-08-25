@@ -1,5 +1,5 @@
 // React state stores the current filter values entered by the user.
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ChevronDown,
   Funnel,
@@ -20,6 +20,16 @@ function InventoryFilters({ categories = [], onApply, onReset }) {
   // All inventory filter fields are stored together in one state object.
   const [filters, setFilters] = useState(initialFilters);
   const [areMobileFiltersOpen, setAreMobileFiltersOpen] = useState(false);
+
+  useEffect(() => {
+    function resetAssistantFilters() {
+      setFilters(initialFilters);
+      setAreMobileFiltersOpen(false);
+    }
+
+    window.addEventListener("vendly:reset-filters", resetAssistantFilters);
+    return () => window.removeEventListener("vendly:reset-filters", resetAssistantFilters);
+  }, []);
 
   // Update the field whose name matches the changed input or select element.
   function handleInputChange(event) {

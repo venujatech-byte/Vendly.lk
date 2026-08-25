@@ -12,6 +12,8 @@ import {
   MapPin,
   Menu,
   MessageCircleQuestion,
+  Mic,
+  MicOff,
   Minus,
   Moon,
   Package,
@@ -27,6 +29,8 @@ import {
   Sun,
   Trash2,
   UserRound,
+  Volume2,
+  VolumeX,
   X,
 } from "lucide-react";
 import { useParams } from "react-router-dom";
@@ -73,7 +77,18 @@ function money(minor = 0) {
 }
 
 function publicMediaUrl(item) {
-  return item?.url || item?.secureUrl || item?.secure_url || item?.downloadUrl || "";
+  if (typeof item === "string") return item;
+
+  return item?.secureUrl || item?.secure_url || item?.url || item?.downloadUrl || "";
+}
+
+function productMediaUrls(product) {
+  const media = [
+    ...(product?.media || []),
+    ...(product?.variants || []).flatMap((variant) => variant.media || []),
+  ];
+
+  return [...new Set(media.map(publicMediaUrl).filter(Boolean))];
 }
 
 function loadImageFile(file) {
@@ -144,6 +159,13 @@ function StorefrontPage({ linkType }) {
   const [messages, setMessages] = useState([]);
   const receivedSellerMessageIds = useRef(new Set());
   const [messageText, setMessageText] = useState("");
+  const [isListening, setIsListening] = useState(false);
+  const [speechEnabled, setSpeechEnabled] = useState(
+    () => localStorage.getItem("vendly-storefront-spoken-replies") === "true",
+  );
+  const [voiceLanguage, setVoiceLanguage] = useState(
+    () => localStorage.getItem("vendly-storefront-voice-language") || "en-LK",
+  );
   const [cart, setCart] = useState([]);
   const [customer, setCustomer] = useState(EMPTY_CUSTOMER);
   const [activeView, setActiveView] = useState(getInitialView);
@@ -179,6 +201,7 @@ function StorefrontPage({ linkType }) {
   const [reviewMessage, setReviewMessage] = useState("");
   const [isAccountOpen, setIsAccountOpen] = useState(false);
   const messagesEndRef = useRef(null);
+  const recognitionRef = useRef(null);
 
   useEffect(() => {
     let requestIsCurrent = true;
@@ -278,6 +301,8 @@ function StorefrontPage({ linkType }) {
           action: chatSession.action,
           product: chatSession.product,
           products: chatSession.products,
+          reviews: chatSession.reviews,
+          reviewSummary: chatSession.reviewSummary,
         }]);
         setReviews(reviewResponse.reviews);
       } catch (error) {
@@ -353,6 +378,22 @@ function StorefrontPage({ linkType }) {
   useEffect(() => {
     localStorage.setItem("vendly-storefront-theme", theme);
   }, [theme]);
+
+  useEffect(() => {
+    localStorage.setItem(
+      "vendly-storefront-spoken-replies",
+      String(speechEnabled),
+    );
+  }, [speechEnabled]);
+
+  useEffect(() => {
+    localStorage.setItem("vendly-storefront-voice-language", voiceLanguage);
+  }, [voiceLanguage]);
+
+  useEffect(() => () => {
+    recognitionRef.current?.abort();
+    window.speechSynthesis?.cancel();
+  }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({
@@ -446,8 +487,11 @@ function StorefrontPage({ linkType }) {
           productName: product.name,
           size: variant.size,
           sku: variant.sku,
-          imageUrl: product.media?.[0]?.url || "",
-          sellingPriceMinor: product.sellingPriceMinor,
+          imageUrl:
+            publicMediaUrl(variant.media?.[0]) ||
+            publicMediaUrl(product.media?.[0]),
+          sellingPriceMinor:
+            variant.sellingPriceMinor ?? product.sellingPriceMinor,
           availableStock: variant.availableStock,
           quantity: 1,
         },
@@ -530,6 +574,7 @@ function StorefrontPage({ linkType }) {
             customerDraft: response.customerDraft,
           },
         ]);
+        speakAssistantReply(response.message);
       }
     } catch (error) {
       setErrorMessage(error.message);
@@ -541,6 +586,83 @@ function StorefrontPage({ linkType }) {
   async function sendMessage(event) {
     event.preventDefault();
     await requestChatMessage(messageText.trim());
+  }
+
+  function speakAssistantReply(text) {
+    if (!speechEnabled || !text || !window.speechSynthesis) return;
+
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = voiceLanguage;
+    utterance.rate = 1;
+    window.speechSynthesis.speak(utterance);
+  }
+
+  function voiceErrorMessage(errorName) {
+    if (!window.isSecureContext) {
+      return "Voice input needs HTTPS or localhost. You can still type your message.";
+    }
+    if (errorName === "not-allowed" || errorName === "service-not-allowed") {
+      return "Microphone access was blocked. Allow microphone permission and try again.";
+    }
+    if (errorName === "audio-capture") {
+      return "No microphone was found on this device.";
+    }
+    if (errorName === "no-speech") {
+      return "I could not hear anything. Please try speaking again.";
+    }
+    return "Voice input could not start. Please try again or type your message.";
+  }
+
+  function startVoiceInput() {
+    const SpeechRecognition =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      setErrorMessage(
+        "Voice input is not supported by this browser. Try Chrome on HTTPS or localhost.",
+      );
+      return;
+    }
+
+    if (!window.isSecureContext) {
+      setErrorMessage(voiceErrorMessage("insecure-context"));
+      return;
+    }
+
+    recognitionRef.current?.abort();
+    const recognition = new SpeechRecognition();
+    recognition.lang = voiceLanguage;
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    recognitionRef.current = recognition;
+
+    recognition.onstart = () => {
+      setErrorMessage("");
+      setIsListening(true);
+    };
+    recognition.onend = () => setIsListening(false);
+    recognition.onerror = (event) => {
+      setIsListening(false);
+      setErrorMessage(voiceErrorMessage(event.error));
+    };
+    recognition.onresult = (event) => {
+      const transcript = event.results?.[0]?.[0]?.transcript?.trim() || "";
+      setMessageText(transcript);
+      if (transcript) requestChatMessage(transcript);
+    };
+
+    try {
+      recognition.start();
+    } catch {
+      setIsListening(false);
+      setErrorMessage(voiceErrorMessage("start-failed"));
+    }
+  }
+
+  function stopVoiceInput() {
+    recognitionRef.current?.stop();
+    setIsListening(false);
   }
 
   function addFromChat(product, variant) {
@@ -877,6 +999,19 @@ function StorefrontPage({ linkType }) {
             messagesEndRef={messagesEndRef}
             onMessageTextChange={setMessageText}
             onSendMessage={sendMessage}
+            isListening={isListening}
+            speechEnabled={speechEnabled}
+            voiceLanguage={voiceLanguage}
+            onToggleListening={isListening ? stopVoiceInput : startVoiceInput}
+            onToggleSpeech={() => {
+              if (speechEnabled) window.speechSynthesis?.cancel();
+              setSpeechEnabled((current) => !current);
+            }}
+            onToggleVoiceLanguage={() =>
+              setVoiceLanguage((current) =>
+                current === "en-LK" ? "si-LK" : "en-LK",
+              )
+            }
             onQuickMessage={requestChatMessage}
             onAddFromChat={addFromChat}
             onDecreaseItem={(variantId) => updateCartQuantity(variantId, -1)}
@@ -1056,12 +1191,15 @@ function CatalogView({
 function ProductCard({ product, onAddToCart, onOpenChat }) {
   const firstVariant = product.variants?.[0];
   const hasMultipleVariants = product.variants?.length > 1;
+  const productImage =
+    publicMediaUrl(firstVariant?.media?.[0]) ||
+    publicMediaUrl(product.media?.[0]);
 
   return (
     <article className="storefront-product-card">
       <div className="storefront-product-card__media">
-        {product.media?.[0]?.url ? (
-          <img src={product.media[0].url} alt={product.name} />
+        {productImage ? (
+          <img src={productImage} alt={product.name} />
         ) : (
           <Package size={52} />
         )}
@@ -1131,16 +1269,21 @@ function ChatCatalogCard({ product, isOrderMode, cart, onQuickMessage, onAddFrom
   const selectedItem = cart.find((item) => item.variantId === variant?.id);
   const quantity = selectedItem?.quantity ?? 0;
   const availableStock = variant?.availableStock ?? product.availableStock ?? 0;
+  const imageUrl =
+    publicMediaUrl(variant?.media?.[0]) ||
+    publicMediaUrl(product.media?.[0]);
+  const sellingPriceMinor =
+    variant?.sellingPriceMinor ?? product.sellingPriceMinor;
 
   if (!isOrderMode) {
     return (
       <article className="storefront-chat-catalog-card">
         <div className="storefront-chat-catalog-card__image">
-          {product.media?.[0]?.url ? <img src={product.media[0].url} alt={product.name} /> : <Package size={28} />}
+          {imageUrl ? <img src={imageUrl} alt={product.name} /> : <Package size={28} />}
         </div>
         <div className="storefront-chat-catalog-card__details">
           <strong>{product.name}</strong>
-          <span>{money(product.sellingPriceMinor)}</span>
+          <span>{money(sellingPriceMinor)}</span>
           <small>{availableStock} available</small>
         </div>
         <button
@@ -1156,21 +1299,34 @@ function ChatCatalogCard({ product, isOrderMode, cart, onQuickMessage, onAddFrom
   return (
     <article className={`storefront-chat-catalog-card ${quantity ? "is-selected" : ""}`}>
       <div className="storefront-chat-catalog-card__image">
-        {product.media?.[0]?.url ? <img src={product.media[0].url} alt={product.name} /> : <Package size={28} />}
+        {imageUrl ? <img src={imageUrl} alt={product.name} /> : <Package size={28} />}
       </div>
       <div className="storefront-chat-catalog-card__details">
         <strong>{product.name}</strong>
-        <span>{money(product.sellingPriceMinor)}</span>
+        <span>{money(sellingPriceMinor)}</span>
         <small>{availableStock} available</small>
       </div>
-      <button className="storefront-chat-catalog-card__select" type="button" disabled={!variant || availableStock < 1 || quantity >= availableStock} onClick={() => onAddFromChat(product, variant)}>
-        Add
-      </button>
-      <div className="storefront-chat-catalog-card__quantity" aria-label={`Quantity for ${product.name}`}>
-        <button type="button" aria-label={`Remove one ${product.name}`} disabled={!quantity} onClick={() => onDecreaseItem(variant.id)}>-</button>
-        <strong>{quantity}</strong>
-        <button type="button" aria-label={`Add one ${product.name}`} disabled={!variant || quantity >= availableStock} onClick={() => quantity ? onIncreaseItem(variant.id) : onAddFromChat(product, variant)}>+</button>
-      </div>
+      {quantity === 0 ? (
+        <button
+          className="storefront-chat-catalog-card__select"
+          type="button"
+          disabled={!variant || availableStock < 1}
+          onClick={() => onAddFromChat(product, variant)}
+        >
+          <Plus size={14} /> {availableStock > 0 ? "Add" : "Out of stock"}
+        </button>
+      ) : (
+        <>
+          <span className="storefront-chat-catalog-card__added">
+            <Check size={13} /> Added to cart
+          </span>
+          <div className="storefront-chat-catalog-card__quantity" aria-label={`Quantity for ${product.name}`}>
+            <button type="button" aria-label={`Remove one ${product.name}`} onClick={() => onDecreaseItem(variant.id)}>-</button>
+            <strong>{quantity}</strong>
+            <button type="button" aria-label={`Add one ${product.name}`} disabled={quantity >= availableStock} onClick={() => onIncreaseItem(variant.id)}>+</button>
+          </div>
+        </>
+      )}
     </article>
   );
 }
@@ -1212,6 +1368,91 @@ function reviewDate(value) {
       });
 }
 
+function ChatReviewCards({ reviews = [], limit = 6 }) {
+  const visibleReviews = reviews.slice(0, limit);
+
+  return (
+    <>
+      {visibleReviews.map((review) => (
+        <article className="chat-review-card" key={review.id}>
+          <header>
+            <span className="chat-review-card__avatar">
+              {reviewInitials(review.customerName)}
+            </span>
+            <div>
+              <strong>{review.customerName || "Customer"}</strong>
+              {review.verifiedPurchase && (
+                <small><ShieldCheck size={12} /> Verified purchase</small>
+              )}
+            </div>
+            <ReviewStars rating={review.rating} size={13} />
+          </header>
+          <p>{review.reviewText || "The customer left a rating for this product."}</p>
+          {review.media?.some((item) => publicMediaUrl(item)) && (
+            <div className="chat-review-card__media">
+              {review.media
+                .filter((item) => publicMediaUrl(item))
+                .slice(0, 4)
+                .map((item, index) => (
+                  <a
+                    href={publicMediaUrl(item)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    key={`${review.id}-media-${index}`}
+                    aria-label={`Open review image ${index + 1}`}
+                  >
+                    <img src={publicMediaUrl(item)} alt="Customer review" loading="lazy" />
+                  </a>
+                ))}
+            </div>
+          )}
+          <time>{reviewDate(review.createdAt)}</time>
+        </article>
+      ))}
+      {visibleReviews.length === 0 && (
+        <p className="chat-reviews__empty">No approved product reviews yet.</p>
+      )}
+    </>
+  );
+}
+
+function ChatProductDetails({ product, reviews = [], summary }) {
+  const mediaUrls = productMediaUrls(product);
+
+  return (
+    <section className="chat-product-details" aria-label={`Details for ${product?.name || "product"}`}>
+      <div className="chat-product-details__gallery">
+        {mediaUrls.slice(0, 6).map((url, index) => (
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            key={url}
+            aria-label={`Open ${product?.name || "product"} photo ${index + 1}`}
+          >
+            <img src={url} alt={`${product?.name || "Product"} view ${index + 1}`} loading="lazy" />
+          </a>
+        ))}
+        {mediaUrls.length === 0 && (
+          <span className="chat-product-details__no-photo"><Package size={34} /> No product photos</span>
+        )}
+      </div>
+
+      <div className="chat-product-details__reviews-heading">
+        <strong>Verified customer reviews</strong>
+        <span>
+          <ReviewStars rating={summary?.averageRating} size={13} />
+          <b>{Number(summary?.averageRating || 0).toFixed(1)}</b>
+          <small>{summary?.reviewCount || 0} reviews</small>
+        </span>
+      </div>
+      <div className="chat-product-details__reviews">
+        <ChatReviewCards reviews={reviews} limit={3} />
+      </div>
+    </section>
+  );
+}
+
 function ChatReviewCollection({
   product,
   reviews,
@@ -1220,7 +1461,7 @@ function ChatReviewCollection({
   onOpenReviews,
   onAskProduct,
 }) {
-  const productImage = product?.media?.[0]?.url;
+  const productImage = publicMediaUrl(product?.media?.[0]);
 
   return (
     <section className="chat-reviews" aria-label={`Reviews for ${product?.name || "product"}`}>
@@ -1239,42 +1480,7 @@ function ChatReviewCollection({
       </header>
 
       <div className="chat-reviews__list">
-        {reviews.map((review) => (
-          <article className="chat-review-card" key={review.id}>
-            <header>
-              <span className="chat-review-card__avatar">
-                {reviewInitials(review.customerName)}
-              </span>
-              <div>
-                <strong>{review.customerName || "Customer"}</strong>
-                {review.verifiedPurchase && (
-                  <small><ShieldCheck size={12} /> Verified purchase</small>
-                )}
-              </div>
-              <ReviewStars rating={review.rating} size={13} />
-            </header>
-            <p>{review.reviewText || "The customer left a rating for this product."}</p>
-            {review.media?.some((item) => publicMediaUrl(item)) && (
-              <div className="chat-review-card__media">
-                {review.media.filter((item) => publicMediaUrl(item)).slice(0, 4).map((item, index) => (
-                  <a
-                    href={publicMediaUrl(item)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    key={`${review.id}-media-${index}`}
-                    aria-label={`Open review image ${index + 1}`}
-                  >
-                    <img src={publicMediaUrl(item)} alt="Customer review" loading="lazy" />
-                  </a>
-                ))}
-              </div>
-            )}
-            <time>{reviewDate(review.createdAt)}</time>
-          </article>
-        ))}
-        {reviews.length === 0 && (
-          <p className="chat-reviews__empty">No approved product reviews yet.</p>
-        )}
+        <ChatReviewCards reviews={reviews} />
       </div>
 
       <article className="chat-reviews__seller">
@@ -1313,9 +1519,15 @@ function ChatbotView({
   messages,
   messageText,
   isSending,
+  isListening,
+  speechEnabled,
+  voiceLanguage,
   messagesEndRef,
   onMessageTextChange,
   onSendMessage,
+  onToggleListening,
+  onToggleSpeech,
+  onToggleVoiceLanguage,
   onQuickMessage,
   onAddFromChat,
   onDecreaseItem,
@@ -1327,7 +1539,7 @@ function ChatbotView({
   return (
     <div className="storefront-page storefront-chat-page">
       <section className="storefront-chat-panel">
-        <div className="storefront-chat-messages">
+        <div className="storefront-chat-messages" aria-live="polite">
           {messages.map((message, index) => (
             <div
               className={`storefront-chat-message storefront-chat-message--${message.role}`}
@@ -1375,6 +1587,12 @@ function ChatbotView({
                   message.action === "show-product" &&
                   message.product && (
                     <div className="storefront-chat-product-decision">
+                      <ChatProductDetails
+                        product={message.product}
+                        reviews={message.reviews || []}
+                        summary={message.reviewSummary}
+                      />
+
                       <div className="storefront-chat-product-decision__actions">
                         <button
                           type="button"
@@ -1525,13 +1743,47 @@ function ChatbotView({
         </div>
 
         <form className="storefront-chat-input" onSubmit={onSendMessage}>
+          <button
+            className={`storefront-chat-input__voice ${isListening ? "is-listening" : ""}`}
+            type="button"
+            onClick={onToggleListening}
+            disabled={isSending}
+            aria-label={isListening ? "Stop voice input" : "Use voice input"}
+            aria-pressed={isListening}
+            title={isListening ? "Stop listening" : "Speak your message"}
+          >
+            {isListening ? <MicOff size={18} /> : <Mic size={18} />}
+          </button>
           <input
             value={messageText}
             onChange={(event) => onMessageTextChange(event.target.value)}
             placeholder="Type a message…"
             aria-label="Chat message"
+            disabled={isSending}
+            autoComplete="off"
           />
+          <div className="storefront-chat-input__voice-tools">
+            <button
+              className="storefront-chat-input__language"
+              type="button"
+              onClick={onToggleVoiceLanguage}
+              aria-label="Change voice language"
+              title="Change voice language"
+            >
+              {voiceLanguage === "en-LK" ? "EN" : "සිං"}
+            </button>
+            <button
+              type="button"
+              onClick={onToggleSpeech}
+              aria-label={speechEnabled ? "Turn spoken replies off" : "Turn spoken replies on"}
+              aria-pressed={speechEnabled}
+              title={speechEnabled ? "Spoken replies on" : "Spoken replies off"}
+            >
+              {speechEnabled ? <Volume2 size={17} /> : <VolumeX size={17} />}
+            </button>
+          </div>
           <button
+            className="storefront-chat-input__send"
             type="submit"
             disabled={isSending || !messageText.trim()}
             aria-label="Send message"

@@ -66,6 +66,8 @@ function OrdersPage() {
   const [activeTab, setActiveTab] = useState("onlineOrders");
   const [searchParameters, setSearchParameters] = useSearchParams();
   const routeSearch = searchParameters.get("search") ?? "";
+  const routeStatus = searchParameters.get("status") ?? "";
+  const assistantAction = searchParameters.get("assistantAction") ?? "";
   const { business, accountError } = useAuth();
   const [orders, setOrders] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -86,12 +88,58 @@ function OrdersPage() {
   const [warrantyClaims, setWarrantyClaims] = useState([]);
   const [warrantySource, setWarrantySource] = useState(null);
 
+  // The business assistant reuses the same validated forms as the page buttons.
+  useEffect(() => {
+    if (!assistantAction) return;
+
+    if (assistantAction === "add-order") {
+      setActiveTab("onlineOrders");
+      setIsAddOrderOpen(true);
+    } else if (assistantAction === "add-shop-sale") {
+      setActiveTab("shopOrders");
+      setIsAddShopSaleOpen(true);
+    } else if (assistantAction === "open-shop-sales") {
+      setActiveTab("shopOrders");
+    } else if (assistantAction === "open-warranty-claims") {
+      setActiveTab("warrantyClaims");
+    }
+
+    const nextParameters = new URLSearchParams(searchParameters);
+    nextParameters.delete("assistantAction");
+    setSearchParameters(nextParameters, { replace: true });
+  }, [assistantAction, searchParameters, setSearchParameters]);
+
+  useEffect(() => {
+    const validStatuses = new Set([
+      "pending",
+      "confirmed",
+      "packed",
+      "shipped",
+      "delivered",
+      "returned",
+      "cancelled",
+    ]);
+    setStatusFilter(validStatuses.has(routeStatus) ? routeStatus : "");
+  }, [routeStatus]);
+
   // Reset field, status-card, and URL filters so the complete table is shown again.
   function resetOrderFilters() {
     setFilters({});
     setStatusFilter("");
     setSearchParameters({}, { replace: true });
   }
+
+  useEffect(() => {
+    function handleAssistantFilterReset() {
+      setFilters({});
+      setStatusFilter("");
+      setShopFilters({});
+      setSearchParameters({}, { replace: true });
+    }
+
+    window.addEventListener("vendly:reset-filters", handleAssistantFilterReset);
+    return () => window.removeEventListener("vendly:reset-filters", handleAssistantFilterReset);
+  }, [setSearchParameters]);
 
   useEffect(() => {
     let requestIsCurrent = true;

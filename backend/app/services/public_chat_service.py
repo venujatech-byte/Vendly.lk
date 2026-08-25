@@ -205,6 +205,30 @@ def normalized_phrase(value):
     return re.sub(r"[^a-z0-9]+", "", str(value).casefold())
 
 
+def is_finished_selecting_items(message):
+    """Recognise a short reply that means the customer's cart is complete."""
+    clean_message = str(message).strip().casefold()
+    compact_message = normalized_phrase(clean_message)
+
+    return compact_message in {
+        "no",
+        "nothanks",
+        "nothingelse",
+        "thatsall",
+        "thatwillbeall",
+        "done",
+        "enough",
+        "continue",
+        "proceed",
+        "checkout",
+    } or clean_message in {
+        "නැහැ",
+        "නෑ",
+        "එපා",
+        "වෙන මොනවත් එපා",
+    }
+
+
 def find_category_request(message, products):
     """Resolve an explicit request for a whole product category."""
     clean_message = str(message).strip().casefold()
@@ -448,8 +472,11 @@ def create_public_chat_session(database, payload, customer_uid=None):
         "business": business,
         "product": product,
         "message": greeting,
-        "action": "show-product" if product else "show-catalog",
-        "products": [product] if product else catalog.get("products", []),
+        "action": "show-product" if product else "prompt-product",
+        # A normal storefront conversation starts with a short question. The
+        # catalogue is returned only after the customer asks for products or a
+        # category. A product-specific link still opens that product directly.
+        "products": [product] if product else [],
     }
 
 
@@ -965,6 +992,25 @@ def answer_public_message(database, session_id, provided_token, payload):
             next_state="awaiting-confirmation",
         )
 
+    # Product cards add items to the browser cart while the conversation stays
+    # in browsing mode. When the customer answers "no" to "add any other
+    # item?", continue checkout instead of treating that short reply as a new
+    # catalogue request. The cart guard prevents an unrelated "no" from
+    # starting contact collection.
+    if (
+        current_state == "browsing"
+        and cart_summary
+        and is_finished_selecting_items(message)
+    ):
+        item_count = sum(item["quantity"] for item in cart_summary)
+        return respond(
+            f"Great. Your order draft has {item_count} item(s). What is your "
+            "full name?",
+            "collect-name",
+            next_state="collecting-name",
+            response_products=[],
+        )
+
     wants_catalog = any(
         phrase in lowered_message
         for phrase in (
@@ -1130,7 +1176,24 @@ def answer_public_message(database, session_id, provided_token, payload):
             )
         )
 
+        product_reviews = []
+        product_review_summary = None
+
         if is_product_overview_request:
+            product_reviews = list_public_product_reviews(
+                database,
+                session["businessId"],
+                selected_product["id"],
+            )
+            product_rating = round(
+                sum(review["rating"] for review in product_reviews)
+                / len(product_reviews),
+                1,
+            ) if product_reviews else 0
+            product_review_summary = {
+                "averageRating": product_rating,
+                "reviewCount": len(product_reviews),
+            }
             available_sizes = [
                 variant.get("size")
                 for variant in selected_product.get("variants", [])
@@ -1178,6 +1241,8 @@ def answer_public_message(database, session_id, provided_token, payload):
             "show-product",
             next_state="browsing",
             product=selected_product,
+            response_reviews=(product_reviews[:4] if is_product_overview_request else []),
+            review_summary=product_review_summary,
             response_products=(
                 related_products(products, selected_product)
                 if is_product_overview_request

@@ -1,5 +1,5 @@
 // React state stores the filter form; icons improve the form controls visually.
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   CalendarDays,
   ChevronDown,
@@ -22,6 +22,16 @@ function OrderFilters({ couriers = [], onApply, onReset }) {
   // One state object keeps all order-filter values together.
   const [filters, setFilters] = useState(initialFilters);
   const [areMobileFiltersOpen, setAreMobileFiltersOpen] = useState(false);
+
+  useEffect(() => {
+    function resetAssistantFilters() {
+      setFilters(initialFilters);
+      setAreMobileFiltersOpen(false);
+    }
+
+    window.addEventListener("vendly:reset-filters", resetAssistantFilters);
+    return () => window.removeEventListener("vendly:reset-filters", resetAssistantFilters);
+  }, []);
 
   // Use the input name to update only the field that changed.
   function handleInputChange(event) {

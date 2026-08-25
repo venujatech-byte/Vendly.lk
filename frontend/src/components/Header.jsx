@@ -12,6 +12,9 @@ import {
   Sun,
   LogOut,
   UserRound,
+  UsersRound,
+  CreditCard,
+  Sparkles,
 } from "lucide-react";
 
 import "./Header.css";
@@ -20,9 +23,7 @@ import {
   getNotifications,
   markNotificationRead,
 } from "../services/notificationService";
-import StaffSettings from "./StaffSettings";
 import { searchBusiness } from "../services/searchService";
-import ProfileModal from "./ProfileModal";
 
 function getNotificationPath(notification) {
   if (notification.chatSessionId || notification.type === "chat-needs-attention") {
@@ -50,13 +51,13 @@ function getNotificationPath(notification) {
   return "/";
 }
 
-function Header({ title, theme, onToggleTheme }) {
+function Header({ title, theme, onToggleTheme, onOpenProfile, onOpenSettings }) {
   const navigate = useNavigate();
   const location = useLocation();
   const searchInputReference = useRef(null);
   const knownNotificationIdsReference = useRef(new Set());
   const notificationsLoadedReference = useRef(false);
-  const { user, sellerProfile, business, membership } = useAuth();
+  const { sellerProfile, business, membership } = useAuth();
   const businessName = sellerProfile?.businessName ?? "Your Business";
   const businessInitials = businessName
     .split(/\s+/)
@@ -71,11 +72,8 @@ function Header({ title, theme, onToggleTheme }) {
 
   // profile menu
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
-  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   //Notification panel
   const [isNotiPanelOpen, setIsNotiPanelOpen] = useState(false);
-  //Settongs Panel
-  const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [searchText, setSearchText] = useState("");
   const [searchResults, setSearchResults] = useState({
@@ -322,21 +320,12 @@ function Header({ title, theme, onToggleTheme }) {
         <button
           className="header__icon-button"
           type="button"
-          onClick={() => setIsSettingsPanelOpen((currentValue) => !currentValue)}
+          onClick={() => onOpenSettings("general")}
           aria-label="Open settings"
           title="Settings"
         >
           <Settings size={20} aria-hidden="true" />
         </button>
-
-        {isSettingsPanelOpen && (
-            <div className="header__settings-dropdown" role="menu">
-              <StaffSettings
-                businessId={business?.id}
-                currentRole={membership?.role}
-              />
-            </div>
-          )}
         </div>
 
         {/* Notification bell and unread notification count. */}
@@ -424,7 +413,7 @@ function Header({ title, theme, onToggleTheme }) {
                 type="button"
                 onClick={() => {
                   setIsProfileMenuOpen(false);
-                  setIsProfileModalOpen(true);
+                  onOpenProfile();
                 }}
                 role="menuitem"
               >
@@ -433,6 +422,42 @@ function Header({ title, theme, onToggleTheme }) {
               </button>
               <button
                 className="header__dropdown-item"
+                type="button"
+                onClick={() => {
+                  setIsProfileMenuOpen(false);
+                  onOpenSettings("staff");
+                }}
+                role="menuitem"
+              >
+                <UsersRound size={17} aria-hidden="true" />
+                Staff & permissions
+              </button>
+              <button
+                className="header__dropdown-item"
+                type="button"
+                onClick={() => {
+                  setIsProfileMenuOpen(false);
+                  onOpenSettings("plan");
+                }}
+                role="menuitem"
+              >
+                <Sparkles size={17} aria-hidden="true" />
+                Current plan
+              </button>
+              <button
+                className="header__dropdown-item"
+                type="button"
+                onClick={() => {
+                  setIsProfileMenuOpen(false);
+                  onOpenSettings("billing");
+                }}
+                role="menuitem"
+              >
+                <CreditCard size={17} aria-hidden="true" />
+                Billing
+              </button>
+              <button
+                className="header__dropdown-item header__dropdown-item--danger"
                 type="button"
                 onClick={handleLogout}
                 role="menuitem"
@@ -444,12 +469,6 @@ function Header({ title, theme, onToggleTheme }) {
           )}
         </div>
       </div>
-
-      <ProfileModal
-        isOpen={isProfileModalOpen}
-        onClose={() => setIsProfileModalOpen(false)}
-        user={user}
-      />
     </header>
   );
 }

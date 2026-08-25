@@ -36,6 +36,11 @@ import "./Buttons.css";
 function InventoryPage() {
   const [searchParameters, setSearchParameters] = useSearchParams();
   const routeSearch = (searchParameters.get("search") ?? "").trim().toLowerCase();
+  const routeStockStatus = searchParameters.get("stockStatus") ?? "";
+  const routeSortBy = searchParameters.get("sortBy") ?? "";
+  const routeSortDirection = searchParameters.get("sortDirection") === "desc" ? "desc" : "asc";
+  const assistantAction = searchParameters.get("assistantAction") ?? "";
+  const assistantProductId = searchParameters.get("productId") ?? "";
   const { business, accountError } = useAuth();
 
   // Products is the default tab when the Inventory page opens.
@@ -57,12 +62,61 @@ function InventoryPage() {
   const [inventoryRefreshKey, setInventoryRefreshKey] = useState(0);
   const [isBarcodeScannerOpen, setIsBarcodeScannerOpen] = useState(false);
 
+  useEffect(() => {
+    if (!assistantAction) return;
+
+    if (assistantAction === "add-product") {
+      setActiveTab("products");
+      setIsAddProductOpen(true);
+    }
+
+
+    if (assistantAction === "open-categories") {
+      setActiveTab("categories");
+    }
+
+    if (assistantAction === "edit-product" && assistantProductId && products.length > 0) {
+      const product = products.find((item) => item.id === assistantProductId);
+      if (product) {
+        setActiveTab("products");
+        setEditingProduct(product);
+      }
+    }
+
+    if (assistantAction === "edit-product" && products.length === 0 && isInventoryLoading) {
+      return;
+    }
+
+    const nextParameters = new URLSearchParams(searchParameters);
+    nextParameters.delete("assistantAction");
+    nextParameters.delete("productId");
+    setSearchParameters(nextParameters, { replace: true });
+  }, [
+    assistantAction,
+    assistantProductId,
+    isInventoryLoading,
+    products,
+    searchParameters,
+    setSearchParameters,
+  ]);
+
   // Reset local and URL filters, then reload the source data for a clean table.
   function resetInventoryFilters() {
     setInventoryFilters({});
     setSearchParameters({}, { replace: true });
     setInventoryRefreshKey((currentKey) => currentKey + 1);
   }
+
+  useEffect(() => {
+    function handleAssistantFilterReset() {
+      setInventoryFilters({});
+      setSearchParameters({}, { replace: true });
+      setInventoryRefreshKey((currentKey) => currentKey + 1);
+    }
+
+    window.addEventListener("vendly:reset-filters", handleAssistantFilterReset);
+    return () => window.removeEventListener("vendly:reset-filters", handleAssistantFilterReset);
+  }, [setSearchParameters]);
 
   useEffect(() => {
     let requestIsCurrent = true;
@@ -193,11 +247,14 @@ function InventoryPage() {
       routeSearch || inventoryFilters.searchProduct || ""
     ).trim().toLowerCase();
 
-    return products.filter((product) => {
+    const filteredProducts = products.filter((product) => {
       const matchesSearch =
         !searchText ||
         [
           product.name,
+          product.brand,
+          product.category,
+          product.categoryName,
           product.sku,
           product.barcode,
           ...(product.sizes ?? []).flatMap((size) => [size.sku, size.barcode]),
@@ -206,12 +263,34 @@ function InventoryPage() {
         !inventoryFilters.category ||
         product.categoryId === inventoryFilters.category;
       const matchesStock =
-        !inventoryFilters.stockStatus ||
-        getProductStockStatus(product) === inventoryFilters.stockStatus;
+        !(routeStockStatus || inventoryFilters.stockStatus) ||
+        getProductStockStatus(product) === (routeStockStatus || inventoryFilters.stockStatus);
 
       return matchesSearch && matchesCategory && matchesStock;
     });
-  }, [inventoryFilters, products, routeSearch]);
+
+    if (!routeSortBy) return filteredProducts;
+
+    return [...filteredProducts].sort((first, second) => {
+      let comparison = 0;
+      if (routeSortBy === "name") {
+        comparison = String(first.name ?? "").localeCompare(String(second.name ?? ""));
+      } else if (routeSortBy === "price") {
+        comparison = Number(first.sellingPrice ?? 0) - Number(second.sellingPrice ?? 0);
+      } else if (routeSortBy === "stock") {
+        comparison = Number(first.availableStock ?? first.stock ?? 0)
+          - Number(second.availableStock ?? second.stock ?? 0);
+      }
+      return routeSortDirection === "desc" ? -comparison : comparison;
+    });
+  }, [
+    inventoryFilters,
+    products,
+    routeSearch,
+    routeSortBy,
+    routeSortDirection,
+    routeStockStatus,
+  ]);
 
   async function confirmRemoval() {
     if (!removalTarget || !business?.id) return;

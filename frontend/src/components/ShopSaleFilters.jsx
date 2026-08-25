@@ -1,5 +1,5 @@
 import { CalendarDays, ChevronDown, Funnel, RotateCcw } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import "./ShopSales.css";
 import "./OrderFilters.css";
 
@@ -8,6 +8,16 @@ const empty = { search: "", dateFrom: "", dateTo: "" };
 export default function ShopSaleFilters({ onChange }) {
   const [filters, setFilters] = useState(empty);
   const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    function resetAssistantFilters() {
+      setFilters(empty);
+      setOpen(false);
+    }
+
+    window.addEventListener("vendly:reset-filters", resetAssistantFilters);
+    return () => window.removeEventListener("vendly:reset-filters", resetAssistantFilters);
+  }, []);
   function update(name, value) {
     const next = { ...filters, [name]: value };
     setFilters(next);
