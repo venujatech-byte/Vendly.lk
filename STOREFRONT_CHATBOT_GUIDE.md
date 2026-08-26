@@ -761,7 +761,11 @@ Before starting any of these, run `pytest -q` and `npm run build` to confirm a c
 
 **Problem:** `AI DISABLED` only reaches the server log. A seller whose bot has quietly gone English-only has no way to know.
 
-**Built as:** `record_ai_failure()` / `ai_status()` in `ai_service.py`, exposed at `GET /businesses/<id>/ai-status` (owner/admin only, never returns the API key), rendered by `AiStatusBanner` in the dashboard shell. A success clears the failure, so a stale warning cannot linger. The state is process-local on purpose — a dead model fails on every worker within seconds, so any one of them has the answer; move it to Firestore only if that stops holding.
+**Built as:** `record_ai_failure()` / `ai_status()` in `ai_service.py` capture the last failure and its kind (`configuration` / `rate_limit` / `unavailable`); a successful call clears it, so a stale warning cannot linger. `sync_ai_failure_notification()` in `operations_service.py` turns that into a seller notification in the existing bell, written from `answer_public_message` — the only place that knows both that a provider call was just attempted and which business it was for.
+
+The notification uses a **fixed document id** (`ai-status`), so a provider failing on every message leaves one notification rather than hundreds, and `_SYNCED_AI_FAILURES` skips the write entirely once a failure has been recorded. Recovery deletes it.
+
+The in-memory failure state is process-local on purpose — a dead model fails on every worker within seconds, so any one of them has the answer; move it to Firestore only if that stops holding. Note it is **traffic-driven**: nothing probes the provider on its own, so a broken model on a quiet storefront stays unreported until the next customer message.
 
 ### 5. Proactive upsell and abandoned drafts
 

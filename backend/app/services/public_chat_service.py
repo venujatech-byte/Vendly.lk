@@ -17,6 +17,7 @@ from app.services.customer_service import (
 from app.services.ai_service import (
     ANSWERED_MARKER,
     MISSING_FACT_MARKER,
+    ai_status,
     detect_chat_language,
     generate_catalogue_answer,
     generate_product_answer,
@@ -32,6 +33,7 @@ from app.services.courier_service import (
     normalize_district,
     recommend_couriers,
 )
+from app.services.operations_service import sync_ai_failure_notification
 from app.services.order_service import create_order
 from app.services.public_catalog_service import (
     get_public_product,
@@ -1239,6 +1241,9 @@ def answer_public_message(database, session_id, provided_token, payload):
     # even though no phrase list contains that combination. The keyword ladder
     # below stays as the fallback for when the provider is unavailable.
     ai_intent = storefront_intent(message, products, current_state)
+    # The seller finds out here. This is the only place that knows both that a
+    # provider call was just attempted and which business it was for.
+    sync_ai_failure_notification(database, session["businessId"], ai_status())
     language = conversation_language(
         message,
         session.get("language", "en"),

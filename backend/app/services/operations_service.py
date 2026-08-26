@@ -381,6 +381,78 @@ def export_orders(database, business_id, status=None, search=None, date_from=Non
     )
 
 
+# A fixed document id, so a provider that fails on every message leaves one
+# notification rather than hundreds.
+AI_STATUS_NOTIFICATION_ID = "ai-status"
+
+AI_FAILURE_NOTIFICATIONS = {
+    "configuration": (
+        "Chatbot AI is not responding",
+        "Customer replies have dropped back to simplified English and are no "
+        "longer answering in Sinhala or Tamil. This does not fix itself - the "
+        "AI model or API key needs attention.",
+    ),
+    "rate_limit": (
+        "Chatbot AI is rate limited",
+        "Some replies are falling back to simplified English while the limit "
+        "resets. If this keeps happening the provider plan needs a higher quota.",
+    ),
+    "unavailable": (
+        "Chatbot AI could not be reached",
+        "The last request to the AI provider failed. Replies are falling back "
+        "to simplified English until it recovers.",
+    ),
+}
+
+# business_id -> the failure timestamp already written. Avoids a Firestore
+# write on every chat message while a provider is down.
+_SYNCED_AI_FAILURES = {}
+
+
+def sync_ai_failure_notification(database, business_id, status):
+    """Raise or clear the seller's notification about a broken chatbot AI.
+
+    A provider failure used to reach only the server log, so a seller whose bot
+    had quietly dropped to simplified English had no way to find out.
+    """
+    failure = status.get("failure") if status else None
+    marker = failure["at"] if failure else ""
+
+    if _SYNCED_AI_FAILURES.get(business_id) == marker:
+        return
+
+    _SYNCED_AI_FAILURES[business_id] = marker
+    reference = (
+        database.collection("businesses")
+        .document(business_id)
+        .collection("notifications")
+        .document(AI_STATUS_NOTIFICATION_ID)
+    )
+
+    if not failure:
+        # Recovered. Leaving a stale warning up is how a notification becomes
+        # something people learn to ignore.
+        reference.delete()
+        return
+
+    title, message = AI_FAILURE_NOTIFICATIONS.get(
+        failure.get("kind"),
+        AI_FAILURE_NOTIFICATIONS["unavailable"],
+    )
+    reference.set(
+        {
+            "type": "ai-status",
+            "title": title,
+            "message": (
+                f"{message} Provider: {failure.get('provider', '')}, "
+                f"model: {failure.get('model', '')}."
+            ),
+            "isRead": False,
+            "createdAt": firestore.SERVER_TIMESTAMP,
+        },
+    )
+
+
 def list_notifications(database, business_id, unread_only=False):
     snapshots = (
         database.collection("businesses")

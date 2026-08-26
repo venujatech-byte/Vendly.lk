@@ -4,7 +4,6 @@ from app.core.auth import require_firebase_user
 from app.core.authorization import require_business_member
 from app.core.firebase import get_firestore_client
 from app.core.requests import get_json_object
-from app.services.ai_service import ai_status
 from app.services.business_service import create_or_get_business, update_public_contact
 
 
@@ -35,16 +34,3 @@ def edit_public_contact(business_id):
         get_json_object(),
     )
     return jsonify({"business": business})
-
-
-@businesses_blueprint.get("/businesses/<business_id>/ai-status")
-@require_firebase_user
-@require_business_member("owner", "admin")
-def get_ai_status(business_id):
-    """Report whether the chatbot's AI is working.
-
-    A provider failure only reached the server log, so a seller whose bot had
-    quietly dropped to simplified English had no way to find out. Restricted to
-    owner/admin because the provider and model name are deployment details.
-    """
-    return jsonify({"aiStatus": ai_status()})
