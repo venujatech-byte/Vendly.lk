@@ -1,0 +1,16 @@
+/*
+ * The business-assistant button is fixed to the bottom-right of the screen.
+ * Reserve enough space at the end of every shared table footer so that it
+ * cannot cover the final pagination control while the page is scrolled.
+ */
+.table-pagination-footer > [aria-label$=" pagination"] {
+  margin-inline-end: 62px;
+}
+
+@media (max-width: 700px) {
+  .table-pagination-footer > [aria-label$=" pagination"] {
+    width: auto;
+    max-width: calc(100% - 52px);
+    margin-inline-end: 52px;
+  }
+}
