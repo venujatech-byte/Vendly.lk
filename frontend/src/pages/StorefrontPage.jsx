@@ -202,6 +202,11 @@ function StorefrontPage({ linkType }) {
   const [isAccountOpen, setIsAccountOpen] = useState(false);
   const messagesEndRef = useRef(null);
   const recognitionRef = useRef(null);
+  const voiceHoldTimerRef = useRef(null);
+  const skipNextVoiceClickRef = useRef(false);
+  const voiceStopRequestedRef = useRef(false);
+  const [isHoldingVoiceButton, setIsHoldingVoiceButton] = useState(false);
+  const [voiceTranscript, setVoiceTranscript] = useState("");
 
   useEffect(() => {
     let requestIsCurrent = true;
@@ -389,6 +394,12 @@ function StorefrontPage({ linkType }) {
   useEffect(() => {
     localStorage.setItem("vendly-storefront-voice-language", voiceLanguage);
   }, [voiceLanguage]);
+
+  useEffect(() => () => {
+    window.clearTimeout(voiceHoldTimerRef.current);
+    recognitionRef.current?.abort();
+    window.speechSynthesis?.cancel();
+  }, []);
 
   useEffect(() => () => {
     recognitionRef.current?.abort();
@@ -635,9 +646,13 @@ function StorefrontPage({ linkType }) {
     }
 
     recognitionRef.current?.abort();
+    voiceStopRequestedRef.current = false;
+    setVoiceTranscript("");
     const recognition = new SpeechRecognition();
     recognition.lang = voiceLanguage;
-    recognition.interimResults = false;
+    // Interim text powers the hold-to-talk overlay. Only final text is sent
+    // to the chatbot, so partial words never create accidental messages.
+    recognition.interimResults = true;
     recognition.maxAlternatives = 1;
     recognitionRef.current = recognition;
 
@@ -648,12 +663,24 @@ function StorefrontPage({ linkType }) {
     recognition.onend = () => setIsListening(false);
     recognition.onerror = (event) => {
       setIsListening(false);
+      if (voiceStopRequestedRef.current) return;
       setErrorMessage(voiceErrorMessage(event.error));
     };
     recognition.onresult = (event) => {
-      const transcript = event.results?.[0]?.[0]?.transcript?.trim() || "";
-      setMessageText(transcript);
-      if (transcript) requestChatMessage(transcript);
+      let transcript = "";
+      let finalTranscript = "";
+
+      for (let index = event.resultIndex; index < event.results.length; index += 1) {
+        const phrase = event.results[index]?.[0]?.transcript || "";
+        transcript += phrase;
+        if (event.results[index].isFinal) finalTranscript += phrase;
+      }
+
+      setVoiceTranscript(transcript.trim());
+      if (finalTranscript.trim()) {
+        setMessageText(finalTranscript.trim());
+        requestChatMessage(finalTranscript.trim());
+      }
     };
 
     try {
@@ -666,8 +693,34 @@ function StorefrontPage({ linkType }) {
 
   function stopVoiceInput() {
     window.speechSynthesis?.cancel();
+    voiceStopRequestedRef.current = true;
     recognitionRef.current?.stop();
     setIsListening(false);
+  }
+
+  function startHeldVoiceCommand(event) {
+    if (event.button !== undefined && event.button !== 0) return;
+
+    skipNextVoiceClickRef.current = false;
+    window.clearTimeout(voiceHoldTimerRef.current);
+    voiceHoldTimerRef.current = window.setTimeout(() => {
+      skipNextVoiceClickRef.current = true;
+      setIsHoldingVoiceButton(true);
+      startVoiceInput();
+    }, 280);
+  }
+
+  function finishHeldVoiceCommand() {
+    window.clearTimeout(voiceHoldTimerRef.current);
+    if (!skipNextVoiceClickRef.current) return;
+
+    setIsHoldingVoiceButton(false);
+    stopVoiceInput();
+  }
+
+  function cancelHeldVoiceCommand() {
+    finishHeldVoiceCommand();
+    skipNextVoiceClickRef.current = false;
   }
 
   function addFromChat(product, variant) {
@@ -1005,9 +1058,14 @@ function StorefrontPage({ linkType }) {
             onMessageTextChange={setMessageText}
             onSendMessage={sendMessage}
             isListening={isListening}
+            isHoldingVoiceButton={isHoldingVoiceButton}
+            voiceTranscript={voiceTranscript}
             speechEnabled={speechEnabled}
             voiceLanguage={voiceLanguage}
             onToggleListening={isListening ? stopVoiceInput : startVoiceInput}
+            onStartHeldVoiceCommand={startHeldVoiceCommand}
+            onFinishHeldVoiceCommand={finishHeldVoiceCommand}
+            onCancelHeldVoiceCommand={cancelHeldVoiceCommand}
             onToggleSpeech={() => {
               if (speechEnabled) window.speechSynthesis?.cancel();
               setSpeechEnabled((current) => !current);
@@ -1525,12 +1583,17 @@ function ChatbotView({
   messageText,
   isSending,
   isListening,
+  isHoldingVoiceButton,
+  voiceTranscript,
   speechEnabled,
   voiceLanguage,
   messagesEndRef,
   onMessageTextChange,
   onSendMessage,
   onToggleListening,
+  onStartHeldVoiceCommand,
+  onFinishHeldVoiceCommand,
+  onCancelHeldVoiceCommand,
   onToggleSpeech,
   onToggleVoiceLanguage,
   onQuickMessage,
@@ -1541,6 +1604,10 @@ function ChatbotView({
   onOpenCheckout,
   onOpenReviews,
 }) {
+  function handleVoiceButtonClick() {
+    onToggleListening?.();
+  }
+
   return (
     <div className="storefront-page storefront-chat-page">
       <section className="storefront-chat-panel">
@@ -1749,13 +1816,17 @@ function ChatbotView({
 
         <form className="storefront-chat-input" onSubmit={onSendMessage}>
           <button
-            className={`storefront-chat-input__voice ${isListening ? "is-listening" : ""}`}
+            className={`storefront-chat-input__voice ${isListening || isHoldingVoiceButton ? "is-listening" : ""}`}
             type="button"
-            onClick={onToggleListening}
+            onClick={handleVoiceButtonClick}
+            onPointerDown={onStartHeldVoiceCommand}
+            onPointerUp={onFinishHeldVoiceCommand}
+            onPointerLeave={onCancelHeldVoiceCommand}
+            onPointerCancel={onCancelHeldVoiceCommand}
             disabled={isSending}
-            aria-label={isListening ? "Stop voice input" : "Use voice input"}
-            aria-pressed={isListening}
-            title={isListening ? "Stop listening" : "Speak your message"}
+            aria-label={isListening || isHoldingVoiceButton ? "Stop voice input" : "Use voice input"}
+            aria-pressed={isListening || isHoldingVoiceButton}
+            title="Click to toggle. Press and hold to speak."
           >
             {isListening ? <MicOff size={18} /> : <Mic size={18} />}
           </button>
@@ -1797,6 +1868,17 @@ function ChatbotView({
           </button>
         </form>
       </section>
+
+      {(isListening || isHoldingVoiceButton) && (
+        <div className="storefront-voice-overlay" aria-live="polite">
+          <div className="storefront-voice-overlay__orb"><Mic aria-hidden="true" /></div>
+          <p className="storefront-voice-overlay__label">Listening…</p>
+          <p className="storefront-voice-overlay__transcript">
+            {voiceTranscript || "Speak your message"}
+          </p>
+          <p className="storefront-voice-overlay__hint">Release to finish</p>
+        </div>
+      )}
 
       <aside className="storefront-draft">
 

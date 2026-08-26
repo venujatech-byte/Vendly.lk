@@ -259,16 +259,16 @@ html[data-theme="dark"] .header__avatar {
   right: 0;
   z-index: 100;
 
-  width: 225px;
-  padding: 7px;
+  width: 232px;
+  padding: 8px;
 
   border: 1px solid var(--color-border);
-  border-radius: 10px;
+  border-radius: 14px;
 
-  background: var(--color-surface);
+  background: color-mix(in srgb, var(--color-surface) 94%, var(--color-accent));
 
   box-shadow:
-    0 12px 30px rgba(0, 20, 45, 0.18);
+    0 18px 42px rgba(0, 20, 45, 0.2);
 }
 
 .header__dropdown-item {
@@ -321,16 +321,16 @@ html[data-theme="dark"] .header__avatar {
   right: 0;
   z-index: 100;
 
-  width: min(360px, calc(100vw - 32px));
-  padding: 12px;
+  width: min(380px, calc(100vw - 28px));
+  padding: 8px;
 
   border: 1px solid var(--color-border);
-  border-radius: 10px;
+  border-radius: 16px;
 
-  background: var(--color-surface);
+  background: color-mix(in srgb, var(--color-surface) 95%, var(--color-accent));
 
   box-shadow:
-    0 12px 30px rgba(0, 20, 45, 0.18);
+    0 20px 48px rgba(0, 20, 45, 0.22);
 }
 
 .header__search-results {
@@ -399,32 +399,41 @@ html[data-theme="dark"] .header__avatar {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 4px 5px 11px;
+  padding: 8px 10px 12px;
   border-bottom: 1px solid var(--color-border);
 }
 
+.header__notification-heading strong {
+  color: var(--color-text-strong);
+  font-size: 13px;
+}
+
 .header__notification-heading span {
+  padding: 4px 7px;
+  border-radius: 999px;
   color: var(--color-muted);
+  background: var(--color-surface-soft);
   font-size: 11px;
+  font-weight: 700;
 }
 
 .header__notification-list {
   display: grid;
-  gap: 4px;
-  max-height: 360px;
-  margin-top: 7px;
+  gap: 5px;
+  max-height: min(420px, calc(100dvh - 165px));
+  margin-top: 8px;
   overflow-y: auto;
 }
 
 .header__notification-item {
   display: grid;
-  gap: 4px;
+  gap: 5px;
   width: 100%;
-  padding: 10px;
+  padding: 11px 12px;
   border: 0;
-  border-radius: 8px;
+  border-radius: 11px;
   color: var(--color-text);
-  background: transparent;
+  background: color-mix(in srgb, var(--color-surface-soft) 34%, transparent);
   cursor: pointer;
   font: inherit;
   text-align: left;
@@ -432,15 +441,16 @@ html[data-theme="dark"] .header__avatar {
 
 .header__notification-item:hover,
 .header__notification-item--unread {
-  background: var(--color-surface-soft);
+  background: color-mix(in srgb, var(--color-accent) 9%, var(--color-surface));
 }
 
 .header__notification-item--unread {
-  box-shadow: inset 3px 0 var(--color-accent);
+  box-shadow: inset 3px 0 var(--color-accent), 0 4px 12px rgba(5, 50, 90, 0.05);
 }
 
 .header__notification-item strong {
   font-size: 12px;
+  line-height: 1.25;
 }
 
 .header__notification-item span,

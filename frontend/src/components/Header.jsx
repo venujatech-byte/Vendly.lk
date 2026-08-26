@@ -55,6 +55,8 @@ function Header({ title, theme, onToggleTheme, onOpenProfile, onOpenSettings }) 
   const navigate = useNavigate();
   const location = useLocation();
   const searchInputReference = useRef(null);
+  const notificationMenuReference = useRef(null);
+  const profileMenuReference = useRef(null);
   const knownNotificationIdsReference = useRef(new Set());
   const notificationsLoadedReference = useRef(false);
   const { sellerProfile, business, membership } = useAuth();
@@ -82,6 +84,42 @@ function Header({ title, theme, onToggleTheme, onOpenProfile, onOpenSettings }) 
     customers: [],
   });
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+
+  // Header popups behave like normal menus: touching anywhere outside one
+  // closes it, so they never stay over the page after the seller moves on.
+  useEffect(() => {
+    function closeMenusFromOutside(event) {
+      if (
+        notificationMenuReference.current
+        && !notificationMenuReference.current.contains(event.target)
+      ) {
+        setIsNotiPanelOpen(false);
+      }
+
+      if (
+        profileMenuReference.current
+        && !profileMenuReference.current.contains(event.target)
+      ) {
+        setIsProfileMenuOpen(false);
+      }
+    }
+
+    function closeMenusWithEscape(event) {
+      if (event.key === "Escape") {
+        setIsNotiPanelOpen(false);
+        setIsProfileMenuOpen(false);
+        setIsSearchOpen(false);
+      }
+    }
+
+    document.addEventListener("pointerdown", closeMenusFromOutside);
+    window.addEventListener("keydown", closeMenusWithEscape);
+
+    return () => {
+      document.removeEventListener("pointerdown", closeMenusFromOutside);
+      window.removeEventListener("keydown", closeMenusWithEscape);
+    };
+  }, []);
 
   useEffect(() => {
     let requestIsCurrent = true;
@@ -329,7 +367,7 @@ function Header({ title, theme, onToggleTheme, onOpenProfile, onOpenSettings }) 
         </div>
 
         {/* Notification bell and unread notification count. */}
-        <div className="header__notification-menu">
+        <div className="header__notification-menu" ref={notificationMenuReference}>
           <button
             className="header__icon-button header__notification"
             type="button"
@@ -385,7 +423,7 @@ function Header({ title, theme, onToggleTheme, onOpenProfile, onOpenSettings }) 
 
         {/* Current business profile menu. */}
 
-        <div className="header__profile-menu">
+        <div className="header__profile-menu" ref={profileMenuReference}>
           <button
             className="header__business"
             type="button"

@@ -1,7 +1,7 @@
 .floating-assistant-button {
   position: fixed;
-  right: 24px;
-  bottom: 24px;
+  right: 14px;
+  bottom: 14px;
   z-index: 1201;
   display: grid;
   place-items: center;
@@ -360,7 +360,7 @@
 .business-assistant button:disabled { cursor: not-allowed; opacity: .55; }
 
 @media (max-width: 700px) {
-  .floating-assistant-button { right: 14px; bottom: 78px; width: 40px; height: 40px; }
+  .floating-assistant-button { right: 10px; bottom: calc(70px + env(safe-area-inset-bottom)); width: 40px; height: 40px; }
   .floating-assistant-button svg { width: 17px; height: 17px; }
   .business-assistant {
     right: 10px;
