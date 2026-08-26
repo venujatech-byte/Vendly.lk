@@ -20,7 +20,7 @@ import {
   Trophy,
   ReceiptText,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 // Reusable components that build the Orders page.
@@ -43,6 +43,7 @@ import ShopSaleFilters from "../components/ShopSaleFilters";
 import ShopSalesTable from "../components/ShopSalesTable";
 import WarrantyClaimModal from "../components/WarrantyClaimModal";
 import WarrantyClaimsTable from "../components/WarrantyClaimsTable";
+import BarcodeScannerModal from "../components/BarcodeScannerModal";
 import { getCouriers } from "../services/courierService";
 import {
   downloadOrderExport,
@@ -90,6 +91,7 @@ function OrdersPage() {
   const [shopRemovalTarget, setShopRemovalTarget] = useState(null);
   const [warrantyClaims, setWarrantyClaims] = useState([]);
   const [warrantySource, setWarrantySource] = useState(null);
+  const [isWaybillScannerOpen, setIsWaybillScannerOpen] = useState(false);
 
   // URL filters are created by the Business Assistant. Keep them separate
   // from the form state so a new assistant request replaces old form filters.
@@ -481,13 +483,21 @@ function OrdersPage() {
   }
 
   function handleScanWaybill() {
-    const waybill = window.prompt("Scan or enter the waybill number:", "");
-    if (!waybill?.trim()) return;
-    setFilters((current) => ({
-      ...current,
-      search: waybill.trim(),
-    }));
+    setActiveTab("onlineOrders");
+    setIsWaybillScannerOpen(true);
   }
+
+  const handleWaybillDetected = useCallback((waybillNumber) => {
+    const value = waybillNumber.trim();
+    if (!value) return;
+
+    // A waybill scan is an exact search intent. Remove any previous local or
+    // status filters so they cannot hide the matching order.
+    setFilters({});
+    setStatusFilter("");
+    setSearchParameters({ search: value }, { replace: true });
+    setIsWaybillScannerOpen(false);
+  }, [setSearchParameters]);
 
   return (
     <main className="dashboard orders-page">
@@ -687,6 +697,16 @@ function OrdersPage() {
       <EditOrderModal isOpen={Boolean(editingOrder)} businessId={business?.id} order={editingOrder} onClose={() => setEditingOrder(null)} onUpdated={(updated) => { setOrders((current) => current.map((order) => order.id === updated.id ? updated : order)); setEditingOrder(null); }} />
       <ConfirmDialog isOpen={Boolean(removalTarget)} title="Remove order?" message={`This cancels ${removalTarget?.orderNumber ?? "this order"} and releases its reserved stock.`} isWorking={isRemoving} onCancel={() => setRemovalTarget(null)} onConfirm={confirmOrderRemoval} />
       <ConfirmDialog isOpen={Boolean(shopRemovalTarget)} title="Delete shop sale?" message={`Deleting ${shopRemovalTarget?.saleNumber ?? "this sale"} restores every sold item to inventory. This action is recorded in stock history.`} isWorking={isRemoving} onCancel={() => setShopRemovalTarget(null)} onConfirm={confirmShopSaleRemoval} />
+      <BarcodeScannerModal
+        isOpen={isWaybillScannerOpen}
+        onClose={() => setIsWaybillScannerOpen(false)}
+        onDetected={handleWaybillDetected}
+        title="Scan waybill"
+        description="Place the waybill barcode or QR code inside the camera frame."
+        manualLabel="Or enter the waybill number"
+        inputPlaceholder="Scan or enter a waybill number"
+        submitLabel="Use waybill"
+      />
     </main>
   );
 }
