@@ -1503,6 +1503,42 @@ def answer_public_message(database, session_id, provided_token, payload):
         )
         wanted_quantity = quantity_from_message(message, ai_intent.get("quantity"))
 
+        # "actually the T800, two of those" names a different product. Applying
+        # the quantity to the item we happened to be holding would put the wrong
+        # thing in a real order, so the named product wins.
+        renamed_matches = (
+            find_matching_products(ai_intent["productQuery"], products)
+            if ai_intent.get("productQuery")
+            else []
+        )
+
+        if len(renamed_matches) == 1 and (
+            not pending_product or renamed_matches[0]["id"] != pending_product["id"]
+        ):
+            renamed_product = renamed_matches[0]
+            renamed_variant = choose_variant(
+                renamed_product,
+                ai_intent.get("sizeQuery", ""),
+            )
+
+            if renamed_variant:
+                pending_product, pending_variant = renamed_product, renamed_variant
+            else:
+                sizes = [
+                    option.get("size")
+                    for option in renamed_product.get("variants", [])
+                    if option.get("size")
+                ]
+                return respond(
+                    f"Which size of {renamed_product['name']} would you like? "
+                    f"Available: {', '.join(sizes)}.",
+                    "show-product",
+                    next_state="browsing",
+                    product=renamed_product,
+                    selected_product_id=renamed_product["id"],
+                    pending_variant_id=None,
+                )
+
         if not pending_variant:
             return respond(
                 "Sorry, that item is no longer available. Which product would "

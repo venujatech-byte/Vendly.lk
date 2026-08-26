@@ -450,6 +450,10 @@ Step 4 is the only one that needs a model: `mata bag ekak ona` is Sinhala in Lat
 
 The response carries `language`, and the storefront syncs the mic and text-to-speech locale to it.
 
+**The interface follows too.** The bot used to answer in Sinhala while the quick-reply chips underneath still read "Show products" and "I want to order". `frontend/src/data/storefrontText.js` holds those fixed labels in all three languages, keyed off the same `language` the reply carries. It is a static table on purpose: the bot's replies are generated text and need the model, but this chrome is a closed set of short strings, so a table is cheaper, instant, and still correct when the provider is down. `storefrontText()` merges over English, so a missing key renders English rather than blank.
+
+The chip **labels** are localised but the message each chip sends stays English, so the deterministic keyword ladder matches it even with no AI. The remembered language rides on the existing `vendly-storefront-voice-language` key, so a returning customer does not get English labels back until their next reply arrives.
+
 ## 14c. Delivery pricing
 
 ```text

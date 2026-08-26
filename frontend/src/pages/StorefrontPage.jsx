@@ -36,6 +36,7 @@ import {
 import { useParams } from "react-router-dom";
 import vendlyLogo from "../assets/vendly-logo.png";
 import { SRI_LANKA_DISTRICTS } from "../data/districts";
+import { storefrontText } from "../data/storefrontText";
 import {
   createPublicChatOrder,
   createPublicChatSession,
@@ -71,6 +72,23 @@ const CHAT_LANGUAGE_TO_VOICE = {
   si: "si-LK",
   ta: "ta-LK",
 };
+
+const VOICE_TO_CHAT_LANGUAGE = {
+  "en-LK": "en",
+  "si-LK": "si",
+  "ta-LK": "ta",
+};
+
+// The speech locale is already persisted, so it doubles as the remembered
+// conversation language. Without this a returning Sinhala customer would see
+// English labels again until their next message came back.
+function savedChatLanguage() {
+  return (
+    VOICE_TO_CHAT_LANGUAGE[
+      localStorage.getItem("vendly-storefront-voice-language")
+    ] || "en"
+  );
+}
 
 function nextVoiceLanguage(current) {
   const index = VOICE_LANGUAGES.indexOf(current);
@@ -189,6 +207,9 @@ function StorefrontPage({ linkType }) {
   const [voiceLanguage, setVoiceLanguage] = useState(
     () => localStorage.getItem("vendly-storefront-voice-language") || "en-LK",
   );
+  // The language the backend decided this conversation is in. Chat replies are
+  // translated by the model; these fixed labels come from a table.
+  const [chatLanguage, setChatLanguage] = useState(savedChatLanguage);
   const [cart, setCart] = useState([]);
   const [customer, setCustomer] = useState(EMPTY_CUSTOMER);
   const [activeView, setActiveView] = useState(getInitialView);
@@ -627,6 +648,7 @@ function StorefrontPage({ linkType }) {
       // The backend decided which language this conversation is in, including
       // for romanised Sinhala the browser cannot detect. Follow it.
       if (CHAT_LANGUAGE_TO_VOICE[response.language]) {
+        setChatLanguage(response.language);
         setVoiceLanguage(CHAT_LANGUAGE_TO_VOICE[response.language]);
       }
       if (response.message) {
@@ -1111,6 +1133,7 @@ function StorefrontPage({ linkType }) {
             cart={cart}
             customer={customer}
             chatState={session?.state || "browsing"}
+            chatLanguage={chatLanguage}
             messages={messages}
             messageText={messageText}
             isSending={isSending}
@@ -1131,7 +1154,11 @@ function StorefrontPage({ linkType }) {
               setSpeechEnabled((current) => !current);
             }}
             onToggleVoiceLanguage={() =>
-              setVoiceLanguage((current) => nextVoiceLanguage(current))
+              setVoiceLanguage((current) => {
+                const next = nextVoiceLanguage(current);
+                setChatLanguage(VOICE_TO_CHAT_LANGUAGE[next] || "en");
+                return next;
+              })
             }
             onQuickMessage={requestChatMessage}
             onAddFromChat={addFromChat}
@@ -1637,6 +1664,7 @@ function ChatbotView({
   cart,
   customer,
   chatState,
+  chatLanguage,
   messages,
   messageText,
   isSending,
@@ -1662,6 +1690,8 @@ function ChatbotView({
   onOpenCheckout,
   onOpenReviews,
 }) {
+  const text = storefrontText(chatLanguage);
+
   function handleVoiceButtonClick() {
     onToggleListening?.();
   }
@@ -1731,7 +1761,7 @@ function ChatbotView({
                           }
                           disabled={isSending}
                         >
-                          <ShoppingCart size={14} /> Order this product
+                          <ShoppingCart size={14} /> {text.orderThisProduct}
                         </button>
                         <button
                           type="button"
@@ -1742,13 +1772,13 @@ function ChatbotView({
                           }
                           disabled={isSending}
                         >
-                          Compare similar products
+                          {text.compareSimilar}
                         </button>
                       </div>
 
                       {message.products?.length > 0 && (
                         <div className="storefront-chat-product-decision__related">
-                          <small>You may also like</small>
+                          <small>{text.youMayAlsoLike}</small>
                           <div className="storefront-chat-catalog">
                             {message.products.map((product) => (
                               <ChatCatalogCard
@@ -1855,21 +1885,21 @@ function ChatbotView({
               onClick={() => onQuickMessage("Show products")}
               disabled={isSending}
             >
-              Show products
+              {text.showProducts}
             </button>
             <button
               type="button"
               onClick={() => onQuickMessage("I want to order")}
               disabled={isSending}
             >
-              I want to order
+              {text.wantToOrder}
             </button>
             <button
               type="button"
               onClick={() => onQuickMessage("Show customer reviews")}
               disabled={isSending}
             >
-              Reviews
+              {text.reviews}
             </button>
           </div>
 
@@ -1892,7 +1922,7 @@ function ChatbotView({
           <input
             value={messageText}
             onChange={(event) => onMessageTextChange(event.target.value)}
-            placeholder="Type a message…"
+            placeholder={text.typeMessage}
             aria-label="Chat message"
             disabled={isSending}
             autoComplete="off"
@@ -1932,18 +1962,18 @@ function ChatbotView({
       {(isListening || isHoldingVoiceButton) && (
         <div className="storefront-voice-overlay" aria-live="polite">
           <div className="storefront-voice-overlay__orb"><Mic aria-hidden="true" /></div>
-          <p className="storefront-voice-overlay__label">Listening…</p>
+          <p className="storefront-voice-overlay__label">{text.listening}</p>
           <p className="storefront-voice-overlay__transcript">
-            {voiceTranscript || "Speak your message"}
+            {voiceTranscript || text.speakYourMessage}
           </p>
-          <p className="storefront-voice-overlay__hint">Release to finish</p>
+          <p className="storefront-voice-overlay__hint">{text.releaseToFinish}</p>
         </div>
       )}
 
       <aside className="storefront-draft">
 
         <section>
-          <h3>Products & quantity</h3>
+          <h3>{text.productsAndQuantity}</h3>
           <div className="storefront-draft__items">
             {cart.map((item) => (
               <article key={item.variantId}>
