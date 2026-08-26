@@ -237,7 +237,7 @@ function OrderTable({
               <SortableHeader columnKey="customer" label="Customer" sorting={sorting} />
               <SortableHeader columnKey="items" label="Items" sorting={sorting} />
               <SortableHeader columnKey="total" label="Total" sorting={sorting} />
-              <SortableHeader columnKey="courier" label="Courier Code" sorting={sorting} />
+              <SortableHeader columnKey="courier" label="Courier" sorting={sorting} />
               <SortableHeader columnKey="status" label="Status" sorting={sorting} />
               <SortableHeader columnKey="date" label="Date" sorting={sorting} />
               <SortableHeader columnKey="waybill" label="Waybill ID" sorting={sorting} />
