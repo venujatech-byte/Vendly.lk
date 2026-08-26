@@ -542,7 +542,11 @@ Use `min-width: 0` on grid/flex children, `aspect-ratio` for images, and `object
 
 ## 19. Test plan
 
-Automated: `cd backend && .venv/Scripts/python.exe -m pytest -q` (124 tests) and `cd frontend && npm run build`.
+Automated: `cd backend && .venv/Scripts/python.exe -m pytest -q` (153 tests), `cd frontend && npm run build`, and `node frontend/src/data/storefrontText.test.mjs`.
+
+`tests/test_chat_conversation.py` is the one that matters most when changing the chat. Every other test covers an extracted pure helper; that file drives real conversations through `answer_public_message`, so it catches the failures unit tests cannot see — a branch that stops being reachable, an early return that shadows a later one, a `respond()` that persists the wrong state. Only the real boundaries are faked (Firestore, the AI provider, the other services); the step ordering under test is production code.
+
+Two notes for extending it. `ai_status()` is evaluated as an *argument* to `sync_ai_failure_notification`, so it runs even when that call is patched out and must be patched too. And the intent state gate lives *inside* `storefront_intent` — patching that function removes the thing under test, so patch `generate_storefront_intent` beneath it instead.
 
 Manual, in this order:
 
