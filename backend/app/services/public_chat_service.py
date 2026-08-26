@@ -18,6 +18,7 @@ from app.services.ai_service import (
     MISSING_FACT_MARKER,
     detect_chat_language,
     generate_product_answer,
+    generate_storefront_intent,
     translate_chat_message,
 )
 from app.services.chat_event_service import notify_seller_attention
@@ -293,7 +294,7 @@ def requested_language(message):
     return None
 
 
-def conversation_language(message, current_language):
+def conversation_language(message, current_language, detected_language=None):
     """Decide which language to answer one customer message in.
 
     Sinhala and Tamil script are certain, so they are matched directly and cost
@@ -318,7 +319,44 @@ def conversation_language(message, current_language):
     if language != "en":
         return language
 
+    # The intent classifier already read this message and reported its
+    # language, so reuse that instead of paying for a second call.
+    if detected_language in {"en", "si", "ta"}:
+        return detected_language
+
     return detect_chat_language(message) or language
+
+
+# Intent classification is worth an AI call only where the customer is steering
+# the conversation. In the collecting-* states the message IS the data - a name,
+# a phone number, an address - so it is read literally and never classified.
+INTENT_CLASSIFIED_STATES = {
+    "browsing",
+    "quoting-district",
+    "awaiting-confirmation",
+    "completed",
+}
+
+
+def storefront_intent(message, products, state):
+    """Classify a code-mixed message, or return an empty result on failure."""
+    if state not in INTENT_CLASSIFIED_STATES:
+        return {}
+
+    category_names = sorted(
+        {
+            product.get("categoryName", "").strip()
+            for product in products
+            if product.get("categoryName", "").strip()
+        },
+    )
+    result = generate_storefront_intent(
+        message,
+        [product.get("name", "") for product in products][:60],
+        category_names,
+        state,
+    )
+    return result or {}
 
 
 def find_matching_products(message, products):
@@ -1009,7 +1047,19 @@ def answer_public_message(database, session_id, provided_token, payload):
     customer_draft = dict(session.get("customerDraft") or {})
     current_state = session.get("state", "browsing")
     lowered_message = message.strip().casefold()
-    language = conversation_language(message, session.get("language", "en"))
+    # One AI call reads the whole sentence for both intent and language, so a
+    # code-mixed message like "මට black bag එකක් order කරන්න ඕන" is understood
+    # even though no phrase list contains that combination. The keyword ladder
+    # below stays as the fallback for when the provider is unavailable.
+    ai_intent = storefront_intent(message, products, current_state)
+    language = conversation_language(
+        message,
+        session.get("language", "en"),
+        ai_intent.get("language"),
+    )
+
+    def intent_is(*names):
+        return ai_intent.get("intent") in names
 
     def respond(
         response_message,
@@ -1077,7 +1127,11 @@ def answer_public_message(database, session_id, provided_token, payload):
     # A delivery-price question is answered before the order-status check below,
     # because "delivery" is also a tracking word. Checkout and completed states
     # are excluded so a mid-checkout question cannot derail the collected draft.
-    named_district = find_district_in_text(message)
+    named_district = find_district_in_text(message) or (
+        find_district_in_text(ai_intent["district"])
+        if ai_intent.get("district")
+        else None
+    )
 
     if current_state == "quoting-district" and not named_district:
         # That reply was not a district after all. Handle it as a normal message.
@@ -1086,7 +1140,9 @@ def answer_public_message(database, session_id, provided_token, payload):
     if current_state in {"browsing", "quoting-district"} and session.get(
         "status",
     ) != "completed" and (
-        current_state == "quoting-district" or is_delivery_fee_question(message)
+        current_state == "quoting-district"
+        or is_delivery_fee_question(message)
+        or intent_is("delivery_quote")
     ):
         draft_address = customer_draft.get("address") or {}
         district = named_district or draft_address.get("district", "")
@@ -1134,7 +1190,7 @@ def answer_public_message(database, session_id, provided_token, payload):
     # shopping session. A new catalogue is shown only when the customer clearly
     # asks to place another order.
     latest_order = None
-    if is_order_enquiry(lowered_message):
+    if is_order_enquiry(lowered_message) or intent_is("order_status"):
         latest_order = latest_order_for_session(database, session)
         if latest_order:
             session_snapshot.reference.set(
@@ -1154,7 +1210,9 @@ def answer_public_message(database, session_id, provided_token, payload):
             )
 
     if current_state == "completed" or session.get("status") == "completed":
-        starts_new_order = is_explicit_new_order_request(lowered_message)
+        starts_new_order = is_explicit_new_order_request(lowered_message) or intent_is(
+            "new_order",
+        )
 
         if starts_new_order:
             cart = []
@@ -1367,11 +1425,14 @@ def answer_public_message(database, session_id, provided_token, payload):
         confirms_order = (
             lowered_message in CONFIRMATION_PHRASES
             or "confirm order" in lowered_message
+            or intent_is("confirm_order")
         )
-        changes_order = any(
-            phrase in lowered_message
-            for phrase in ("change", "edit", "no", "cancel")
-        )
+        # Whole words only. As a substring, "no" matches "now", so "yes,
+        # confirm now" used to be read as a rejection and wiped the draft.
+        changes_order = bool(
+            set(word_characters(lowered_message).split())
+            & {"change", "edit", "no", "cancel", "wrong", "වෙනස්", "නෑ", "නැහැ", "தவறு"}
+        ) or intent_is("change_order")
 
         if confirms_order:
             order = create_public_chat_order(
@@ -1455,7 +1516,7 @@ def answer_public_message(database, session_id, provided_token, payload):
     if (
         current_state == "browsing"
         and cart_summary
-        and is_finished_selecting_items(message)
+        and (is_finished_selecting_items(message) or intent_is("finished_selecting"))
     ):
         item_count = sum(item["quantity"] for item in cart_summary)
         return respond(
@@ -1466,13 +1527,34 @@ def answer_public_message(database, session_id, provided_token, payload):
             response_products=[],
         )
 
-    wants_catalog = any(phrase in lowered_message for phrase in CATALOG_PHRASES)
-    wants_to_order = any(phrase in lowered_message for phrase in ORDER_INTENT_PHRASES)
+    wants_catalog = any(
+        phrase in lowered_message for phrase in CATALOG_PHRASES
+    ) or intent_is("show_catalog")
+    wants_to_order = any(
+        phrase in lowered_message for phrase in ORDER_INTENT_PHRASES
+    ) or intent_is("start_order")
     wants_alternatives = any(
         phrase in lowered_message for phrase in ALTERNATIVE_PHRASES
-    )
+    ) or intent_is("similar_products")
     category_request = find_category_request(message, products)
     matching_products = find_matching_products(message, products)
+
+    # The classifier pulls the product out of a mixed sentence - "මට black bag
+    # එකක් ඕන" yields "black bag" - which the catalogue matcher can then
+    # resolve. Only the extracted words are trusted; the product itself is
+    # always looked up in this seller's own catalogue.
+    if not matching_products and ai_intent.get("productQuery"):
+        matching_products = find_matching_products(
+            ai_intent["productQuery"],
+            products,
+        )
+
+    if not category_request and ai_intent.get("categoryQuery"):
+        category_request = find_category_request(
+            ai_intent["categoryQuery"],
+            products,
+        )
+
     explicitly_selected_product = (
         matching_products[0] if len(matching_products) == 1 else None
     )
@@ -1710,7 +1792,7 @@ def answer_public_message(database, session_id, provided_token, payload):
             response_products=matching_products[:4],
         )
 
-    is_simple_greeting = normalized_phrase(message) in {
+    is_simple_greeting = intent_is("greeting") or normalized_phrase(message) in {
         normalized_phrase(phrase) for phrase in GREETING_PHRASES
     }
     if not is_simple_greeting:

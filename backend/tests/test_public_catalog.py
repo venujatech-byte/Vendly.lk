@@ -267,3 +267,87 @@ def test_an_explicit_language_request_overrides_detection(monkeypatch):
 
     assert public_chat_service.conversation_language("reply in english", "si") == "en"
     assert public_chat_service.conversation_language("in tamil please", "en") == "ta"
+
+
+def sample_catalogue():
+    return [
+        {"id": "bag", "name": "Black Leather Bag", "categoryName": "Bags"},
+        {"id": "watch", "name": "T800 Smart Watch", "categoryName": "Watches"},
+    ]
+
+
+def test_intent_is_not_classified_while_collecting_customer_details(monkeypatch):
+    from app.services import public_chat_service
+
+    def fail(*arguments):
+        raise AssertionError("a name or phone number must be read literally")
+
+    monkeypatch.setattr(public_chat_service, "generate_storefront_intent", fail)
+
+    for state in ("collecting-name", "collecting-phone", "collecting-address"):
+        assert public_chat_service.storefront_intent(
+            "Nimal Perera",
+            sample_catalogue(),
+            state,
+        ) == {}
+
+
+def test_intent_is_classified_while_browsing(monkeypatch):
+    from app.services import public_chat_service
+
+    captured = {}
+
+    def fake_intent(message, product_names, category_names, state):
+        captured["names"] = product_names
+        captured["categories"] = category_names
+        return {"intent": "start_order", "productQuery": "black bag", "language": "si"}
+
+    monkeypatch.setattr(
+        public_chat_service,
+        "generate_storefront_intent",
+        fake_intent,
+    )
+
+    result = public_chat_service.storefront_intent(
+        "මට black bag එකක් order කරන්න ඕන",
+        sample_catalogue(),
+        "browsing",
+    )
+
+    assert result["intent"] == "start_order"
+    assert captured["names"] == ["Black Leather Bag", "T800 Smart Watch"]
+    assert captured["categories"] == ["Bags", "Watches"]
+
+
+def test_a_failed_classification_falls_back_to_the_keyword_ladder(monkeypatch):
+    from app.services import public_chat_service
+
+    monkeypatch.setattr(
+        public_chat_service,
+        "generate_storefront_intent",
+        lambda *arguments: None,
+    )
+
+    # An empty result means every downstream `intent_is(...)` is False and the
+    # deterministic phrase lists decide, exactly as before the classifier.
+    assert public_chat_service.storefront_intent("hello", sample_catalogue(), "browsing") == {}
+
+
+def test_an_english_product_name_inside_a_sinhala_sentence_still_matches():
+    from app.services.public_chat_service import find_matching_products
+
+    matches = find_matching_products("මට black leather bag එකක් ඕන", sample_catalogue())
+
+    assert [product["id"] for product in matches] == ["bag"]
+
+
+def test_change_words_are_matched_as_whole_words():
+    from app.services.public_chat_service import word_characters
+
+    # "now" contains "no". Substring matching read "yes, confirm now" as a
+    # rejection and wiped the collected customer details.
+    words = set(word_characters("yes, confirm now").split())
+
+    assert "no" not in words
+    assert "now" in words
+    assert "no" in set(word_characters("no, change it").split())

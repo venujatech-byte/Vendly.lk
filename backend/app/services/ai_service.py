@@ -240,6 +240,89 @@ def translate_chat_message(text, language):
     return translation
 
 
+STOREFRONT_INTENTS = {
+    "product_question",
+    "show_catalog",
+    "show_category",
+    "similar_products",
+    "reviews",
+    "delivery_quote",
+    "start_order",
+    "finished_selecting",
+    "confirm_order",
+    "change_order",
+    "order_status",
+    "new_order",
+    "greeting",
+    "unknown",
+}
+
+
+def generate_storefront_intent(message, product_names, category_names, state):
+    """Classify one storefront message and identify its language in one call.
+
+    Sri Lankan customers mix languages inside a single sentence: Sinhala
+    grammar with English product and commerce words, in either script. A
+    keyword list cannot cover that, because any English noun can sit anywhere
+    inside a Sinhala sentence. The model reads the whole sentence instead.
+
+    The result is untrusted input. The caller allowlists the intent, resolves
+    every product and district against its own catalogue, and keeps all
+    validation, pricing and order writing in deterministic code.
+    """
+    prompt = (
+        "Classify one message from a customer shopping on a Sri Lankan online "
+        "store, and identify the language it is written in. Return one JSON "
+        "object only, with no Markdown and no explanation.\n"
+        "Sri Lankan customers mix languages inside one sentence. Sinhala or "
+        "Tamil grammar is regularly combined with English product words, in "
+        "either script: 'මට black bag එකක් order කරන්න ඕන', 'mata delivery fee "
+        "eka kiyada', 'watch එකේ warranty තියෙනවද'. Classify the intent of the "
+        "whole sentence, not of the English words in it.\n"
+        "Set language to the language the customer is writing in, not the "
+        "language of the individual words: si when the sentence is Sinhala "
+        "(including Sinhala typed in Latin letters, and Sinhala mixed with "
+        "English words), ta for Tamil the same way, en only when the sentence "
+        "is genuinely English.\n"
+        f"Allowed intents: {', '.join(sorted(STOREFRONT_INTENTS))}.\n"
+        "Use product_question for any question about a product's features, "
+        "price, stock, sizes, colours or warranty. Use show_catalog when the "
+        "customer wants to see what is available, show_category for one named "
+        "category, similar_products when they want alternatives to something, "
+        "reviews for ratings or customer feedback, delivery_quote for delivery "
+        "or courier cost, start_order when they want to buy, finished_selecting "
+        "when they say they have added everything they want, confirm_order to "
+        "submit a summarised order, change_order to correct details, "
+        "order_status for an existing order's progress, new_order to start a "
+        "fresh order after one was placed, greeting for a bare greeting, and "
+        "unknown when nothing fits.\n"
+        "Copy productQuery, categoryQuery and district verbatim from the "
+        "customer's own words when they name one, otherwise leave them empty. "
+        "Never invent a product, category or district that is not named in the "
+        "message.\n"
+        f"CONVERSATION STATE: {state}\n"
+        f"PRODUCTS IN THIS STORE: {json.dumps(product_names, ensure_ascii=False)}\n"
+        f"CATEGORIES: {json.dumps(category_names, ensure_ascii=False)}\n"
+        'Example shape: {"intent":"product_question","productQuery":"black bag",'
+        '"categoryQuery":"","district":"","language":"si"}\n\n'
+        f"CUSTOMER MESSAGE:\n{message}"
+    )
+    result = parse_json_object(request_ai_text(prompt, max_tokens=200))
+
+    if not result or result.get("intent") not in STOREFRONT_INTENTS:
+        return None
+
+    language = result.get("language")
+
+    return {
+        "intent": result["intent"],
+        "productQuery": str(result.get("productQuery") or "").strip(),
+        "categoryQuery": str(result.get("categoryQuery") or "").strip(),
+        "district": str(result.get("district") or "").strip(),
+        "language": language if language in CHAT_LANGUAGES else None,
+    }
+
+
 def generate_product_description(product_details):
     """Generate seller-editable catalogue copy from the supplied product facts."""
     settings = current_app.config
