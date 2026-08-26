@@ -10,3 +10,11 @@ export function createBusiness({ ownerName, businessName }) {
     },
   });
 }
+
+// Update the contact details that customers see on the public storefront.
+export function updatePublicContact(businessId, { phone, email }) {
+  return apiRequest(`/businesses/${businessId}/public-contact`, {
+    method: "PATCH",
+    body: { phone, email },
+  });
+}

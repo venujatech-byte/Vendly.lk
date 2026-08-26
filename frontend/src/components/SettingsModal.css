@@ -254,10 +254,61 @@
   font-size: 12px;
 }
 .settings-modal__billing-address { grid-column: 1 / -1; }
+.settings-modal__contact-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+.settings-modal__contact-grid label { display: grid; gap: 6px; }
+.settings-modal__contact-grid label > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-text);
+  font-size: 10px;
+  font-weight: 650;
+}
+.settings-modal__contact-grid label > span svg { color: var(--color-accent); }
+.settings-modal__contact-grid input {
+  width: 100%;
+  min-height: 39px;
+  padding: 0 11px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  color: var(--color-text);
+  background: var(--color-control);
+  font: inherit;
+  font-size: 12px;
+}
+.settings-modal__contact-grid input:disabled { cursor: not-allowed; opacity: .62; }
+.settings-modal__contact-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 14px;
+}
+.settings-modal__contact-footer small { color: var(--color-text-muted); font-size: 10px; }
+.settings-modal__contact-footer button {
+  min-height: 37px;
+  padding: 0 15px;
+  border: 0;
+  border-radius: 8px;
+  color: white;
+  background: var(--color-accent);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 750;
+}
+.settings-modal__contact-footer button:disabled { cursor: not-allowed; opacity: .5; }
 .settings-modal__notice,
-.settings-modal__error { margin: 0; padding: 11px 13px; border-radius: 9px; font-size: 11px; line-height: 1.5; }
+.settings-modal__error,
+.settings-modal__success { margin: 12px 0 0; padding: 11px 13px; border-radius: 9px; font-size: 11px; line-height: 1.5; }
 .settings-modal__notice { color: #8a5300; background: #fff3d9; }
 .settings-modal__error { color: #b42318; background: #fee9e7; }
+.settings-modal__success { color: #08744e; background: #dcf8ed; }
 .settings-modal__billing-footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .settings-modal__billing-footer > div { display: flex; align-items: center; gap: 7px; color: var(--color-text-muted); font-size: 10px; }
 .settings-modal__billing-footer svg { color: #14a673; }
@@ -268,6 +319,7 @@ html[data-theme="dark"] .settings-modal__role,
 html[data-theme="dark"] .settings-modal__plan-badge { color: #73e5bd; background: rgba(20, 166, 115, .18); }
 html[data-theme="dark"] .settings-modal__notice { color: #ffd992; background: rgba(160, 97, 0, .22); }
 html[data-theme="dark"] .settings-modal__error { color: #ffaaa3; background: rgba(180, 35, 24, .2); }
+html[data-theme="dark"] .settings-modal__success { color: #73e5bd; background: rgba(20, 166, 115, .18); }
 html[data-theme="dark"] .settings-modal__payment-status .settings-modal__payment-pill { color: #ffd992; background: rgba(160, 97, 0, .22); }
 html[data-theme="dark"] .settings-modal__payment-status .settings-modal__payment-pill--paid { color: #73e5bd; background: rgba(20, 166, 115, .18); }
 html[data-theme="dark"] .settings-modal__payment-status .settings-modal__payment-pill--failed,
@@ -289,6 +341,7 @@ html[data-theme="dark"] .settings-modal__payment-status .settings-modal__payment
   .settings-modal__plans { grid-template-columns: 1fr; }
   .settings-modal__plan p { min-height: 0; }
   .settings-modal__billing-grid,
+  .settings-modal__contact-grid,
   .settings-modal__details-grid { grid-template-columns: 1fr; }
   .settings-modal__billing-address { grid-column: auto; }
   .settings-modal__billing-footer { align-items: stretch; flex-direction: column; }
@@ -297,4 +350,6 @@ html[data-theme="dark"] .settings-modal__payment-status .settings-modal__payment
   .settings-modal__payment-status > div:nth-child(2) { grid-column: 1 / -1; grid-row: 2; }
   .settings-modal__identity { align-items: flex-start; }
   .settings-modal__current-plan { align-items: flex-start; flex-direction: column; }
+  .settings-modal__contact-footer { align-items: stretch; flex-direction: column; }
+  .settings-modal__contact-footer button { width: 100%; }
 }

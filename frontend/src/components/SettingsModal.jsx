@@ -2,7 +2,9 @@ import {
   Bell,
   Check,
   CreditCard,
+  Mail,
   Palette,
+  Phone,
   Settings,
   ShieldCheck,
   Sparkles,
@@ -17,6 +19,7 @@ import {
   getBusinessBilling,
   redirectToPayHere,
 } from "../services/billingService";
+import { updatePublicContact } from "../services/businessService";
 import ModalShell from "./ModalShell";
 import StaffSettings from "./StaffSettings";
 
@@ -59,13 +62,23 @@ function SettingsModal({
   theme,
   onToggleTheme,
 }) {
-  const { user, sellerProfile, business, membership } = useAuth();
+  const {
+    user,
+    sellerProfile,
+    business,
+    membership,
+    refreshSellerProfile,
+  } = useAuth();
   const [activeSection, setActiveSection] = useState(initialSection);
   const [billing, setBilling] = useState(null);
   const [billingError, setBillingError] = useState("");
   const [isBillingLoading, setIsBillingLoading] = useState(false);
   const [selectedPlanId, setSelectedPlanId] = useState("seller");
   const [checkoutWorking, setCheckoutWorking] = useState(false);
+  const [contactDetails, setContactDetails] = useState({ phone: "", email: "" });
+  const [contactError, setContactError] = useState("");
+  const [contactMessage, setContactMessage] = useState("");
+  const [isContactSaving, setIsContactSaving] = useState(false);
   const [billingDetails, setBillingDetails] = useState({
     name: "",
     email: "",
@@ -93,6 +106,16 @@ function SettingsModal({
       city: current.city || business?.address?.city || "",
     }));
   }, [business, isOpen, sellerProfile?.ownerName, user?.displayName, user?.email]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setContactDetails({
+      phone: business?.publicPhone || "",
+      email: business?.publicEmail || "",
+    });
+    setContactError("");
+    setContactMessage("");
+  }, [business?.publicEmail, business?.publicPhone, isOpen]);
 
   useEffect(() => {
     let requestIsCurrent = true;
@@ -124,6 +147,7 @@ function SettingsModal({
     [billing?.plans, selectedPlanId],
   );
   const isOwner = membership?.role === "owner";
+  const canManageBusiness = ["owner", "admin"].includes(membership?.role);
 
   function choosePlan(planId) {
     setSelectedPlanId(planId);
@@ -135,6 +159,34 @@ function SettingsModal({
       ...current,
       [event.target.name]: event.target.value,
     }));
+  }
+
+  function updateContactDetail(event) {
+    setContactDetails((current) => ({
+      ...current,
+      [event.target.name]: event.target.value,
+    }));
+    setContactError("");
+    setContactMessage("");
+  }
+
+  async function savePublicContact(event) {
+    event.preventDefault();
+    if (!business?.id || !canManageBusiness) return;
+
+    setIsContactSaving(true);
+    setContactError("");
+    setContactMessage("");
+
+    try {
+      await updatePublicContact(business.id, contactDetails);
+      await refreshSellerProfile();
+      setContactMessage("Storefront contact details saved.");
+    } catch (error) {
+      setContactError(error.message);
+    } finally {
+      setIsContactSaving(false);
+    }
   }
 
   async function startCheckout(event) {
@@ -179,6 +231,55 @@ function SettingsModal({
             Open My Profile
           </button>
         </section>
+
+        <form className="settings-modal__card" onSubmit={savePublicContact}>
+          <div className="settings-modal__section-heading">
+            <Phone size={20} />
+            <div>
+              <h3>Storefront contact details</h3>
+              <p>These details appear on the Contact page customers can open from your store link.</p>
+            </div>
+          </div>
+
+          <div className="settings-modal__contact-grid">
+            <label>
+              <span><Phone size={14} /> Contact number</span>
+              <input
+                name="phone"
+                value={contactDetails.phone}
+                onChange={updateContactDetail}
+                placeholder="Example: +94 77 123 4567"
+                autoComplete="tel"
+                disabled={!canManageBusiness || isContactSaving}
+              />
+            </label>
+            <label>
+              <span><Mail size={14} /> Contact email</span>
+              <input
+                name="email"
+                type="email"
+                value={contactDetails.email}
+                onChange={updateContactDetail}
+                placeholder="Example: support@yourstore.lk"
+                autoComplete="email"
+                disabled={!canManageBusiness || isContactSaving}
+              />
+            </label>
+          </div>
+
+          {contactError && <p className="settings-modal__error" role="alert">{contactError}</p>}
+          {contactMessage && <p className="settings-modal__success" role="status">{contactMessage}</p>}
+
+          <div className="settings-modal__contact-footer">
+            <small>Leave a field empty if you do not want to publish it.</small>
+            <button type="submit" disabled={!canManageBusiness || isContactSaving}>
+              {isContactSaving ? "Saving..." : "Save contact details"}
+            </button>
+          </div>
+          {!canManageBusiness && (
+            <p className="settings-modal__notice">Only an owner or admin can change public contact details.</p>
+          )}
+        </form>
 
         <section className="settings-modal__card settings-modal__details-grid">
           <div><span>Currency</span><strong>{business?.currency || "LKR"}</strong></div>
