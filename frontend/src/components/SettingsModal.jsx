@@ -3,6 +3,7 @@ import {
   Check,
   CreditCard,
   Mail,
+  MessageCircleQuestion,
   Palette,
   Phone,
   Settings,
@@ -75,7 +76,11 @@ function SettingsModal({
   const [isBillingLoading, setIsBillingLoading] = useState(false);
   const [selectedPlanId, setSelectedPlanId] = useState("seller");
   const [checkoutWorking, setCheckoutWorking] = useState(false);
-  const [contactDetails, setContactDetails] = useState({ phone: "", email: "" });
+  const [contactDetails, setContactDetails] = useState({
+    phone: "",
+    email: "",
+    storefrontFaq: "",
+  });
   const [contactError, setContactError] = useState("");
   const [contactMessage, setContactMessage] = useState("");
   const [isContactSaving, setIsContactSaving] = useState(false);
@@ -112,10 +117,16 @@ function SettingsModal({
     setContactDetails({
       phone: business?.publicPhone || "",
       email: business?.publicEmail || "",
+      storefrontFaq: business?.storefrontFaq || "",
     });
     setContactError("");
     setContactMessage("");
-  }, [business?.publicEmail, business?.publicPhone, isOpen]);
+  }, [
+    business?.publicEmail,
+    business?.publicPhone,
+    business?.storefrontFaq,
+    isOpen,
+  ]);
 
   useEffect(() => {
     let requestIsCurrent = true;
@@ -181,7 +192,7 @@ function SettingsModal({
     try {
       await updatePublicContact(business.id, contactDetails);
       await refreshSellerProfile();
-      setContactMessage("Storefront contact details saved.");
+      setContactMessage("Storefront contact details and policies saved.");
     } catch (error) {
       setContactError(error.message);
     } finally {
@@ -236,8 +247,8 @@ function SettingsModal({
           <div className="settings-modal__section-heading">
             <Phone size={20} />
             <div>
-              <h3>Storefront contact details</h3>
-              <p>These details appear on the Contact page customers can open from your store link.</p>
+              <h3>Storefront contact &amp; policies</h3>
+              <p>Shown on the Contact page customers open from your store link. The chatbot answers policy questions from what you write here.</p>
             </div>
           </div>
 
@@ -266,6 +277,30 @@ function SettingsModal({
               />
             </label>
           </div>
+
+          <label className="settings-modal__faq">
+            <span><MessageCircleQuestion size={14} /> Store policies &amp; FAQ</span>
+            <textarea
+              name="storefrontFaq"
+              value={contactDetails.storefrontFaq}
+              onChange={updateContactDetail}
+              rows={8}
+              maxLength={4000}
+              placeholder={`Write how your shop works, in your own words. The chatbot answers customers from this text and never invents a policy.
+
+Returns: Unused items can be returned within 7 days. Customer pays return delivery.
+Exchange: Size exchanges are free within 14 days.
+Payment: Cash on delivery island-wide. Bank transfer also accepted.
+Delivery time: 2-3 working days to Colombo, 3-5 days elsewhere.
+Opening hours: Monday to Saturday, 9am to 6pm.`}
+              disabled={!canManageBusiness || isContactSaving}
+            />
+            <small>
+              {contactDetails.storefrontFaq.length}/4000 characters. Anything you
+              leave out, the chatbot will say the seller has not stated it rather
+              than guess.
+            </small>
+          </label>
 
           {contactError && <p className="settings-modal__error" role="alert">{contactError}</p>}
           {contactMessage && <p className="settings-modal__success" role="status">{contactMessage}</p>}

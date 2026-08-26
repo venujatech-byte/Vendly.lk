@@ -201,12 +201,24 @@ def update_public_contact(database, business_id, payload):
             422,
         )
 
-    business_reference.update(
-        {
-            "publicPhone": public_phone,
-            "publicEmail": public_email.lower(),
-            "updatedAt": firestore.SERVER_TIMESTAMP,
-        },
-    )
+    changes = {
+        "publicPhone": public_phone,
+        "publicEmail": public_email.lower(),
+        "updatedAt": firestore.SERVER_TIMESTAMP,
+    }
+
+    # Free text rather than named policy fields: a seller can write about
+    # returns, cash on delivery, exchanges or opening hours in their own words,
+    # and the chatbot answers from it without a schema to keep in step.
+    if "storefrontFaq" in payload:
+        try:
+            changes["storefrontFaq"] = optional_text(
+                payload.get("storefrontFaq"),
+                4000,
+            )
+        except ValueError as error:
+            raise ApiError("validation_error", str(error), 422) from error
+
+    business_reference.update(changes)
 
     return serialize_snapshot(business_reference.get())

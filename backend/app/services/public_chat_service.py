@@ -15,8 +15,10 @@ from app.services.customer_service import (
     normalize_sri_lankan_phone,
 )
 from app.services.ai_service import (
+    ANSWERED_MARKER,
     MISSING_FACT_MARKER,
     detect_chat_language,
+    generate_catalogue_answer,
     generate_product_answer,
     generate_storefront_intent,
     translate_chat_message,
@@ -167,6 +169,16 @@ ALTERNATIVE_PHRASES = {
     "other item",
     "another product",
     "wenna deyak",
+    # Romanised Sinhala for "are there others like this one".
+    "me vage",
+    "meka wage",
+    "mewa vage",
+    "vage thawa",
+    "wage thawa",
+    "thawa ewa",
+    "thava ewa",
+    "wenath",
+    "වගේ තව",
     "වෙන එකක්",
     "වෙනත්",
     "සමාන",
@@ -586,10 +598,17 @@ def summarize_chat_cart(cart, products):
 
         product, variant = match
         quantity = item["quantity"]
-        unit_price = product.get("sellingPriceMinor", 0)
-        # Variant weight is copied from the parent product, so the chat quote
-        # and the order both price the same number of grams.
-        unit_weight_grams = product.get("weightGrams", 0)
+        # create_order prices and weighs each line from the variant. Using the
+        # product's price here showed the customer one subtotal and charged
+        # another whenever a size was priced differently.
+        unit_price = variant.get("sellingPriceMinor") or product.get(
+            "sellingPriceMinor",
+            0,
+        )
+        unit_weight_grams = variant.get("weightGrams") or product.get(
+            "weightGrams",
+            0,
+        )
         summary.append(
             {
                 "variantId": variant.get("id"),
@@ -1737,19 +1756,19 @@ def answer_public_message(database, session_id, provided_token, payload):
                 message,
                 selected_product,
                 language,
+                related_products(products, selected_product, limit=6),
             )
             # The model answers in the customer's language, so an English
             # phrase list can no longer tell whether it knew the answer. It
-            # marks its own uncertainty instead, which works in any language.
+            # ends the reply with a status marker instead, in any language.
             answer_is_uncertain = not generated_answer or MISSING_FACT_MARKER in (
                 generated_answer
             )
 
             if generated_answer:
-                generated_answer = generated_answer.replace(
-                    MISSING_FACT_MARKER,
-                    "",
-                ).strip()
+                for marker in (MISSING_FACT_MARKER, ANSWERED_MARKER):
+                    generated_answer = generated_answer.replace(marker, "")
+                generated_answer = generated_answer.strip()
 
             answer_in_customer_language = bool(generated_answer)
             response_message = generated_answer or (
@@ -1795,6 +1814,35 @@ def answer_public_message(database, session_id, provided_token, payload):
     is_simple_greeting = intent_is("greeting") or normalized_phrase(message) in {
         normalized_phrase(phrase) for phrase in GREETING_PHRASES
     }
+
+    # "What is your cheapest earbud", "anything under 3000", "can I return it"
+    # and "do you accept cash on delivery" name no single product, so nothing
+    # above matched. Only the catalogue and the seller's own policy text are
+    # offered as facts.
+    if not is_simple_greeting and intent_is(
+        "product_question",
+        "policy_question",
+        "unknown",
+    ):
+        catalogue_answer = generate_catalogue_answer(
+            message,
+            products,
+            language,
+            catalog["business"].get("storefrontFaq", ""),
+        )
+
+        if catalogue_answer and MISSING_FACT_MARKER not in catalogue_answer:
+            for marker in (MISSING_FACT_MARKER, ANSWERED_MARKER):
+                catalogue_answer = catalogue_answer.replace(marker, "")
+
+            return respond(
+                catalogue_answer.strip(),
+                "show-catalog",
+                next_state="browsing",
+                response_products=products[:4],
+                is_translated=True,
+            )
+
     if not is_simple_greeting:
         notify_seller_attention(
             database,

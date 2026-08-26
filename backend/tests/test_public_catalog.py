@@ -351,3 +351,45 @@ def test_change_words_are_matched_as_whole_words():
     assert "no" not in words
     assert "now" in words
     assert "no" in set(word_characters("no, change it").split())
+
+
+def test_chat_cart_prices_and_weighs_from_the_variant():
+    # create_order bills the variant's own price and weight. Using the parent
+    # product's values showed one subtotal and charged another whenever a size
+    # was priced differently.
+    products = [
+        {
+            "id": "shoe",
+            "name": "Runner",
+            "sellingPriceMinor": 500000,
+            "weightGrams": 900,
+            "media": [],
+            "variants": [
+                {"id": "v-large", "size": "XL", "sellingPriceMinor": 650000, "weightGrams": 1100},
+                {"id": "v-small", "size": "S"},
+            ],
+        },
+    ]
+    summary = summarize_chat_cart(
+        [{"variantId": "v-large", "quantity": 2}, {"variantId": "v-small", "quantity": 1}],
+        products,
+    )
+    by_variant = {line["variantId"]: line for line in summary}
+
+    assert by_variant["v-large"]["unitPriceMinor"] == 650000
+    assert by_variant["v-large"]["lineTotalMinor"] == 1300000
+    assert by_variant["v-large"]["lineWeightGrams"] == 2200
+    # A variant without its own price falls back to the product's.
+    assert by_variant["v-small"]["unitPriceMinor"] == 500000
+    assert by_variant["v-small"]["lineWeightGrams"] == 900
+
+
+def test_public_variant_exposes_price_and_weight():
+    from app.services.public_catalog_service import public_variant
+
+    variant = public_variant(
+        {"id": "v1", "size": "M", "sellingPriceMinor": 320000, "weightGrams": 400, "stockAvailable": 3},
+    )
+
+    assert variant["sellingPriceMinor"] == 320000
+    assert variant["weightGrams"] == 400

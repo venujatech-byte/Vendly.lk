@@ -23,6 +23,11 @@ def public_variant(variant):
         "id": variant.get("id"),
         "size": variant.get("size", ""),
         "sku": variant.get("sku", ""),
+        # Orders are priced and weighed from the variant, so the chatbot must
+        # quote and total from the same numbers or its figures disagree with
+        # the invoice.
+        "sellingPriceMinor": variant.get("sellingPriceMinor", 0),
+        "weightGrams": variant.get("weightGrams", 0),
         "availableStock": variant.get("stockAvailable", 0),
         "stockStatus": variant.get("stockStatus", "out-of-stock"),
     }
@@ -41,6 +46,11 @@ def public_product(product):
         "brand": product.get("brand", ""),
         "description": product.get("description", ""),
         "aiDescription": product.get("aiDescription", ""),
+        # Sellers record these as structured fields rather than prose, so
+        # without them the chatbot cannot answer "what is the warranty?" no
+        # matter how good the model is - the fact never leaves the database.
+        "warrantyPeriodMonths": product.get("warrantyPeriodMonths", 0),
+        "productSize": product.get("productSize", ""),
         "sellingPriceMinor": product.get("sellingPriceMinor", 0),
         "compareAtPriceMinor": product.get("compareAtPriceMinor", 0),
         "weightGrams": product.get("weightGrams", 0),
@@ -74,6 +84,10 @@ def public_business(snapshot):
         "phone": business.get("publicPhone", ""),
         "email": business.get("publicEmail", ""),
         "currency": business.get("currency", "LKR"),
+        # The seller's own words on returns, cash on delivery, exchanges and
+        # opening hours. It is the only source the chatbot may answer policy
+        # questions from.
+        "storefrontFaq": business.get("storefrontFaq", ""),
         "status": business.get("status", "inactive"),
     }
 

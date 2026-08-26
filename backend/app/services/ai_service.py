@@ -14,9 +14,14 @@ OPENAI_COMPATIBLE_BASE_URLS = {
 CHAT_LANGUAGES = {"en", "si", "ta"}
 
 # The model replies in the customer's language, so the chat service cannot spot
-# "I don't know" by matching English phrases. It appends this marker instead,
-# which survives translation and is stripped before the customer sees the reply.
+# "I don't know" by matching English phrases. It ends every answer with one of
+# these markers instead, and the marker is stripped before the customer sees it.
+#
+# It is a forced choice between two markers rather than "append this one when
+# unsure", because an optional marker gets over-applied: the model appended it
+# to answers it had fully answered, which paged the seller for nothing.
 MISSING_FACT_MARKER = "[NO_DATA]"
+ANSWERED_MARKER = "[ANSWERED]"
 
 LANGUAGE_NAMES = {"en": "English", "si": "Sinhala", "ta": "Tamil"}
 
@@ -31,44 +36,97 @@ def language_instruction(language):
     )
 
 
-def product_prompt(question, product, language="en"):
-    context = {
+def money_text(minor_units):
+    """Format minor units the way the customer should read them back."""
+    return f"LKR {(minor_units or 0) / 100:,.2f}"
+
+
+def product_facts(product):
+    """Every seller-entered fact about one product, in one JSON-ready shape."""
+    return {
         "name": product.get("name"),
         "brand": product.get("brand"),
         "colour": product.get("colourName"),
         "category": product.get("categoryName"),
         "description": product.get("description"),
         "sellerAiDescription": product.get("aiDescription"),
+        # priceLkr is the number to compare with; priceText is the string to
+        # quote back. Without the formatted form the model echoes the raw float
+        # and the customer reads "LKR 1900.0".
         "priceLkr": product.get("sellingPriceMinor", 0) / 100,
-        "availableSizes": [
-            variant.get("size")
+        "priceText": money_text(product.get("sellingPriceMinor", 0)),
+        "wasPriceLkr": (product.get("compareAtPriceMinor") or 0) / 100 or None,
+        "warrantyMonths": product.get("warrantyPeriodMonths") or None,
+        "size": product.get("productSize") or None,
+        "weightKg": (product.get("weightGrams") or 0) / 1000 or None,
+        "inStock": product.get("availableStock", 0) > 0,
+        "variants": [
+            {
+                "size": variant.get("size"),
+                "priceLkr": (variant.get("sellingPriceMinor") or 0) / 100 or None,
+                "inStock": variant.get("availableStock", 0) > 0,
+            }
             for variant in product.get("variants", [])
-            if variant.get("size")
         ],
         "approvedReviewCount": product.get("approvedReviewCount", 0),
         "approvedReviewSnippets": product.get("approvedReviewSnippets", []),
     }
+
+
+def catalogue_entry(product):
+    """A compact row for comparison questions, without the full description."""
+    return {
+        "name": product.get("name"),
+        "category": product.get("categoryName"),
+        "brand": product.get("brand"),
+        "priceLkr": product.get("sellingPriceMinor", 0) / 100,
+        "priceText": money_text(product.get("sellingPriceMinor", 0)),
+        "warrantyMonths": product.get("warrantyPeriodMonths") or None,
+        "inStock": product.get("availableStock", 0) > 0,
+    }
+
+
+def product_prompt(question, product, language="en", other_products=None):
+    context = product_facts(product)
+    # Questions like "which is cheaper", "what is the difference between these
+    # two" and "anything under 3000" cannot be answered from a single product.
+    # These rows are named and priced so the model can compare against real
+    # catalogue items instead of guessing at ones it half-remembers.
+    catalogue = [catalogue_entry(item) for item in (other_products or [])]
+    catalogue_block = (
+        "OTHER PRODUCTS THIS SELLER HAS (compare against these, and recommend "
+        "them by name when the customer asks for an alternative, a cheaper "
+        "option or a comparison. Never mention a product that is not listed "
+        f"here or in PRODUCT FACTS):\n{json.dumps(catalogue, ensure_ascii=False)}\n\n"
+        if catalogue
+        else ""
+    )
     return (
         "You are Vendly's friendly order-taking product assistant for a small "
         "Sri Lankan online business. Chat naturally and briefly, like a real seller "
         f"replying on Messenger. {language_instruction(language)} "
         "Use no more than three short sentences in total. "
-        "Only discuss the product supplied in PRODUCT FACTS. Do not claim that the "
-        "seller carries another product unless it is supplied by the Vendly catalogue. "
         "Use only the seller-provided JSON facts below. Never invent features, "
         "warranties, waterproof ratings, SIM support, video support, reviews, or "
         "availability. If the facts do not answer the question, say the seller has "
-        f"not provided that information yet and end your reply with {MISSING_FACT_MARKER}. "
-        f"Never write {MISSING_FACT_MARKER} when the facts do answer the question. "
+        "not provided that information yet.\n"
+        "Always write prices back to the customer exactly as they appear in "
+        "priceText, never as a bare decimal.\n"
+        "End every reply with exactly one status marker on the same line, and "
+        "nothing after it. Use "
+        f"{ANSWERED_MARKER} when the facts above answered the customer's "
+        f"question. Use {MISSING_FACT_MARKER} only when they did not. Choose one; "
+        "never both and never neither.\n"
         "Do not claim to have searched or verified "
         "information on the internet because no web-search tool is connected. Mention "
         "that delivery is calculated from district and total order weight when relevant.\n\n"
         f"PRODUCT FACTS:\n{json.dumps(context, ensure_ascii=False)}\n\n"
+        f"{catalogue_block}"
         f"CUSTOMER QUESTION:\n{question}"
     )
 
 
-def generate_openai_compatible_answer(prompt, provider, settings, max_tokens=350):
+def generate_openai_compatible_answer(prompt, provider, settings, max_tokens=1200):
     base_url = settings.get("AI_API_BASE_URL") or OPENAI_COMPATIBLE_BASE_URLS.get(
         provider,
     )
@@ -109,30 +167,65 @@ def generate_gemini_answer(prompt, settings):
     return interaction.output_text.strip()
 
 
-def generate_product_answer(question, product, language="en"):
+def generate_product_answer(question, product, language="en", other_products=None):
     """Return an optional AI answer; failures safely fall back to deterministic chat."""
-    settings = current_app.config
-    provider = settings.get("AI_PROVIDER", "none")
+    return request_ai_text(
+        product_prompt(question, product, language, other_products),
+    )
 
-    if provider == "none" or not settings.get("AI_API_KEY") or not settings.get("AI_MODEL"):
+
+def catalogue_prompt(question, products, language="en", store_policies=""):
+    catalogue = [catalogue_entry(product) for product in products]
+    # The seller's own policy text. Without it the model has nothing to answer
+    # "do you accept cash on delivery" from, and inventing a returns policy on
+    # a shop's behalf is worse than admitting it is not written down.
+    policy_block = (
+        "STORE POLICIES, in the seller's own words. Answer questions about "
+        "returns, refunds, exchanges, payment, cash on delivery and opening "
+        "hours only from this text. If it does not cover what was asked, say "
+        f"the seller has not stated it:\n{store_policies.strip()}\n\n"
+        if str(store_policies or "").strip()
+        else ""
+    )
+    return (
+        "You are Vendly's friendly order-taking assistant for a small Sri "
+        f"Lankan online business. {language_instruction(language)} "
+        "Use no more than three short sentences.\n"
+        f"Answer using only the {'CATALOGUE and STORE POLICIES' if policy_block else 'CATALOGUE'} "
+        "below. The catalogue is the seller's complete list of available "
+        "products. Never mention a product that is not in it, and never invent "
+        "a price, a warranty, a feature or a shop policy.\n"
+        "Name the specific products that answer the question, with their "
+        "prices. Compare using priceLkr, but always write prices back to the "
+        "customer exactly as they appear in priceText, never as a bare "
+        "decimal. For a cheapest, dearest or budget question, name the ones "
+        "that actually match.\n"
+        "End every reply with exactly one status marker on the same line, and "
+        f"nothing after it. Use {ANSWERED_MARKER} when the catalogue answered "
+        f"the question, or {MISSING_FACT_MARKER} when nothing in it matches. "
+        "Choose one; never both and never neither.\n\n"
+        f"CATALOGUE:\n{json.dumps(catalogue, ensure_ascii=False)}\n\n"
+        f"{policy_block}"
+        f"CUSTOMER QUESTION:\n{question}"
+    )
+
+
+def generate_catalogue_answer(question, products, language="en", store_policies=""):
+    """Answer a question that spans the catalogue, or asks how the shop works.
+
+    "What is your cheapest earbud", "anything under 3000", "do you accept cash
+    on delivery" and "can I return it" name no single product, so the
+    single-product path used to fall through to a generic prompt.
+    """
+    if not products and not str(store_policies or "").strip():
         return None
 
-    prompt = product_prompt(question, product, language)
-
-    try:
-        if provider == "gemini":
-            return generate_gemini_answer(prompt, settings)
-        if provider in {"groq", "cerebras", "openai-compatible"}:
-            return generate_openai_compatible_answer(prompt, provider, settings)
-    except Exception:  # External SDKs use provider-specific exception classes.
-        current_app.logger.exception("The configured AI provider request failed.")
-        return None
-
-    current_app.logger.warning("Unsupported AI_PROVIDER value: %s", provider)
-    return None
+    return request_ai_text(
+        catalogue_prompt(question, products, language, store_policies),
+    )
 
 
-def request_ai_text(prompt, max_tokens=350):
+def request_ai_text(prompt, max_tokens=1200):
     """Send one prompt to the configured provider, or None when unavailable."""
     settings = current_app.config
     provider = settings.get("AI_PROVIDER", "none")
@@ -150,6 +243,40 @@ def request_ai_text(prompt, max_tokens=350):
                 settings,
                 max_tokens=max_tokens,
             )
+    except httpx.HTTPStatusError as error:
+        # 429 is a quota or rate limit. It clears on its own, so it must not be
+        # reported as a broken configuration - that sends someone editing a
+        # model name that was never wrong.
+        if error.response.status_code == 429:
+            current_app.logger.warning(
+                "AI RATE LIMITED - provider %r throttled model %r. This reply "
+                "fell back to English; it should recover without any change. "
+                "Details: %s",
+                provider,
+                settings.get("AI_MODEL"),
+                error.response.text[:200],
+            )
+            return None
+
+        # Any other 4xx is a configuration fault, not a blip: a wrong model
+        # name, a revoked key or an unavailable model. It never recovers on its
+        # own, and until it is fixed every reply silently drops back to
+        # English. It is logged as one actionable line rather than a stack
+        # trace so it is not lost among transient failures.
+        if 400 <= error.response.status_code < 500:
+            current_app.logger.error(
+                "AI DISABLED - provider %r rejected model %r with HTTP %s: %s. "
+                "The chatbot is falling back to English deterministic replies "
+                "until AI_MODEL or AI_API_KEY is corrected.",
+                provider,
+                settings.get("AI_MODEL"),
+                error.response.status_code,
+                error.response.text[:200],
+            )
+            return None
+
+        current_app.logger.exception("The configured AI provider request failed.")
+        return None
     except Exception:  # External SDKs use provider-specific exception classes.
         current_app.logger.exception("The configured AI provider request failed.")
         return None
@@ -178,13 +305,13 @@ def detect_chat_language(message):
         "carries no language signal, so answer en for it.\n\n"
         f"CUSTOMER MESSAGE:\n{message}"
     )
-    answer = request_ai_text(prompt, max_tokens=8)
+    answer = request_ai_text(prompt, max_tokens=600)
 
     if not answer:
         return None
 
-    code = re.sub(r"[^a-z]", "", str(answer).casefold())[:2]
-    return code if code in CHAT_LANGUAGES else None
+    codes = re.findall(r"(en|si|ta)", str(answer).casefold())
+    return codes[-1] if codes else None
 
 
 # ponytail: plain dict, cleared wholesale when it grows. The chat prompts repeat
@@ -215,16 +342,20 @@ def translate_chat_message(text, language):
         f"Translate the shop assistant message below into "
         f"{LANGUAGE_NAMES[language]}. Return only the translation, with no "
         "explanation, no quotes around the whole reply and no English version.\n"
-        "Keep these unchanged, exactly as written: numbers, prices, currency "
-        "codes such as LKR, weights, order numbers, waybill numbers, product "
-        "names, courier names, district names and email addresses.\n"
+        "Leave every proper noun in Latin script exactly as written: product "
+        "names, brand names, courier names, district and city names, order "
+        "numbers, waybill numbers and email addresses. Do NOT transliterate "
+        "them into another script and do NOT translate their meaning. A "
+        "transliterated district name stops matching the delivery price list.\n"
+        "Leave all numbers, prices, currency codes such as LKR, weights and "
+        "units exactly as written.\n"
         "Any word or phrase inside single quotes is a command the customer must "
         "type back to the system. Keep those in English inside their quotes, and "
         "translate only the words around them.\n"
         "Keep the tone of a polite Sri Lankan shop assistant.\n\n"
         f"MESSAGE:\n{clean_text}"
     )
-    translation = request_ai_text(prompt, max_tokens=600)
+    translation = request_ai_text(prompt, max_tokens=1500)
 
     if not translation:
         # A provider failure must never blank the reply. English is degraded,
@@ -247,6 +378,7 @@ STOREFRONT_INTENTS = {
     "similar_products",
     "reviews",
     "delivery_quote",
+    "policy_question",
     "start_order",
     "finished_selecting",
     "confirm_order",
@@ -290,7 +422,10 @@ def generate_storefront_intent(message, product_names, category_names, state):
         "customer wants to see what is available, show_category for one named "
         "category, similar_products when they want alternatives to something, "
         "reviews for ratings or customer feedback, delivery_quote for delivery "
-        "or courier cost, start_order when they want to buy, finished_selecting "
+        "or courier cost, policy_question for how the shop operates rather than "
+        "what it sells - returns, refunds, exchanges, warranty claims, cash on "
+        "delivery, payment methods, opening hours and contact - start_order "
+        "when they want to buy, finished_selecting "
         "when they say they have added everything they want, confirm_order to "
         "submit a summarised order, change_order to correct details, "
         "order_status for an existing order's progress, new_order to start a "
@@ -307,7 +442,7 @@ def generate_storefront_intent(message, product_names, category_names, state):
         '"categoryQuery":"","district":"","language":"si"}\n\n'
         f"CUSTOMER MESSAGE:\n{message}"
     )
-    result = parse_json_object(request_ai_text(prompt, max_tokens=200))
+    result = parse_json_object(request_ai_text(prompt, max_tokens=1200))
 
     if not result or result.get("intent") not in STOREFRONT_INTENTS:
         return None
@@ -353,19 +488,7 @@ def generate_product_description(product_details):
         f"PRODUCT FACTS:\n{json.dumps(facts, ensure_ascii=False)}"
     )
 
-    if provider == "none" or not settings.get("AI_API_KEY") or not settings.get("AI_MODEL"):
-        return None
-
-    try:
-        if provider == "gemini":
-            return generate_gemini_answer(prompt, settings)
-        if provider in {"groq", "cerebras", "openai-compatible"}:
-            return generate_openai_compatible_answer(prompt, provider, settings)
-    except Exception:
-        current_app.logger.exception("Product description generation failed.")
-        return None
-
-    return None
+    return request_ai_text(prompt)
 
 
 BUSINESS_ASSISTANT_INTENTS = {
@@ -476,18 +599,7 @@ def generate_business_assistant_intent(message):
         f"SELLER MESSAGE:\n{message}"
     )
 
-    try:
-        if provider == "gemini":
-            answer = generate_gemini_answer(prompt, settings)
-        elif provider in {"groq", "cerebras", "openai-compatible"}:
-            answer = generate_openai_compatible_answer(prompt, provider, settings)
-        else:
-            return None
-    except Exception:
-        current_app.logger.exception("Business assistant intent classification failed.")
-        return None
-
-    result = parse_json_object(answer)
+    result = parse_json_object(request_ai_text(prompt))
     if not result or result.get("intent") not in BUSINESS_ASSISTANT_INTENTS:
         return None
 
