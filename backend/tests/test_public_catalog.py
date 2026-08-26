@@ -393,3 +393,69 @@ def test_public_variant_exposes_price_and_weight():
 
     assert variant["sellingPriceMinor"] == 320000
     assert variant["weightGrams"] == 400
+
+
+def variant_product():
+    return {
+        "id": "shoe",
+        "name": "Runner",
+        "variants": [
+            {"id": "v-s", "size": "S", "availableStock": 4},
+            {"id": "v-xl", "size": "XL", "availableStock": 2},
+        ],
+    }
+
+
+def test_a_single_variant_product_needs_no_size_question():
+    from app.services.public_chat_service import choose_variant
+
+    product = {"variants": [{"id": "only", "size": ""}]}
+
+    assert choose_variant(product, "")["id"] == "only"
+
+
+def test_a_named_size_selects_its_variant():
+    from app.services.public_chat_service import choose_variant
+
+    assert choose_variant(variant_product(), "XL")["id"] == "v-xl"
+    assert choose_variant(variant_product(), "xl")["id"] == "v-xl"
+
+
+def test_an_unstated_size_stays_ambiguous_so_the_bot_asks():
+    from app.services.public_chat_service import choose_variant
+
+    # Guessing a size would put the wrong item in a real order.
+    assert choose_variant(variant_product(), "") is None
+    assert choose_variant(variant_product(), "XXL") is None
+
+
+def test_adding_to_the_cart_merges_and_respects_stock():
+    from app.services.public_chat_service import add_variant_to_cart
+
+    cart, quantity = add_variant_to_cart([], "v-s", 2, 4)
+    assert cart == [{"variantId": "v-s", "quantity": 2}]
+    assert quantity == 2
+
+    # Asking again adds to the existing line rather than duplicating it.
+    cart, quantity = add_variant_to_cart(cart, "v-s", 1, 4)
+    assert cart == [{"variantId": "v-s", "quantity": 3}]
+    assert quantity == 3
+
+
+def test_the_cart_line_is_capped_at_available_stock():
+    from app.services.public_chat_service import add_variant_to_cart
+
+    # "give me 10" when 2 are left must not build an unfulfillable draft.
+    cart, quantity = add_variant_to_cart([], "v-xl", 10, 2)
+
+    assert quantity == 2
+    assert cart == [{"variantId": "v-xl", "quantity": 2}]
+
+
+def test_adding_never_mutates_the_caller_s_cart():
+    from app.services.public_chat_service import add_variant_to_cart
+
+    original = [{"variantId": "v-s", "quantity": 1}]
+    add_variant_to_cart(original, "v-s", 5, 9)
+
+    assert original == [{"variantId": "v-s", "quantity": 1}]

@@ -586,6 +586,38 @@ function StorefrontPage({ linkType }) {
       if (response.order) {
         setConfirmedOrder(response.order);
         setCart([]);
+      } else if (response.cartSummary) {
+        // The chat can add items itself now ("mata GM2 pro dekak ona"), so the
+        // server's cart wins. Without this the added line stays invisible and
+        // the next message uploads the stale local cart over the top of it.
+        setCart((current) =>
+          response.cartSummary.map((line) => {
+            const existing = current.find(
+              (item) => item.variantId === line.variantId,
+            );
+            // A line the chat added has no local entry, so its stock ceiling
+            // comes from the catalogue. Falling back to the ordered quantity
+            // would freeze the "+" button on that row.
+            const catalogueVariant = products
+              .flatMap((product) => product.variants || [])
+              .find((variant) => variant.id === line.variantId);
+
+            return {
+              ...existing,
+              variantId: line.variantId,
+              productName: line.productName,
+              size: line.size,
+              sku: line.sku,
+              imageUrl: line.imageUrl || existing?.imageUrl || "",
+              sellingPriceMinor: line.unitPriceMinor,
+              availableStock:
+                catalogueVariant?.availableStock ??
+                existing?.availableStock ??
+                line.quantity,
+              quantity: line.quantity,
+            };
+          }),
+        );
       }
 
       setSession((current) => ({

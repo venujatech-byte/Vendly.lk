@@ -371,6 +371,51 @@ def storefront_intent(message, products, state):
     return result or {}
 
 
+def choose_variant(product, size_query):
+    """Pick the variant the customer meant, or None when it is ambiguous."""
+    variants = product.get("variants", [])
+
+    if not variants:
+        return None
+
+    if len(variants) == 1:
+        return variants[0]
+
+    wanted = normalized_phrase(size_query)
+
+    if not wanted:
+        return None
+
+    for variant in variants:
+        if normalized_phrase(variant.get("size", "")) == wanted:
+            return variant
+
+    return None
+
+
+def add_variant_to_cart(cart, variant_id, quantity, available_stock):
+    """Merge a line into the chat cart, capped at what the seller actually has.
+
+    Returns the new cart and the quantity the line ended up at, which may be
+    lower than asked. Stock is checked again inside the order transaction; this
+    only stops the customer building a draft that cannot be fulfilled.
+    """
+    updated = [dict(line) for line in cart]
+    existing = next(
+        (line for line in updated if line["variantId"] == variant_id),
+        None,
+    )
+    requested = (existing["quantity"] if existing else 0) + max(1, quantity)
+    capped = max(1, min(requested, available_stock or requested, 99))
+
+    if existing:
+        existing["quantity"] = capped
+    else:
+        updated.append({"variantId": variant_id, "quantity": capped})
+
+    return updated, capped
+
+
 def find_matching_products(message, products):
     """Every catalogue item that matches the customer's wording equally well.
 
@@ -1591,10 +1636,57 @@ def answer_public_message(database, session_id, provided_token, payload):
     selected_product = explicitly_selected_product or remembered_product
 
     if wants_to_order:
+        # A customer who says "mata GM2 pro dekak ona" has already chosen. Being
+        # told to click Add is a dead end for anyone typing Sinhala or speaking,
+        # which is exactly who needs to order without calling the seller.
+        if selected_product:
+            variant = choose_variant(selected_product, ai_intent.get("sizeQuery", ""))
+            available_sizes = [
+                option.get("size")
+                for option in selected_product.get("variants", [])
+                if option.get("size")
+            ]
+
+            if not variant and available_sizes:
+                return respond(
+                    f"Which size of {selected_product['name']} would you like? "
+                    f"Available: {', '.join(available_sizes)}.",
+                    "show-product",
+                    next_state="browsing",
+                    product=selected_product,
+                    selected_product_id=selected_product["id"],
+                )
+
+            if variant:
+                asked_quantity = ai_intent.get("quantity") or 1
+                cart, line_quantity = add_variant_to_cart(
+                    cart,
+                    variant["id"],
+                    asked_quantity,
+                    variant.get("availableStock", 0),
+                )
+                cart_summary = summarize_chat_cart(cart, products)
+                size_text = f" (size {variant['size']})" if variant.get("size") else ""
+                capped_text = (
+                    f" Only {line_quantity} left in stock, so that is what I "
+                    "have put in your order."
+                    if line_quantity < asked_quantity
+                    else ""
+                )
+                return respond(
+                    f"Added {line_quantity} x {selected_product['name']}"
+                    f"{size_text} to your order.{capped_text} Would you like "
+                    "anything else, or shall we take your delivery details?",
+                    "start-order",
+                    next_state="browsing",
+                    product=selected_product,
+                    selected_product_id=selected_product["id"],
+                )
+
         if not cart_summary:
             response_message = (
-                "First select the product and size, then use Add to order. "
-                "Your selected items will appear in the Live Order Draft on the right."
+                "Which product would you like to order? Tell me the name and "
+                "how many, or choose one below and use Add to order."
             )
             return respond(
                 response_message,

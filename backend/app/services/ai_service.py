@@ -431,15 +431,20 @@ def generate_storefront_intent(message, product_names, category_names, state):
         "order_status for an existing order's progress, new_order to start a "
         "fresh order after one was placed, greeting for a bare greeting, and "
         "unknown when nothing fits.\n"
-        "Copy productQuery, categoryQuery and district verbatim from the "
-        "customer's own words when they name one, otherwise leave them empty. "
-        "Never invent a product, category or district that is not named in the "
-        "message.\n"
+        "Copy productQuery, categoryQuery, sizeQuery and district verbatim from "
+        "the customer's own words when they name one, otherwise leave them "
+        "empty. Never invent a product, category, size or district that is not "
+        "named in the message.\n"
+        "Set quantity to how many units the customer asked for, as a whole "
+        "number. Sinhala and Tamil attach the count to the noun - 'dekak' and "
+        "'2ak' are 2, 'thunak' is 3, 'ekak' is 1. Use 0 when no quantity is "
+        "stated; never guess one.\n"
         f"CONVERSATION STATE: {state}\n"
         f"PRODUCTS IN THIS STORE: {json.dumps(product_names, ensure_ascii=False)}\n"
         f"CATEGORIES: {json.dumps(category_names, ensure_ascii=False)}\n"
-        'Example shape: {"intent":"product_question","productQuery":"black bag",'
-        '"categoryQuery":"","district":"","language":"si"}\n\n'
+        'Example shape: {"intent":"start_order","productQuery":"black bag",'
+        '"categoryQuery":"","sizeQuery":"XL","quantity":2,"district":"",'
+        '"language":"si"}\n\n'
         f"CUSTOMER MESSAGE:\n{message}"
     )
     result = parse_json_object(request_ai_text(prompt, max_tokens=1200))
@@ -449,10 +454,18 @@ def generate_storefront_intent(message, product_names, category_names, state):
 
     language = result.get("language")
 
+    try:
+        quantity = int(result.get("quantity") or 0)
+    except (TypeError, ValueError):
+        quantity = 0
+
     return {
         "intent": result["intent"],
         "productQuery": str(result.get("productQuery") or "").strip(),
         "categoryQuery": str(result.get("categoryQuery") or "").strip(),
+        "sizeQuery": str(result.get("sizeQuery") or "").strip(),
+        # Clamped here so a hallucinated 9999 cannot reach the cart.
+        "quantity": max(0, min(quantity, 99)),
         "district": str(result.get("district") or "").strip(),
         "language": language if language in CHAT_LANGUAGES else None,
     }
