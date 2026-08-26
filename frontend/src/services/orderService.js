@@ -34,6 +34,8 @@ export function mapOrderForTable(order) {
       ?? "",
     email: order.customerSnapshot?.email ?? "",
     courier: order.courierSnapshot?.name ?? "Not assigned",
+    // Keep the courier's short code available for compact order-table views.
+    courierCode: order.courierSnapshot?.code ?? "",
     status: displayStatus(order.fulfilmentStatus),
     fulfilmentStatus: order.fulfilmentStatus,
     paymentMethod: order.paymentMethod ?? "cod",
