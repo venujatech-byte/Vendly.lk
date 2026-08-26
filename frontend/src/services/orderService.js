@@ -84,6 +84,8 @@ export function mapOrderForTable(order) {
       unitPrice: formatCurrency(item.unitPriceMinor),
       price: formatCurrency(item.lineTotalMinor),
       imageUrl: item.mediaUrl ?? item.imageUrl ?? "",
+      warrantyPeriodMonths: item.warrantyPeriodMonths ?? item.warrantyMonths ?? 0,
+      warrantyExpiresAt: item.warrantyExpiresAt ?? null,
     })),
   };
 }

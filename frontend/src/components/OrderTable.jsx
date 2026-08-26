@@ -42,6 +42,12 @@ function readableStatus(status) {
     .join(" ");
 }
 
+function hasActiveWarranty(order) {
+  return (order.items ?? []).some(
+    (item) => item.warrantyExpiresAt && new Date(item.warrantyExpiresAt) >= new Date(),
+  );
+}
+
 function OrderTable({
   orders = [],
   onStatusChange,
@@ -350,11 +356,11 @@ function OrderTable({
                           icon: <CircleAlert size={16} aria-hidden="true" />,
                           onClick: () => reportOrderCourierIssue(order),
                         },
-                        {
+                        ...(hasActiveWarranty(order) ? [{
                           label: "Warranty claim",
                           icon: <ShieldCheck size={16} aria-hidden="true" />,
                           onClick: () => onWarrantyClaim?.(order),
-                        },
+                        }] : []),
                         {
                           label: order.fraudReport ? "Fraud already reported" : "Report fake order",
                           icon: <Flag size={16} aria-hidden="true" />,

@@ -1,4 +1,5 @@
 from collections import defaultdict
+from datetime import datetime, timezone
 
 from firebase_admin import firestore
 from google.cloud import firestore as google_firestore
@@ -8,6 +9,7 @@ from app.core.serialization import serialize_snapshot
 from app.services.numbers import money_to_minor_units, non_negative_integer
 from app.services.product_service import stock_status
 from app.services.text import optional_text, required_text
+from app.services.warranty import warranty_is_active, warranty_snapshot
 
 
 def _validate_items(raw_items):
@@ -107,6 +109,7 @@ def create_shop_sale(database, business_id, uid, payload):
         sale_number = f"POS-{sequence:06d}"
         timestamp = firestore.SERVER_TIMESTAMP
         sale_items = []
+        warranty_started_at = datetime.now(timezone.utc)
         subtotal_minor = 0
         quantity_by_product = defaultdict(int)
 
@@ -132,7 +135,7 @@ def create_shop_sale(database, business_id, uid, payload):
                 "unitCostMinor": variant.get("costPriceMinor", 0),
                 "lineTotalMinor": line_total_minor,
                 "mediaUrl": image_url,
-                "warrantyMonths": product.get("warrantyMonths", 0),
+                **warranty_snapshot(product, warranty_started_at),
             })
             subtotal_minor += line_total_minor
             quantity_by_product[variant["productId"]] += quantity
@@ -306,6 +309,8 @@ def create_warranty_claim(database, business_id, uid, payload):
     item = source_items[item_index]
     if claim_quantity > item.get("quantity", 0):
         raise ApiError("validation_error", "Claim quantity cannot exceed the purchased quantity.", 422)
+    if not warranty_is_active(item):
+        raise ApiError("warranty_expired", "This item's warranty has expired or was not included with the sale.", 422)
 
     # Store the exact financial impact with the claim so it remains auditable
     # even if a seller edits the product price later.

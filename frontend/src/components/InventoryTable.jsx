@@ -114,6 +114,15 @@ function SizeStockDetails({ product, onViewReviews, onAdjustStock, onEditProduct
             ))}
           </div>
         </section>
+
+        <section>
+          <h4>Warranty</h4>
+          <p>
+            {product.warrantyPeriodMonths
+              ? `${product.warrantyPeriodMonths} month${product.warrantyPeriodMonths === 1 ? "" : "s"} warranty for future sales.`
+              : "No warranty is currently offered."}
+          </p>
+        </section>
       </div>
 
       {/* Size-level SKU, barcode, stock, and status rows. */}
@@ -163,6 +172,10 @@ function SimpleProductDetails({ product, onViewReviews, onAdjustStock, onEditPro
         <div>
           <span>Weight</span>
           <strong>{product.weightKg.toFixed(2)} kg</strong>
+        </div>
+        <div>
+          <span>Warranty</span>
+          <strong>{product.warrantyPeriodMonths ? `${product.warrantyPeriodMonths} month${product.warrantyPeriodMonths === 1 ? "" : "s"}` : "No warranty"}</strong>
         </div>
       </section>
 

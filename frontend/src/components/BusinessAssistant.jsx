@@ -267,6 +267,11 @@ function BusinessAssistant({ isOpen, onToggle, onClose }) {
   }
 
   function startVoiceInput() {
+    // Stop the current TTS reply before opening the microphone. This prevents
+    // the assistant from transcribing its own voice and keeps voice controls
+    // predictable for both the composer mic and floating-button long press.
+    window.speechSynthesis?.cancel();
+
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
@@ -319,6 +324,7 @@ function BusinessAssistant({ isOpen, onToggle, onClose }) {
   }
 
   function stopVoiceInput() {
+    window.speechSynthesis?.cancel();
     voiceStopRequestedRef.current = true;
     recognitionRef.current?.stop();
     setIsListening(false);
@@ -331,6 +337,7 @@ function BusinessAssistant({ isOpen, onToggle, onClose }) {
     window.clearTimeout(voiceHoldTimerRef.current);
     voiceHoldTimerRef.current = window.setTimeout(() => {
       skipNextAssistantClickRef.current = true;
+      window.speechSynthesis?.cancel();
       setIsHoldingVoiceButton(true);
       startVoiceInput();
     }, 280);

@@ -615,6 +615,10 @@ function StorefrontPage({ linkType }) {
   }
 
   function startVoiceInput() {
+    // Do not let the assistant's spoken reply feed back into the microphone.
+    // This stops only the current utterance; spoken replies remain enabled.
+    window.speechSynthesis?.cancel();
+
     const SpeechRecognition =
       window.SpeechRecognition || window.webkitSpeechRecognition;
 
@@ -661,6 +665,7 @@ function StorefrontPage({ linkType }) {
   }
 
   function stopVoiceInput() {
+    window.speechSynthesis?.cancel();
     recognitionRef.current?.stop();
     setIsListening(false);
   }

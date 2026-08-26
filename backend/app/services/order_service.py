@@ -23,6 +23,7 @@ from app.services.chat_event_service import send_order_status_chat_message
 from app.services.numbers import money_to_minor_units, non_negative_integer
 from app.services.product_service import stock_status
 from app.services.text import optional_text, required_text
+from app.services.warranty import warranty_snapshot
 
 
 LOGGER = logging.getLogger(__name__)
@@ -412,6 +413,7 @@ def create_order(database, business_id, uid, payload):
             f"{courier_data.get('waybillPrefix', 'VWB')}-{waybill_sequence:08d}"
         )
         items = []
+        warranty_started_at = datetime.now(timezone.utc)
         subtotal_minor = 0
         total_weight_grams = 0
         quantities_by_product = defaultdict(int)
@@ -439,6 +441,8 @@ def create_order(database, business_id, uid, payload):
                     "unitWeightGrams": variant.get("weightGrams", 0),
                     "lineTotalMinor": line_total_minor,
                     "mediaUrl": media[0].get("url", "") if media else "",
+                    # These terms are frozen at the time of sale.
+                    **warranty_snapshot(product, warranty_started_at),
                 },
             )
             subtotal_minor += line_total_minor

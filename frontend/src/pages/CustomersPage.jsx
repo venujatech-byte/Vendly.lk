@@ -58,6 +58,7 @@ function CustomersPage() {
   const [chatSummary, setChatSummary] = useState({ count: 0, unread: 0 });
   const [activeCustomerTab, setActiveCustomerTab] = useState("all");
   const [customerSegment, setCustomerSegment] = useState("all");
+  const [reviewStatusFilter, setReviewStatusFilter] = useState("all");
   const [expandedCustomerId, setExpandedCustomerId] = useState(null);
   const [areMobileFiltersOpen, setAreMobileFiltersOpen] = useState(false);
   const [fraudFilters, setFraudFilters] = useState({ search: "", risk: "all", reason: "all", score: "all" });
@@ -135,6 +136,12 @@ function CustomersPage() {
   });
 
   const reviewRows = reviews;
+  const visibleReviewRows = reviewRows.filter((review) => {
+    if (reviewStatusFilter === "all") return true;
+
+    const status = String(review.status || "pending").toLowerCase();
+    return status === reviewStatusFilter;
+  });
 
   const fraudRows = fraudCustomers.filter((customer) => {
     const address = customer.defaultAddress || customer.address || {};
@@ -469,17 +476,25 @@ function CustomersPage() {
           <section className="customers-summary customers-review-summary" aria-label="Review summary">
             <div className="stats-grid">
               {[
-                { label: "Total Reviews", value: reviewRows.length, icon: MessageSquare, tone: "blue" },
-                { label: "Approved", value: reviewRows.filter((review) => review.status === "approved").length, icon: CheckCircle2, tone: "green" },
-                { label: "Pending", value: reviewRows.filter((review) => !review.status || review.status === "pending").length, icon: Clock3, tone: "orange" },
-                { label: "Rejected", value: reviewRows.filter((review) => review.status === "rejected").length, icon: XCircle, tone: "red" },
+                { id: "all", label: "Total Reviews", value: reviewRows.length, icon: MessageSquare, tone: "blue" },
+                { id: "approved", label: "Approved", value: reviewRows.filter((review) => String(review.status).toLowerCase() === "approved").length, icon: CheckCircle2, tone: "green" },
+                { id: "pending", label: "Pending", value: reviewRows.filter((review) => String(review.status || "pending").toLowerCase() === "pending").length, icon: Clock3, tone: "orange" },
+                { id: "rejected", label: "Rejected", value: reviewRows.filter((review) => String(review.status).toLowerCase() === "rejected").length, icon: XCircle, tone: "red" },
               ].map((stat) => (
-                <StatCard key={stat.label} label={stat.label} value={String(stat.value)} icon={stat.icon} tone={stat.tone} />
+                <StatCard
+                  key={stat.id}
+                  label={stat.label}
+                  value={String(stat.value)}
+                  icon={stat.icon}
+                  tone={stat.tone}
+                  onClick={() => setReviewStatusFilter(stat.id)}
+                  isActive={reviewStatusFilter === stat.id}
+                />
               ))}
             </div>
           </section>
           <ReviewsTable
-            reviews={reviewRows}
+            reviews={visibleReviewRows}
             isLoading={isLoading}
             onModerate={handleModerateReview}
           />

@@ -15,11 +15,19 @@ export default function WarrantyClaimModal({ source, businessId, onClose, onCrea
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    setItemIndex("0"); setClaimQuantity(1); setClaimType("supplier-warranty");
+    const firstActiveItem = source?.items?.findIndex(
+      (item) => item.warrantyExpiresAt && new Date(item.warrantyExpiresAt) >= new Date(),
+    );
+    setItemIndex(String(firstActiveItem >= 0 ? firstActiveItem : 0)); setClaimQuantity(1); setClaimType("supplier-warranty");
     setRepairCost(""); setReason(""); setDetails(""); setError("");
   }, [source]);
 
   if (!source) return null;
+  // Keep the original index because the backend uses it to find the exact
+  // line item in the saved order. Expired/no-warranty items are not claimable.
+  const claimableItems = (source.items ?? [])
+    .map((item, index) => ({ item, index }))
+    .filter(({ item }) => item.warrantyExpiresAt && new Date(item.warrantyExpiresAt) >= new Date());
   const selectedItem = source.items?.[Number(itemIndex)] ?? source.items?.[0];
   const maximumQuantity = selectedItem?.quantity ?? 1;
 
@@ -46,9 +54,10 @@ export default function WarrantyClaimModal({ source, businessId, onClose, onCrea
   return <div className="shop-modal-backdrop"><form className="warranty-modal" onSubmit={submit}>
     <header><div><h2>New warranty claim</h2><p>Record the affected item and how your shop will handle it.</p></div><button type="button" onClick={onClose}><X size={20}/></button></header>
     <label>Original sale<input value={source.orderNumber || source.saleNumber} disabled /></label>
+    {!claimableItems.length && <p className="shop-modal__error">No item in this sale has an active warranty.</p>}
     <label>Item
-      <select value={itemIndex} onChange={(event) => { setItemIndex(event.target.value); setClaimQuantity(1); }}>
-        {source.items.map((item, index) => <option key={`${item.variantId}-${index}`} value={index}>{item.name}{item.size ? ` · ${item.size}` : ""} · {item.quantity} purchased</option>)}
+      <select value={itemIndex} disabled={!claimableItems.length} onChange={(event) => { setItemIndex(event.target.value); setClaimQuantity(1); }}>
+        {claimableItems.map(({ item, index }) => <option key={`${item.variantId}-${index}`} value={index}>{item.name}{item.size ? ` · ${item.size}` : ""} · {item.quantity} purchased</option>)}
       </select>
     </label>
     <label>Quantity to claim<input type="number" min="1" max={maximumQuantity} value={claimQuantity} onChange={(event) => setClaimQuantity(Math.min(maximumQuantity, Math.max(1, Number(event.target.value) || 1)))} /></label>
@@ -62,6 +71,6 @@ export default function WarrantyClaimModal({ source, businessId, onClose, onCrea
     <label>Reason<input value={reason} onChange={(event) => setReason(event.target.value)} required placeholder="Example: Product stopped working" /></label>
     <label>Details<textarea value={details} onChange={(event) => setDetails(event.target.value)} placeholder="Condition, receipt information and action requested..." /></label>
     {error && <p className="shop-modal__error">{error}</p>}
-    <footer><button type="button" onClick={onClose}>Cancel</button><button className="primary" disabled={saving}>{saving ? "Saving..." : "Create claim"}</button></footer>
+    <footer><button type="button" onClick={onClose}>Cancel</button><button className="primary" disabled={saving || !claimableItems.length}>{saving ? "Saving..." : "Create claim"}</button></footer>
   </form></div>;
 }
