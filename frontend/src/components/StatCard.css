@@ -178,3 +178,24 @@ html[data-theme="dark"] .stat-card2--red .stat-card2__icon {
   transition: transform 500ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 }
+
+.stat-card--interactive {
+  width: 100%;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.stat-card--interactive:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--color-accent) 35%, transparent);
+  outline-offset: 3px;
+  border-radius: 10px;
+}
+
+.stat-card--active::before {
+  border-color: var(--color-accent);
+  box-shadow: 0 8px 22px rgba(22, 124, 240, 0.14);
+}

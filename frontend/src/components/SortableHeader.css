@@ -1,0 +1,30 @@
+.sortable-header {
+  display: inline-flex;
+  align-items: center;
+  justify-content: inherit;
+  gap: 5px;
+  width: 100%;
+  min-height: 28px;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+  font-weight: inherit;
+  text-align: inherit;
+  cursor: pointer;
+}
+
+.sortable-header:hover,
+.sortable-header--active {
+  color: var(--color-accent);
+}
+
+.sortable-header svg {
+  flex: 0 0 auto;
+  stroke-width: 2.25;
+}
+
+.orders-table__actions-heading .sortable-header {
+  justify-content: flex-end;
+}

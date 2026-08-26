@@ -1,0 +1,355 @@
+.settings-modal {
+  display: grid;
+  grid-template-columns: 230px minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
+  color: var(--color-text);
+}
+
+.settings-modal__navigation {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 18px 14px;
+  border-right: 1px solid var(--color-border);
+  background: var(--color-surface-soft);
+}
+
+.settings-modal__navigation button {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  min-height: 42px;
+  padding: 0 13px;
+  border: 0;
+  border-radius: 9px;
+  color: var(--color-text-muted);
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 650;
+  text-align: left;
+}
+
+.settings-modal__navigation button:hover,
+.settings-modal__navigation button.is-active {
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 11%, transparent);
+}
+
+.settings-modal__content {
+  min-width: 0;
+  overflow-y: auto;
+  padding: 0 22px 28px;
+}
+
+.settings-modal__content-heading {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 18px 0 13px;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.settings-modal__content-heading span {
+  font-size: 18px;
+  font-weight: 750;
+}
+
+.settings-modal__stack {
+  display: grid;
+  gap: 16px;
+  padding-top: 18px;
+}
+
+.settings-modal__card,
+.settings-modal__current-plan,
+.settings-modal__checkout-summary {
+  border: 1px solid var(--color-border);
+  border-radius: 13px;
+  background: var(--color-surface);
+  box-shadow: 0 5px 18px rgba(4, 31, 59, 0.05);
+}
+
+.settings-modal__card {
+  padding: 18px;
+}
+
+.settings-modal__identity {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.settings-modal__avatar {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  flex: 0 0 auto;
+  border-radius: 14px;
+  color: white;
+  background: linear-gradient(145deg, #0879dd, #075091);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.settings-modal__identity div { flex: 1; min-width: 0; }
+.settings-modal__identity small,
+.settings-modal__identity p,
+.settings-modal__section-heading p,
+.settings-modal__plan p { color: var(--color-text-muted); }
+.settings-modal__identity h3,
+.settings-modal__identity p,
+.settings-modal__section-heading h3,
+.settings-modal__section-heading p,
+.settings-modal__plan h3,
+.settings-modal__plan p { margin: 0; }
+.settings-modal__identity h3 { margin: 2px 0; font-size: 17px; }
+.settings-modal__identity p { font-size: 12px; }
+
+.settings-modal__role,
+.settings-modal__plan-badge {
+  padding: 5px 9px;
+  border-radius: 999px;
+  color: #08744e;
+  background: #dcf8ed;
+  font-size: 10px;
+  font-weight: 750;
+  text-transform: capitalize;
+}
+
+.settings-modal__section-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+}
+
+.settings-modal__section-heading svg { color: var(--color-accent); }
+.settings-modal__section-heading h3 { font-size: 14px; }
+.settings-modal__section-heading p { margin-top: 3px; font-size: 11px; line-height: 1.5; }
+
+.settings-modal__outline-button,
+.settings-modal__preference > button {
+  min-height: 36px;
+  margin-top: 15px;
+  padding: 0 14px;
+  border: 1px solid var(--color-accent);
+  border-radius: 8px;
+  color: var(--color-accent);
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.settings-modal__details-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+.settings-modal__details-grid div { display: grid; gap: 4px; min-width: 0; }
+.settings-modal__details-grid span { color: var(--color-text-muted); font-size: 10px; }
+.settings-modal__details-grid strong { overflow: hidden; font-size: 12px; text-overflow: ellipsis; }
+
+.settings-modal__current-plan,
+.settings-modal__checkout-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 20px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--color-accent) 10%, var(--color-surface)), var(--color-surface));
+}
+.settings-modal__current-plan span,
+.settings-modal__checkout-summary span { color: var(--color-text-muted); font-size: 10px; text-transform: uppercase; letter-spacing: .06em; }
+.settings-modal__current-plan h3,
+.settings-modal__current-plan p { margin: 3px 0 0; }
+.settings-modal__current-plan h3 { font-size: 21px; }
+.settings-modal__current-plan p { color: var(--color-text-muted); font-size: 11px; }
+.settings-modal__current-plan > strong,
+.settings-modal__checkout-summary > strong { color: var(--color-accent); font-size: 19px; }
+.settings-modal__checkout-summary small { font-size: 10px; }
+
+.settings-modal__plans {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.settings-modal__plan {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 17px;
+  border: 1px solid var(--color-border);
+  border-radius: 13px;
+  background: var(--color-surface);
+}
+.settings-modal__plan--current { border-color: var(--color-accent); }
+.settings-modal__plan-badge { position: absolute; top: 12px; right: 12px; }
+.settings-modal__plan h3 { font-size: 14px; }
+.settings-modal__plan > strong { margin-top: 12px; color: var(--color-accent); font-size: 20px; }
+.settings-modal__plan > strong small { font-size: 10px; }
+.settings-modal__plan p { min-height: 47px; margin-top: 7px; font-size: 10px; line-height: 1.5; }
+.settings-modal__plan ul { display: grid; gap: 8px; margin: 15px 0; padding: 0; list-style: none; }
+.settings-modal__plan li { display: flex; align-items: center; gap: 6px; font-size: 10px; }
+.settings-modal__plan li svg { flex: 0 0 auto; color: #14a673; }
+.settings-modal__plan button,
+.settings-modal__billing-footer button {
+  min-height: 38px;
+  margin-top: auto;
+  border: 0;
+  border-radius: 8px;
+  color: white;
+  background: var(--color-accent);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 750;
+}
+.settings-modal__plan button:disabled,
+.settings-modal__billing-footer button:disabled { cursor: not-allowed; opacity: .48; }
+
+.settings-modal__billing { display: grid; gap: 16px; padding-top: 18px; }
+.settings-modal__payment-status {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  padding: 13px 15px;
+  border: 1px solid var(--color-border);
+  border-radius: 11px;
+  background: var(--color-surface);
+}
+.settings-modal__payment-status > div { display: grid; gap: 3px; min-width: 0; }
+.settings-modal__payment-status span { color: var(--color-text-muted); font-size: 9px; text-transform: uppercase; letter-spacing: .05em; }
+.settings-modal__payment-status strong { overflow: hidden; font-size: 11px; text-overflow: ellipsis; }
+.settings-modal__payment-status .settings-modal__payment-pill {
+  padding: 5px 9px;
+  border-radius: 999px;
+  color: #8a5300;
+  background: #fff3d9;
+  font-weight: 750;
+}
+.settings-modal__payment-status .settings-modal__payment-pill--paid { color: #08744e; background: #dcf8ed; }
+.settings-modal__payment-status .settings-modal__payment-pill--failed,
+.settings-modal__payment-status .settings-modal__payment-pill--cancelled,
+.settings-modal__payment-status .settings-modal__payment-pill--chargedback { color: #b42318; background: #fee9e7; }
+.settings-modal__billing-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
+.settings-modal__billing-grid label { display: grid; gap: 6px; color: var(--color-text); font-size: 10px; font-weight: 650; }
+.settings-modal__billing-grid input {
+  width: 100%;
+  min-height: 39px;
+  padding: 0 11px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  color: var(--color-text);
+  background: var(--color-control);
+  font: inherit;
+  font-size: 12px;
+}
+.settings-modal__billing-address { grid-column: 1 / -1; }
+.settings-modal__contact-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+.settings-modal__contact-grid label { display: grid; gap: 6px; }
+.settings-modal__contact-grid label > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-text);
+  font-size: 10px;
+  font-weight: 650;
+}
+.settings-modal__contact-grid label > span svg { color: var(--color-accent); }
+.settings-modal__contact-grid input {
+  width: 100%;
+  min-height: 39px;
+  padding: 0 11px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  color: var(--color-text);
+  background: var(--color-control);
+  font: inherit;
+  font-size: 12px;
+}
+.settings-modal__contact-grid input:disabled { cursor: not-allowed; opacity: .62; }
+.settings-modal__contact-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 14px;
+}
+.settings-modal__contact-footer small { color: var(--color-text-muted); font-size: 10px; }
+.settings-modal__contact-footer button {
+  min-height: 37px;
+  padding: 0 15px;
+  border: 0;
+  border-radius: 8px;
+  color: white;
+  background: var(--color-accent);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 750;
+}
+.settings-modal__contact-footer button:disabled { cursor: not-allowed; opacity: .5; }
+.settings-modal__notice,
+.settings-modal__error,
+.settings-modal__success { margin: 12px 0 0; padding: 11px 13px; border-radius: 9px; font-size: 11px; line-height: 1.5; }
+.settings-modal__notice { color: #8a5300; background: #fff3d9; }
+.settings-modal__error { color: #b42318; background: #fee9e7; }
+.settings-modal__success { color: #08744e; background: #dcf8ed; }
+.settings-modal__billing-footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.settings-modal__billing-footer > div { display: flex; align-items: center; gap: 7px; color: var(--color-text-muted); font-size: 10px; }
+.settings-modal__billing-footer svg { color: #14a673; }
+.settings-modal__billing-footer button { min-width: 220px; padding: 0 17px; }
+.settings-modal__empty { padding: 40px; color: var(--color-text-muted); text-align: center; }
+
+html[data-theme="dark"] .settings-modal__role,
+html[data-theme="dark"] .settings-modal__plan-badge { color: #73e5bd; background: rgba(20, 166, 115, .18); }
+html[data-theme="dark"] .settings-modal__notice { color: #ffd992; background: rgba(160, 97, 0, .22); }
+html[data-theme="dark"] .settings-modal__error { color: #ffaaa3; background: rgba(180, 35, 24, .2); }
+html[data-theme="dark"] .settings-modal__success { color: #73e5bd; background: rgba(20, 166, 115, .18); }
+html[data-theme="dark"] .settings-modal__payment-status .settings-modal__payment-pill { color: #ffd992; background: rgba(160, 97, 0, .22); }
+html[data-theme="dark"] .settings-modal__payment-status .settings-modal__payment-pill--paid { color: #73e5bd; background: rgba(20, 166, 115, .18); }
+html[data-theme="dark"] .settings-modal__payment-status .settings-modal__payment-pill--failed,
+html[data-theme="dark"] .settings-modal__payment-status .settings-modal__payment-pill--cancelled,
+html[data-theme="dark"] .settings-modal__payment-status .settings-modal__payment-pill--chargedback { color: #ffaaa3; background: rgba(180, 35, 24, .2); }
+
+@media (max-width: 760px) {
+  .settings-modal { grid-template-columns: 1fr; }
+  .settings-modal__navigation {
+    flex-direction: row;
+    padding: 9px 10px;
+    overflow-x: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .settings-modal__navigation button { width: auto; min-width: max-content; min-height: 36px; padding: 0 10px; }
+  .settings-modal__content { padding: 0 12px 20px; }
+  .settings-modal__content-heading { padding-top: 13px; }
+  .settings-modal__plans { grid-template-columns: 1fr; }
+  .settings-modal__plan p { min-height: 0; }
+  .settings-modal__billing-grid,
+  .settings-modal__contact-grid,
+  .settings-modal__details-grid { grid-template-columns: 1fr; }
+  .settings-modal__billing-address { grid-column: auto; }
+  .settings-modal__billing-footer { align-items: stretch; flex-direction: column; }
+  .settings-modal__billing-footer button { width: 100%; min-width: 0; }
+  .settings-modal__payment-status { grid-template-columns: 1fr auto; }
+  .settings-modal__payment-status > div:nth-child(2) { grid-column: 1 / -1; grid-row: 2; }
+  .settings-modal__identity { align-items: flex-start; }
+  .settings-modal__current-plan { align-items: flex-start; flex-direction: column; }
+  .settings-modal__contact-footer { align-items: stretch; flex-direction: column; }
+  .settings-modal__contact-footer button { width: 100%; }
+}

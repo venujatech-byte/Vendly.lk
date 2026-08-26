@@ -33,6 +33,26 @@ GET http://127.0.0.1:5000/api/v1/health
 Never put the service-account JSON contents in React, a `VITE_*` variable, or
 GitHub.
 
+## PayHere sandbox billing
+
+The dashboard Settings menu can start a PayHere sandbox checkout for a paid
+Vendly plan. Add these values to `backend/.env`:
+
+```env
+PAYHERE_SANDBOX=true
+PAYHERE_MERCHANT_ID=your_sandbox_merchant_id
+PAYHERE_MERCHANT_SECRET=your_sandbox_merchant_secret
+FRONTEND_PUBLIC_URL=http://localhost:5173
+BACKEND_PUBLIC_URL=https://your-public-backend.example.com
+```
+
+`PAYHERE_MERCHANT_SECRET` must remain in Flask and must never be added to a
+`VITE_*` variable. PayHere posts the signed payment result to
+`/api/v1/billing/payhere/notify`. Because PayHere cannot call a localhost URL,
+use a deployed backend or a temporary HTTPS tunnel while testing the complete
+callback flow. The return URL only reopens Billing; the signed callback is what
+activates the paid plan.
+
 ## Public endpoint rate limits
 
 The catalogue, chatbot and public checkout endpoints are rate limited. The

@@ -372,9 +372,12 @@ def build_orders_workbook(orders):
     return stream
 
 
-def export_orders(database, business_id, status=None, search=None):
+def export_orders(database, business_id, status=None, search=None, date_from=None, date_to=None, courier_id=None):
     return build_orders_workbook(
-        list_orders(database, business_id, status=status, search=search),
+        list_orders(
+            database, business_id, status=status, search=search,
+            date_from=date_from, date_to=date_to, courier_id=courier_id,
+        ),
     )
 
 

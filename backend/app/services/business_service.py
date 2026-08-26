@@ -1,15 +1,18 @@
 import secrets
 import string
+import re
 
 from firebase_admin import firestore
 from google.cloud import firestore as google_firestore
 
 from app.core.errors import ApiError
 from app.core.serialization import serialize_snapshot
-from app.services.text import required_text
+from app.services.text import optional_text, required_text
 
 
 SHORT_CODE_ALPHABET = string.ascii_letters + string.digits
+EMAIL_PATTERN = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
+PHONE_PATTERN = re.compile(r"^[0-9+()\-\s]{7,25}$")
 
 
 def generate_short_code(length=7):
@@ -118,6 +121,8 @@ def create_or_get_business(database, firebase_user, payload):
                 "logoPath": "",
                 "phone": "",
                 "email": firebase_user.get("email") or "",
+                "publicPhone": "",
+                "publicEmail": "",
                 "address": {},
                 "currency": "LKR",
                 "timezone": "Asia/Colombo",
@@ -166,3 +171,42 @@ def create_or_get_business(database, firebase_user, payload):
     create_in_transaction(transaction)
 
     return serialize_snapshot(business_reference.get()), True
+
+
+def update_public_contact(database, business_id, payload):
+    """Save the phone number and email shown on the public storefront."""
+    business_reference = database.collection("businesses").document(business_id)
+    business_snapshot = business_reference.get()
+
+    if not business_snapshot.exists:
+        raise ApiError("business_not_found", "Business not found.", 404)
+
+    try:
+        public_phone = optional_text(payload.get("phone"), 25)
+        public_email = optional_text(payload.get("email"), 160)
+    except ValueError as error:
+        raise ApiError("validation_error", str(error), 422) from error
+
+    if public_phone and not PHONE_PATTERN.fullmatch(public_phone):
+        raise ApiError(
+            "validation_error",
+            "Enter a valid contact phone number.",
+            422,
+        )
+
+    if public_email and not EMAIL_PATTERN.fullmatch(public_email):
+        raise ApiError(
+            "validation_error",
+            "Enter a valid contact email address.",
+            422,
+        )
+
+    business_reference.update(
+        {
+            "publicPhone": public_phone,
+            "publicEmail": public_email.lower(),
+            "updatedAt": firestore.SERVER_TIMESTAMP,
+        },
+    )
+
+    return serialize_snapshot(business_reference.get())

@@ -2,6 +2,8 @@ from flask import Flask, jsonify
 from flask_cors import CORS
 
 from app.api.businesses import businesses_blueprint
+from app.api.business_assistant import business_assistant_blueprint
+from app.api.billing import billing_blueprint
 from app.api.analytics import analytics_blueprint
 from app.api.categories import categories_blueprint
 from app.api.customers import customers_blueprint
@@ -45,6 +47,11 @@ def create_app(test_config=None):
         RATELIMIT_STORAGE_URI=settings.rate_limit_storage_uri,
         RATELIMIT_HEADERS_ENABLED=True,
         RATELIMIT_ENABLED=True,
+        PAYHERE_SANDBOX=settings.payhere_sandbox,
+        PAYHERE_MERCHANT_ID=settings.payhere_merchant_id,
+        PAYHERE_MERCHANT_SECRET=settings.payhere_merchant_secret,
+        FRONTEND_PUBLIC_URL=settings.frontend_public_url,
+        BACKEND_PUBLIC_URL=settings.backend_public_url,
     )
 
     if test_config:
@@ -83,6 +90,8 @@ def create_app(test_config=None):
     app.register_blueprint(members_blueprint)
     app.register_blueprint(messages_blueprint)
     app.register_blueprint(businesses_blueprint)
+    app.register_blueprint(business_assistant_blueprint)
+    app.register_blueprint(billing_blueprint)
     app.register_blueprint(categories_blueprint)
     app.register_blueprint(customers_blueprint)
     app.register_blueprint(couriers_blueprint)

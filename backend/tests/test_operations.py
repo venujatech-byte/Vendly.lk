@@ -42,6 +42,10 @@ def test_order_export_creates_real_excel_workbook():
     workbook = load_workbook(stream)
     sheet = workbook["Orders"]
 
-    assert sheet["A2"].value == "VD-000001"
+    # The courier template keeps Waybill Id in column A and Order Number in B.
+    assert sheet["A1"].value == "Waybill Id"
+    assert sheet["B1"].value == "Order Number"
+    assert sheet["B2"].value == "VD-000001"
     assert sheet["C2"].value == "Kamal"
-    assert sheet["K2"].value == 2450
+    assert sheet["H2"].value == 2450
+    assert sheet["J2"].value == 2000

@@ -3,12 +3,15 @@ import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
 import { lazy, Suspense, useEffect, useState } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
-import { Bot, Send, Sparkles, X } from "lucide-react";
 
 // Shared layout components and the individual dashboard pages.
 import "./App.css";
+import BusinessAssistant from "./components/BusinessAssistant.jsx";
 import Header from "./components/Header.jsx";
 import Sidebar from "./components/Sidebar.jsx";
+import ProfileModal from "./components/ProfileModal.jsx";
+import SettingsModal from "./components/SettingsModal.jsx";
+import { useAuth } from "./context/authContextValue.js";
 const AnalyticsPage = lazy(() => import("./pages/AnalyticsPage.jsx"));
 const CouriersPage = lazy(() => import("./pages/CouriersPage.jsx"));
 const CustomersPage = lazy(() => import("./pages/CustomersPage.jsx"));
@@ -38,16 +41,62 @@ function getInitialTheme() {
 }
 
 function App() {  
+  const { user } = useAuth();
   // Application-wide UI state shared by the sidebar and header.
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [theme, setTheme] = useState(getInitialTheme);
   const [isAssistantOpen, setIsAssistantOpen] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [settingsSection, setSettingsSection] = useState("general");
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+
+  function openSettings(section = "general") {
+    setSettingsSection(section);
+    setIsSettingsModalOpen(true);
+  }
 
   // Apply the selected theme to the HTML element and remember the choice.
   useEffect(() => {
   document.documentElement.dataset.theme = theme;
   localStorage.setItem("vendly-theme", theme);
 }, [theme]);
+
+  // PayHere redirects back without a trusted payment result. Reopen Billing so
+  // the dashboard can display the status recorded by the signed backend callback.
+  useEffect(() => {
+    const currentUrl = new URL(window.location.href);
+    if (!currentUrl.searchParams.has("billing")) return;
+
+    setSettingsSection("billing");
+    setIsSettingsModalOpen(true);
+    currentUrl.searchParams.delete("billing");
+    window.history.replaceState({}, "", `${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`);
+  }, []);
+
+  // Assistant settings commands open the same trusted settings modal as the
+  // header and profile controls, preserving its permission checks.
+  useEffect(() => {
+    function handleAssistantSettings(event) {
+      setSettingsSection(event.detail?.section || "general");
+      setIsSettingsModalOpen(true);
+    }
+
+    window.addEventListener("vendly:open-settings", handleAssistantSettings);
+    return () => window.removeEventListener("vendly:open-settings", handleAssistantSettings);
+  }, []);
+
+  // A Business Assistant theme request uses the same state as the header toggle.
+  useEffect(() => {
+    function handleAssistantTheme(event) {
+      const requestedTheme = event.detail?.theme;
+      if (requestedTheme === "light" || requestedTheme === "dark") {
+        setTheme(requestedTheme);
+      }
+    }
+
+    window.addEventListener("vendly:set-theme", handleAssistantTheme);
+    return () => window.removeEventListener("vendly:set-theme", handleAssistantTheme);
+  }, []);
 
   // Expand or collapse the left sidebar.
   function toggleSidebar() {
@@ -103,6 +152,8 @@ function App() {
             <Sidebar
               isCollapsed={isSidebarCollapsed}
               onToggleSidebar={toggleSidebar}
+              onOpenProfile={() => setIsProfileModalOpen(true)}
+              onOpenSettings={openSettings}
             />
 
             <div className="app__content">
@@ -115,6 +166,8 @@ function App() {
                         title="Overview"
                         theme={theme}
                         onToggleTheme={toggleTheme}
+                        onOpenProfile={() => setIsProfileModalOpen(true)}
+                        onOpenSettings={openSettings}
                       />
 
                       <OverviewPage />
@@ -130,6 +183,8 @@ function App() {
                         title="Orders"
                         theme={theme}
                         onToggleTheme={toggleTheme}
+                        onOpenProfile={() => setIsProfileModalOpen(true)}
+                        onOpenSettings={openSettings}
                       />
 
                       <OrdersPage />
@@ -145,6 +200,8 @@ function App() {
                         title="Inventory"
                         theme={theme}
                         onToggleTheme={toggleTheme}
+                        onOpenProfile={() => setIsProfileModalOpen(true)}
+                        onOpenSettings={openSettings}
                       />
 
                       <InventoryPage />
@@ -160,6 +217,8 @@ function App() {
                         title="Couriers"
                         theme={theme}
                         onToggleTheme={toggleTheme}
+                        onOpenProfile={() => setIsProfileModalOpen(true)}
+                        onOpenSettings={openSettings}
                       />
 
                       <CouriersPage />
@@ -175,6 +234,8 @@ function App() {
                         title="Customers"
                         theme={theme}
                         onToggleTheme={toggleTheme}
+                        onOpenProfile={() => setIsProfileModalOpen(true)}
+                        onOpenSettings={openSettings}
                       />
 
                       <CustomersPage />
@@ -190,6 +251,8 @@ function App() {
                         title="Analytics"
                         theme={theme}
                         onToggleTheme={toggleTheme}
+                        onOpenProfile={() => setIsProfileModalOpen(true)}
+                        onOpenSettings={openSettings}
                       />
 
                       <AnalyticsPage />
@@ -204,33 +267,27 @@ function App() {
                 />
               </Routes>
             </div>
-            <button
-              className="floating-assistant-button"
-              type="button"
-              onClick={() => setIsAssistantOpen((current) => !current)}
-              aria-label="Open business assistant"
-              aria-expanded={isAssistantOpen}
-              title="Business Assistant"
-            >
-              {isAssistantOpen ? <X size={23} /> : <Sparkles size={23} />}
-            </button>
-            {isAssistantOpen && (
-              <section className="floating-assistant-panel" role="dialog" aria-label="Business Assistant">
-                <header>
-                  <span><Bot size={18} /> Business Assistant</span>
-                  <button type="button" onClick={() => setIsAssistantOpen(false)} aria-label="Close assistant"><X size={17} /></button>
-                </header>
-                <div className="floating-assistant-panel__body">
-                  <Bot size={28} aria-hidden="true" />
-                  <strong>How can I help your business?</strong>
-                  <p>Ask about orders, inventory, customers or sales.</p>
-                </div>
-                <form onSubmit={(event) => event.preventDefault()}>
-                  <input placeholder="Ask your business assistant..." aria-label="Assistant question" />
-                  <button type="submit" aria-label="Send question"><Send size={16} /></button>
-                </form>
-              </section>
-            )}
+            <BusinessAssistant
+              isOpen={isAssistantOpen}
+              onToggle={() => setIsAssistantOpen((current) => !current)}
+              onClose={() => setIsAssistantOpen(false)}
+            />
+            <ProfileModal
+              isOpen={isProfileModalOpen}
+              onClose={() => setIsProfileModalOpen(false)}
+              user={user}
+            />
+            <SettingsModal
+              isOpen={isSettingsModalOpen}
+              initialSection={settingsSection}
+              onClose={() => setIsSettingsModalOpen(false)}
+              onOpenProfile={() => {
+                setIsSettingsModalOpen(false);
+                setIsProfileModalOpen(true);
+              }}
+              theme={theme}
+              onToggleTheme={toggleTheme}
+            />
           </div>
         </ProtectedRoute>
       }

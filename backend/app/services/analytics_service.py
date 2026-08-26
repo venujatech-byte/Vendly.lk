@@ -86,9 +86,11 @@ def calculate_analytics(
     customers=None,
     unread_notification_count=0,
     now=None,
+    warranty_claims=None,
 ):
     now = now or datetime.now(timezone.utc)
     customers = customers or []
+    warranty_claims = warranty_claims or []
     status_counts = {status: 0 for status in ORDER_STATUSES}
     product_revenue_minor = 0
     cost_of_goods_minor = 0
@@ -175,6 +177,18 @@ def calculate_analytics(
         reverse=True,
     )[:5]
 
+    # A supplier-paid claim has no financial cost to the seller. A shop warranty
+    # refunds the claimed item value, while a shop repair costs only its repair fee.
+    warranty_deductions_minor = sum(
+        claim.get("revenueImpactMinor", 0)
+        for claim in warranty_claims
+        # This analytics endpoint currently reports online delivered revenue.
+        # Physical-shop deductions are applied to the Shop Orders revenue card.
+        if claim.get("status") != "cancelled" and claim.get("sourceType") == "online-order"
+    )
+    product_revenue_minor = max(product_revenue_minor - warranty_deductions_minor, 0)
+    gross_profit_minor -= warranty_deductions_minor
+
     return {
         "orderCounts": {"all": len(orders), **status_counts},
         "inventory": {
@@ -186,6 +200,7 @@ def calculate_analytics(
         "customers": {"total": len(customers)},
         "financials": {
             "productRevenueMinor": product_revenue_minor,
+            "warrantyDeductionsMinor": warranty_deductions_minor,
             "costOfGoodsMinor": cost_of_goods_minor,
             "grossProfitMinor": gross_profit_minor,
             "averageOrderValueMinor": (
@@ -255,6 +270,10 @@ def get_business_analytics(database, business_id):
         snapshot.to_dict()
         for snapshot in business_reference.collection("notifications").limit(100).stream()
     ]
+    warranty_claims = [
+        serialize_snapshot(snapshot)
+        for snapshot in business_reference.collection("warrantyClaims").limit(1000).stream()
+    ]
     return calculate_analytics(
         orders,
         products,
@@ -262,4 +281,5 @@ def get_business_analytics(database, business_id):
         unread_notification_count=sum(
             not notification.get("isRead") for notification in notifications
         ),
+        warranty_claims=warranty_claims,
     )

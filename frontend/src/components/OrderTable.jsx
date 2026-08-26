@@ -5,13 +5,23 @@ import OrderDetails from "./OrderDetails";
 import {
   ChevronDown,
   ChevronRight,
+  CircleAlert,
   Package,
   Download,
+  Flag,
+  Hash,
   Pencil,
+  Printer,
+  RefreshCw,
   Trash2,
   ShieldCheck,
 } from "lucide-react";
 import ActionMenu from "./ActionMenu";
+import TablePagination from "./TablePagination";
+import SortableHeader from "./SortableHeader";
+import useTablePagination from "../hooks/useTablePagination";
+import useTableSort from "../hooks/useTableSort";
+import { printWaybill } from "../services/operationService";
 
 import "./OrderTable.css";
 
@@ -19,6 +29,38 @@ import "./OrderTable.css";
 function formatStatus(status) {
   return status.charAt(0).toUpperCase() + status.slice(1);
 }
+
+// Only valid next states are offered in the row action menu.
+const nextStatuses = {
+  pending: ["confirmed", "cancelled"],
+  "needs-confirmation": ["confirmed", "cancelled"],
+  confirmed: ["packed", "cancelled"],
+  packed: ["shipped", "cancelled"],
+  shipped: ["delivered", "returned"],
+};
+
+function readableStatus(status) {
+  return status
+    .split("-")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+function hasActiveWarranty(order) {
+  return (order.items ?? []).some(
+    (item) => item.warrantyExpiresAt && new Date(item.warrantyExpiresAt) >= new Date(),
+  );
+}
+
+const orderSortAccessors = {
+  order: (order) => order.orderNumber,
+  customer: (order) => order.customerName,
+  items: (order) => order.itemCount ?? order.items?.length ?? 0,
+  total: (order) => Number(String(order.total ?? "0").replace(/[^0-9.-]/g, "")),
+  courier: (order) => order.courier,
+  status: (order) => order.fulfilmentStatus || order.status,
+  date: (order) => new Date(`${order.date ?? ""} ${order.time ?? ""}`),
+};
 
 function OrderTable({
   orders = [],
@@ -36,6 +78,8 @@ function OrderTable({
   // Remember which row is expanded and which rows are checkbox-selected.
   const [expandedOrderId, setExpandedOrderId] = useState(null);
   const [selectedOrderIds, setSelectedOrderIds] = useState([]);
+  const sorting = useTableSort(orders, orderSortAccessors);
+  const pagination = useTablePagination(sorting.sortedItems);
 
   // Expand one order at a time, or close the row when clicked again.
   function toggleExpandedOrder(orderId) {
@@ -62,15 +106,83 @@ function OrderTable({
 
   // Select every order or clear the full selection.
   function toggleAllOrders() {
+    const visibleOrderIds = pagination.pageItems.map((order) => order.id);
     const allOrdersAreSelected =
-      orders.length > 0 && selectedOrderIds.length === orders.length;
+      visibleOrderIds.length > 0 && visibleOrderIds.every((id) => selectedOrderIds.includes(id));
 
     if (allOrdersAreSelected) {
-      setSelectedOrderIds([]);
+      setSelectedOrderIds((currentIds) => currentIds.filter((id) => !visibleOrderIds.includes(id)));
       return;
     }
 
-    setSelectedOrderIds(orders.map((order) => order.id));
+    setSelectedOrderIds((currentIds) => [...new Set([...currentIds, ...visibleOrderIds])]);
+  }
+
+  function showActionError(error) {
+    window.alert(error?.message || "The order action could not be completed.");
+  }
+
+  async function printOrderWaybill(order) {
+    const printWindow = window.open("", "_blank", "width=900,height=700");
+
+    try {
+      const printableOrder = order.waybillNumber
+        ? order
+        : await onGenerateWaybill?.(order.id);
+      printWaybill(printableOrder, printWindow);
+    } catch (error) {
+      printWindow?.close();
+      showActionError(error);
+    }
+  }
+
+  async function editOrderWaybill(order) {
+    const waybillNumber = window.prompt(
+      "Enter the waybill number:",
+      order.waybillNumber ?? "",
+    );
+
+    if (waybillNumber === null) return;
+    if (!waybillNumber.trim()) {
+      window.alert("Enter a waybill number before saving.");
+      return;
+    }
+
+    try {
+      await onWaybillSave?.(order.id, waybillNumber.trim());
+    } catch (error) {
+      showActionError(error);
+    }
+  }
+
+  async function reportOrderCourierIssue(order) {
+    const note = window.prompt(
+      "Describe the courier branch problem:",
+      "Delivery was affected by a courier branch problem.",
+    );
+
+    if (note === null) return;
+
+    try {
+      await onCourierIssue?.(order.id, note);
+    } catch (error) {
+      showActionError(error);
+    }
+  }
+
+  async function reportOrderAsFake(order) {
+    const note = window.prompt(
+      "Add a private note explaining why this appears to be a fake order:",
+      "Customer details could not be verified.",
+    );
+
+    if (note === null) return;
+
+    try {
+      await onFraudReport?.(order.id, note);
+    } catch (error) {
+      showActionError(error);
+    }
   }
 
   return (
@@ -120,23 +232,25 @@ function OrderTable({
               </th>
 
               <th className="orders-table__expand-column"></th>
-              <th>Order</th>
-              <th>Customer</th>
-              <th>Items</th>
-              <th>Total</th>
-              <th>Courier</th>
-              <th>Status</th>
-              <th>Date</th>
+              <SortableHeader columnKey="order" label="Order" sorting={sorting} />
+              <SortableHeader columnKey="customer" label="Customer" sorting={sorting} />
+              <SortableHeader columnKey="items" label="Items" sorting={sorting} />
+              <SortableHeader columnKey="total" label="Total" sorting={sorting} />
+              <SortableHeader columnKey="courier" label="Courier" sorting={sorting} />
+              <SortableHeader columnKey="status" label="Status" sorting={sorting} />
+              <SortableHeader columnKey="date" label="Date" sorting={sorting} />
               <th className="orders-table__actions-heading">Actions</th>
             </tr>
           </thead>
 
           <tbody>
-            {orders.map((order) => {
+            {pagination.pageItems.map((order) => {
               // Row-specific display values for the current order.
               const isExpanded = expandedOrderId === order.id;
               const isSelected = selectedOrderIds.includes(order.id);
               const hasWarning = Boolean(order.fraudWarning?.matched ?? order.fraudWarning);
+              const currentStatus = order.fulfilmentStatus || order.status || "pending";
+              const availableStatuses = nextStatuses[currentStatus] ?? [];
 
               return (
               <Fragment key={order.id}>
@@ -231,11 +345,54 @@ function OrderTable({
                   </td>
 
                   <td>
-                      <ActionMenu label={`More actions for ${order.orderNumber}`} items={[
-                        { label: "Edit order", icon: <Pencil size={16} />, onClick: () => onEditOrder?.(order) },
-                        { label: "Warranty claim", icon: <ShieldCheck size={16} />, onClick: () => onWarrantyClaim?.(order) },
-                        { label: "Remove order", icon: <Trash2 size={16} />, danger: true, onClick: () => onRemoveOrder?.(order) },
-                      ]} />
+                    <ActionMenu
+                      label={`More actions for ${order.orderNumber}`}
+                      items={[
+                        {
+                          label: "Edit order",
+                          icon: <Pencil size={16} aria-hidden="true" />,
+                          onClick: () => onEditOrder?.(order),
+                        },
+                        {
+                          label: "Edit waybill number",
+                          icon: <Hash size={16} aria-hidden="true" />,
+                          onClick: () => editOrderWaybill(order),
+                        },
+                        {
+                          label: "Print waybill",
+                          icon: <Printer size={16} aria-hidden="true" />,
+                          onClick: () => printOrderWaybill(order),
+                        },
+                        ...availableStatuses.map((status) => ({
+                          label: `Mark as ${readableStatus(status)}`,
+                          icon: <RefreshCw size={16} aria-hidden="true" />,
+                          onClick: () => onStatusChange?.(order.id, status),
+                        })),
+                        {
+                          label: "Report courier issue",
+                          icon: <CircleAlert size={16} aria-hidden="true" />,
+                          onClick: () => reportOrderCourierIssue(order),
+                        },
+                        ...(hasActiveWarranty(order) ? [{
+                          label: "Warranty claim",
+                          icon: <ShieldCheck size={16} aria-hidden="true" />,
+                          onClick: () => onWarrantyClaim?.(order),
+                        }] : []),
+                        {
+                          label: order.fraudReport ? "Fraud already reported" : "Report fake order",
+                          icon: <Flag size={16} aria-hidden="true" />,
+                          disabled: Boolean(order.fraudReport),
+                          danger: true,
+                          onClick: () => reportOrderAsFake(order),
+                        },
+                        {
+                          label: "Remove order",
+                          icon: <Trash2 size={16} aria-hidden="true" />,
+                          danger: true,
+                          onClick: () => onRemoveOrder?.(order),
+                        },
+                      ]}
+                    />
                   </td>
                 </tr>
                 {/* Insert the detailed order information directly below its row. */}
@@ -262,27 +419,7 @@ function OrderTable({
         </table>
       </div>
 
-      {/* Temporary record count and pagination controls. */}
-      <footer className="orders-table__footer">
-        <span>
-          Showing {orders.length === 0 ? 0 : 1} to {orders.length} of{" "}
-          {orders.length} orders
-        </span>
-
-        <div className="orders-table__pagination">
-          <button type="button" disabled>
-            Previous
-          </button>
-
-          <button className="orders-table__page--active" type="button">
-            1
-          </button>
-
-          <button type="button">2</button>
-          <button type="button">3</button>
-          <button type="button">Next</button>
-        </div>
-      </footer>
+      <TablePagination pagination={pagination} label="orders" />
     </section>
   );
 }

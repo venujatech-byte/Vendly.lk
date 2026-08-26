@@ -34,9 +34,13 @@ export async function reportCourierIssue(
 }
 
 
-export async function downloadOrderExport(businessId) {
+export async function downloadOrderExport(businessId, filters = {}) {
+  const query = new URLSearchParams();
+  ["status", "search", "dateFrom", "dateTo", "courierId"].forEach((key) => {
+    if (filters[key]) query.set(key, filters[key]);
+  });
   const { blob, filename } = await apiFileRequest(
-    `/businesses/${businessId}/orders-export.xlsx`,
+    `/businesses/${businessId}/orders-export.xlsx${query.size ? `?${query}` : ""}`,
   );
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");

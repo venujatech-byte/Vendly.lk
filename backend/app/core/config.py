@@ -36,6 +36,11 @@ class Settings:
     ai_api_base_url: str | None
     ai_timeout_seconds: float
     rate_limit_storage_uri: str
+    payhere_sandbox: bool
+    payhere_merchant_id: str | None
+    payhere_merchant_secret: str | None
+    frontend_public_url: str
+    backend_public_url: str
 
     @classmethod
     def from_environment(cls):
@@ -69,5 +74,17 @@ class Settings:
             rate_limit_storage_uri=(
                 os.getenv("RATE_LIMIT_STORAGE_URI", "memory://").strip()
                 or "memory://"
+            ),
+            payhere_sandbox=parse_boolean(
+                os.getenv("PAYHERE_SANDBOX"),
+                default=True,
+            ),
+            payhere_merchant_id=os.getenv("PAYHERE_MERCHANT_ID") or None,
+            payhere_merchant_secret=os.getenv("PAYHERE_MERCHANT_SECRET") or None,
+            frontend_public_url=(
+                os.getenv("FRONTEND_PUBLIC_URL", "http://localhost:5173").rstrip("/")
+            ),
+            backend_public_url=(
+                os.getenv("BACKEND_PUBLIC_URL", "http://127.0.0.1:5000").rstrip("/")
             ),
         )

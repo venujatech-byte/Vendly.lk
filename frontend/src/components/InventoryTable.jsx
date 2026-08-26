@@ -11,6 +11,10 @@ import {
   Trash2,
 } from "lucide-react";
 import ActionMenu from "./ActionMenu";
+import TablePagination from "./TablePagination";
+import SortableHeader from "./SortableHeader";
+import useTablePagination from "../hooks/useTablePagination";
+import useTableSort from "../hooks/useTableSort";
 
 // Product data, stock calculation helpers, and the nested size table.
 import {
@@ -37,6 +41,16 @@ function formatStatus(status) {
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(" ");
 }
+
+const inventorySortAccessors = {
+  product: (product) => product.name,
+  sku: (product) => product.hasSizes ? "Multiple SKUs" : product.sku,
+  category: (product) => product.category || "Uncategorized",
+  price: (product) => product.sellingPrice ?? 0,
+  weight: (product) => product.weightKg ?? 0,
+  stock: (product) => getProductStock(product),
+  status: (product) => getProductStockStatus(product),
+};
 
 // Show a product photo and fall back to a package icon if the image fails.
 function ProductImage({ product, imageNumber = 0 }) {
@@ -114,6 +128,15 @@ function SizeStockDetails({ product, onViewReviews, onAdjustStock, onEditProduct
             ))}
           </div>
         </section>
+
+        <section>
+          <h4>Warranty</h4>
+          <p>
+            {product.warrantyPeriodMonths
+              ? `${product.warrantyPeriodMonths} month${product.warrantyPeriodMonths === 1 ? "" : "s"} warranty for future sales.`
+              : "No warranty is currently offered."}
+          </p>
+        </section>
       </div>
 
       {/* Size-level SKU, barcode, stock, and status rows. */}
@@ -163,6 +186,10 @@ function SimpleProductDetails({ product, onViewReviews, onAdjustStock, onEditPro
         <div>
           <span>Weight</span>
           <strong>{product.weightKg.toFixed(2)} kg</strong>
+        </div>
+        <div>
+          <span>Warranty</span>
+          <strong>{product.warrantyPeriodMonths ? `${product.warrantyPeriodMonths} month${product.warrantyPeriodMonths === 1 ? "" : "s"}` : "No warranty"}</strong>
         </div>
       </section>
 
@@ -215,6 +242,8 @@ function InventoryTable({ products = [], categories = [], onViewReviews, onAdjus
     null,
   );
   const [selectedProductIds, setSelectedProductIds] = useState([]);
+  const sorting = useTableSort(products, inventorySortAccessors);
+  const pagination = useTablePagination(sorting.sortedItems);
 
   // True when every visible product checkbox is selected.
   const allProductsSelected =
@@ -326,19 +355,19 @@ function InventoryTable({ products = [], categories = [], onViewReviews, onAdjus
                 />
               </th>
               <th className="orders-table__expand-column"></th>
-              <th>Product</th>
-              <th>SKU / Barcode</th>
-              <th>Category</th>
-              <th>Price</th>
-              <th>Weight</th>
-              <th>Stock</th>
-              <th>Status</th>
+              <SortableHeader columnKey="product" label="Product" sorting={sorting} />
+              <SortableHeader columnKey="sku" label="SKU / Barcode" sorting={sorting} />
+              <SortableHeader columnKey="category" label="Category" sorting={sorting} />
+              <SortableHeader columnKey="price" label="Price" sorting={sorting} />
+              <SortableHeader columnKey="weight" label="Weight" sorting={sorting} />
+              <SortableHeader columnKey="stock" label="Stock" sorting={sorting} />
+              <SortableHeader columnKey="status" label="Status" sorting={sorting} />
               <th className="orders-table__actions-heading">Actions</th>
             </tr>
           </thead>
 
           <tbody>
-            {products.map((product) => {
+            {pagination.pageItems.map((product) => {
               // Values calculated separately for the current product row.
               const isExpanded = expandedProductId === product.id;
               const isSelected = selectedProductIds.includes(product.id);
@@ -464,24 +493,7 @@ function InventoryTable({ products = [], categories = [], onViewReviews, onAdjus
         </table>
       </div>
 
-      {/* Record count and temporary pagination controls. */}
-      <footer className="orders-table__footer">
-        <span>
-          Showing {products.length === 0 ? 0 : 1} to {products.length} of{" "}
-          {products.length} products
-        </span>
-        <div className="orders-table__pagination">
-          <button type="button" disabled>
-            Previous
-          </button>
-          <button className="orders-table__page--active" type="button">
-            1
-          </button>
-          <button type="button">2</button>
-          <button type="button">3</button>
-          <button type="button">Next</button>
-        </div>
-      </footer>
+      <TablePagination pagination={pagination} label="products" />
     </section>
   );
 }

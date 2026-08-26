@@ -20,7 +20,7 @@ import {
   Trophy,
   ReceiptText,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 // Reusable components that build the Orders page.
@@ -43,6 +43,7 @@ import ShopSaleFilters from "../components/ShopSaleFilters";
 import ShopSalesTable from "../components/ShopSalesTable";
 import WarrantyClaimModal from "../components/WarrantyClaimModal";
 import WarrantyClaimsTable from "../components/WarrantyClaimsTable";
+import BarcodeScannerModal from "../components/BarcodeScannerModal";
 import { getCouriers } from "../services/courierService";
 import {
   downloadOrderExport,
@@ -66,6 +67,11 @@ function OrdersPage() {
   const [activeTab, setActiveTab] = useState("onlineOrders");
   const [searchParameters, setSearchParameters] = useSearchParams();
   const routeSearch = searchParameters.get("search") ?? "";
+  const routeStatus = searchParameters.get("status") ?? "";
+  const routeDateFrom = searchParameters.get("dateFrom") ?? "";
+  const routeDateTo = searchParameters.get("dateTo") ?? "";
+  const routeCourier = searchParameters.get("courier") ?? "";
+  const assistantAction = searchParameters.get("assistantAction") ?? "";
   const { business, accountError } = useAuth();
   const [orders, setOrders] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -85,6 +91,71 @@ function OrdersPage() {
   const [shopRemovalTarget, setShopRemovalTarget] = useState(null);
   const [warrantyClaims, setWarrantyClaims] = useState([]);
   const [warrantySource, setWarrantySource] = useState(null);
+  const [isWaybillScannerOpen, setIsWaybillScannerOpen] = useState(false);
+
+  // URL filters are created by the Business Assistant. Keep them separate
+  // from the form state so a new assistant request replaces old form filters.
+  const assistantOrderFilters = useMemo(() => {
+    if (!routeSearch && !routeDateFrom && !routeDateTo && !routeStatus && !routeCourier) return null;
+    return {
+      search: routeSearch,
+      dateFrom: routeDateFrom,
+      dateTo: routeDateTo,
+      status: routeStatus,
+      courier: routeCourier,
+    };
+  }, [routeSearch, routeDateFrom, routeDateTo, routeStatus, routeCourier]);
+
+  const assistantShopSaleFilters = useMemo(() => {
+    if (!routeDateFrom && !routeDateTo) return null;
+    return { dateFrom: routeDateFrom, dateTo: routeDateTo };
+  }, [routeDateFrom, routeDateTo]);
+
+  // The business assistant reuses the same validated forms as the page buttons.
+  useEffect(() => {
+    if (!assistantAction) return;
+
+    if (assistantAction === "add-order") {
+      setActiveTab("onlineOrders");
+      setIsAddOrderOpen(true);
+    } else if (assistantAction === "open-online-orders") {
+      setActiveTab("onlineOrders");
+    } else if (assistantAction === "add-shop-sale") {
+      setActiveTab("shopOrders");
+      setIsAddShopSaleOpen(true);
+    } else if (assistantAction === "open-shop-sales") {
+      setActiveTab("shopOrders");
+    } else if (assistantAction === "open-warranty-claims") {
+      setActiveTab("warrantyClaims");
+    } else if (assistantAction === "scan-waybill") {
+      setActiveTab("onlineOrders");
+      window.setTimeout(handleScanWaybill, 50);
+    }
+
+    const nextParameters = new URLSearchParams(searchParameters);
+    nextParameters.delete("assistantAction");
+    setSearchParameters(nextParameters, { replace: true });
+  }, [assistantAction, searchParameters, setSearchParameters]);
+
+  useEffect(() => {
+    const validStatuses = new Set([
+      "pending",
+      "confirmed",
+      "packed",
+      "shipped",
+      "delivered",
+      "returned",
+      "cancelled",
+    ]);
+    setStatusFilter(validStatuses.has(routeStatus) ? routeStatus : "");
+  }, [routeStatus]);
+
+  useEffect(() => {
+    // A new route-based filter starts from a clean local form state. The
+    // route values above then become the only active filter values.
+    if (assistantOrderFilters) setFilters({});
+    if (assistantShopSaleFilters) setShopFilters({});
+  }, [assistantOrderFilters, assistantShopSaleFilters]);
 
   // Reset field, status-card, and URL filters so the complete table is shown again.
   function resetOrderFilters() {
@@ -92,6 +163,18 @@ function OrdersPage() {
     setStatusFilter("");
     setSearchParameters({}, { replace: true });
   }
+
+  useEffect(() => {
+    function handleAssistantFilterReset() {
+      setFilters({});
+      setStatusFilter("");
+      setShopFilters({});
+      setSearchParameters({}, { replace: true });
+    }
+
+    window.addEventListener("vendly:reset-filters", handleAssistantFilterReset);
+    return () => window.removeEventListener("vendly:reset-filters", handleAssistantFilterReset);
+  }, [setSearchParameters]);
 
   useEffect(() => {
     let requestIsCurrent = true;
@@ -113,6 +196,9 @@ function OrdersPage() {
           dateTo: filters.dateTo,
           courierId: filters.courier,
           ...(routeSearch ? { search: routeSearch } : {}),
+          ...(routeDateFrom ? { dateFrom: routeDateFrom } : {}),
+          ...(routeDateTo ? { dateTo: routeDateTo } : {}),
+          ...(routeCourier ? { courierId: routeCourier } : {}),
         });
 
         if (requestIsCurrent) {
@@ -134,12 +220,16 @@ function OrdersPage() {
     return () => {
       requestIsCurrent = false;
     };
-  }, [business?.id, filters, routeSearch]);
+  }, [business?.id, filters, routeSearch, routeDateFrom, routeDateTo, routeCourier]);
 
   useEffect(() => {
     if (!business?.id) return;
-    getShopSales(business.id, shopFilters).then(setShopSales).catch(setOrdersError);
-  }, [business?.id, shopFilters]);
+    getShopSales(business.id, {
+      ...shopFilters,
+      ...(routeDateFrom ? { dateFrom: routeDateFrom } : {}),
+      ...(routeDateTo ? { dateTo: routeDateTo } : {}),
+    }).then(setShopSales).catch(setOrdersError);
+  }, [business?.id, shopFilters, routeDateFrom, routeDateTo]);
 
   useEffect(() => {
     if (!business?.id) return;
@@ -204,16 +294,20 @@ function OrdersPage() {
 
   const shopStats = useMemo(() => {
     const activeSales = shopSales.filter((sale) => sale.status !== "voided");
+    // Supplier claims do not cost the seller. Shop claims and repairs do.
+    const shopWarrantyDeductions = warrantyClaims
+      .filter((claim) => claim.sourceType === "shop-sale" && claim.status !== "cancelled")
+      .reduce((sum, claim) => sum + (claim.revenueImpactMinor ?? 0), 0);
     const itemCounts = new Map();
     activeSales.forEach((sale) => sale.items.forEach((item) => itemCounts.set(item.name, (itemCounts.get(item.name) ?? 0) + item.quantity)));
     const topItem = [...itemCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "—";
     return [
       { label: "Total sales", value: activeSales.length, icon: ReceiptText, tone: "blue" },
       { label: "Sold items", value: activeSales.reduce((sum, sale) => sum + sale.itemCount, 0), icon: ShoppingBasket, tone: "green" },
-      { label: "Revenue", value: `LKR ${(activeSales.reduce((sum, sale) => sum + sale.totalAmountMinor, 0) / 100).toLocaleString("en-LK")}`, icon: Banknote, tone: "orange" },
+      { label: "Revenue", value: `LKR ${((activeSales.reduce((sum, sale) => sum + sale.totalAmountMinor, 0) - shopWarrantyDeductions) / 100).toLocaleString("en-LK")}`, icon: Banknote, tone: "orange" },
       { label: "Top item", value: topItem, icon: Trophy, tone: "purple" },
     ];
-  }, [shopSales]);
+  }, [shopSales, warrantyClaims]);
 
   function openOnlineWarranty(order) { setWarrantySource({ ...order, sourceType: "online-order" }); }
   function openShopWarranty(sale) { setWarrantySource({ ...sale, sourceType: "shop-sale" }); }
@@ -389,13 +483,21 @@ function OrdersPage() {
   }
 
   function handleScanWaybill() {
-    const waybill = window.prompt("Scan or enter the waybill number:", "");
-    if (!waybill?.trim()) return;
-    setFilters((current) => ({
-      ...current,
-      search: waybill.trim(),
-    }));
+    setActiveTab("onlineOrders");
+    setIsWaybillScannerOpen(true);
   }
+
+  const handleWaybillDetected = useCallback((waybillNumber) => {
+    const value = waybillNumber.trim();
+    if (!value) return;
+
+    // A waybill scan is an exact search intent. Remove any previous local or
+    // status filters so they cannot hide the matching order.
+    setFilters({});
+    setStatusFilter("");
+    setSearchParameters({ search: value }, { replace: true });
+    setIsWaybillScannerOpen(false);
+  }, [setSearchParameters]);
 
   return (
     <main className="dashboard orders-page">
@@ -523,6 +625,8 @@ function OrdersPage() {
             couriers={couriers}
             onApply={setFilters}
             onReset={resetOrderFilters}
+            onStatusChange={setStatusFilter}
+            appliedFilters={assistantOrderFilters}
           />
 
           {/* Main expandable orders table. */}
@@ -562,7 +666,7 @@ function OrdersPage() {
               ))}
             </div>
           </section>
-          <ShopSaleFilters onChange={setShopFilters}/>
+          <ShopSaleFilters onChange={setShopFilters} appliedFilters={assistantShopSaleFilters} />
           <ShopSalesTable sales={shopSales.filter((sale) => sale.status !== "voided")} onPrint={printShopReceipt} onWarranty={openShopWarranty} onRemove={setShopRemovalTarget}/>
         </>
       )}
@@ -593,6 +697,16 @@ function OrdersPage() {
       <EditOrderModal isOpen={Boolean(editingOrder)} businessId={business?.id} order={editingOrder} onClose={() => setEditingOrder(null)} onUpdated={(updated) => { setOrders((current) => current.map((order) => order.id === updated.id ? updated : order)); setEditingOrder(null); }} />
       <ConfirmDialog isOpen={Boolean(removalTarget)} title="Remove order?" message={`This cancels ${removalTarget?.orderNumber ?? "this order"} and releases its reserved stock.`} isWorking={isRemoving} onCancel={() => setRemovalTarget(null)} onConfirm={confirmOrderRemoval} />
       <ConfirmDialog isOpen={Boolean(shopRemovalTarget)} title="Delete shop sale?" message={`Deleting ${shopRemovalTarget?.saleNumber ?? "this sale"} restores every sold item to inventory. This action is recorded in stock history.`} isWorking={isRemoving} onCancel={() => setShopRemovalTarget(null)} onConfirm={confirmShopSaleRemoval} />
+      <BarcodeScannerModal
+        isOpen={isWaybillScannerOpen}
+        onClose={() => setIsWaybillScannerOpen(false)}
+        onDetected={handleWaybillDetected}
+        title="Scan waybill"
+        description="Place the waybill barcode or QR code inside the camera frame."
+        manualLabel="Or enter the waybill number"
+        inputPlaceholder="Scan or enter a waybill number"
+        submitLabel="Use waybill"
+      />
     </main>
   );
 }

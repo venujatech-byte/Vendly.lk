@@ -37,13 +37,57 @@ import CustomerMessages from "../components/CustomerMessages";
 import ActionMenu from "../components/ActionMenu";
 import ConfirmDialog from "../components/ConfirmDialog";
 import ModalShell from "../components/ModalShell";
+import TablePagination from "../components/TablePagination";
+import SortableHeader from "../components/SortableHeader";
+import useTablePagination from "../hooks/useTablePagination";
+import useTableSort from "../hooks/useTableSort";
 
 import "./ManagementPage.css";
 import "../components/OrderFilters.css";
 import "./CustomersPage.css";
 
+const customerSortAccessors = {
+  customer: (customer) => customer.name,
+  phone: (customer) => customer.normalizedPhone,
+  email: (customer) => customer.email,
+  address: (customer) => [customer.defaultAddress?.line1, customer.defaultAddress?.city, customer.defaultAddress?.district].filter(Boolean).join(" "),
+  orders: (customer) => customer.completedOrderCount ?? 0,
+  spent: (customer) => customer.totalSpentMinor ?? 0,
+  rating: (customer) => Number(customer.rating ?? 0),
+  risk: (customer) => customer.riskLevel,
+};
+
+const reviewSortAccessors = {
+  customer: (review) => review.customerName,
+  phone: (review) => review.customerPhone,
+  email: (review) => review.customerEmail,
+  product: (review) => review.productName || review.itemName,
+  rating: (review) => Number(review.rating ?? 0),
+  review: (review) => review.reviewText || review.comment,
+  images: (review) => review.media?.length ?? 0,
+  date: (review) => new Date(review.createdAt ?? 0),
+  status: (review) => review.status || "pending",
+};
+
+const fraudSortAccessors = {
+  customer: (customer) => customer.name,
+  phone: (customer) => customer.normalizedPhone,
+  email: (customer) => customer.email,
+  address: (customer) => [customer.defaultAddress?.line1, customer.address?.line1, customer.defaultAddress?.city, customer.address?.city].filter(Boolean).join(" "),
+  returned: (customer) => customer.returnedOrderCount ?? 0,
+  total: (customer) => customer.totalOrderCount ?? customer.completedOrderCount ?? customer.returnedOrderCount ?? 0,
+  rate: (customer) => {
+    const returned = customer.returnedOrderCount ?? 0;
+    const total = customer.totalOrderCount ?? customer.completedOrderCount ?? returned;
+    return total ? returned / total : 0;
+  },
+  score: (customer) => customer.fraudScore ?? Math.min(99, (customer.returnedOrderCount ?? 0) * 15),
+  reason: (customer) => customer.returnReason || customer.fraudReason || "Unspecified",
+  risk: (customer) => customer.riskLevel || "low",
+};
+
 function CustomersPage() {
-  const [searchParameters] = useSearchParams();
+  const [searchParameters, setSearchParameters] = useSearchParams();
   const routeSearch = (searchParameters.get("search") ?? "")
     .trim()
     .toLowerCase();
@@ -57,6 +101,8 @@ function CustomersPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [chatSummary, setChatSummary] = useState({ count: 0, unread: 0 });
   const [activeCustomerTab, setActiveCustomerTab] = useState("all");
+  const [customerSegment, setCustomerSegment] = useState("all");
+  const [reviewStatusFilter, setReviewStatusFilter] = useState("all");
   const [expandedCustomerId, setExpandedCustomerId] = useState(null);
   const [areMobileFiltersOpen, setAreMobileFiltersOpen] = useState(false);
   const [fraudFilters, setFraudFilters] = useState({ search: "", risk: "all", reason: "all", score: "all" });
@@ -66,6 +112,19 @@ function CustomersPage() {
   const [fraudAction, setFraudAction] = useState(null);
   const [fraudRiskLevel, setFraudRiskLevel] = useState("low");
   const [isFraudActionWorking, setIsFraudActionWorking] = useState(false);
+
+  useEffect(() => {
+    function handleAssistantFilterReset() {
+      setFilters({ search: "", risk: "all", rating: "all", location: "all" });
+      setCustomerSegment("all");
+      setFraudFilters({ search: "", risk: "all", reason: "all", score: "all" });
+      setAreMobileFiltersOpen(false);
+      setSearchParameters({}, { replace: true });
+    }
+
+    window.addEventListener("vendly:reset-filters", handleAssistantFilterReset);
+    return () => window.removeEventListener("vendly:reset-filters", handleAssistantFilterReset);
+  }, [setSearchParameters]);
 
   useEffect(() => {
     if (["all", "messages", "reviews", "fraud"].includes(requestedTab)) {
@@ -97,6 +156,10 @@ function CustomersPage() {
   });
 
   const visibleCustomers = filteredCustomers.filter((customer) => {
+    if (customerSegment === "repeat" && (customer.completedOrderCount ?? 0) <= 1) {
+      return false;
+    }
+
     if (activeCustomerTab === "all") {
       return true;
     }
@@ -117,6 +180,12 @@ function CustomersPage() {
   });
 
   const reviewRows = reviews;
+  const visibleReviewRows = reviewRows.filter((review) => {
+    if (reviewStatusFilter === "all") return true;
+
+    const status = String(review.status || "pending").toLowerCase();
+    return status === reviewStatusFilter;
+  });
 
   const fraudRows = fraudCustomers.filter((customer) => {
     const address = customer.defaultAddress || customer.address || {};
@@ -130,15 +199,19 @@ function CustomersPage() {
       && (fraudFilters.reason === "all" || reason === fraudFilters.reason)
       && (fraudFilters.score === "all" || (fraudFilters.score === "high" ? score >= 70 : fraudFilters.score === "medium" ? score >= 40 && score < 70 : score < 40));
   });
+  const customerSorting = useTableSort(visibleCustomers, customerSortAccessors);
+  const customerPagination = useTablePagination(customerSorting.sortedItems);
 
   const customerStats = [
     {
+      id: "all",
       label: "Total Customers",
       value: customers.length.toLocaleString("en-LK"),
       icon: UsersRound,
       tone: "blue",
     },
     {
+      id: "repeat",
       label: "Repeat Customers",
       value: customers
         .filter((customer) => (customer.completedOrderCount ?? 0) > 1)
@@ -310,7 +383,7 @@ function CustomersPage() {
   }
 
   return (
-    <main className="dashboard customers-page">
+    <main className={`dashboard customers-page ${activeCustomerTab === "messages" ? "customers-page--messages" : ""}`}>
 
       <nav className="customer-tabs" aria-label="Customer sections">
         {customerTabs.map((tab) => {
@@ -352,6 +425,8 @@ function CustomersPage() {
                   value={stat.value}
                   icon={stat.icon}
                   tone={stat.tone}
+                  onClick={stat.id ? () => setCustomerSegment(stat.id) : undefined}
+                  isActive={stat.id === customerSegment}
                 />
               ))}
             </div>
@@ -397,7 +472,7 @@ function CustomersPage() {
                 {[...new Set(customers.map((customer) => (customer.defaultAddress || customer.address || {}).district).filter(Boolean))].map((district) => <option key={district} value={district}>{district}</option>)}
               </select>
               <button type="button" className="customers-filters__button filter-panel__apply"><Filter size={15} /> More Filters</button>
-              <button type="button" className="customers-filters__reset filter-panel__reset filter-panel__reset--text" onClick={() => setFilters({ search: "", risk: "all", rating: "all", location: "all" })}><RotateCcw size={15} /> Reset</button>
+              <button type="button" className="customers-filters__reset filter-panel__reset filter-panel__reset--text" onClick={() => { setFilters({ search: "", risk: "all", rating: "all", location: "all" }); setCustomerSegment("all"); }}><RotateCcw size={15} /> Reset</button>
             </div>
           </section></>
       )}
@@ -447,17 +522,25 @@ function CustomersPage() {
           <section className="customers-summary customers-review-summary" aria-label="Review summary">
             <div className="stats-grid">
               {[
-                { label: "Total Reviews", value: reviewRows.length, icon: MessageSquare, tone: "blue" },
-                { label: "Approved", value: reviewRows.filter((review) => review.status === "approved").length, icon: CheckCircle2, tone: "green" },
-                { label: "Pending", value: reviewRows.filter((review) => !review.status || review.status === "pending").length, icon: Clock3, tone: "orange" },
-                { label: "Rejected", value: reviewRows.filter((review) => review.status === "rejected").length, icon: XCircle, tone: "red" },
+                { id: "all", label: "Total Reviews", value: reviewRows.length, icon: MessageSquare, tone: "blue" },
+                { id: "approved", label: "Approved", value: reviewRows.filter((review) => String(review.status).toLowerCase() === "approved").length, icon: CheckCircle2, tone: "green" },
+                { id: "pending", label: "Pending", value: reviewRows.filter((review) => String(review.status || "pending").toLowerCase() === "pending").length, icon: Clock3, tone: "orange" },
+                { id: "rejected", label: "Rejected", value: reviewRows.filter((review) => String(review.status).toLowerCase() === "rejected").length, icon: XCircle, tone: "red" },
               ].map((stat) => (
-                <StatCard key={stat.label} label={stat.label} value={String(stat.value)} icon={stat.icon} tone={stat.tone} />
+                <StatCard
+                  key={stat.id}
+                  label={stat.label}
+                  value={String(stat.value)}
+                  icon={stat.icon}
+                  tone={stat.tone}
+                  onClick={() => setReviewStatusFilter(stat.id)}
+                  isActive={reviewStatusFilter === stat.id}
+                />
               ))}
             </div>
           </section>
           <ReviewsTable
-            reviews={reviewRows}
+            reviews={visibleReviewRows}
             isLoading={isLoading}
             onModerate={handleModerateReview}
           />
@@ -482,19 +565,19 @@ function CustomersPage() {
               <tr>
                 <th className="management-table__expand-heading" aria-label="Expand" />
                 <th aria-label="Select" />
-                <th>Customer</th>
-                <th>Phone</th>
-                <th>Email</th>
-                <th>Address</th>
-                <th>Orders</th>
-                <th>Total Spent</th>
-                <th>Rating</th>
-                <th>Risk Level</th>
+                <SortableHeader columnKey="customer" label="Customer" sorting={customerSorting} />
+                <SortableHeader columnKey="phone" label="Phone" sorting={customerSorting} />
+                <SortableHeader columnKey="email" label="Email" sorting={customerSorting} />
+                <SortableHeader columnKey="address" label="Address" sorting={customerSorting} />
+                <SortableHeader columnKey="orders" label="Orders" sorting={customerSorting} />
+                <SortableHeader columnKey="spent" label="Total Spent" sorting={customerSorting} />
+                <SortableHeader columnKey="rating" label="Rating" sorting={customerSorting} />
+                <SortableHeader columnKey="risk" label="Risk Level" sorting={customerSorting} />
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {visibleCustomers.map((customer) => (
+              {customerPagination.pageItems.map((customer) => (
                 <Fragment key={customer.id}>
                   <tr>
                     <td className="management-table__expand-cell">
@@ -565,7 +648,7 @@ function CustomersPage() {
             </tbody>
           </table>
         </div>
-        <CustomerTableFooter count={visibleCustomers.length} label="customers" />
+        <TablePagination pagination={customerPagination} label="customers" variant="customers" />
       </section>}
 
       <ConfirmDialog
@@ -609,6 +692,8 @@ function CustomersPage() {
 
 function ReviewsTable({ reviews, isLoading, onModerate }) {
   const [expandedReviewId, setExpandedReviewId] = useState(null);
+  const sorting = useTableSort(reviews, reviewSortAccessors);
+  const pagination = useTablePagination(sorting.sortedItems);
 
   function mediaUrl(item) {
     return item?.url || item?.secureUrl || item?.secure_url || item?.downloadUrl || "";
@@ -647,20 +732,20 @@ function ReviewsTable({ reviews, isLoading, onModerate }) {
           <thead>
             <tr>
               <th className="management-table__expand-heading" aria-label="Expand" />
-              <th>Customer</th>
-              <th>Phone</th>
-              <th>Email</th>
-              <th>Product</th>
-              <th>Rating</th>
-              <th>Review</th>
-              <th>Review images</th>
-              <th>Date</th>
-              <th>Status</th>
+              <SortableHeader columnKey="customer" label="Customer" sorting={sorting} />
+              <SortableHeader columnKey="phone" label="Phone" sorting={sorting} />
+              <SortableHeader columnKey="email" label="Email" sorting={sorting} />
+              <SortableHeader columnKey="product" label="Product" sorting={sorting} />
+              <SortableHeader columnKey="rating" label="Rating" sorting={sorting} />
+              <SortableHeader columnKey="review" label="Review" sorting={sorting} />
+              <SortableHeader columnKey="images" label="Review images" sorting={sorting} />
+              <SortableHeader columnKey="date" label="Date" sorting={sorting} />
+              <SortableHeader columnKey="status" label="Status" sorting={sorting} />
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {reviews.map((review) => (
+            {pagination.pageItems.map((review) => (
               <Fragment key={review.id}>
                 <tr>
                   <td className="management-table__expand-cell">
@@ -711,7 +796,7 @@ function ReviewsTable({ reviews, isLoading, onModerate }) {
           </tbody>
         </table>
       </div>
-      <CustomerTableFooter count={reviews.length} label="reviews" />
+      <TablePagination pagination={pagination} label="reviews" variant="customers" />
     </section>
   );
 }
@@ -737,9 +822,11 @@ function FraudFilters({ filters, setFilters }) {
 
 function FraudTable({ customers, isLoading, onChangeRisk, onRemove }) {
   const [expandedFraudCustomerId, setExpandedFraudCustomerId] = useState(null);
+  const sorting = useTableSort(customers, fraudSortAccessors);
+  const pagination = useTablePagination(sorting.sortedItems);
 
-  return <section className="customer-table-card" aria-label="Fraud reports list"><div className="customer-table-scroll"><table className="management-table fraud-table"><thead><tr><th className="management-table__expand-heading" aria-label="Expand" /><th>Customer</th><th>Phone</th><th>Email</th><th>Address</th><th>Returned Orders</th><th>Total Orders</th><th>Return Rate</th><th>Fraud Score</th><th>Reason</th><th>Risk Status</th><th>Actions</th></tr></thead><tbody>
-    {customers.map((customer) => {
+  return <section className="customer-table-card" aria-label="Fraud reports list"><div className="customer-table-scroll"><table className="management-table fraud-table"><thead><tr><th className="management-table__expand-heading" aria-label="Expand" /><SortableHeader columnKey="customer" label="Customer" sorting={sorting} /><SortableHeader columnKey="phone" label="Phone" sorting={sorting} /><SortableHeader columnKey="email" label="Email" sorting={sorting} /><SortableHeader columnKey="address" label="Address" sorting={sorting} /><SortableHeader columnKey="returned" label="Returned Orders" sorting={sorting} /><SortableHeader columnKey="total" label="Total Orders" sorting={sorting} /><SortableHeader columnKey="rate" label="Return Rate" sorting={sorting} /><SortableHeader columnKey="score" label="Fraud Score" sorting={sorting} /><SortableHeader columnKey="reason" label="Reason" sorting={sorting} /><SortableHeader columnKey="risk" label="Risk Status" sorting={sorting} /><th>Actions</th></tr></thead><tbody>
+    {pagination.pageItems.map((customer) => {
       const returned = customer.returnedOrderCount ?? 0;
       const total = customer.totalOrderCount ?? customer.completedOrderCount ?? returned;
       const score = customer.fraudScore ?? Math.min(99, returned * 15);
@@ -748,7 +835,7 @@ function FraudTable({ customers, isLoading, onChangeRisk, onRemove }) {
       return <Fragment key={customer.id}><tr><td className="management-table__expand-cell"><button type="button" aria-label={`${expandedFraudCustomerId === customer.id ? "Collapse" : "Expand"} fraud details`} aria-expanded={expandedFraudCustomerId === customer.id} onClick={() => setExpandedFraudCustomerId((current) => current === customer.id ? null : customer.id)}>{expandedFraudCustomerId === customer.id ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</button></td><td><strong>{customer.name}</strong></td><td>+{customer.normalizedPhone || "—"}</td><td>{customer.email || "—"}</td><td>{[address.line1, address.city].filter(Boolean).join(", ") || "—"}</td><td>{returned}</td><td>{total}</td><td>{total ? `${Math.round((returned / total) * 100)}%` : "0%"}</td><td><span className={`fraud-score fraud-score--${risk}`}>{score}</span></td><td>{customer.returnReason || customer.fraudReason || "Unspecified"}</td><td><span className={`management-table__badge management-table__badge--${risk}`}>{risk} risk</span></td><td><ActionMenu label={`Open ${customer.name} fraud actions`} items={[{ label: "Change risk level", icon: <Pencil size={16} aria-hidden="true" />, onClick: () => onChangeRisk(customer) }, { label: "Remove from fraud list", icon: <Trash2 size={16} aria-hidden="true" />, danger: true, onClick: () => onRemove(customer) }]} /></td></tr>{expandedFraudCustomerId === customer.id && <tr className="management-table__expanded-row fraud-expanded-row"><td colSpan={12}><div className="customer-expanded-details"><div><strong>Customer</strong><span>{customer.name}</span><span>+{customer.normalizedPhone || "—"}</span><span>{customer.email || "No email"}</span></div><div><strong>Address</strong><span>{[address.line1, address.line2, address.city, address.district].filter(Boolean).join(", ") || "No address"}</span></div><div><strong>Order history</strong><span>{returned} returned of {total} orders</span><span>Return rate: {total ? `${Math.round((returned / total) * 100)}%` : "0%"}</span></div><div><strong>Fraud assessment</strong><span>Score: {score}</span><span>Risk: {risk}</span><span>Reason: {customer.returnReason || customer.fraudReason || "Unspecified"}</span></div></div></td></tr>}</Fragment>;
     })}
     {!isLoading && customers.length === 0 && <tr><td colSpan={12}>No fraud reports found.</td></tr>}
-  </tbody></table></div><CustomerTableFooter count={customers.length} label="reports" /></section>;
+  </tbody></table></div><TablePagination pagination={pagination} label="reports" variant="customers" /></section>;
 }
 
 function FraudRiskDialog({ isOpen, customer, riskLevel, isWorking, onRiskLevelChange, onCancel, onConfirm }) {
@@ -769,23 +856,6 @@ function FraudRiskDialog({ isOpen, customer, riskLevel, isWorking, onRiskLevelCh
         </footer>
       </div>
     </ModalShell>
-  );
-}
-
-function CustomerTableFooter({ count, label }) {
-  return (
-    <footer className="customer-table-footer">
-      <span>
-        Showing {count === 0 ? 0 : 1} to {count} of {count} {label}
-      </span>
-      <div className="customer-table-pagination" aria-label={`${label} pagination`}>
-        <button type="button" disabled>Previous</button>
-        <button className="is-active" type="button" aria-current="page">1</button>
-        <button type="button" disabled={count === 0}>2</button>
-        <button type="button" disabled={count === 0}>3</button>
-        <button type="button" disabled={count === 0}>Next</button>
-      </div>
-    </footer>
   );
 }
 

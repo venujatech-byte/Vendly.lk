@@ -11,7 +11,16 @@ const BARCODE_FORMATS = [
   "qr_code",
 ];
 
-function BarcodeScannerModal({ isOpen, onClose, onDetected }) {
+function BarcodeScannerModal({
+  isOpen,
+  onClose,
+  onDetected,
+  title = "Scan barcode",
+  description = "Place the barcode inside the camera frame.",
+  manualLabel = "Or enter the barcode",
+  inputPlaceholder = "Enter EAN, Code 128, Code 39 or QR value",
+  submitLabel = "Use barcode",
+}) {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const timerRef = useRef(null);
@@ -139,8 +148,8 @@ function BarcodeScannerModal({ isOpen, onClose, onDetected }) {
           <div>
             <span className="barcode-scanner__icon"><ScanBarcode size={21} /></span>
             <div>
-              <h2 id="barcode-scanner-title">Scan barcode</h2>
-              <p>Place the barcode inside the camera frame.</p>
+              <h2 id="barcode-scanner-title">{title}</h2>
+              <p>{description}</p>
             </div>
           </div>
           <button type="button" onClick={onClose} aria-label="Close barcode scanner">
@@ -159,16 +168,16 @@ function BarcodeScannerModal({ isOpen, onClose, onDetected }) {
         {scannerError && <p className="barcode-scanner__error" role="alert">{scannerError}</p>}
 
         <form className="barcode-scanner__manual" onSubmit={submitManualBarcode}>
-          <label htmlFor="manual-barcode">Or enter the barcode</label>
+          <label htmlFor="manual-barcode">{manualLabel}</label>
           <div>
             <input
               id="manual-barcode"
               value={manualValue}
               onChange={(event) => setManualValue(event.target.value)}
-              placeholder="Enter EAN, Code 128, Code 39 or QR value"
+              placeholder={inputPlaceholder}
               autoComplete="off"
             />
-            <button type="submit" disabled={!manualValue.trim()}>Use barcode</button>
+            <button type="submit" disabled={!manualValue.trim()}>{submitLabel}</button>
           </div>
         </form>
       </section>

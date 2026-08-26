@@ -53,6 +53,9 @@ function OrderDetails({
       price: order.total,
     },
   ];
+  const hasActiveWarranty = items.some(
+    (item) => item.warrantyExpiresAt && new Date(item.warrantyExpiresAt) >= new Date(),
+  );
 
   async function handlePrintWaybill() {
     const printWindow = window.open("", "_blank", "width=900,height=700");
@@ -181,6 +184,12 @@ function OrderDetails({
                 <span>
                   Qty: {item.quantity} × {item.unitPrice ?? item.price}
                 </span>
+                {item.warrantyPeriodMonths > 0 && (
+                  <span>
+                    Warranty: {item.warrantyPeriodMonths} month{item.warrantyPeriodMonths === 1 ? "" : "s"}
+                    {item.warrantyExpiresAt ? ` · expires ${new Date(item.warrantyExpiresAt).toLocaleDateString("en-LK")}` : ""}
+                  </span>
+                )}
               </div>
 
               <strong>{item.price}</strong>
@@ -324,7 +333,7 @@ function OrderDetails({
           Report Courier Issue
         </button>
 
-        <button
+        {hasActiveWarranty && <button
           className="order-details__print-button"
           type="button"
           onClick={() => onWarrantyClaim?.(order)}
@@ -332,7 +341,7 @@ function OrderDetails({
         >
           <ShieldCheck size={17} />
           Warranty Claim
-        </button>
+        </button>}
 
         <button
           className="order-details__fraud-button"

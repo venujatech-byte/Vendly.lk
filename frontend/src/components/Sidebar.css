@@ -116,6 +116,7 @@
 }
 /* Bottom area containing the assistant and current business. */
 .sidebar__footer {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -350,4 +351,66 @@ html[data-theme="dark"] .sidebar__link--active {
 
 .sidebar__link svg {
   transform: translateY(1px);
+}
+
+.sidebar__profile-menu {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 10px);
+  left: 0;
+  z-index: 80;
+  display: grid;
+  gap: 3px;
+  padding: 7px;
+  border: 1px solid var(--color-border);
+  border-radius: 11px;
+  color: var(--color-text);
+  background: var(--color-surface);
+  box-shadow: 0 18px 42px rgba(0, 19, 43, .3);
+  animation: sidebar-profile-open 180ms cubic-bezier(.22, 1, .36, 1);
+}
+
+.sidebar__profile-menu button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 34px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 7px;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 650;
+  text-align: left;
+}
+
+.sidebar__profile-menu button:hover {
+  color: var(--color-accent);
+  background: var(--color-surface-soft);
+}
+
+.sidebar__profile-menu .sidebar__profile-menu-danger {
+  margin-top: 3px;
+  border-top: 1px solid var(--color-border);
+  border-radius: 0 0 7px 7px;
+  color: #dc2626;
+}
+
+.sidebar__business-arrow { transition: transform 160ms ease; }
+.sidebar__business-arrow.is-open { transform: rotate(-90deg); }
+
+.sidebar--collapsed .sidebar__profile-menu {
+  right: auto;
+  left: calc(100% + 10px);
+  width: 190px;
+  bottom: 0;
+}
+
+@keyframes sidebar-profile-open {
+  from { opacity: 0; transform: translateY(7px) scale(.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }

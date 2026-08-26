@@ -10,6 +10,8 @@ export function mapShopSale(sale) {
     items: (sale.items ?? []).map((item, index) => ({
       ...item, id: `${sale.id}-${index}`, imageUrl: item.mediaUrl,
       unitPrice: money(item.unitPriceMinor), price: money(item.lineTotalMinor),
+      warrantyPeriodMonths: item.warrantyPeriodMonths ?? item.warrantyMonths ?? 0,
+      warrantyExpiresAt: item.warrantyExpiresAt ?? null,
     })),
     total: money(sale.totalAmountMinor), subtotal: money(sale.subtotalMinor),
     discount: money(sale.discountTotalMinor),

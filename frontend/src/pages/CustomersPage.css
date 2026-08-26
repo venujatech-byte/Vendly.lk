@@ -447,6 +447,25 @@
   font-weight: 700;
 }
 
+/* Messages is a focused workspace, so it does not need the empty vertical
+   space used by the summary/table tabs. */
+.customers-page--messages .customer-tabs {
+  margin-top: 0;
+  margin-bottom: 8px;
+}
+
+@media (max-width: 700px) {
+  .customers-page--messages {
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+
+  .customers-page--messages .customer-tabs {
+    margin-top: 0;
+    margin-bottom: 4px;
+  }
+}
+
 /* Reviews and fraud reports have different columns from All Customers.
    Give each table its own compact phone layout instead of inheriting the
    generic nth-child rules intended for the customer list. */
