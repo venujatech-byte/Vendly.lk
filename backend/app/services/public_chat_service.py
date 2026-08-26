@@ -287,6 +287,8 @@ def message_tokens(value):
     }
 
 
+GREETING_LANGUAGES = {"en", "si", "ta"}
+
 SINHALA_SCRIPT = re.compile(r"[඀-෿]")
 TAMIL_SCRIPT = re.compile(r"[஀-௿]")
 
@@ -1007,6 +1009,20 @@ def create_public_chat_session(database, payload, customer_uid=None):
             422,
         )
 
+    # The greeting is written before the customer has said anything, so there is
+    # nothing to detect a language from. A returning visitor's browser sends the
+    # language it settled on last time; a first-time visitor gets a short
+    # trilingual line, which is what Sri Lankan shops actually do, rather than
+    # an English wall.
+    requested = str(payload.get("language") or "").strip().casefold()
+    greeting_language = requested if requested in GREETING_LANGUAGES else ""
+    english_greeting = (
+        f"Welcome to {business['name']}. What would you like to know about "
+        f"{product['name']}?"
+        if product
+        else f"Welcome to {business['name']}. What product would you like to know about?"
+    )
+
     session_reference = database.collection("publicChatSessions").document()
     session_token = secrets.token_urlsafe(32)
     now = datetime.now(timezone.utc)
@@ -1017,8 +1033,9 @@ def create_public_chat_session(database, payload, customer_uid=None):
             "selectedProductId": product["id"] if product else None,
             "tokenHash": token_hash(session_token),
             "state": "browsing",
-            # Set from the customer's first message; the greeting cannot know it.
-            "language": "en",
+            # A returning visitor's browser supplies this; otherwise the first
+            # customer message settles it.
+            "language": greeting_language or "en",
             "cart": [],
             "customerDraft": {},
             "customerUid": customer_uid,
@@ -1032,12 +1049,15 @@ def create_public_chat_session(database, payload, customer_uid=None):
         },
     )
 
-    greeting = (
-        f"Welcome to {business['name']}. What would you like to know about "
-        f"{product['name']}?"
-        if product
-        else f"Welcome to {business['name']}. What product would you like to know about?"
-    )
+    if greeting_language in {"si", "ta"}:
+        greeting = translate_chat_message(english_greeting, greeting_language)
+    elif greeting_language == "en":
+        greeting = english_greeting
+    else:
+        greeting = (
+            f"Welcome to {business['name']}. How can I help you today? "
+            "සිංහලෙන් හෝ தமிழில் கேட்கலாம්."
+        )
 
     return {
         "sessionId": session_reference.id,

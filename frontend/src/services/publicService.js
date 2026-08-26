@@ -12,10 +12,10 @@ export function getPublicProduct(productCode) {
   });
 }
 
-export function createPublicChatSession({ storeCode, productCode }) {
+export function createPublicChatSession({ storeCode, productCode, language }) {
   return apiRequest("/public/chat/sessions", {
     method: "POST",
-    body: { storeCode, productCode },
+    body: { storeCode, productCode, language },
     requiresAuthentication: "optional",
   });
 }

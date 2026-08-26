@@ -82,11 +82,14 @@ const VOICE_TO_CHAT_LANGUAGE = {
 // The speech locale is already persisted, so it doubles as the remembered
 // conversation language. Without this a returning Sinhala customer would see
 // English labels again until their next message came back.
+// Empty when the visitor has never chosen one. The backend needs to tell that
+// apart from a deliberate "en" so a first-time visitor gets the trilingual
+// greeting instead of an English one.
 function savedChatLanguage() {
   return (
     VOICE_TO_CHAT_LANGUAGE[
       localStorage.getItem("vendly-storefront-voice-language")
-    ] || "en"
+    ] || ""
   );
 }
 
@@ -209,7 +212,7 @@ function StorefrontPage({ linkType }) {
   );
   // The language the backend decided this conversation is in. Chat replies are
   // translated by the model; these fixed labels come from a table.
-  const [chatLanguage, setChatLanguage] = useState(savedChatLanguage);
+  const [chatLanguage, setChatLanguage] = useState(() => savedChatLanguage() || "en");
   const [cart, setCart] = useState([]);
   const [customer, setCustomer] = useState(EMPTY_CUSTOMER);
   const [activeView, setActiveView] = useState(getInitialView);
@@ -285,11 +288,15 @@ function StorefrontPage({ linkType }) {
             .catch(() => createPublicChatSession({
               storeCode: linkType === "store" ? storeCode : undefined,
               productCode: linkType === "product" ? productCode : undefined,
+              // A returning customer is greeted in the language they settled
+              // on last visit instead of starting again in English.
+              language: savedChatLanguage(),
             }));
         } else {
           sessionRequest = createPublicChatSession({
             storeCode: linkType === "store" ? storeCode : undefined,
             productCode: linkType === "product" ? productCode : undefined,
+            language: savedChatLanguage(),
           });
         }
         const reviewRequest =
@@ -1209,6 +1216,7 @@ function StorefrontPage({ linkType }) {
 
       <CartDrawer
         isOpen={isCartOpen}
+        chatLanguage={chatLanguage}
         cart={cart}
         subtotal={cartSubtotal}
         onClose={() => setIsCartOpen(false)}
@@ -1221,6 +1229,7 @@ function StorefrontPage({ linkType }) {
 
       {isCheckoutOpen && (
         <CheckoutModal
+          chatLanguage={chatLanguage}
           cart={cart}
           customer={customer}
           subtotal={cartSubtotal}
@@ -1235,7 +1244,8 @@ function StorefrontPage({ linkType }) {
         <OrderSuccess
           business={business}
           order={confirmedOrder}
-          closeLabel="Return to Storefront"
+          chatLanguage={chatLanguage}
+          closeLabel={storefrontText(chatLanguage).returnToStorefront}
           onClose={() => {
             setConfirmedOrder(null);
             setCustomer(EMPTY_CUSTOMER);
@@ -1564,8 +1574,9 @@ function ChatReviewCards({ reviews = [], limit = 6 }) {
   );
 }
 
-function ChatProductDetails({ product, reviews = [], summary }) {
+function ChatProductDetails({ product, reviews = [], summary, chatLanguage }) {
   const mediaUrls = productMediaUrls(product);
+  const text = storefrontText(chatLanguage);
 
   return (
     <section className="chat-product-details" aria-label={`Details for ${product?.name || "product"}`}>
@@ -1582,12 +1593,12 @@ function ChatProductDetails({ product, reviews = [], summary }) {
           </a>
         ))}
         {mediaUrls.length === 0 && (
-          <span className="chat-product-details__no-photo"><Package size={34} /> No product photos</span>
+          <span className="chat-product-details__no-photo"><Package size={34} /> {text.noProductPhotos}</span>
         )}
       </div>
 
       <div className="chat-product-details__reviews-heading">
-        <strong>Verified customer reviews</strong>
+        <strong>{text.verifiedReviews}</strong>
         <span>
           <ReviewStars rating={summary?.averageRating} size={13} />
           <b>{Number(summary?.averageRating || 0).toFixed(1)}</b>
@@ -1748,6 +1759,7 @@ function ChatbotView({
                   message.product && (
                     <div className="storefront-chat-product-decision">
                       <ChatProductDetails
+                        chatLanguage={chatLanguage}
                         product={message.product}
                         reviews={message.reviews || []}
                         summary={message.reviewSummary}
@@ -2006,17 +2018,17 @@ function ChatbotView({
         </section>
 
         <section>
-          <h3>Customer details</h3>
-          <DraftField label="Customer Name" value={customer.name} />
-          <DraftField label="Phone No" value={customer.phoneNumber} />
+          <h3>{text.customerDetails}</h3>
+          <DraftField label={text.customerName} value={customer.name} />
+          <DraftField label={text.phoneNo} value={customer.phoneNumber} />
           {customer.secondaryPhoneNumber && (
-            <DraftField label="Second phone" value={customer.secondaryPhoneNumber} />
-          )}
-          {customer.secondaryPhoneNumber && (
-            <DraftField label="2nd Phone No" value={customer.secondaryPhoneNumber} />
+            <DraftField
+              label={text.secondPhoneNo}
+              value={customer.secondaryPhoneNumber}
+            />
           )}
           <DraftField
-            label="Address"
+            label={text.address}
             value={[
               customer.address.line1,
               customer.address.city,
@@ -2029,18 +2041,18 @@ function ChatbotView({
 
         <div className="storefront-draft__bottom">
           <section>
-            <h3>Status</h3>
+            <h3>{text.status}</h3>
             <div
               className={`storefront-draft__status ${cart.length ? "is-active" : ""}`}
             >
               <span />{" "}
               {chatState === "awaiting-confirmation"
-                ? "Awaiting order confirmation"
+                ? text.awaitingConfirmation
                 : chatState.startsWith("collecting-")
-                  ? "Collecting customer details"
+                  ? text.collectingDetails
                   : cart.length
-                    ? "Items selected · Ready to order"
-                    : "Waiting for product selection"}
+                    ? text.readyToOrder
+                    : text.waitingForSelection}
             </div>
           </section>
           <button
@@ -2137,12 +2149,15 @@ function ContactCard({
 
 function CartDrawer({
   isOpen,
+  chatLanguage,
   cart,
   subtotal,
   onClose,
   onUpdateQuantity,
   onCheckout,
 }) {
+  const text = storefrontText(chatLanguage);
+
   return (
     <>
       {isOpen && (
@@ -2160,7 +2175,7 @@ function CartDrawer({
         <header>
           <div>
             <ShoppingCart size={22} />
-            <h2>Your Cart</h2>
+            <h2>{text.yourCart}</h2>
             <span>
               {cart.reduce((total, item) => total + item.quantity, 0)}
             </span>
@@ -2214,30 +2229,30 @@ function CartDrawer({
           {cart.length === 0 && (
             <div className="storefront-cart__empty">
               <ShoppingBag size={38} />
-              <h3>Your cart is empty</h3>
-              <p>Add a product from the catalog or chatbot.</p>
+              <h3>{text.cartEmpty}</h3>
+              <p>{text.cartEmptyHint}</p>
             </div>
           )}
         </div>
 
         <footer>
           <div>
-            <span>Subtotal</span>
+            <span>{text.subtotal}</span>
             <strong>{money(subtotal)}</strong>
           </div>
           <div>
-            <span>Total</span>
+            <span>{text.total}</span>
             <strong>{money(subtotal)}</strong>
           </div>
           <small>
-            Delivery will be calculated from your district and order weight.
+            {text.deliveryNotice}
           </small>
           <button
             type="button"
             disabled={cart.length === 0}
             onClick={onCheckout}
           >
-            Checkout <Check size={18} />
+            {text.checkout} <Check size={18} />
           </button>
         </footer>
       </aside>
@@ -2246,6 +2261,7 @@ function CartDrawer({
 }
 
 function CheckoutModal({
+  chatLanguage,
   cart,
   customer,
   subtotal,
@@ -2254,6 +2270,8 @@ function CheckoutModal({
   onCustomerChange,
   onSubmit,
 }) {
+  const text = storefrontText(chatLanguage);
+
   return (
     <div className="storefront-modal-layer" role="presentation">
       <button
@@ -2268,8 +2286,8 @@ function CheckoutModal({
             <ShoppingBag size={22} />
           </span>
           <div>
-            <h2>Contact & Delivery Details</h2>
-            <p>Please provide accurate shipping information.</p>
+            <h2>{text.contactAndDelivery}</h2>
+            <p>{text.accurateShipping}</p>
           </div>
           <button type="button" onClick={onClose} aria-label="Close checkout">
             <X size={21} />
@@ -2278,7 +2296,7 @@ function CheckoutModal({
 
         <div className="storefront-checkout-modal__body">
           <label>
-            <span>Full Name *</span>
+            <span>{text.fullNameRequired}</span>
             <div>
               <UserRound size={17} />
               <input
@@ -2291,7 +2309,7 @@ function CheckoutModal({
             </div>
           </label>
           <label>
-            <span>Phone Number *</span>
+            <span>{text.phoneRequired}</span>
             <div>
               <Phone size={17} />
               <input
@@ -2304,7 +2322,7 @@ function CheckoutModal({
             </div>
           </label>
           <label>
-            <span>2nd Phone Number (Optional)</span>
+            <span>{text.secondPhoneOptional}</span>
             <div>
               <Phone size={17} />
               <input
@@ -2316,7 +2334,7 @@ function CheckoutModal({
             </div>
           </label>
           <label className="is-wide">
-            <span>Street Address *</span>
+            <span>{text.streetAddressRequired}</span>
             <div>
               <MapPin size={17} />
               <input
@@ -2329,7 +2347,7 @@ function CheckoutModal({
             </div>
           </label>
           <label>
-            <span>District *</span>
+            <span>{text.districtRequired}</span>
             <div>
               <MapPin size={17} />
               <select
@@ -2338,7 +2356,7 @@ function CheckoutModal({
                 onChange={onCustomerChange}
                 required
               >
-                <option value="">Select a district</option>
+                <option value="">{text.selectDistrict}</option>
                 {SRI_LANKA_DISTRICTS.map((district) => (
                   <option key={district} value={district}>{district}</option>
                 ))}
@@ -2346,7 +2364,7 @@ function CheckoutModal({
             </div>
           </label>
           <label>
-            <span>Nearest City *</span>
+            <span>{text.nearestCityRequired}</span>
             <div>
               <Building2 size={17} />
               <input
@@ -2359,7 +2377,7 @@ function CheckoutModal({
             </div>
           </label>
           <label>
-            <span>Email (Optional)</span>
+            <span>{text.emailOptional}</span>
             <div>
               <Mail size={17} />
               <input
@@ -2372,7 +2390,7 @@ function CheckoutModal({
             </div>
           </label>
           <label>
-            <span>Postal Code (Optional)</span>
+            <span>{text.postalCodeOptional}</span>
             <div>
               <Building2 size={17} />
               <input
@@ -2384,7 +2402,7 @@ function CheckoutModal({
             </div>
           </label>
           <label className="is-wide">
-            <span>Delivery Note (Optional)</span>
+            <span>{text.deliveryNoteOptional}</span>
             <div>
               <ClipboardList size={17} />
               <textarea
@@ -2400,23 +2418,23 @@ function CheckoutModal({
 
         <div className="storefront-checkout-summary">
           <span>
-            {cart.reduce((total, item) => total + item.quantity, 0)} items
+            {cart.reduce((total, item) => total + item.quantity, 0)} {text.items}
           </span>
           <span>
-            Subtotal: <strong>{money(subtotal)}</strong>
+            {text.subtotal}: <strong>{money(subtotal)}</strong>
           </span>
           <small>
-            Delivery fee is calculated securely when the order is placed.
+            {text.deliveryCalculatedNotice}
           </small>
         </div>
 
         <footer>
           <span>
-            <ShieldCheck size={16} /> Secure cash-on-delivery checkout
+            <ShieldCheck size={16} /> {text.secureCod}
           </span>
           <div>
             <button type="button" onClick={onClose}>
-              Cancel
+              {text.cancel}
             </button>
             <button type="submit" disabled={isSending}>
               {isSending ? "Placing order…" : "Place Order"} <Check size={17} />
@@ -2428,8 +2446,8 @@ function CheckoutModal({
   );
 }
 
-function OrderSuccess({ business, order, onClose, closeLabel }) {
-  return <OrderReceipt business={business} order={order} onClose={onClose} closeLabel={closeLabel} />;
+function OrderSuccess({ business, order, onClose, closeLabel, chatLanguage }) {
+  return <OrderReceipt business={business} order={order} onClose={onClose} closeLabel={closeLabel} chatLanguage={chatLanguage} />;
   /* Previous receipt design retained temporarily for easy visual comparison.
   return (
     <div className="storefront-success-layer">

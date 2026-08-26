@@ -446,11 +446,15 @@ Step 4 is the only one that needs a model: `mata bag ekak ona` is Sinhala in Lat
 
 `word_characters()` keeps categories `L`, `M` and `N`, so every script survives intact.
 
+**The greeting is the one message with no language to detect.** It is written before the customer has said anything, so `create_public_chat_session` takes an optional `language` from the browser — the storefront sends whatever the visitor settled on last time, read from `vendly-storefront-voice-language`. A returning Sinhala customer is greeted in Sinhala; a first-time visitor with no stored preference gets a short trilingual line rather than an English wall. `savedChatLanguage()` returns `""` rather than `"en"` for exactly this reason: the backend has to tell "never chose" apart from "chose English".
+
 **Translation** happens in `respond()`. The prompt must keep proper nouns in Latin script — an early version transliterated Jaffna to `ජාප්පනය` (which reads "Japan"; Jaffna is `යාපනය`), and a customer echoing that back would fail the district lookup and misprice delivery. Quoted commands like `'skip'` and `'confirm order'` also stay English, because the recognisers match on them — though `is_optional_phone_skip` and `CONFIRMATION_PHRASES` also accept Sinhala and Tamil answers, since people reply in their own words regardless.
 
 The response carries `language`, and the storefront syncs the mic and text-to-speech locale to it.
 
 **The interface follows too.** The bot used to answer in Sinhala while the quick-reply chips underneath still read "Show products" and "I want to order". `frontend/src/data/storefrontText.js` holds those fixed labels in all three languages, keyed off the same `language` the reply carries. It is a static table on purpose: the bot's replies are generated text and need the model, but this chrome is a closed set of short strings, so a table is cheaper, instant, and still correct when the provider is down. `storefrontText()` merges over English, so a missing key renders English rather than blank.
+
+It covers the whole customer surface, not just the chat bubbles: quick-reply chips, the input placeholder, product action buttons, the voice overlay, the live order draft, the cart drawer, **the checkout form** and the order receipt. The checkout form matters most — it is where an order is won or abandoned, and a Sinhala conversation that ends at an English form is where a customer gives up and phones the seller instead.
 
 The chip **labels** are localised but the message each chip sends stays English, so the deterministic keyword ladder matches it even with no AI. The remembered language rides on the existing `vendly-storefront-voice-language` key, so a returning customer does not get English labels back until their next reply arrives.
 

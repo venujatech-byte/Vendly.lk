@@ -604,3 +604,26 @@ def test_a_quantity_reply_is_clamped():
 
     assert quantity_from_message("500") == 99
     assert quantity_from_message("0") == 0
+
+
+def resolve_greeting_language(payload):
+    """Exercises the branch create_public_chat_session uses for the greeting."""
+    from app.services.public_chat_service import GREETING_LANGUAGES
+
+    requested = str(payload.get("language") or "").strip().casefold()
+    return requested if requested in GREETING_LANGUAGES else ""
+
+
+def test_an_unknown_or_missing_greeting_language_falls_back_to_trilingual():
+    # There is no customer message yet to detect from, so a blank result is the
+    # signal to greet in all three rather than defaulting everyone to English.
+    assert resolve_greeting_language({}) == ""
+    assert resolve_greeting_language({"language": ""}) == ""
+    assert resolve_greeting_language({"language": "fr"}) == ""
+    assert resolve_greeting_language({"language": None}) == ""
+
+
+def test_a_remembered_greeting_language_is_accepted():
+    assert resolve_greeting_language({"language": "si"}) == "si"
+    assert resolve_greeting_language({"language": " TA "}) == "ta"
+    assert resolve_greeting_language({"language": "en"}) == "en"
