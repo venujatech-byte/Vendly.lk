@@ -415,12 +415,14 @@ html[data-theme="dark"] .orders-table__status--shipped {
   .orders-table--orders th:nth-child(8),
   .orders-table--orders th:nth-child(9),
   .orders-table--orders th:nth-child(10),
+  .orders-table--orders th:nth-child(11),
   .orders-table--orders tbody tr:not(.orders-table__details-row) > td:nth-child(1),
   .orders-table--orders tbody tr:not(.orders-table__details-row) > td:nth-child(6),
   .orders-table--orders tbody tr:not(.orders-table__details-row) > td:nth-child(7),
   .orders-table--orders tbody tr:not(.orders-table__details-row) > td:nth-child(8),
   .orders-table--orders tbody tr:not(.orders-table__details-row) > td:nth-child(9),
-  .orders-table--orders tbody tr:not(.orders-table__details-row) > td:nth-child(10) {
+  .orders-table--orders tbody tr:not(.orders-table__details-row) > td:nth-child(10),
+  .orders-table--orders tbody tr:not(.orders-table__details-row) > td:nth-child(11) {
     display: none;
   }
 

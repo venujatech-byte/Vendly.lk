@@ -57,9 +57,10 @@ const orderSortAccessors = {
   customer: (order) => order.customerName,
   items: (order) => order.itemCount ?? order.items?.length ?? 0,
   total: (order) => Number(String(order.total ?? "0").replace(/[^0-9.-]/g, "")),
-  courier: (order) => order.courier,
+  courier: (order) => order.courierCode || order.courier,
   status: (order) => order.fulfilmentStatus || order.status,
   date: (order) => new Date(`${order.date ?? ""} ${order.time ?? ""}`),
+  waybill: (order) => order.waybillNumber,
 };
 
 function OrderTable({
@@ -236,9 +237,10 @@ function OrderTable({
               <SortableHeader columnKey="customer" label="Customer" sorting={sorting} />
               <SortableHeader columnKey="items" label="Items" sorting={sorting} />
               <SortableHeader columnKey="total" label="Total" sorting={sorting} />
-              <SortableHeader columnKey="courier" label="Courier" sorting={sorting} />
+              <SortableHeader columnKey="courier" label="Courier Code" sorting={sorting} />
               <SortableHeader columnKey="status" label="Status" sorting={sorting} />
               <SortableHeader columnKey="date" label="Date" sorting={sorting} />
+              <SortableHeader columnKey="waybill" label="Waybill ID" sorting={sorting} />
               <th className="orders-table__actions-heading">Actions</th>
             </tr>
           </thead>
@@ -327,7 +329,9 @@ function OrderTable({
 
                   <td className="orders-table__total">{order.total}</td>
 
-                  <td>{order.courier}</td>
+                  <td>
+                    <strong>{order.courierCode || order.courier || "Not assigned"}</strong>
+                  </td>
 
                   <td>
                     <span
@@ -343,6 +347,8 @@ function OrderTable({
                       {order.time}
                     </span>
                   </td>
+
+                  <td>{order.waybillNumber || "—"}</td>
 
                   <td>
                     <ActionMenu
@@ -398,7 +404,7 @@ function OrderTable({
                 {/* Insert the detailed order information directly below its row. */}
                 {isExpanded && (
   <tr className="orders-table__details-row">
-    <td className="orders-table__details-cell" colSpan={10}>
+    <td className="orders-table__details-cell" colSpan={11}>
                   <OrderDetails
                     order={order}
                     onStatusChange={onStatusChange}
