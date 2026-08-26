@@ -18,6 +18,22 @@ function money(minor = 0) {
   return `LKR ${(minor / 100).toLocaleString("en-LK")}`;
 }
 
+// The table shows the price most districts share. This lists the exceptions so
+// the seller can see at a glance which districts were priced separately.
+function districtPriceExceptions(courier) {
+  const prices = courier.districtFirstKgPricesMinor ?? {};
+  const entries = Object.entries(prices).filter(
+    ([, minor]) => minor !== courier.firstKgPriceMinor,
+  );
+
+  if (!Object.keys(prices).length) return "Not set by district yet";
+  if (!entries.length) return "Same price in all 25 districts";
+
+  return entries
+    .map(([district, minor]) => `${district}: ${money(minor)}`)
+    .join(", ");
+}
+
 const courierSortAccessors = {
   courier: (courier) => courier.name,
   firstKg: (courier) => courier.firstKgPriceMinor ?? 0,
@@ -126,7 +142,7 @@ function CouriersPage() {
       <section className="orders-table-section courier-table-card">
       <div className="orders-table__scroll courier-table__scroll">
       <table className="orders-table courier-table">
-        <thead><tr><th className="management-table__expand-heading" /><SortableHeader columnKey="courier" label="Courier" sorting={sorting} /><SortableHeader columnKey="firstKg" label="First 1 kg" sorting={sorting} /><SortableHeader columnKey="extraKg" label="Extra 1 kg" sorting={sorting} /><SortableHeader columnKey="success" label="Success" sorting={sorting} /><SortableHeader columnKey="returns" label="Returns" sorting={sorting} /><SortableHeader columnKey="delivery" label="Delivery" sorting={sorting} /><SortableHeader columnKey="status" label="Status" sorting={sorting} /><th className="orders-table__actions-heading">Actions</th></tr></thead>
+        <thead><tr><th className="management-table__expand-heading" /><SortableHeader columnKey="courier" label="Courier" sorting={sorting} /><SortableHeader columnKey="firstKg" label="First 1 kg (common)" sorting={sorting} /><SortableHeader columnKey="extraKg" label="Extra 1 kg" sorting={sorting} /><SortableHeader columnKey="success" label="Success" sorting={sorting} /><SortableHeader columnKey="returns" label="Returns" sorting={sorting} /><SortableHeader columnKey="delivery" label="Delivery" sorting={sorting} /><SortableHeader columnKey="status" label="Status" sorting={sorting} /><th className="orders-table__actions-heading">Actions</th></tr></thead>
         <tbody>
           {pagination.pageItems.map((courier) => {
             const isExpanded = expandedCourierId === courier.id;
@@ -180,8 +196,9 @@ function CouriersPage() {
                   <tr className="management-table__mobile-details-row orders-table__details-row">
                     <td className="orders-table__details-cell" colSpan={9}>
                       <div className="management-table__mobile-details">
-                        <div><span>First 1 kg</span><strong>{money(courier.firstKgPriceMinor)}</strong></div>
+                        <div><span>First 1 kg (most districts)</span><strong>{money(courier.firstKgPriceMinor)}</strong></div>
                         <div><span>Extra 1 kg</span><strong>{money(courier.extraKgPriceMinor)}</strong></div>
+                        <div><span>District exceptions</span><strong>{districtPriceExceptions(courier)}</strong></div>
                         <div><span>Success rate</span><strong>{Math.round((courier.successRate ?? 0) * 100)}%</strong></div>
                         <div><span>Return rate</span><strong>{Math.round((courier.returnRate ?? 0) * 100)}%</strong></div>
                         <div><span>Delivery time</span><strong>{courier.averageDeliveryDays} days</strong></div>

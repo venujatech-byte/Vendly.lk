@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import { useParams } from "react-router-dom";
 import vendlyLogo from "../assets/vendly-logo.png";
+import { SRI_LANKA_DISTRICTS } from "../data/districts";
 import {
   createPublicChatOrder,
   createPublicChatSession,
@@ -2244,13 +2245,17 @@ function CheckoutModal({
             <span>District *</span>
             <div>
               <MapPin size={17} />
-              <input
+              <select
                 name="address.district"
                 value={customer.address.district}
                 onChange={onCustomerChange}
-                placeholder="e.g. Colombo"
                 required
-              />
+              >
+                <option value="">Select a district</option>
+                {SRI_LANKA_DISTRICTS.map((district) => (
+                  <option key={district} value={district}>{district}</option>
+                ))}
+              </select>
             </div>
           </label>
           <label>

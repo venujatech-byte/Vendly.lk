@@ -15,6 +15,14 @@ from app.services.customer_service import (
 )
 from app.services.ai_service import generate_product_answer
 from app.services.chat_event_service import notify_seller_attention
+from app.services.courier_service import (
+    district_display_name,
+    district_first_kg_price,
+    find_district_in_text,
+    is_known_district,
+    normalize_district,
+    recommend_couriers,
+)
 from app.services.order_service import create_order
 from app.services.public_catalog_service import (
     get_public_product,
@@ -342,6 +350,9 @@ def summarize_chat_cart(cart, products):
         product, variant = match
         quantity = item["quantity"]
         unit_price = product.get("sellingPriceMinor", 0)
+        # Variant weight is copied from the parent product, so the chat quote
+        # and the order both price the same number of grams.
+        unit_weight_grams = product.get("weightGrams", 0)
         summary.append(
             {
                 "variantId": variant.get("id"),
@@ -352,11 +363,137 @@ def summarize_chat_cart(cart, products):
                 "quantity": quantity,
                 "unitPriceMinor": unit_price,
                 "lineTotalMinor": unit_price * quantity,
+                "unitWeightGrams": unit_weight_grams,
+                "lineWeightGrams": unit_weight_grams * quantity,
                 "imageUrl": (product.get("media") or [{}])[0].get("url", ""),
             },
         )
 
     return summary
+
+
+DELIVERY_FEE_PHRASES = (
+    "delivery fee",
+    "delivery charge",
+    "delivery cost",
+    "delivery price",
+    "delivery kiyada",
+    "shipping fee",
+    "shipping charge",
+    "shipping cost",
+    "courier fee",
+    "courier charge",
+    "courier cost",
+    "postage",
+    "gasthuwa",
+    "gaasthuwa",
+    "ගාස්තු",
+    "බෙදාහැරීමේ",
+    "කුරියර්",
+    "கட்டணம்",
+    "டெலிவரி",
+)
+
+
+def is_delivery_fee_question(message):
+    """Recognise a delivery-price question in English, Sinhala or Tamil."""
+    text = str(message).casefold()
+
+    if any(phrase in text for phrase in DELIVERY_FEE_PHRASES):
+        return True
+
+    asks_price = any(
+        word in text for word in ("how much", "kiyada", "how many", "එවනවද", "කීයද")
+    )
+    return asks_price and any(
+        word in text for word in ("delivery", "shipping", "courier", "deliver")
+    )
+
+
+def cart_weight_grams(cart_summary):
+    return sum(item.get("lineWeightGrams", 0) for item in cart_summary)
+
+
+def session_catalog(database, session):
+    """Load the seller's public catalogue for one chat session."""
+    business_snapshot = (
+        database.collection("businesses").document(session["businessId"]).get()
+    )
+    return get_public_store(database, business_snapshot.to_dict().get("shortCode"))
+
+
+def cheapest_courier_quote(database, business_id, district, weight_grams):
+    """The lowest delivery fee for one district across the seller's couriers.
+
+    Customers are quoted, and orders are assigned, the cheapest courier for
+    their district. Delivery quality only breaks a price tie, unlike the seller
+    dashboard recommendation which weighs success rate first.
+    """
+    if not str(district or "").strip():
+        return None
+
+    quotes = recommend_couriers(
+        database,
+        business_id,
+        max(int(weight_grams or 0), 1000),
+        district,
+    )
+
+    if not quotes:
+        return None
+
+    return min(
+        quotes,
+        key=lambda quote: (quote["deliveryFeeMinor"], -quote["score"]),
+    )
+
+
+def delivery_quote(database, business_id, district, weight_grams):
+    """Price one delivery with the courier the order would actually use."""
+    quoted_weight = max(int(weight_grams or 0), 1000)
+    best = cheapest_courier_quote(database, business_id, district, weight_grams)
+
+    if not best:
+        return None
+
+    courier = best["courier"]
+
+    return {
+        "courierId": courier.get("id", ""),
+        "district": district_display_name(district),
+        "courierName": courier.get("name", ""),
+        "firstKgPriceMinor": district_first_kg_price(
+            courier,
+            normalize_district(district),
+        ),
+        "extraKgPriceMinor": courier.get("extraKgPriceMinor", 0),
+        "weightGrams": quoted_weight,
+        "isEstimate": not weight_grams,
+        "deliveryFeeMinor": best["deliveryFeeMinor"],
+    }
+
+
+def delivery_quote_message(quote):
+    """Explain the district price and the extra-kilogram rate that built it."""
+    courier_text = f" with {quote['courierName']}" if quote.get("courierName") else ""
+    parts = [
+        f"Delivery to {quote['district']}{courier_text} is LKR "
+        f"{quote['firstKgPriceMinor'] / 100:,.2f} for the first 1 kg, plus LKR "
+        f"{quote['extraKgPriceMinor'] / 100:,.2f} for each extra 1 kg.",
+    ]
+
+    if quote["isEstimate"]:
+        parts.append(
+            "That is the price for a 1 kg parcel. Add items to your order and I "
+            "will confirm the exact delivery fee for their total weight.",
+        )
+    else:
+        parts.append(
+            f"Your selected items weigh {quote['weightGrams'] / 1000:,.2f} kg, so "
+            f"delivery is LKR {quote['deliveryFeeMinor'] / 100:,.2f}.",
+        )
+
+    return " ".join(parts)
 
 
 def parse_customer_name(message):
@@ -650,11 +787,7 @@ def answer_public_message(database, session_id, provided_token, payload):
             "state": session.get("state", "browsing"),
             "aiPaused": True,
         }
-    business_snapshot = (
-        database.collection("businesses").document(session["businessId"]).get()
-    )
-    store_code = business_snapshot.to_dict().get("shortCode")
-    catalog = get_public_store(database, store_code)
+    catalog = session_catalog(database, session)
     products = catalog["products"]
     supplied_cart = (
         normalize_chat_cart(payload.get("cart"))
@@ -719,6 +852,61 @@ def answer_public_message(database, session_id, provided_token, payload):
             ),
             "customerDraft": customer_draft,
         }
+
+    # A delivery-price question is answered before the order-status check below,
+    # because "delivery" is also a tracking word. Checkout and completed states
+    # are excluded so a mid-checkout question cannot derail the collected draft.
+    named_district = find_district_in_text(message)
+
+    if current_state == "quoting-district" and not named_district:
+        # That reply was not a district after all. Handle it as a normal message.
+        current_state = "browsing"
+
+    if current_state in {"browsing", "quoting-district"} and session.get(
+        "status",
+    ) != "completed" and (
+        current_state == "quoting-district" or is_delivery_fee_question(message)
+    ):
+        draft_address = customer_draft.get("address") or {}
+        district = named_district or draft_address.get("district", "")
+
+        if not district:
+            return respond(
+                "Which district should we deliver to? I will check the exact "
+                "delivery fee for that district.",
+                "collect-quote-district",
+                next_state="quoting-district",
+            )
+
+        quote = delivery_quote(
+            database,
+            session["businessId"],
+            district,
+            cart_weight_grams(cart_summary),
+        )
+
+        if not quote:
+            return respond(
+                "The seller has not set up a courier yet, so I cannot quote a "
+                "delivery fee for that district.",
+                "show-delivery-quote",
+                next_state="browsing",
+            )
+
+        # Remember the district so checkout does not ask for it a second time.
+        customer_draft["address"] = {
+            "line1": "",
+            "line2": "",
+            "city": "",
+            "postalCode": "",
+            **draft_address,
+            "district": quote["district"],
+        }
+        return respond(
+            delivery_quote_message(quote),
+            "show-delivery-quote",
+            next_state="browsing",
+        )
 
     # Once an order is submitted, normal conversation stays attached to that
     # order. Do not treat "ok", "thanks" or a status question as a brand-new
@@ -844,13 +1032,24 @@ def answer_public_message(database, session_id, provided_token, payload):
                 next_state="collecting-address",
             )
 
+        # A district captured during a delivery quote is not asked for again.
+        quoted_district = (customer_draft.get("address") or {}).get("district", "")
         customer_draft["address"] = {
             "line1": address_line,
             "line2": "",
             "city": "",
-            "district": "",
+            "district": quoted_district,
             "postalCode": "",
         }
+
+        if quoted_district:
+            return respond(
+                f"Thanks. I already have {quoted_district} as your delivery "
+                "district. What is the nearest city?",
+                "collect-nearest-city",
+                next_state="collecting-nearest-city",
+            )
+
         return respond(
             "Which district should we deliver to?",
             "collect-district",
@@ -858,13 +1057,17 @@ def answer_public_message(database, session_id, provided_token, payload):
         )
 
     if current_state == "collecting-district":
-        try:
-            customer_draft["address"]["district"] = parse_required_location(
-                message, "district"
+        # Only a recognised district can be accepted. An unknown spelling would
+        # silently fall back to the courier's common price and misquote the fee.
+        if not is_known_district(message):
+            return respond(
+                "I could not recognise that district. Please send one of Sri "
+                "Lanka's 25 districts, for example Colombo, Gampaha or Jaffna.",
+                "collect-district",
+                next_state="collecting-district",
             )
-        except ValueError as error:
-            return respond(str(error), "collect-district", next_state="collecting-district")
 
+        customer_draft["address"]["district"] = district_display_name(message)
         return respond(
             "What is the nearest city?",
             "collect-nearest-city",
@@ -899,6 +1102,30 @@ def answer_public_message(database, session_id, provided_token, payload):
             for item in cart_summary
         )
         address = customer_draft["address"]
+        subtotal_minor = sum(item["lineTotalMinor"] for item in cart_summary)
+        # Quote the same courier the order will use, so the customer confirms
+        # the total they were shown instead of an unknown delivery fee.
+        quote = delivery_quote(
+            database,
+            session["businessId"],
+            address["district"],
+            cart_weight_grams(cart_summary),
+        )
+
+        if quote:
+            totals_text = (
+                f"Items: LKR {subtotal_minor / 100:,.2f}. Delivery to "
+                f"{quote['district']} ({quote['weightGrams'] / 1000:,.2f} kg) by "
+                f"{quote['courierName']}: LKR {quote['deliveryFeeMinor'] / 100:,.2f}. "
+                f"Total: LKR "
+                f"{(subtotal_minor + quote['deliveryFeeMinor']) / 100:,.2f}. "
+            )
+        else:
+            totals_text = (
+                f"Items: LKR {subtotal_minor / 100:,.2f}. The delivery fee will "
+                "be confirmed by the seller. "
+            )
+
         response_message = (
             f"Please confirm your order: {item_text}. Customer: "
             f"{customer_draft['name']}, {customer_draft['phoneNumber']}"
@@ -906,7 +1133,7 @@ def answer_public_message(database, session_id, provided_token, payload):
             + ". Delivery: "
             f"{address['line1']}, {address['city']}, {address['district']}. "
             + (f"Note: {customer_draft['deliveryNote']}. " if customer_draft.get("deliveryNote") else "")
-            + "The delivery fee will be calculated from the district and total weight. "
+            + totals_text
             + "Reply 'confirm order' to submit, or 'change order' to edit the details."
         )
         return respond(
@@ -1302,11 +1529,31 @@ def create_public_chat_order(database, session_id, provided_token, payload):
     if delivery_note:
         private_note = f"{private_note} Customer delivery note: {delivery_note}"
 
+    # The customer was quoted the cheapest courier for their district, so the
+    # order is assigned that same courier instead of the dashboard's
+    # quality-weighted recommendation. Both callers of this function - the chat
+    # state machine and the storefront checkout - are covered here.
+    courier_id = payload.get("courierId", "")
+
+    if not courier_id:
+        district = (customer_payload.get("address") or {}).get("district", "")
+        cart_summary = summarize_chat_cart(
+            normalize_chat_cart(payload.get("items")) or [],
+            session_catalog(database, session)["products"],
+        )
+        quote = cheapest_courier_quote(
+            database,
+            session["businessId"],
+            district,
+            cart_weight_grams(cart_summary),
+        )
+        courier_id = quote["courier"].get("id", "") if quote else ""
+
     order_payload = {
         "customerId": customer["id"],
         "items": payload.get("items"),
         "deliveryAddress": customer_payload.get("address"),
-        "courierId": payload.get("courierId", ""),
+        "courierId": courier_id,
         "paymentMethod": "cod",
         "source": "chatbot",
         "discountAmount": 0,

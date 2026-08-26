@@ -2117,6 +2117,7 @@
 }
 
 .storefront-checkout-modal input,
+.storefront-checkout-modal select,
 .storefront-checkout-modal textarea {
   width: 100%;
   border: 0;
@@ -2124,6 +2125,20 @@
   color: var(--sf-text);
   background: transparent;
   resize: vertical;
+}
+
+/* The district field is a fixed list, so it stays a select but must not look
+   like a native control next to the text inputs beside it. */
+.storefront-checkout-modal select {
+  appearance: none;
+  padding: 12px 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.storefront-checkout-modal select option {
+  color: #101828;
+  background: #fff;
 }
 
 .storefront-checkout-modal textarea {
