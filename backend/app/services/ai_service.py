@@ -379,6 +379,7 @@ STOREFRONT_INTENTS = {
     "reviews",
     "delivery_quote",
     "policy_question",
+    "set_quantity",
     "start_order",
     "finished_selecting",
     "confirm_order",
@@ -439,12 +440,24 @@ def generate_storefront_intent(message, product_names, category_names, state):
         "number. Sinhala and Tamil attach the count to the noun - 'dekak' and "
         "'2ak' are 2, 'thunak' is 3, 'ekak' is 1. Use 0 when no quantity is "
         "stated; never guess one.\n"
+        "Set quantityMode to say what that number means. Use \"total\" when the "
+        "customer states how many they want altogether - 'mata 3k ona' (I want "
+        "3), 'okkoma 3k' (3 in all), 'make it 3'. Use \"add\" only when they ask "
+        "for that many MORE on top of what is already in the order - 'thawa "
+        "dekak' (2 more), 'another one', 'add 2 more'. When in doubt use "
+        "\"total\": adding when the customer meant a total silently overcharges "
+        "them.\n"
+        "Use set_quantity when the customer is correcting or changing how many "
+        "of something they already added, rather than choosing a new product. "
+        "'thawa 3k neme, okkoma 3k' (not 3 more - 3 in total), 'make it 2', "
+        "'I only want 1' and 'remove it' are all set_quantity. Use quantity 0 "
+        "for removing an item.\n"
         f"CONVERSATION STATE: {state}\n"
         f"PRODUCTS IN THIS STORE: {json.dumps(product_names, ensure_ascii=False)}\n"
         f"CATEGORIES: {json.dumps(category_names, ensure_ascii=False)}\n"
         'Example shape: {"intent":"start_order","productQuery":"black bag",'
-        '"categoryQuery":"","sizeQuery":"XL","quantity":2,"district":"",'
-        '"language":"si"}\n\n'
+        '"categoryQuery":"","sizeQuery":"XL","quantity":2,'
+        '"quantityMode":"total","district":"","language":"si"}\n\n'
         f"CUSTOMER MESSAGE:\n{message}"
     )
     result = parse_json_object(request_ai_text(prompt, max_tokens=1200))
@@ -466,6 +479,12 @@ def generate_storefront_intent(message, product_names, category_names, state):
         "sizeQuery": str(result.get("sizeQuery") or "").strip(),
         # Clamped here so a hallucinated 9999 cannot reach the cart.
         "quantity": max(0, min(quantity, 99)),
+        # "total" is the safe default: treating a stated total as an addition
+        # silently puts more in the customer's order than they asked for.
+        "quantityMode": (
+            "add" if str(result.get("quantityMode") or "").strip().casefold() == "add"
+            else "total"
+        ),
         "district": str(result.get("district") or "").strip(),
         "language": language if language in CHAT_LANGUAGES else None,
     }

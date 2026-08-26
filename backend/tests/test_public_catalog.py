@@ -429,33 +429,148 @@ def test_an_unstated_size_stays_ambiguous_so_the_bot_asks():
     assert choose_variant(variant_product(), "XXL") is None
 
 
-def test_adding_to_the_cart_merges_and_respects_stock():
-    from app.services.public_chat_service import add_variant_to_cart
+def test_a_stated_quantity_is_a_total_not_an_addition():
+    from app.services.public_chat_service import set_variant_quantity
 
-    cart, quantity = add_variant_to_cart([], "v-s", 2, 4)
-    assert cart == [{"variantId": "v-s", "quantity": 2}]
-    assert quantity == 2
+    # "mata 3k ona" means "I want 3", not "add 3 more". Adding to the existing
+    # line put 4 in the order when the customer asked for 3.
+    cart, quantity = set_variant_quantity([{"variantId": "v-s", "quantity": 1}], "v-s", 3, 9)
 
-    # Asking again adds to the existing line rather than duplicating it.
-    cart, quantity = add_variant_to_cart(cart, "v-s", 1, 4)
-    assert cart == [{"variantId": "v-s", "quantity": 3}]
     assert quantity == 3
+    assert cart == [{"variantId": "v-s", "quantity": 3}]
+
+
+def test_add_mode_accumulates_for_thawa_dekak():
+    from app.services.public_chat_service import set_variant_quantity
+
+    # "thawa dekak" / "2 more" is the one case that adds to what is there.
+    cart, quantity = set_variant_quantity(
+        [{"variantId": "v-s", "quantity": 1}], "v-s", 2, 9, "add",
+    )
+
+    assert quantity == 3
+    assert cart == [{"variantId": "v-s", "quantity": 3}]
+
+
+def test_a_first_item_with_no_quantity_defaults_to_one():
+    from app.services.public_chat_service import set_variant_quantity
+
+    cart, quantity = set_variant_quantity([], "v-s", 0, 9)
+
+    assert quantity == 1
+    assert cart == [{"variantId": "v-s", "quantity": 1}]
+
+
+def test_zero_in_total_mode_removes_the_line():
+    from app.services.public_chat_service import set_variant_quantity
+
+    cart, quantity = set_variant_quantity(
+        [{"variantId": "v-s", "quantity": 2}, {"variantId": "v-xl", "quantity": 1}],
+        "v-s",
+        0,
+        9,
+    )
+
+    assert quantity == 0
+    assert cart == [{"variantId": "v-xl", "quantity": 1}]
 
 
 def test_the_cart_line_is_capped_at_available_stock():
-    from app.services.public_chat_service import add_variant_to_cart
+    from app.services.public_chat_service import set_variant_quantity
 
     # "give me 10" when 2 are left must not build an unfulfillable draft.
-    cart, quantity = add_variant_to_cart([], "v-xl", 10, 2)
+    cart, quantity = set_variant_quantity([], "v-xl", 10, 2)
 
     assert quantity == 2
     assert cart == [{"variantId": "v-xl", "quantity": 2}]
 
 
-def test_adding_never_mutates_the_caller_s_cart():
-    from app.services.public_chat_service import add_variant_to_cart
+def test_setting_a_quantity_never_mutates_the_caller_s_cart():
+    from app.services.public_chat_service import set_variant_quantity
 
     original = [{"variantId": "v-s", "quantity": 1}]
-    add_variant_to_cart(original, "v-s", 5, 9)
+    set_variant_quantity(original, "v-s", 5, 9)
 
     assert original == [{"variantId": "v-s", "quantity": 1}]
+
+
+def stocked_catalogue():
+    return [
+        {
+            "id": "buds",
+            "name": "GM2 Pro Earbuds",
+            "sellingPriceMinor": 450000,
+            "media": [],
+            "variants": [{"id": "v-buds", "size": "", "availableStock": 2}],
+        },
+    ]
+
+
+def test_a_line_within_stock_is_left_alone():
+    from app.services.public_chat_service import reconcile_cart_stock
+
+    cart, sold_out, reduced = reconcile_cart_stock(
+        [{"variantId": "v-buds", "quantity": 2}],
+        stocked_catalogue(),
+    )
+
+    assert cart == [{"variantId": "v-buds", "quantity": 2}]
+    assert sold_out == []
+    assert reduced == []
+
+
+def test_a_partly_depleted_line_is_reduced_and_reported():
+    from app.services.public_chat_service import reconcile_cart_stock
+
+    # Previously this survived to the order transaction and failed there with
+    # "Only 2 unit(s) are available for SKU ..." at the moment of confirmation.
+    cart, sold_out, reduced = reconcile_cart_stock(
+        [{"variantId": "v-buds", "quantity": 5}],
+        stocked_catalogue(),
+    )
+
+    assert cart == [{"variantId": "v-buds", "quantity": 2}]
+    assert sold_out == []
+    assert [available for _product, _variant, available in reduced] == [2]
+
+
+def test_a_sold_out_line_is_reported_not_silently_dropped():
+    from app.services.public_chat_service import reconcile_cart_stock
+
+    # A sold-out variant disappears from the public catalogue, so the old code
+    # filtered the line out of the cart without telling anyone.
+    cart, sold_out, reduced = reconcile_cart_stock(
+        [{"variantId": "v-gone", "quantity": 1}],
+        stocked_catalogue(),
+    )
+
+    assert cart == []
+    assert sold_out == ["v-gone"]
+    assert reduced == []
+
+
+def test_a_zero_stock_variant_still_in_the_payload_counts_as_sold_out():
+    from app.services.public_chat_service import reconcile_cart_stock
+
+    products = [
+        {
+            "id": "buds",
+            "name": "GM2 Pro Earbuds",
+            "variants": [{"id": "v-buds", "availableStock": 0}],
+        },
+    ]
+    cart, sold_out, _reduced = reconcile_cart_stock(
+        [{"variantId": "v-buds", "quantity": 1}],
+        products,
+    )
+
+    assert cart == []
+    assert sold_out == ["v-buds"]
+
+
+def test_stock_conflict_codes_match_what_create_order_raises():
+    from app.services.public_chat_service import STOCK_CONFLICT_CODES
+
+    # These are the recoverable ones. A validation error must still surface.
+    assert "insufficient_stock" in STOCK_CONFLICT_CODES
+    assert "validation_error" not in STOCK_CONFLICT_CODES

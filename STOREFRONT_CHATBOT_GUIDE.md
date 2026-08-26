@@ -7,15 +7,20 @@ This document explains the customer storefront chatbot in a way that another dev
 The public storefront is reached with a seller short link such as `/s/L23OOWs`. It loads only that seller's active catalogue. A visitor can:
 
 1. Ask about a product, category, feature, review or seller rating.
-2. See product photos, descriptions, stock and variants.
-3. Start an order only after deciding to buy.
-4. Build a multi-item cart with quantity controls.
-5. Submit name, one or two phone numbers, address, district, nearest city and an optional note.
-6. Review subtotal, delivery fee, discount and total, then confirm.
-7. Receive an order number, receipt, status messages and later order history.
-8. Sign in as a customer or continue as a guest. Signed-in history is restored on the next visit.
+2. Ask questions that span the catalogue — "which is cheaper", "anything under 3000", "which has the longest warranty".
+3. Ask how the shop works — returns, exchanges, cash on delivery, opening hours — answered from seller-written policy text.
+4. Ask the delivery fee for their district before committing to anything.
+5. See product photos, descriptions, stock and variants.
+6. Build a multi-item cart, either by clicking **Add** or by saying so ("mata GM2 pro dekak ona").
+7. Submit name, one or two phone numbers, address, district, nearest city and an optional note.
+8. Review subtotal, the real delivery fee and total, then confirm.
+9. Receive an order number, receipt, status messages and later order history.
+10. Sign in as a customer or continue as a guest. Signed-in history is restored on the next visit.
+11. Do all of the above in **English, Sinhala or Tamil**, including romanised Sinhala and sentences that mix languages.
 
-The chatbot must never invent products or stock. Every product answer is based on the seller-scoped API response. AI is used for natural-language intent extraction and concise replies; deterministic application code validates cart, customer data, totals and order creation.
+The chatbot must never invent products, stock, prices or shop policies. Every answer is grounded in the seller-scoped API response or the seller's own policy text. AI is used for language identification, intent classification, natural-language answers and translation; deterministic application code owns cart contents, customer validation, delivery pricing, totals and order creation.
+
+**The dividing line that matters:** the model decides *what the customer meant*. Application code decides *what happens*. No model output is ever trusted as an identifier, a price or a quantity — products are re-resolved against the seller's catalogue, quantities are clamped, and every total is recalculated server-side.
 
 ## 2. Source of truth (complete source)
 
@@ -27,6 +32,12 @@ The production source is intentionally kept in normal modules rather than duplic
 - Shared HTTP client/auth headers: `frontend/src/services/apiClient.js`
 - Backend public routes: `backend/app/api/public.py`
 - Backend chatbot/order logic: `backend/app/services/public_chat_service.py`
+- **Every AI call and prompt**: `backend/app/services/ai_service.py`
+- **Delivery pricing, districts and courier selection**: `backend/app/services/courier_service.py`
+- **Public payload shape (what the browser and the model are allowed to see)**: `backend/app/services/public_catalog_service.py`
+- **Sri Lankan district list shared by both dashboards**: `frontend/src/data/districts.js`
+- Seller policy text editor: `frontend/src/components/SettingsModal.jsx`
+- Courier per-district pricing form: `frontend/src/components/AddCourierModal.jsx`
 - Seller inbox and human handoff: `backend/app/services/message_service.py`
 - Status-to-chat notifications: `backend/app/services/chat_event_service.py`
 
@@ -188,6 +199,19 @@ function addFromChat(product, variant) {
 
 `addOrIncreaseLine` merges the same product/variant and caps quantity at available stock. The cart summary on the right (or below on mobile) is derived from `cart`, never separately edited by the model.
 
+**The chat can also add items.** "I want 2 of the GM2 Pro" — in any of the three languages — adds them without a click, which is the whole point for someone typing Sinhala on a phone or using voice. The rules are unchanged in substance:
+
+- Only an explicit order intent adds anything. A question about a product (`do you have GM2 pro?`) never does.
+- A multi-variant product with no size named **asks** which size. Guessing puts the wrong item in a real order.
+- The quantity is capped at available stock and the customer is told when it was reduced.
+- The model supplies a *name and a number*, never an identifier. The product is re-resolved with `find_matching_products` and the quantity clamped to 0–99.
+
+**A stated quantity is a total, not an addition.** `mata 3k ona` means "I want 3", so a cart holding 1 becomes 3 — not 4. `set_variant_quantity(..., mode)` defaults to `"total"` and only accumulates when the classifier reports `quantityMode: "add"`, which it does for `thawa dekak` / "2 more" / "another one". Getting this backwards silently overcharges the customer, so the prompt tells the model to choose `"total"` whenever it is unsure.
+
+The `set_quantity` intent handles corrections and removals — "make it 2", `thawa 3k neme okkoma 3k` ("not 3 more, 3 in total"), `meka epa` ("remove it", quantity 0). It runs **before** the order branch so a correction is never read as a fresh product choice. When the message names no product it applies to the only cart line; with several lines it asks which one, because editing the wrong item is worse than asking.
+
+Server-side additions come back in `cartSummary`, and `requestChatMessage` reconciles local state from it. Without that reconciliation the added line is invisible **and** the next message uploads the stale local cart over the top of it.
+
 ## 9. Product cards and product information
 
 `ChatCatalogCard` receives `mode`, `product`, `onAdd`, `onDetails`, and variant data. Use `object-fit: contain` when the seller image must be shown completely; use a fixed aspect-ratio wrapper so cards do not jump when images have different dimensions.
@@ -219,7 +243,9 @@ Please provide your address, district and nearest city.
 Do you have any delivery note (optional)?
 ```
 
-Accept one phone number, but validate Sri Lankan formats on the server. Validate required name, address, district and city. Show a final summary containing item lines, subtotal, delivery fee, discount, tax (if configured), total and payment method. Only the customer’s explicit confirmation calls the order endpoint.
+Accept one phone number, but validate Sri Lankan formats on the server. Validate required name, address, district and city — the district must resolve to one of the 25 (§14c) or the fee is wrong.
+
+The final summary must contain **real numbers**, not a promise. It shows item lines, subtotal, the delivery fee for the district and cart weight, the courier, and the total. An earlier version said "the delivery fee will be calculated from the district and total weight" and then asked the customer to confirm — nobody confirms an unknown total. Only the customer's explicit confirmation calls the order endpoint.
 
 ```js
 const orderPayload = {
@@ -258,39 +284,69 @@ Each route should: validate path/body data, authorize the session token, scope e
 
 ## 12. Backend chatbot service
 
-`public_chat_service.py` is the single place for conversation rules:
+`public_chat_service.py` is the single place for conversation rules. `answer_public_message` runs a fixed sequence of checks; the order matters and is load-bearing:
 
-```python
-def answer_public_message(session, text, cart, customer):
-    intent = classify_intent(text)  # model or deterministic fallback
-    if intent == "order_status":
-        return order_status_reply(session, text)
-    if intent == "show_reviews":
-        return reviews_action(session.business_id, text)
-    if intent == "show_product":
-        return product_details_action(session.business_id, text)
-    if intent == "start_order":
-        return start_order_action(cart)
-    return safe_catalog_question_reply(session.business_id, text)
+```text
+1.  authorise session, save the customer message
+2.  if AI is paused by the seller -> hand off, return early
+3.  load catalogue + reconcile cart
+4.  classify intent + language (ONE AI call, browsing-like states only)
+5.  delivery-fee question            -> quote, remember the district
+6.  order-status question            -> order info
+7.  completed session                -> order info, or "another order"
+8.  collecting-* states              -> read the message literally as data
+9.  awaiting-confirmation            -> create the order, or re-collect
+10. "that is everything"             -> start collecting details
+11. start_order / catalogue / category / alternatives / reviews / product
+12. ambiguous product match          -> ask which one
+13. catalogue-wide or policy question-> grounded AI answer
+14. otherwise                        -> notify the seller, generic prompt
 ```
 
-The actual service also contains `create_public_chat_session`, `authorize_public_chat_session`, `get_public_chat_messages`, `save_chat_message`, `claim_public_chat_session`, `normalize_chat_cart`, `summarize_chat_cart`, `answer_public_message` and `create_public_chat_order`. Read that file before changing the state machine; it prevents an order-status question from accidentally restarting a new order.
+Two ordering rules that will bite if changed:
+
+- **Step 5 must precede step 6.** `ORDER_ENQUIRY_WORDS` contains `delivery`, so "what is the delivery fee" would otherwise be answered as a tracking question.
+- **Step 4 must skip the `collecting-*` states.** In those states the message *is* the data — a name, a phone number, an address. Classifying "Nimal Perera" as an intent is both wasteful and wrong. `INTENT_CLASSIFIED_STATES` enforces this, and a test asserts the classifier is never called while collecting details.
+
+Every deterministic branch returns through the nested `respond()` helper, which is the single place that translates the reply, persists state, cart, draft and language, and shapes the JSON. Anything bypassing `respond()` must localise its own message — currently only order confirmation does.
+
+### Keyword ladder vs. AI classifier
+
+Both run. `intent_is(...)` is OR-ed into each keyword check, never substituted for it:
+
+```python
+wants_to_order = any(
+    phrase in lowered_message for phrase in ORDER_INTENT_PHRASES
+) or intent_is("start_order")
+```
+
+The phrase lists (`ORDER_INTENT_PHRASES`, `CATALOG_PHRASES`, `ALTERNATIVE_PHRASES`, …) carry English, Sinhala, Tamil and romanised Sinhala wording. They exist so that **a provider outage degrades the bot instead of breaking it**. Do not delete them when tidying up.
 
 ## 13. Conversation state machine
 
+The stored `state` field takes exactly these values:
+
 ```text
-DISCOVERY ──product/category question──> PRODUCT_INFO
-DISCOVERY ──“want to order”────────────> SELECTING_ITEMS
-PRODUCT_INFO ──another product─────────> DISCOVERY
-SELECTING_ITEMS ──Add/quantity─────────> CART_REVIEW
-CART_REVIEW ──customer details─────────> COLLECTING_DETAILS
-COLLECTING_DETAILS ──all valid─────────> AWAITING_CONFIRMATION
-AWAITING_CONFIRMATION ──yes────────────> ORDER_CREATED
-ORDER_CREATED ──status question────────> ORDER_INFO
-ORDER_CREATED ──“another order”───────> SELECTING_ITEMS (keep history, new draft)
+browsing ──delivery-fee question, no district known──> quoting-district
+quoting-district ──district recognised─────────────> browsing (district saved to draft)
+quoting-district ──not a district──────────────────> browsing (handled as a normal message)
+
+browsing ──"that is everything" with a cart────────> collecting-name
+browsing ──"I want N of X"─────────────────────────> browsing (item added to cart)
+
+collecting-name ──> collecting-phone ──> collecting-secondary-phone
+                ──> collecting-address ──> collecting-district ──> collecting-nearest-city
+                ──> collecting-delivery-note ──> awaiting-confirmation
+
+awaiting-confirmation ──confirm───────────────────> completed (order created)
+awaiting-confirmation ──change────────────────────> collecting-name (draft cleared)
+completed ──status question───────────────────────> completed (order info)
+completed ──"another order"───────────────────────> browsing (history kept, new draft)
 ```
 
-After order creation, keep the same session open. Append an order-created system message and do not reset the conversation to the initial greeting. A status question must query the customer’s orders and return the matching order number/status.
+`collecting-address` **skips `collecting-district`** when a district was already captured during a delivery quote. Do not remove that: asking again for something the customer just told you is the fastest way to lose them.
+
+After order creation, keep the same session open. Append an order-created message and do not reset to the initial greeting. A status question queries the customer's orders and returns the matching order number/status.
 
 ## 14. Firestore data model
 
@@ -298,17 +354,32 @@ The backend can use the Firebase Admin SDK while the browser uses Firebase Auth.
 
 ```text
 businesses/{businessId}
-  storeCode, name, logoUrl, phone, email, deliverySettings
+  shortCode, name, logoUrl, publicPhone, publicEmail, currency, status
+  storefrontFaq            <- seller's free-text policies; the ONLY source the
+                              bot may answer returns/COD/hours questions from
 businesses/{businessId}/products/{productId}
-  name, description, categoryId, price, costPrice, stock, weight, imageUrls, isActive
-businesses/{businessId}/products/{productId}/variants/{variantId}
-  label, sku, barcode, price, stock, imageUrl
+  name, description, aiDescription, categoryId, categoryName, brand, colourName,
+  sellingPriceMinor, compareAtPriceMinor, costPriceMinor, weightGrams,
+  warrantyPeriodMonths, productSize, availableStock, stockStatus, media, status,
+  variantSummaries[]       <- denormalised copy read by the public catalogue
+businesses/{businessId}/productVariants/{variantId}
+  productId, size, sku, barcode, sellingPriceMinor, costPriceMinor, weightGrams,
+  stockOnHand, stockReserved, stockAvailable, stockStatus, status
+businesses/{businessId}/couriers/{courierId}
+  name, code, extraKgPriceMinor, averageDeliveryDays, status,
+  firstKgPriceMinor        <- DERIVED: the modal (most common) district price,
+                              also the fallback for an unconfigured district
+  districtFirstKgPricesMinor  <- {districtSlug: minorUnits} for all 25 districts
+  successRate, returnRate, districtIssueCounts, waybillPrefix/Start/End
 businesses/{businessId}/reviews/{reviewId}
   productId, customerId, rating, text, imageUrls, approved, createdAt
 publicChatSessions/{sessionId}
-  businessId, customerId|null, tokenHash, status, cart, customer, createdAt, updatedAt
+  businessId, customerUid|null, tokenHash, status, state, cart, customerDraft,
+  language                 <- "en" | "si" | "ta", set from the first message and
+                              then kept; drives every reply and the mic locale
+  selectedProductId, orderId, aiPaused, unreadBySeller, createdAt, updatedAt, expiresAt
 publicChatSessions/{sessionId}/messages/{messageId}
-  role, text, actions, createdAt, source
+  role, message, metadata{action, productId, state, language}, createdAt
 businesses/{businessId}/orders/{orderId}
   orderNumber, customerId, customerName, phone, secondPhone, address, district, city,
   items, subtotal, deliveryFee, discount, taxAmount, totalAmount, status, waybillNumber, createdAt
@@ -319,6 +390,81 @@ globalFraudCustomers/{customerKey}
 ```
 
 Use a transaction when creating an order: re-read each product/variant, reject insufficient stock, decrement stock, allocate order number/waybill, write order and order items, then write a chat event. Security rules must deny clients direct writes to stock, totals, fraud records and orders; only trusted backend code writes them.
+
+## 14a. The AI layer
+
+Every provider call goes through **one** function, `request_ai_text()` in `ai_service.py`. Do not add a second call path; the error handling below only exists there.
+
+| Function | When it runs | Failure behaviour |
+|---|---|---|
+| `generate_storefront_intent` | once per steering message | falls back to keyword ladder |
+| `generate_product_answer` | product questions | falls back to the seller's description |
+| `generate_catalogue_answer` | catalogue-wide + policy questions | falls through to seller handoff |
+| `translate_chat_message` | every deterministic reply when language ≠ en | returns the English original |
+| `detect_chat_language` | only if the intent call did not report a language | keeps the current language |
+
+Configuration lives in `.env`: `AI_PROVIDER`, `AI_API_KEY`, `AI_MODEL`, `AI_API_BASE_URL`, `AI_TIMEOUT_SECONDS`. `AI_PROVIDER=none` disables AI entirely and the bot still works deterministically.
+
+### Three operational traps, all of which have already bitten this project
+
+1. **Models get retired.** `llama-3.3-70b-versatile` was decommissioned by Groq; every call 404'd, was swallowed, and the chat silently answered in English for an unknown period. A 4xx now logs `AI DISABLED - provider X rejected model Y`. **If replies suddenly go English-only, grep the logs for that string first.** List live models with:
+
+   ```bash
+   curl -s https://api.groq.com/openai/v1/models -H "Authorization: Bearer $AI_API_KEY"
+   ```
+
+2. **Reasoning models spend the token budget before writing anything.** `openai/gpt-oss-120b` used 43 of 62 completion tokens on reasoning for a trivial prompt. A 200-token cap returned empty content and classification silently failed. Budgets are now 1200–1500. If you switch models and intents start coming back `None`, raise `max_tokens` before suspecting the prompt.
+
+3. **Rate limits are not configuration errors.** Groq's free tier is 8000 TPM. A 429 logs `AI RATE LIMITED` and says it recovers on its own — deliberately worded differently from `AI DISABLED` so nobody edits a model name that was never wrong.
+
+### Grounding rules
+
+- The model never sees another seller's data. Prompts are built from the already-scoped `get_public_store` response.
+- Product, category and district names returned by the model are **queries, not identifiers** — they are re-resolved against the catalogue with `find_matching_products` / `find_district_in_text`.
+- Quantities are clamped to 0–99 at the parse boundary.
+- Every reply ends with `[ANSWERED]` or `[NO_DATA]`, stripped before display. This is a **forced choice** — when only the "no data" marker was offered, the model appended it to answers it had fully answered and paged the seller for nothing. `[NO_DATA]` is what triggers `notify_seller_attention`, and it works in any language, unlike matching English phrases like "I don't know".
+
+## 14b. Language handling
+
+The customer's language is decided once per message by `conversation_language()`, cheapest check first:
+
+1. Explicit request ("reply in english", "සිංහලෙන්", "தமிழில்") — wins outright.
+2. Sinhala or Tamil **script** present — certain, free, no AI call.
+3. A language already settled on the session — **kept**.
+4. Latin text on an English session — ask the AI.
+
+Step 4 is the only one that needs a model: `mata bag ekak ona` is Sinhala in Latin letters and no character range can tell it from English. Step 3 matters just as much — a phone number or `No. 45 Park Road` carries no language signal, and re-detecting it would switch a Sinhala customer back to English mid-order.
+
+**Tokenising Sinhala and Tamil.** Use `word_characters()`, never `\w` or `[a-z0-9]`:
+
+- `[a-z0-9]+` deletes those scripts entirely — the original bug that made every non-English message match nothing.
+- `\w+` is *worse*: it silently drops Unicode combining marks (categories `Mn`/`Mc`), which is what Sinhala and Tamil vowel signs are. `නැහැ` came back as two unrelated fragments and `யாழ்ப்பாணம்` lost 5 of its 11 characters.
+
+`word_characters()` keeps categories `L`, `M` and `N`, so every script survives intact.
+
+**Translation** happens in `respond()`. The prompt must keep proper nouns in Latin script — an early version transliterated Jaffna to `ජාප්පනය` (which reads "Japan"; Jaffna is `යාපනය`), and a customer echoing that back would fail the district lookup and misprice delivery. Quoted commands like `'skip'` and `'confirm order'` also stay English, because the recognisers match on them — though `is_optional_phone_skip` and `CONFIRMATION_PHRASES` also accept Sinhala and Tamil answers, since people reply in their own words regardless.
+
+The response carries `language`, and the storefront syncs the mic and text-to-speech locale to it.
+
+## 14c. Delivery pricing
+
+```text
+fee = districtFirstKgPricesMinor[district] + (ceil((weight - 1000) / 1000) x extraKgPriceMinor)
+```
+
+- The first-kilogram price is **per district**; the extra-kilogram price is one value shared by all districts.
+- `firstKgPriceMinor` is **derived** as the modal district price (`Counter(...).most_common(1)`), not typed by the seller. It is what the courier table shows and the fallback for any district not in the map.
+- `SRI_LANKA_DISTRICTS` in `courier_service.py` is the single source of truth, mirrored in `frontend/src/data/districts.js`. `DISTRICT_ALIASES` resolves Sinhala, Tamil and misspellings (`kaluthara`, `yapanaya`, `யாழ்ப்பாணம்`) to one slug.
+- The storefront district field is a `<select>` and the chat rejects unrecognised districts. Free text there would silently fall back to the modal price and misprice the order.
+- The chatbot quotes and assigns the **cheapest** courier for the district (`cheapest_courier_quote`), with delivery quality only breaking a price tie. The seller dashboard's own `recommend_couriers` ranking is unchanged and still weighs success rate first — there is a test pinning that difference.
+
+Weights and prices must come from the **variant**, not the product: `create_order` bills `variant.sellingPriceMinor` and `variant.weightGrams`. Using the product's values showed one subtotal and charged another.
+
+## 14d. Store policies
+
+`businesses/{id}.storefrontFaq` is free text the seller writes in Settings → General. It is deliberately *not* a set of named fields (returns / COD / hours): fixed fields can only answer questions someone anticipated, and a textarea costs one input instead of a repeatable editor.
+
+It is passed to `generate_catalogue_answer` as a separate grounded block. When it does not cover the question, the model returns `[NO_DATA]` and the seller is notified — it must never invent a policy on a shop's behalf.
 
 ## 15. Seller replies and live updates
 
@@ -384,10 +530,14 @@ Use `min-width: 0` on grid/flex children, `aspect-ratio` for images, and `object
 
 ## 19. Test plan
 
-1. Open a seller link and verify only that seller’s active products load.
+Automated: `cd backend && .venv/Scripts/python.exe -m pytest -q` (124 tests) and `cd frontend && npm run build`.
+
+Manual, in this order:
+
+1. Open a seller link and verify only that seller's active products load.
 2. Ask for a category, then a product feature, then reviews with images.
 3. Verify browsing cards do not alter the cart.
-4. Say “I want to order”; add two different products and change both quantities.
+4. Say "I want to order"; add two different products and change both quantities.
 5. Submit one phone number, then two; test invalid phone/address messages.
 6. Confirm totals, create the order, download/view the receipt and verify stock decrement.
 7. Ask for order status after creation; ensure the same chat continues and no new order starts.
@@ -395,9 +545,26 @@ Use `min-width: 0` on grid/flex children, `aspect-ratio` for images, and `object
 9. Pause AI, send a seller reply, update order status, and verify live messages appear.
 10. Test mobile widths, keyboard navigation, mic denial, expired sessions and offline retry.
 
+Language and intent, which the unit tests cannot cover because they need a live model:
+
+11. Ask in Sinhala script; every following reply must stay Sinhala, including checkout prompts and the order confirmation.
+12. Ask in **romanised** Sinhala (`mata bag ekak ona`) — this is the case only the AI can catch.
+13. Mix languages (`මට black bag එකක් order කරන්න ඕන`) and confirm the product still resolves.
+14. Mid-order, send only a phone number and an address; the language must **not** flip back to English.
+15. Say `me vage thava ewa thiyenawada` and confirm similar products are suggested, not a generic prompt.
+16. Ask a delivery fee before choosing anything, then check out — the district must not be asked for twice.
+17. Order to a district priced differently from the common price; the quote, the confirmation and the invoice must all agree.
+18. Ask a policy question the seller **did not** write about; the bot must decline rather than invent, and the seller must be notified.
+19. Say "give me 10" when 2 are in stock; the cart must cap at 2 and say so.
+20. Set `AI_PROVIDER=none` and re-run 1–10. Everything must still work in English.
+
+Step 20 is the one people skip. It is the regression test for the whole fallback ladder.
+
 ## 20. Change guide for future agents
 
-Start by reading `StorefrontPage.jsx`, `publicService.js`, `public.py` and `public_chat_service.py`. Preserve the response contract (`messages`, `actions`, `cart`, `customer`, `order`) when adding a feature. Put business rules in backend services, API calls in service modules, and visual changes in `StorefrontPage.css`. After every change run `npm run build` and the backend tests, then manually test one guest and one signed-in conversation.
+Start by reading `public_chat_service.py` (the state machine, §12), `ai_service.py` (every prompt, §14a), then `StorefrontPage.jsx`. **§22 is the backlog** — start there rather than inventing work.
+
+Preserve the response contract (`message`, `language`, `action`, `state`, `product`, `products`, `reviews`, `cart`, `cartSummary`, `customerDraft`, `order`) when adding a feature. Put business rules in backend services, API calls in service modules, and visual changes in `StorefrontPage.css`. After every change run `npm run build` and the backend tests, then manually test one guest and one signed-in conversation — and at least one in Sinhala.
 
 This separation keeps the storefront chatbot understandable: React displays state, the service layer talks to the API, the backend validates and persists data, and Firestore remains the shared source of truth for web and mobile clients.
 
@@ -547,3 +714,71 @@ The matching visual effects are in `D:\Documents\orderflow\vendly-lk-web\fronten
 ```
 
 For another agent to reproduce this safely, do not create a second chatbot voice API. Reuse `startVoiceInput`, `stopVoiceInput` and `requestChatMessage`; the update is only interaction state, cleanup, and presentation. Test short click, long press, pointer cancellation, microphone denial, unsupported browsers, Sinhala/English recognition, and TTS cancellation on desktop and mobile.
+
+---
+
+## 22. Roadmap — pick up here in a new session
+
+Everything above is **built and tested**. This section is the backlog, ordered by value. Each item is written to be actionable without the conversation that produced it.
+
+Before starting any of these, run `pytest -q` and `npm run build` to confirm a clean baseline, and check the logs for `AI DISABLED` / `AI RATE LIMITED` (see §14a) — a dead model looks exactly like a broken feature.
+
+### Known limits of what exists
+
+| Limit | Where | When it starts to matter |
+|---|---|---|
+| Whole catalogue goes into the prompt | `generate_catalogue_answer` | ~200 products: cost rises and the model gets worse at picking |
+| One classifier call per steering message | `storefront_intent` | high traffic on an 8000 TPM tier |
+| Translation cache is a plain dict, cleared wholesale at 1000 entries | `ai_service._TRANSLATION_CACHE` | multi-process deploys — each worker caches separately |
+| Opening greeting is always English | `create_public_chat_session` | no message exists yet to detect from |
+| Reviews are fetched only for overview requests | `answer_public_message` | if customers start asking about reviews conversationally |
+
+### 1. Catalogue shortlisting (do this first if the seller has many products)
+
+**Problem:** `generate_catalogue_answer` sends every product. Fine at ~40, wasteful and less accurate at 200+.
+
+**Approach:** filter before prompting — by category when the intent named one, by price band when the question mentions a number, otherwise the 40 nearest by name tokens. Keep the full list only when it fits a token budget. Do **not** reach for embeddings until a real catalogue makes the cheap filter fail; that is a vector store and a sync job for a problem you may not have.
+
+**Touches:** `ai_service.generate_catalogue_answer`, `public_chat_service` fallthrough.
+
+### 2. Stock changes mid-conversation — DONE
+
+**Problem:** a cart item can sell out between adding and confirming. `create_order` rejects it inside the transaction and the customer sees a raw error at the final step — the worst possible moment for "order without contacting the seller".
+
+**Built as:** `reconcile_cart_stock()` runs on every message, before anything else is answered. A sold-out line used to be filtered out of the cart *silently*; a partly-depleted one survived to the order transaction and failed there with a raw SKU error at the moment of confirmation. Both are now reported, and `describe_missing_variant()` reads the variant document directly to name an item that has dropped out of the public catalogue. `STOCK_CONFLICT_CODES` catches the remaining race between the summary and the transaction and re-offers the corrected cart instead of surfacing the raw error.
+
+### 3. Order-status detail — DONE
+
+**Problem:** `is_order_enquiry` matches broad words. "How long is delivery?" during browsing can still route to order status when a past order exists, because it is not a *fee* question and falls to step 6.
+
+**Built as:** `keyword_status_enquiry` — the broad keyword list is trusted only once an order exists in the conversation (`state == "completed"`, `status == "completed"` or a stored `orderId`) or the customer names an order/waybill number. The classifier's `order_status` verdict is trusted anywhere, since it reads the whole sentence.
+
+### 4. Seller-facing AI health
+
+**Problem:** `AI DISABLED` only reaches the server log. A seller whose bot has quietly gone English-only has no way to know.
+
+**Approach:** record the last provider failure on the business document and surface a banner in the dashboard. Keep the log line — this is an addition, not a replacement.
+
+**Touches:** `ai_service.request_ai_text`, a small dashboard component.
+
+### 5. Proactive upsell and abandoned drafts
+
+**Problem:** a customer who builds a cart and stops is never followed up.
+
+**Approach:** sessions already carry `cart`, `customerDraft`, `language` and `updatedAt`. A scheduled job could message stale active sessions in their own language. **Check consent and messaging rules before building this** — an unsolicited follow-up is a very different thing from answering a question, and it is the seller's reputation at stake.
+
+### 6. Voice quality on real phones
+
+**Problem:** `si-LK` and `ta-LK` recognition quality varies by browser and device, and has only been tested via typed input.
+
+**Approach:** test on real Android and iOS hardware before promising voice ordering. If browser recognition is too weak, the Groq Whisper model already configured as `GROQ_TRANSCRIPTION_MODEL` is the fallback — record audio and transcribe server-side.
+
+### Rules to keep when extending any of this
+
+1. **The keyword ladder stays.** It is the outage fallback, not dead code. Test with `AI_PROVIDER=none`.
+2. **Model output is never an identifier.** Re-resolve names against the seller's catalogue.
+3. **Money and stock are recalculated server-side**, always, from the variant.
+4. **New deterministic replies go through `respond()`** or they will not be translated.
+5. **Never classify intent in a `collecting-*` state.** The message is data there.
+6. **One provider call path** — `request_ai_text`. Adding a second loses the 4xx/429 handling.
+7. **Leave a runnable check** behind non-trivial logic; see `test_delivery.py` and `test_public_catalog.py` for the house style.

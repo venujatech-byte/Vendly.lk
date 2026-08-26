@@ -371,6 +371,97 @@ def storefront_intent(message, products, state):
     return result or {}
 
 
+# Order-creation failures that mean "the shelf changed", not "the request was
+# malformed". Only these are recoverable by re-checking stock and re-asking.
+STOCK_CONFLICT_CODES = {
+    "insufficient_stock",
+    "inactive_variant",
+    "variant_not_found",
+}
+
+
+def reconcile_cart_stock(cart, products):
+    """Clamp a draft to what is still on the shelf, and report what changed.
+
+    Stock moves while a customer is deciding. A variant that sells out drops
+    out of the public catalogue entirely, so an unreported line simply vanished
+    from the cart; a partly-depleted line survived and failed inside the order
+    transaction with a raw "Only N unit(s) available for SKU ..." at the moment
+    of confirmation. Both are caught here instead.
+
+    Returns the corrected cart, the variant ids that are gone, and the lines
+    that had to be reduced.
+    """
+    variants = {
+        variant["id"]: (product, variant)
+        for product in products
+        for variant in product.get("variants", [])
+    }
+    updated = []
+    sold_out_variant_ids = []
+    reduced_lines = []
+
+    for line in cart:
+        match = variants.get(line["variantId"])
+
+        if not match:
+            sold_out_variant_ids.append(line["variantId"])
+            continue
+
+        product, variant = match
+        available = variant.get("availableStock", 0)
+
+        if available <= 0:
+            sold_out_variant_ids.append(line["variantId"])
+            continue
+
+        if line["quantity"] > available:
+            reduced_lines.append((product, variant, available))
+            updated.append({**line, "quantity": available})
+        else:
+            updated.append(line)
+
+    return updated, sold_out_variant_ids, reduced_lines
+
+
+def describe_missing_variant(database, business_id, variant_id, products):
+    """Name a cart line whose variant has dropped out of the public catalogue.
+
+    Sold-out variants are filtered out of the public payload, so the only way
+    to tell the customer *which* item went is to read the variant directly.
+    This runs only when a line has actually vanished, which is rare.
+    """
+    snapshot = (
+        database.collection("businesses")
+        .document(business_id)
+        .collection("productVariants")
+        .document(variant_id)
+        .get()
+    )
+
+    if not snapshot.exists:
+        return "An item in your order"
+
+    variant = snapshot.to_dict()
+    product = next(
+        (item for item in products if item["id"] == variant.get("productId")),
+        None,
+    )
+    name = product["name"] if product else "An item in your order"
+    size = variant.get("size", "")
+    return f"{name} (size {size})" if size else name
+
+
+def find_variant(products, variant_id):
+    """Locate a cart line's product and variant in the loaded catalogue."""
+    for product in products:
+        for variant in product.get("variants", []):
+            if variant.get("id") == variant_id:
+                return product, variant
+
+    return None, None
+
+
 def choose_variant(product, size_query):
     """Pick the variant the customer meant, or None when it is ambiguous."""
     variants = product.get("variants", [])
@@ -393,8 +484,15 @@ def choose_variant(product, size_query):
     return None
 
 
-def add_variant_to_cart(cart, variant_id, quantity, available_stock):
-    """Merge a line into the chat cart, capped at what the seller actually has.
+def set_variant_quantity(cart, variant_id, quantity, available_stock, mode="total"):
+    """Put a line in the chat cart at the quantity the customer actually meant.
+
+    `mode="total"` sets the line to `quantity`; `mode="add"` adds to whatever is
+    already there. Total is the default because a stated quantity - "mata 3k
+    ona", "I want 3" - is a total, and treating it as an addition silently puts
+    more in the order than the customer asked for.
+
+    A quantity of 0 in total mode removes the line, so "remove it" works.
 
     Returns the new cart and the quantity the line ended up at, which may be
     lower than asked. Stock is checked again inside the order transaction; this
@@ -405,7 +503,16 @@ def add_variant_to_cart(cart, variant_id, quantity, available_stock):
         (line for line in updated if line["variantId"] == variant_id),
         None,
     )
-    requested = (existing["quantity"] if existing else 0) + max(1, quantity)
+    current_quantity = existing["quantity"] if existing else 0
+
+    if mode == "add":
+        requested = current_quantity + max(1, quantity)
+    else:
+        requested = quantity if quantity > 0 else (0 if existing else 1)
+
+    if requested <= 0:
+        return [line for line in updated if line["variantId"] != variant_id], 0
+
     capped = max(1, min(requested, available_stock or requested, 99))
 
     if existing:
@@ -1105,9 +1212,8 @@ def answer_public_message(database, session_id, provided_token, payload):
         else None
     )
     cart = supplied_cart if supplied_cart is not None else session.get("cart", [])
+    cart, sold_out_variant_ids, reduced_lines = reconcile_cart_stock(cart, products)
     cart_summary = summarize_chat_cart(cart, products)
-    valid_variant_ids = {item["variantId"] for item in cart_summary}
-    cart = [item for item in cart if item["variantId"] in valid_variant_ids]
     customer_draft = dict(session.get("customerDraft") or {})
     current_state = session.get("state", "browsing")
     lowered_message = message.strip().casefold()
@@ -1188,6 +1294,41 @@ def answer_public_message(database, session_id, provided_token, payload):
             "customerDraft": customer_draft,
         }
 
+    # Stock moved while the customer was deciding. Say so immediately, before
+    # answering anything else: a changed order is more urgent than the question
+    # they just asked, and silently shipping a different order is not an option.
+    # The corrected cart is persisted by respond(), so this fires only once.
+    if sold_out_variant_ids or reduced_lines:
+        notes = [
+            f"{describe_missing_variant(database, session['businessId'], variant_id, products)}"
+            " has just sold out, so I removed it from your order."
+            for variant_id in sold_out_variant_ids
+        ]
+        notes += [
+            f"Only {available} of {product['name']}"
+            + (f" (size {variant['size']})" if variant.get("size") else "")
+            + f" are left, so I reduced that line to {available}."
+            for product, variant, available in reduced_lines
+        ]
+
+        if cart_summary:
+            notes.append(
+                "The rest of your order is unchanged. Shall we continue?",
+            )
+            # Mid-checkout the collected details are still good, so stay put.
+            next_stock_state = current_state
+        else:
+            notes.append("Your order is empty now. Would you like to choose something else?")
+            next_stock_state = "browsing"
+            customer_draft = {}
+
+        return respond(
+            " ".join(notes),
+            "start-order",
+            next_state=next_stock_state,
+            response_products=products[:4] if not cart_summary else [],
+        )
+
     # A delivery-price question is answered before the order-status check below,
     # because "delivery" is also a tracking word. Checkout and completed states
     # are excluded so a mid-checkout question cannot derail the collected draft.
@@ -1253,8 +1394,20 @@ def answer_public_message(database, session_id, provided_token, payload):
     # order. Do not treat "ok", "thanks" or a status question as a brand-new
     # shopping session. A new catalogue is shown only when the customer clearly
     # asks to place another order.
+    # The keyword list matches broad words like "deliver" and "shipping", so on
+    # its own it hijacks browsing questions ("how long is delivery?") into an
+    # order-status reply whenever the customer has any past order. It is trusted
+    # only once an order exists in this conversation, or when the customer names
+    # an order number. The classifier's verdict is trusted anywhere.
+    keyword_status_enquiry = is_order_enquiry(lowered_message) and (
+        current_state == "completed"
+        or session.get("status") == "completed"
+        or session.get("orderId")
+        or re.search(r"\b(?:vd|vwb)[- ]?\d+", lowered_message)
+    )
+
     latest_order = None
-    if is_order_enquiry(lowered_message) or intent_is("order_status"):
+    if keyword_status_enquiry or intent_is("order_status"):
         latest_order = latest_order_for_session(database, session)
         if latest_order:
             session_snapshot.reference.set(
@@ -1499,22 +1652,44 @@ def answer_public_message(database, session_id, provided_token, payload):
         ) or intent_is("change_order")
 
         if confirms_order:
-            order = create_public_chat_order(
-                database,
-                session_id,
-                provided_token,
-                {
-                    "customer": {
-                        "name": customer_draft.get("name"),
-                        "phoneNumber": customer_draft.get("phoneNumber"),
-                        "secondaryPhoneNumber": customer_draft.get("secondaryPhoneNumber", ""),
-                        "email": customer_draft.get("email", ""),
-                        "address": customer_draft.get("address"),
+            try:
+                order = create_public_chat_order(
+                    database,
+                    session_id,
+                    provided_token,
+                    {
+                        "customer": {
+                            "name": customer_draft.get("name"),
+                            "phoneNumber": customer_draft.get("phoneNumber"),
+                            "secondaryPhoneNumber": customer_draft.get("secondaryPhoneNumber", ""),
+                            "email": customer_draft.get("email", ""),
+                            "address": customer_draft.get("address"),
+                        },
+                        "items": cart,
+                        "deliveryNote": customer_draft.get("deliveryNote", ""),
                     },
-                    "items": cart,
-                    "deliveryNote": customer_draft.get("deliveryNote", ""),
-                },
-            )
+                )
+            except ApiError as error:
+                # Someone else can still take the last unit between the summary
+                # and the transaction. The raw message names an SKU the customer
+                # has never seen, so it must not be what they read at the very
+                # moment they commit to buying.
+                if error.code not in STOCK_CONFLICT_CODES:
+                    raise
+
+                cart, sold_out_variant_ids, reduced_lines = reconcile_cart_stock(
+                    cart,
+                    products,
+                )
+                cart_summary = summarize_chat_cart(cart, products)
+                return respond(
+                    "Sorry - one of your items sold out while we were "
+                    "finishing the order, so I could not place it. I have "
+                    "updated your order to what is still available. Reply "
+                    "'confirm order' to place it, or tell me what to change.",
+                    "confirm-order",
+                    next_state="awaiting-confirmation",
+                )
             response_message = translate_chat_message(
                 f"Your order {order['orderNumber']} was placed successfully. "
                 f"Items subtotal: LKR {order['subtotalMinor'] / 100:,.2f}, "
@@ -1635,6 +1810,73 @@ def answer_public_message(database, session_id, provided_token, payload):
     )
     selected_product = explicitly_selected_product or remembered_product
 
+    # Correcting a quantity that is already in the order - "make it 2", "thawa
+    # 3k neme okkoma 3k" (not 3 more, 3 in total), "remove it". This runs before
+    # the order branch so a correction is never read as a fresh product choice.
+    if intent_is("set_quantity") and cart_summary:
+        target_line = None
+
+        if selected_product:
+            target_line = next(
+                (
+                    line
+                    for line in cart_summary
+                    if line["productId"] == selected_product["id"]
+                ),
+                None,
+            )
+
+        # "okkoma 3k" names no product. With a single line there is no doubt
+        # which one they mean; with several, guessing would edit the wrong item.
+        if not target_line and len(cart_summary) == 1:
+            target_line = cart_summary[0]
+
+        if not target_line:
+            return respond(
+                "Which item should I change the quantity of? "
+                + ", ".join(line["productName"] for line in cart_summary)
+                + ".",
+                "start-order",
+                next_state="browsing",
+            )
+
+        _target_product, target_variant = find_variant(
+            products,
+            target_line["variantId"],
+        )
+        asked_quantity = ai_intent.get("quantity", 0)
+        cart, line_quantity = set_variant_quantity(
+            cart,
+            target_line["variantId"],
+            asked_quantity,
+            (target_variant or {}).get("availableStock", 0),
+            ai_intent.get("quantityMode", "total"),
+        )
+        cart_summary = summarize_chat_cart(cart, products)
+
+        if line_quantity == 0:
+            response_message = (
+                f"Removed {target_line['productName']} from your order."
+            )
+        else:
+            capped_text = (
+                f" Only {line_quantity} left in stock, so that is what I have "
+                "put in your order."
+                if line_quantity < asked_quantity
+                else ""
+            )
+            response_message = (
+                f"Your order now has {line_quantity} x "
+                f"{target_line['productName']}.{capped_text}"
+            )
+
+        return respond(
+            f"{response_message} Would you like anything else, or shall we "
+            "take your delivery details?",
+            "start-order",
+            next_state="browsing",
+        )
+
     if wants_to_order:
         # A customer who says "mata GM2 pro dekak ona" has already chosen. Being
         # told to click Add is a dead end for anyone typing Sinhala or speaking,
@@ -1659,11 +1901,12 @@ def answer_public_message(database, session_id, provided_token, payload):
 
             if variant:
                 asked_quantity = ai_intent.get("quantity") or 1
-                cart, line_quantity = add_variant_to_cart(
+                cart, line_quantity = set_variant_quantity(
                     cart,
                     variant["id"],
                     asked_quantity,
                     variant.get("availableStock", 0),
+                    ai_intent.get("quantityMode", "total"),
                 )
                 cart_summary = summarize_chat_cart(cart, products)
                 size_text = f" (size {variant['size']})" if variant.get("size") else ""
@@ -1674,9 +1917,10 @@ def answer_public_message(database, session_id, provided_token, payload):
                     else ""
                 )
                 return respond(
-                    f"Added {line_quantity} x {selected_product['name']}"
-                    f"{size_text} to your order.{capped_text} Would you like "
-                    "anything else, or shall we take your delivery details?",
+                    f"Your order now has {line_quantity} x "
+                    f"{selected_product['name']}{size_text}.{capped_text} Would "
+                    "you like anything else, or shall we take your delivery "
+                    "details?",
                     "start-order",
                     next_state="browsing",
                     product=selected_product,
