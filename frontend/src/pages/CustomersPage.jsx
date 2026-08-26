@@ -38,11 +38,53 @@ import ActionMenu from "../components/ActionMenu";
 import ConfirmDialog from "../components/ConfirmDialog";
 import ModalShell from "../components/ModalShell";
 import TablePagination from "../components/TablePagination";
+import SortableHeader from "../components/SortableHeader";
 import useTablePagination from "../hooks/useTablePagination";
+import useTableSort from "../hooks/useTableSort";
 
 import "./ManagementPage.css";
 import "../components/OrderFilters.css";
 import "./CustomersPage.css";
+
+const customerSortAccessors = {
+  customer: (customer) => customer.name,
+  phone: (customer) => customer.normalizedPhone,
+  email: (customer) => customer.email,
+  address: (customer) => [customer.defaultAddress?.line1, customer.defaultAddress?.city, customer.defaultAddress?.district].filter(Boolean).join(" "),
+  orders: (customer) => customer.completedOrderCount ?? 0,
+  spent: (customer) => customer.totalSpentMinor ?? 0,
+  rating: (customer) => Number(customer.rating ?? 0),
+  risk: (customer) => customer.riskLevel,
+};
+
+const reviewSortAccessors = {
+  customer: (review) => review.customerName,
+  phone: (review) => review.customerPhone,
+  email: (review) => review.customerEmail,
+  product: (review) => review.productName || review.itemName,
+  rating: (review) => Number(review.rating ?? 0),
+  review: (review) => review.reviewText || review.comment,
+  images: (review) => review.media?.length ?? 0,
+  date: (review) => new Date(review.createdAt ?? 0),
+  status: (review) => review.status || "pending",
+};
+
+const fraudSortAccessors = {
+  customer: (customer) => customer.name,
+  phone: (customer) => customer.normalizedPhone,
+  email: (customer) => customer.email,
+  address: (customer) => [customer.defaultAddress?.line1, customer.address?.line1, customer.defaultAddress?.city, customer.address?.city].filter(Boolean).join(" "),
+  returned: (customer) => customer.returnedOrderCount ?? 0,
+  total: (customer) => customer.totalOrderCount ?? customer.completedOrderCount ?? customer.returnedOrderCount ?? 0,
+  rate: (customer) => {
+    const returned = customer.returnedOrderCount ?? 0;
+    const total = customer.totalOrderCount ?? customer.completedOrderCount ?? returned;
+    return total ? returned / total : 0;
+  },
+  score: (customer) => customer.fraudScore ?? Math.min(99, (customer.returnedOrderCount ?? 0) * 15),
+  reason: (customer) => customer.returnReason || customer.fraudReason || "Unspecified",
+  risk: (customer) => customer.riskLevel || "low",
+};
 
 function CustomersPage() {
   const [searchParameters, setSearchParameters] = useSearchParams();
@@ -157,7 +199,8 @@ function CustomersPage() {
       && (fraudFilters.reason === "all" || reason === fraudFilters.reason)
       && (fraudFilters.score === "all" || (fraudFilters.score === "high" ? score >= 70 : fraudFilters.score === "medium" ? score >= 40 && score < 70 : score < 40));
   });
-  const customerPagination = useTablePagination(visibleCustomers);
+  const customerSorting = useTableSort(visibleCustomers, customerSortAccessors);
+  const customerPagination = useTablePagination(customerSorting.sortedItems);
 
   const customerStats = [
     {
@@ -522,14 +565,14 @@ function CustomersPage() {
               <tr>
                 <th className="management-table__expand-heading" aria-label="Expand" />
                 <th aria-label="Select" />
-                <th>Customer</th>
-                <th>Phone</th>
-                <th>Email</th>
-                <th>Address</th>
-                <th>Orders</th>
-                <th>Total Spent</th>
-                <th>Rating</th>
-                <th>Risk Level</th>
+                <SortableHeader columnKey="customer" label="Customer" sorting={customerSorting} />
+                <SortableHeader columnKey="phone" label="Phone" sorting={customerSorting} />
+                <SortableHeader columnKey="email" label="Email" sorting={customerSorting} />
+                <SortableHeader columnKey="address" label="Address" sorting={customerSorting} />
+                <SortableHeader columnKey="orders" label="Orders" sorting={customerSorting} />
+                <SortableHeader columnKey="spent" label="Total Spent" sorting={customerSorting} />
+                <SortableHeader columnKey="rating" label="Rating" sorting={customerSorting} />
+                <SortableHeader columnKey="risk" label="Risk Level" sorting={customerSorting} />
                 <th>Actions</th>
               </tr>
             </thead>
@@ -649,7 +692,8 @@ function CustomersPage() {
 
 function ReviewsTable({ reviews, isLoading, onModerate }) {
   const [expandedReviewId, setExpandedReviewId] = useState(null);
-  const pagination = useTablePagination(reviews);
+  const sorting = useTableSort(reviews, reviewSortAccessors);
+  const pagination = useTablePagination(sorting.sortedItems);
 
   function mediaUrl(item) {
     return item?.url || item?.secureUrl || item?.secure_url || item?.downloadUrl || "";
@@ -688,15 +732,15 @@ function ReviewsTable({ reviews, isLoading, onModerate }) {
           <thead>
             <tr>
               <th className="management-table__expand-heading" aria-label="Expand" />
-              <th>Customer</th>
-              <th>Phone</th>
-              <th>Email</th>
-              <th>Product</th>
-              <th>Rating</th>
-              <th>Review</th>
-              <th>Review images</th>
-              <th>Date</th>
-              <th>Status</th>
+              <SortableHeader columnKey="customer" label="Customer" sorting={sorting} />
+              <SortableHeader columnKey="phone" label="Phone" sorting={sorting} />
+              <SortableHeader columnKey="email" label="Email" sorting={sorting} />
+              <SortableHeader columnKey="product" label="Product" sorting={sorting} />
+              <SortableHeader columnKey="rating" label="Rating" sorting={sorting} />
+              <SortableHeader columnKey="review" label="Review" sorting={sorting} />
+              <SortableHeader columnKey="images" label="Review images" sorting={sorting} />
+              <SortableHeader columnKey="date" label="Date" sorting={sorting} />
+              <SortableHeader columnKey="status" label="Status" sorting={sorting} />
               <th>Actions</th>
             </tr>
           </thead>
@@ -778,9 +822,10 @@ function FraudFilters({ filters, setFilters }) {
 
 function FraudTable({ customers, isLoading, onChangeRisk, onRemove }) {
   const [expandedFraudCustomerId, setExpandedFraudCustomerId] = useState(null);
-  const pagination = useTablePagination(customers);
+  const sorting = useTableSort(customers, fraudSortAccessors);
+  const pagination = useTablePagination(sorting.sortedItems);
 
-  return <section className="customer-table-card" aria-label="Fraud reports list"><div className="customer-table-scroll"><table className="management-table fraud-table"><thead><tr><th className="management-table__expand-heading" aria-label="Expand" /><th>Customer</th><th>Phone</th><th>Email</th><th>Address</th><th>Returned Orders</th><th>Total Orders</th><th>Return Rate</th><th>Fraud Score</th><th>Reason</th><th>Risk Status</th><th>Actions</th></tr></thead><tbody>
+  return <section className="customer-table-card" aria-label="Fraud reports list"><div className="customer-table-scroll"><table className="management-table fraud-table"><thead><tr><th className="management-table__expand-heading" aria-label="Expand" /><SortableHeader columnKey="customer" label="Customer" sorting={sorting} /><SortableHeader columnKey="phone" label="Phone" sorting={sorting} /><SortableHeader columnKey="email" label="Email" sorting={sorting} /><SortableHeader columnKey="address" label="Address" sorting={sorting} /><SortableHeader columnKey="returned" label="Returned Orders" sorting={sorting} /><SortableHeader columnKey="total" label="Total Orders" sorting={sorting} /><SortableHeader columnKey="rate" label="Return Rate" sorting={sorting} /><SortableHeader columnKey="score" label="Fraud Score" sorting={sorting} /><SortableHeader columnKey="reason" label="Reason" sorting={sorting} /><SortableHeader columnKey="risk" label="Risk Status" sorting={sorting} /><th>Actions</th></tr></thead><tbody>
     {pagination.pageItems.map((customer) => {
       const returned = customer.returnedOrderCount ?? 0;
       const total = customer.totalOrderCount ?? customer.completedOrderCount ?? returned;

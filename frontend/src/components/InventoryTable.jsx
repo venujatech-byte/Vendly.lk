@@ -12,7 +12,9 @@ import {
 } from "lucide-react";
 import ActionMenu from "./ActionMenu";
 import TablePagination from "./TablePagination";
+import SortableHeader from "./SortableHeader";
 import useTablePagination from "../hooks/useTablePagination";
+import useTableSort from "../hooks/useTableSort";
 
 // Product data, stock calculation helpers, and the nested size table.
 import {
@@ -39,6 +41,16 @@ function formatStatus(status) {
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(" ");
 }
+
+const inventorySortAccessors = {
+  product: (product) => product.name,
+  sku: (product) => product.hasSizes ? "Multiple SKUs" : product.sku,
+  category: (product) => product.category || "Uncategorized",
+  price: (product) => product.sellingPrice ?? 0,
+  weight: (product) => product.weightKg ?? 0,
+  stock: (product) => getProductStock(product),
+  status: (product) => getProductStockStatus(product),
+};
 
 // Show a product photo and fall back to a package icon if the image fails.
 function ProductImage({ product, imageNumber = 0 }) {
@@ -230,7 +242,8 @@ function InventoryTable({ products = [], categories = [], onViewReviews, onAdjus
     null,
   );
   const [selectedProductIds, setSelectedProductIds] = useState([]);
-  const pagination = useTablePagination(products);
+  const sorting = useTableSort(products, inventorySortAccessors);
+  const pagination = useTablePagination(sorting.sortedItems);
 
   // True when every visible product checkbox is selected.
   const allProductsSelected =
@@ -342,13 +355,13 @@ function InventoryTable({ products = [], categories = [], onViewReviews, onAdjus
                 />
               </th>
               <th className="orders-table__expand-column"></th>
-              <th>Product</th>
-              <th>SKU / Barcode</th>
-              <th>Category</th>
-              <th>Price</th>
-              <th>Weight</th>
-              <th>Stock</th>
-              <th>Status</th>
+              <SortableHeader columnKey="product" label="Product" sorting={sorting} />
+              <SortableHeader columnKey="sku" label="SKU / Barcode" sorting={sorting} />
+              <SortableHeader columnKey="category" label="Category" sorting={sorting} />
+              <SortableHeader columnKey="price" label="Price" sorting={sorting} />
+              <SortableHeader columnKey="weight" label="Weight" sorting={sorting} />
+              <SortableHeader columnKey="stock" label="Stock" sorting={sorting} />
+              <SortableHeader columnKey="status" label="Status" sorting={sorting} />
               <th className="orders-table__actions-heading">Actions</th>
             </tr>
           </thead>

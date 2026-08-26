@@ -1,6 +1,8 @@
 import { Package } from "lucide-react";
 import TablePagination from "./TablePagination";
+import SortableHeader from "./SortableHeader";
 import useTablePagination from "../hooks/useTablePagination";
+import useTableSort from "../hooks/useTableSort";
 import "./ShopSales.css";
 
 const claimTypeLabels = {
@@ -12,15 +14,28 @@ const claimTypeLabels = {
 const money = (minor = 0) =>
   `LKR ${(minor / 100).toLocaleString("en-LK", { minimumFractionDigits: 2 })}`;
 
+const warrantySortAccessors = {
+  claim: (claim) => claim.claimNumber,
+  sale: (claim) => claim.sourceNumber,
+  item: (claim) => claim.item?.name,
+  handling: (claim) => claimTypeLabels[claim.claimType] ?? claim.claimType,
+  impact: (claim) => claim.revenueImpactMinor ?? 0,
+  customer: (claim) => claim.customerName,
+  reason: (claim) => claim.reason,
+  status: (claim) => claim.status,
+  date: (claim) => new Date(claim.createdAt ?? 0),
+};
+
 export default function WarrantyClaimsTable({ claims = [] }) {
-  const pagination = useTablePagination(claims);
+  const sorting = useTableSort(claims, warrantySortAccessors);
+  const pagination = useTablePagination(sorting.sortedItems);
 
   return (
     <section className="orders-table-section warranty-table">
       <div className="orders-table__scroll">
         <table className="orders-table">
           <thead>
-            <tr><th>Claim</th><th>Original sale</th><th>Item</th><th>Handling</th><th>Revenue impact</th><th>Customer</th><th>Reason</th><th>Status</th><th>Date</th></tr>
+            <tr><SortableHeader columnKey="claim" label="Claim" sorting={sorting} /><SortableHeader columnKey="sale" label="Original sale" sorting={sorting} /><SortableHeader columnKey="item" label="Item" sorting={sorting} /><SortableHeader columnKey="handling" label="Handling" sorting={sorting} /><SortableHeader columnKey="impact" label="Revenue impact" sorting={sorting} /><SortableHeader columnKey="customer" label="Customer" sorting={sorting} /><SortableHeader columnKey="reason" label="Reason" sorting={sorting} /><SortableHeader columnKey="status" label="Status" sorting={sorting} /><SortableHeader columnKey="date" label="Date" sorting={sorting} /></tr>
           </thead>
           <tbody>
             {pagination.pageItems.map((claim) => (

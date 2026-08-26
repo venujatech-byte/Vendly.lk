@@ -5,7 +5,9 @@ import { useSearchParams } from "react-router-dom";
 import AddCourierModal from "../components/AddCourierModal";
 import ActionMenu from "../components/ActionMenu";
 import TablePagination from "../components/TablePagination";
+import SortableHeader from "../components/SortableHeader";
 import useTablePagination from "../hooks/useTablePagination";
+import useTableSort from "../hooks/useTableSort";
 import { useAuth } from "../context/authContextValue";
 import { getCouriers, updateCourier } from "../services/courierService";
 
@@ -16,12 +18,23 @@ function money(minor = 0) {
   return `LKR ${(minor / 100).toLocaleString("en-LK")}`;
 }
 
+const courierSortAccessors = {
+  courier: (courier) => courier.name,
+  firstKg: (courier) => courier.firstKgPriceMinor ?? 0,
+  extraKg: (courier) => courier.extraKgPriceMinor ?? 0,
+  success: (courier) => courier.successRate ?? 0,
+  returns: (courier) => courier.returnRate ?? 0,
+  delivery: (courier) => courier.averageDeliveryDays ?? 0,
+  status: (courier) => courier.status,
+};
+
 function CouriersPage() {
   const [searchParameters, setSearchParameters] = useSearchParams();
   const assistantAction = searchParameters.get("assistantAction") ?? "";
   const { business } = useAuth();
   const [couriers, setCouriers] = useState([]);
-  const pagination = useTablePagination(couriers);
+  const sorting = useTableSort(couriers, courierSortAccessors);
+  const pagination = useTablePagination(sorting.sortedItems);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
   const [isAddCourierOpen, setIsAddCourierOpen] = useState(false);
@@ -113,7 +126,7 @@ function CouriersPage() {
       <section className="orders-table-section courier-table-card">
       <div className="orders-table__scroll courier-table__scroll">
       <table className="orders-table courier-table">
-        <thead><tr><th className="management-table__expand-heading" /><th>Courier</th><th>First 1 kg</th><th>Extra 1 kg</th><th>Success</th><th>Returns</th><th>Delivery</th><th>Status</th><th className="orders-table__actions-heading">Actions</th></tr></thead>
+        <thead><tr><th className="management-table__expand-heading" /><SortableHeader columnKey="courier" label="Courier" sorting={sorting} /><SortableHeader columnKey="firstKg" label="First 1 kg" sorting={sorting} /><SortableHeader columnKey="extraKg" label="Extra 1 kg" sorting={sorting} /><SortableHeader columnKey="success" label="Success" sorting={sorting} /><SortableHeader columnKey="returns" label="Returns" sorting={sorting} /><SortableHeader columnKey="delivery" label="Delivery" sorting={sorting} /><SortableHeader columnKey="status" label="Status" sorting={sorting} /><th className="orders-table__actions-heading">Actions</th></tr></thead>
         <tbody>
           {pagination.pageItems.map((courier) => {
             const isExpanded = expandedCourierId === courier.id;

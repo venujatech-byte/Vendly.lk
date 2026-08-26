@@ -2,19 +2,29 @@ import { Fragment, useState } from "react";
 import { ChevronDown, ChevronRight, Package, Printer, ShieldCheck, Trash2 } from "lucide-react";
 import ActionMenu from "./ActionMenu";
 import TablePagination from "./TablePagination";
+import SortableHeader from "./SortableHeader";
 import useTablePagination from "../hooks/useTablePagination";
+import useTableSort from "../hooks/useTableSort";
 import "./ShopSales.css";
 
 function hasActiveWarranty(sale) {
   return (sale.items ?? []).some((item) => item.warrantyExpiresAt && new Date(item.warrantyExpiresAt) >= new Date());
 }
 
+const shopSaleSortAccessors = {
+  sale: (sale) => sale.saleNumber,
+  items: (sale) => sale.itemCount ?? sale.items?.length ?? 0,
+  total: (sale) => Number(String(sale.total ?? "0").replace(/[^0-9.-]/g, "")),
+  date: (sale) => new Date(`${sale.date ?? ""} ${sale.time ?? ""}`),
+};
+
 export default function ShopSalesTable({ sales, onPrint, onWarranty, onRemove }) {
   const [expanded, setExpanded] = useState(null);
-  const pagination = useTablePagination(sales);
+  const sorting = useTableSort(sales, shopSaleSortAccessors);
+  const pagination = useTablePagination(sorting.sortedItems);
   return <section className="orders-table-section shop-sales-table">
     <div className="orders-table__scroll"><table className="orders-table"><thead><tr>
-      <th></th><th>Sale number</th><th>Items</th><th>Total</th><th>Date</th><th>Actions</th>
+      <th></th><SortableHeader columnKey="sale" label="Sale number" sorting={sorting} /><SortableHeader columnKey="items" label="Items" sorting={sorting} /><SortableHeader columnKey="total" label="Total" sorting={sorting} /><SortableHeader columnKey="date" label="Date" sorting={sorting} /><th>Actions</th>
     </tr></thead><tbody>
       {pagination.pageItems.map((sale) => <Fragment key={sale.id}>
         <tr><td><button className="orders-table__expand-button" type="button" onClick={() => setExpanded(expanded === sale.id ? null : sale.id)}>{expanded === sale.id ? <ChevronDown size={18}/> : <ChevronRight size={18}/>}</button></td>

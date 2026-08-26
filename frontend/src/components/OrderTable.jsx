@@ -18,7 +18,9 @@ import {
 } from "lucide-react";
 import ActionMenu from "./ActionMenu";
 import TablePagination from "./TablePagination";
+import SortableHeader from "./SortableHeader";
 import useTablePagination from "../hooks/useTablePagination";
+import useTableSort from "../hooks/useTableSort";
 import { printWaybill } from "../services/operationService";
 
 import "./OrderTable.css";
@@ -50,6 +52,16 @@ function hasActiveWarranty(order) {
   );
 }
 
+const orderSortAccessors = {
+  order: (order) => order.orderNumber,
+  customer: (order) => order.customerName,
+  items: (order) => order.itemCount ?? order.items?.length ?? 0,
+  total: (order) => Number(String(order.total ?? "0").replace(/[^0-9.-]/g, "")),
+  courier: (order) => order.courier,
+  status: (order) => order.fulfilmentStatus || order.status,
+  date: (order) => new Date(`${order.date ?? ""} ${order.time ?? ""}`),
+};
+
 function OrderTable({
   orders = [],
   onStatusChange,
@@ -66,7 +78,8 @@ function OrderTable({
   // Remember which row is expanded and which rows are checkbox-selected.
   const [expandedOrderId, setExpandedOrderId] = useState(null);
   const [selectedOrderIds, setSelectedOrderIds] = useState([]);
-  const pagination = useTablePagination(orders);
+  const sorting = useTableSort(orders, orderSortAccessors);
+  const pagination = useTablePagination(sorting.sortedItems);
 
   // Expand one order at a time, or close the row when clicked again.
   function toggleExpandedOrder(orderId) {
@@ -219,13 +232,13 @@ function OrderTable({
               </th>
 
               <th className="orders-table__expand-column"></th>
-              <th>Order</th>
-              <th>Customer</th>
-              <th>Items</th>
-              <th>Total</th>
-              <th>Courier</th>
-              <th>Status</th>
-              <th>Date</th>
+              <SortableHeader columnKey="order" label="Order" sorting={sorting} />
+              <SortableHeader columnKey="customer" label="Customer" sorting={sorting} />
+              <SortableHeader columnKey="items" label="Items" sorting={sorting} />
+              <SortableHeader columnKey="total" label="Total" sorting={sorting} />
+              <SortableHeader columnKey="courier" label="Courier" sorting={sorting} />
+              <SortableHeader columnKey="status" label="Status" sorting={sorting} />
+              <SortableHeader columnKey="date" label="Date" sorting={sorting} />
               <th className="orders-table__actions-heading">Actions</th>
             </tr>
           </thead>
