@@ -208,6 +208,10 @@ function addFromChat(product, variant) {
 
 **A stated quantity is a total, not an addition.** `mata 3k ona` means "I want 3", so a cart holding 1 becomes 3 — not 4. `set_variant_quantity(..., mode)` defaults to `"total"` and only accumulates when the classifier reports `quantityMode: "add"`, which it does for `thawa dekak` / "2 more" / "another one". Getting this backwards silently overcharges the customer, so the prompt tells the model to choose `"total"` whenever it is unsure.
 
+**A quantity is always confirmed before anything is added.** When the customer names a product without a number — `mata GM2 pro ona` — the bot replies with the product, its unit price and "How many would you like to order?", holding the choice in `pendingVariantId` with state `awaiting-item-quantity`. Assuming one silently is how someone ends up with a quantity they never asked for. When they *do* state a number, that step is skipped: they already answered it.
+
+`quantity_from_message()` reads a standalone number and otherwise defers to the classifier. The number must not be embedded in a word: a bare `\d+` matched the "2" in "GM2 pro" and read a product name as a quantity. Suffixed Sinhala forms (`3k`, `2ak`) deliberately fall through to the classifier rather than being guessed from digits.
+
 The `set_quantity` intent handles corrections and removals — "make it 2", `thawa 3k neme okkoma 3k` ("not 3 more, 3 in total"), `meka epa` ("remove it", quantity 0). It runs **before** the order branch so a correction is never read as a fresh product choice. When the message names no product it applies to the only cart line; with several lines it asks which one, because editing the wrong item is worse than asking.
 
 Server-side additions come back in `cartSummary`, and `requestChatMessage` reconciles local state from it. Without that reconciliation the added line is invisible **and** the next message uploads the stale local cart over the top of it.
@@ -753,13 +757,11 @@ Before starting any of these, run `pytest -q` and `npm run build` to confirm a c
 
 **Built as:** `keyword_status_enquiry` — the broad keyword list is trusted only once an order exists in the conversation (`state == "completed"`, `status == "completed"` or a stored `orderId`) or the customer names an order/waybill number. The classifier's `order_status` verdict is trusted anywhere, since it reads the whole sentence.
 
-### 4. Seller-facing AI health
+### 4. Seller-facing AI health — DONE
 
 **Problem:** `AI DISABLED` only reaches the server log. A seller whose bot has quietly gone English-only has no way to know.
 
-**Approach:** record the last provider failure on the business document and surface a banner in the dashboard. Keep the log line — this is an addition, not a replacement.
-
-**Touches:** `ai_service.request_ai_text`, a small dashboard component.
+**Built as:** `record_ai_failure()` / `ai_status()` in `ai_service.py`, exposed at `GET /businesses/<id>/ai-status` (owner/admin only, never returns the API key), rendered by `AiStatusBanner` in the dashboard shell. A success clears the failure, so a stale warning cannot linger. The state is process-local on purpose — a dead model fails on every worker within seconds, so any one of them has the answer; move it to Firestore only if that stops holding.
 
 ### 5. Proactive upsell and abandoned drafts
 

@@ -345,6 +345,7 @@ def conversation_language(message, current_language, detected_language=None):
 INTENT_CLASSIFIED_STATES = {
     "browsing",
     "quoting-district",
+    "awaiting-item-quantity",
     "awaiting-confirmation",
     "completed",
 }
@@ -450,6 +451,22 @@ def describe_missing_variant(database, business_id, variant_id, products):
     name = product["name"] if product else "An item in your order"
     size = variant.get("size", "")
     return f"{name} (size {size})" if size else name
+
+
+def quantity_from_message(message, ai_quantity=0):
+    """Read a quantity sent as its own reply: "2", "two", "dekak".
+
+    The number must stand alone. A bare `\\d+` matched the "2" inside "GM2 pro"
+    and read a product name as a quantity. Suffixed Sinhala forms like "3k" and
+    "2ak" deliberately fall through to the classifier, which reads them as
+    numbers rather than guessing from the digits.
+    """
+    digits = re.search(r"(?<![0-9A-Za-z])\d+(?![0-9A-Za-z])", str(message))
+
+    if digits:
+        return max(0, min(int(digits.group()), 99))
+
+    return max(0, min(int(ai_quantity or 0), 99))
 
 
 def find_variant(products, variant_id):
@@ -1242,6 +1259,7 @@ def answer_public_message(database, session_id, provided_token, payload):
         review_summary=None,
         seller_rating=None,
         selected_product_id="unchanged",
+        pending_variant_id="unchanged",
         is_translated=False,
     ):
         state = next_state or current_state
@@ -1274,6 +1292,9 @@ def answer_public_message(database, session_id, provided_token, payload):
 
         if selected_product_id != "unchanged":
             changes["selectedProductId"] = selected_product_id
+
+        if pending_variant_id != "unchanged":
+            changes["pendingVariantId"] = pending_variant_id or ""
 
         session_snapshot.reference.update(changes)
         return {
@@ -1468,6 +1489,79 @@ def answer_public_message(database, session_id, provided_token, payload):
             next_state="completed",
             response_products=[],
         )
+
+    # The customer was asked how many of a named product they want.
+    if current_state == "awaiting-item-quantity":
+        pending_product, pending_variant = find_variant(
+            products,
+            session.get("pendingVariantId", ""),
+        )
+        wanted_quantity = quantity_from_message(message, ai_intent.get("quantity"))
+
+        if not pending_variant:
+            return respond(
+                "Sorry, that item is no longer available. Which product would "
+                "you like to order?",
+                "show-catalog",
+                next_state="browsing",
+                response_products=products,
+                pending_variant_id=None,
+            )
+
+        if wanted_quantity <= 0:
+            # Not a number. If they clearly moved on to something else, let the
+            # normal handling take over rather than asking again forever.
+            if ai_intent.get("intent") and not intent_is(
+                "start_order",
+                "set_quantity",
+                "unknown",
+            ):
+                current_state = "browsing"
+            else:
+                return respond(
+                    f"How many {pending_product['name']} would you like? Send "
+                    "a number, for example 2.",
+                    "collect-item-quantity",
+                    next_state="awaiting-item-quantity",
+                    product=pending_product,
+                )
+
+        if wanted_quantity > 0:
+            cart, line_quantity = set_variant_quantity(
+                cart,
+                pending_variant["id"],
+                wanted_quantity,
+                pending_variant.get("availableStock", 0),
+            )
+            cart_summary = summarize_chat_cart(cart, products)
+            size_label = (
+                f" (size {pending_variant['size']})"
+                if pending_variant.get("size")
+                else ""
+            )
+            line_total = next(
+                (
+                    item["lineTotalMinor"]
+                    for item in cart_summary
+                    if item["variantId"] == pending_variant["id"]
+                ),
+                0,
+            )
+            capped_text = (
+                f" Only {line_quantity} left in stock, so that is what I have "
+                "put in your order."
+                if line_quantity < wanted_quantity
+                else ""
+            )
+            return respond(
+                f"Added {line_quantity} x {pending_product['name']}{size_label} "
+                f"- LKR {line_total / 100:,.2f}.{capped_text} Would you like "
+                "anything else, or shall we take your delivery details?",
+                "start-order",
+                next_state="browsing",
+                product=pending_product,
+                pending_variant_id=None,
+            )
 
     # Contact collection is deterministic so invalid details never reach orders.
     if current_state == "collecting-name":
@@ -1900,7 +1994,30 @@ def answer_public_message(database, session_id, provided_token, payload):
                 )
 
             if variant:
-                asked_quantity = ai_intent.get("quantity") or 1
+                asked_quantity = ai_intent.get("quantity") or 0
+                size_label = (
+                    f" (size {variant['size']})" if variant.get("size") else ""
+                )
+
+                # Confirm which product, and how many, before putting anything
+                # in the order. Silently assuming one is how a customer ends up
+                # with a quantity they never asked for.
+                if asked_quantity <= 0:
+                    unit_price = variant.get("sellingPriceMinor") or selected_product.get(
+                        "sellingPriceMinor",
+                        0,
+                    )
+                    return respond(
+                        f"{selected_product['name']}{size_label} - LKR "
+                        f"{unit_price / 100:,.2f} each. How many would you "
+                        "like to order?",
+                        "collect-item-quantity",
+                        next_state="awaiting-item-quantity",
+                        product=selected_product,
+                        selected_product_id=selected_product["id"],
+                        pending_variant_id=variant["id"],
+                    )
+
                 cart, line_quantity = set_variant_quantity(
                     cart,
                     variant["id"],

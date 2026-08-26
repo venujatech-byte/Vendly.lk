@@ -6,6 +6,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 
 // Shared layout components and the individual dashboard pages.
 import "./App.css";
+import AiStatusBanner from "./components/AiStatusBanner.jsx";
 import BusinessAssistant from "./components/BusinessAssistant.jsx";
 import Header from "./components/Header.jsx";
 import Sidebar from "./components/Sidebar.jsx";
@@ -157,6 +158,7 @@ function App() {
             />
 
             <div className="app__content">
+              <AiStatusBanner />
               <Routes>
                 <Route
                   path="/"

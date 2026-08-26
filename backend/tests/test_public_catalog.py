@@ -574,3 +574,33 @@ def test_stock_conflict_codes_match_what_create_order_raises():
     # These are the recoverable ones. A validation error must still surface.
     assert "insufficient_stock" in STOCK_CONFLICT_CODES
     assert "validation_error" not in STOCK_CONFLICT_CODES
+
+
+def test_a_quantity_reply_is_read_from_digits_or_from_the_classifier():
+    from app.services.public_chat_service import quantity_from_message
+
+    assert quantity_from_message("2") == 2
+    assert quantity_from_message("I'll take 3 please") == 3
+    # Sinhala words carry no digits, so the classifier supplies the number.
+    assert quantity_from_message("dekak", 2) == 2
+    assert quantity_from_message("තුනක්", 3) == 3
+    # No number anywhere means ask again rather than assume one.
+    assert quantity_from_message("what colours do you have?") == 0
+    assert quantity_from_message("", 0) == 0
+
+
+def test_a_digit_inside_a_product_name_is_not_a_quantity():
+    from app.services.public_chat_service import quantity_from_message
+
+    # "GM2 pro" and "T800" carry digits that are part of the name. Reading them
+    # as a quantity put the wrong number of items in the order.
+    assert quantity_from_message("mata GM2 pro ona") == 0
+    assert quantity_from_message("T800 watch") == 0
+    assert quantity_from_message("GM2 pro 3") == 3
+
+
+def test_a_quantity_reply_is_clamped():
+    from app.services.public_chat_service import quantity_from_message
+
+    assert quantity_from_message("500") == 99
+    assert quantity_from_message("0") == 0

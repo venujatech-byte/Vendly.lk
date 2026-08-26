@@ -1,5 +1,6 @@
 import json
 import re
+from datetime import datetime, timezone
 
 import httpx
 from flask import current_app
@@ -225,6 +226,43 @@ def generate_catalogue_answer(question, products, language="en", store_policies=
     )
 
 
+# The last provider failure, so the dashboard can show that the chatbot has
+# quietly dropped back to simplified English replies. A log line is only read
+# by someone already looking; a seller has no other way to find out.
+# ponytail: process-local. A dead model fails on every worker within seconds,
+# so any one of them has the answer. Move to Firestore only if that stops
+# holding.
+_LAST_AI_FAILURE = {"failure": None}
+
+
+def record_ai_failure(kind, provider, model):
+    _LAST_AI_FAILURE["failure"] = {
+        "kind": kind,
+        "provider": provider,
+        "model": model,
+        "at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+def ai_status():
+    """Report whether AI is configured and working. Never exposes the API key."""
+    settings = current_app.config
+    provider = settings.get("AI_PROVIDER", "none")
+    is_configured = (
+        provider != "none"
+        and bool(settings.get("AI_API_KEY"))
+        and bool(settings.get("AI_MODEL"))
+    )
+
+    return {
+        "configured": is_configured,
+        "provider": provider if is_configured else "none",
+        "model": settings.get("AI_MODEL", "") if is_configured else "",
+        # An intentionally disabled provider is not a fault worth alarming over.
+        "failure": _LAST_AI_FAILURE["failure"] if is_configured else None,
+    }
+
+
 def request_ai_text(prompt, max_tokens=1200):
     """Send one prompt to the configured provider, or None when unavailable."""
     settings = current_app.config
@@ -235,25 +273,31 @@ def request_ai_text(prompt, max_tokens=1200):
 
     try:
         if provider == "gemini":
-            return generate_gemini_answer(prompt, settings)
-        if provider in {"groq", "cerebras", "openai-compatible"}:
-            return generate_openai_compatible_answer(
+            answer = generate_gemini_answer(prompt, settings)
+        elif provider in {"groq", "cerebras", "openai-compatible"}:
+            answer = generate_openai_compatible_answer(
                 prompt,
                 provider,
                 settings,
                 max_tokens=max_tokens,
             )
+        else:
+            current_app.logger.warning("Unsupported AI_PROVIDER value: %s", provider)
+            return None
     except httpx.HTTPStatusError as error:
+        model = settings.get("AI_MODEL")
+
         # 429 is a quota or rate limit. It clears on its own, so it must not be
         # reported as a broken configuration - that sends someone editing a
         # model name that was never wrong.
         if error.response.status_code == 429:
+            record_ai_failure("rate_limit", provider, model)
             current_app.logger.warning(
                 "AI RATE LIMITED - provider %r throttled model %r. This reply "
                 "fell back to English; it should recover without any change. "
                 "Details: %s",
                 provider,
-                settings.get("AI_MODEL"),
+                model,
                 error.response.text[:200],
             )
             return None
@@ -264,25 +308,30 @@ def request_ai_text(prompt, max_tokens=1200):
         # English. It is logged as one actionable line rather than a stack
         # trace so it is not lost among transient failures.
         if 400 <= error.response.status_code < 500:
+            record_ai_failure("configuration", provider, model)
             current_app.logger.error(
                 "AI DISABLED - provider %r rejected model %r with HTTP %s: %s. "
                 "The chatbot is falling back to English deterministic replies "
                 "until AI_MODEL or AI_API_KEY is corrected.",
                 provider,
-                settings.get("AI_MODEL"),
+                model,
                 error.response.status_code,
                 error.response.text[:200],
             )
             return None
 
+        record_ai_failure("unavailable", provider, model)
         current_app.logger.exception("The configured AI provider request failed.")
         return None
     except Exception:  # External SDKs use provider-specific exception classes.
+        record_ai_failure("unavailable", provider, settings.get("AI_MODEL"))
         current_app.logger.exception("The configured AI provider request failed.")
         return None
 
-    current_app.logger.warning("Unsupported AI_PROVIDER value: %s", provider)
-    return None
+    # A success means whatever was wrong is over. Leaving a stale warning up is
+    # how a banner becomes something people learn to ignore.
+    _LAST_AI_FAILURE["failure"] = None
+    return answer
 
 
 def detect_chat_language(message):

@@ -18,3 +18,7 @@ export function updatePublicContact(businessId, { phone, email, storefrontFaq })
     body: { phone, email, storefrontFaq },
   });
 }
+
+export function getAiStatus(businessId) {
+  return apiRequest(`/businesses/${businessId}/ai-status`);
+}
