@@ -4,6 +4,8 @@ import { useSearchParams } from "react-router-dom";
 
 import AddCourierModal from "../components/AddCourierModal";
 import ActionMenu from "../components/ActionMenu";
+import TablePagination from "../components/TablePagination";
+import useTablePagination from "../hooks/useTablePagination";
 import { useAuth } from "../context/authContextValue";
 import { getCouriers, updateCourier } from "../services/courierService";
 
@@ -19,6 +21,7 @@ function CouriersPage() {
   const assistantAction = searchParameters.get("assistantAction") ?? "";
   const { business } = useAuth();
   const [couriers, setCouriers] = useState([]);
+  const pagination = useTablePagination(couriers);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
   const [isAddCourierOpen, setIsAddCourierOpen] = useState(false);
@@ -112,7 +115,7 @@ function CouriersPage() {
       <table className="orders-table courier-table">
         <thead><tr><th className="management-table__expand-heading" /><th>Courier</th><th>First 1 kg</th><th>Extra 1 kg</th><th>Success</th><th>Returns</th><th>Delivery</th><th>Status</th><th className="orders-table__actions-heading">Actions</th></tr></thead>
         <tbody>
-          {couriers.map((courier) => {
+          {pagination.pageItems.map((courier) => {
             const isExpanded = expandedCourierId === courier.id;
 
             return (
@@ -183,12 +186,7 @@ function CouriersPage() {
         </tbody>
       </table>
       </div>
-      {!isLoading && couriers.length > 0 && (
-        <footer className="orders-table__footer courier-table__footer">
-          <span>Showing 1 to {couriers.length} couriers</span>
-          <div className="orders-table__pagination"><button type="button" disabled>Previous</button><button className="orders-table__page--active" type="button">1</button><button type="button" disabled>Next</button></div>
-        </footer>
-      )}
+      {!isLoading && <TablePagination pagination={pagination} label="couriers" />}
       </section>
 
       <AddCourierModal

@@ -1,6 +1,8 @@
 import { Fragment, useState } from "react";
 import { ChevronDown, ChevronRight, Package, Printer, ShieldCheck, Trash2 } from "lucide-react";
 import ActionMenu from "./ActionMenu";
+import TablePagination from "./TablePagination";
+import useTablePagination from "../hooks/useTablePagination";
 import "./ShopSales.css";
 
 function hasActiveWarranty(sale) {
@@ -9,11 +11,12 @@ function hasActiveWarranty(sale) {
 
 export default function ShopSalesTable({ sales, onPrint, onWarranty, onRemove }) {
   const [expanded, setExpanded] = useState(null);
+  const pagination = useTablePagination(sales);
   return <section className="orders-table-section shop-sales-table">
     <div className="orders-table__scroll"><table className="orders-table"><thead><tr>
       <th></th><th>Sale number</th><th>Items</th><th>Total</th><th>Date</th><th>Actions</th>
     </tr></thead><tbody>
-      {sales.map((sale) => <Fragment key={sale.id}>
+      {pagination.pageItems.map((sale) => <Fragment key={sale.id}>
         <tr><td><button className="orders-table__expand-button" type="button" onClick={() => setExpanded(expanded === sale.id ? null : sale.id)}>{expanded === sale.id ? <ChevronDown size={18}/> : <ChevronRight size={18}/>}</button></td>
           <td><strong>#{sale.saleNumber}</strong>{sale.customerName && <span className="orders-table__secondary">{sale.customerName}</span>}</td>
           <td><div className="orders-table__items">{sale.items.slice(0, 3).map((item) => <span className="orders-table__product-preview" key={item.id}>{item.imageUrl ? <img src={item.imageUrl} alt=""/> : <Package size={18}/>}</span>)}{sale.itemCount > 3 && <span>+{sale.itemCount - 3}</span>}</div></td>
@@ -28,6 +31,6 @@ export default function ShopSalesTable({ sales, onPrint, onWarranty, onRemove })
       </Fragment>)}
       {!sales.length && <tr><td colSpan={6}>No physical-shop sales found.</td></tr>}
     </tbody></table></div>
-    <footer className="orders-table__footer">Showing {sales.length} shop sale{sales.length === 1 ? "" : "s"}</footer>
+    <TablePagination pagination={pagination} label="shop sales" />
   </section>;
 }

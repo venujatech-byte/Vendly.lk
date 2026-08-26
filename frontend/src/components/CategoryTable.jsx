@@ -9,6 +9,8 @@ import {
 
 import { getProductStock } from "../utils/inventory";
 import ActionMenu from "./ActionMenu";
+import TablePagination from "./TablePagination";
+import useTablePagination from "../hooks/useTablePagination";
 
 import "./OrderTable.css";
 import "./CategoryTable.css";
@@ -70,6 +72,7 @@ function CategoryTable({ categories: categoryRecords = [], products = [], onEdit
       totalStock,
     };
   });
+  const pagination = useTablePagination(categories);
 
   // Open the selected category or close it when clicked again.
   function toggleCategory(categoryId) {
@@ -100,7 +103,7 @@ function CategoryTable({ categories: categoryRecords = [], products = [], onEdit
           </thead>
 
           <tbody>
-            {categories.map((category) => {
+            {pagination.pageItems.map((category) => {
               const isExpanded =
                 expandedCategoryId === category.id;
 
@@ -242,12 +245,7 @@ function CategoryTable({ categories: categoryRecords = [], products = [], onEdit
         </table>
       </div>
 
-      <footer className="orders-table__footer">
-        <span>
-          Showing 1 to {categories.length} of{" "}
-          {categories.length} categories
-        </span>
-      </footer>
+      <TablePagination pagination={pagination} label="categories" />
     </section>
   );
 }

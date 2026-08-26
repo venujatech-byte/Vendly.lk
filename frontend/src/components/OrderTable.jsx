@@ -17,6 +17,8 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import ActionMenu from "./ActionMenu";
+import TablePagination from "./TablePagination";
+import useTablePagination from "../hooks/useTablePagination";
 import { printWaybill } from "../services/operationService";
 
 import "./OrderTable.css";
@@ -64,6 +66,7 @@ function OrderTable({
   // Remember which row is expanded and which rows are checkbox-selected.
   const [expandedOrderId, setExpandedOrderId] = useState(null);
   const [selectedOrderIds, setSelectedOrderIds] = useState([]);
+  const pagination = useTablePagination(orders);
 
   // Expand one order at a time, or close the row when clicked again.
   function toggleExpandedOrder(orderId) {
@@ -90,15 +93,16 @@ function OrderTable({
 
   // Select every order or clear the full selection.
   function toggleAllOrders() {
+    const visibleOrderIds = pagination.pageItems.map((order) => order.id);
     const allOrdersAreSelected =
-      orders.length > 0 && selectedOrderIds.length === orders.length;
+      visibleOrderIds.length > 0 && visibleOrderIds.every((id) => selectedOrderIds.includes(id));
 
     if (allOrdersAreSelected) {
-      setSelectedOrderIds([]);
+      setSelectedOrderIds((currentIds) => currentIds.filter((id) => !visibleOrderIds.includes(id)));
       return;
     }
 
-    setSelectedOrderIds(orders.map((order) => order.id));
+    setSelectedOrderIds((currentIds) => [...new Set([...currentIds, ...visibleOrderIds])]);
   }
 
   function showActionError(error) {
@@ -227,7 +231,7 @@ function OrderTable({
           </thead>
 
           <tbody>
-            {orders.map((order) => {
+            {pagination.pageItems.map((order) => {
               // Row-specific display values for the current order.
               const isExpanded = expandedOrderId === order.id;
               const isSelected = selectedOrderIds.includes(order.id);
@@ -402,27 +406,7 @@ function OrderTable({
         </table>
       </div>
 
-      {/* Temporary record count and pagination controls. */}
-      <footer className="orders-table__footer">
-        <span>
-          Showing {orders.length === 0 ? 0 : 1} to {orders.length} of{" "}
-          {orders.length} orders
-        </span>
-
-        <div className="orders-table__pagination">
-          <button type="button" disabled>
-            Previous
-          </button>
-
-          <button className="orders-table__page--active" type="button">
-            1
-          </button>
-
-          <button type="button">2</button>
-          <button type="button">3</button>
-          <button type="button">Next</button>
-        </div>
-      </footer>
+      <TablePagination pagination={pagination} label="orders" />
     </section>
   );
 }

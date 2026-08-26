@@ -37,6 +37,8 @@ import CustomerMessages from "../components/CustomerMessages";
 import ActionMenu from "../components/ActionMenu";
 import ConfirmDialog from "../components/ConfirmDialog";
 import ModalShell from "../components/ModalShell";
+import TablePagination from "../components/TablePagination";
+import useTablePagination from "../hooks/useTablePagination";
 
 import "./ManagementPage.css";
 import "../components/OrderFilters.css";
@@ -155,6 +157,7 @@ function CustomersPage() {
       && (fraudFilters.reason === "all" || reason === fraudFilters.reason)
       && (fraudFilters.score === "all" || (fraudFilters.score === "high" ? score >= 70 : fraudFilters.score === "medium" ? score >= 40 && score < 70 : score < 40));
   });
+  const customerPagination = useTablePagination(visibleCustomers);
 
   const customerStats = [
     {
@@ -531,7 +534,7 @@ function CustomersPage() {
               </tr>
             </thead>
             <tbody>
-              {visibleCustomers.map((customer) => (
+              {customerPagination.pageItems.map((customer) => (
                 <Fragment key={customer.id}>
                   <tr>
                     <td className="management-table__expand-cell">
@@ -602,7 +605,7 @@ function CustomersPage() {
             </tbody>
           </table>
         </div>
-        <CustomerTableFooter count={visibleCustomers.length} label="customers" />
+        <TablePagination pagination={customerPagination} label="customers" variant="customers" />
       </section>}
 
       <ConfirmDialog
@@ -646,6 +649,7 @@ function CustomersPage() {
 
 function ReviewsTable({ reviews, isLoading, onModerate }) {
   const [expandedReviewId, setExpandedReviewId] = useState(null);
+  const pagination = useTablePagination(reviews);
 
   function mediaUrl(item) {
     return item?.url || item?.secureUrl || item?.secure_url || item?.downloadUrl || "";
@@ -697,7 +701,7 @@ function ReviewsTable({ reviews, isLoading, onModerate }) {
             </tr>
           </thead>
           <tbody>
-            {reviews.map((review) => (
+            {pagination.pageItems.map((review) => (
               <Fragment key={review.id}>
                 <tr>
                   <td className="management-table__expand-cell">
@@ -748,7 +752,7 @@ function ReviewsTable({ reviews, isLoading, onModerate }) {
           </tbody>
         </table>
       </div>
-      <CustomerTableFooter count={reviews.length} label="reviews" />
+      <TablePagination pagination={pagination} label="reviews" variant="customers" />
     </section>
   );
 }
@@ -774,9 +778,10 @@ function FraudFilters({ filters, setFilters }) {
 
 function FraudTable({ customers, isLoading, onChangeRisk, onRemove }) {
   const [expandedFraudCustomerId, setExpandedFraudCustomerId] = useState(null);
+  const pagination = useTablePagination(customers);
 
   return <section className="customer-table-card" aria-label="Fraud reports list"><div className="customer-table-scroll"><table className="management-table fraud-table"><thead><tr><th className="management-table__expand-heading" aria-label="Expand" /><th>Customer</th><th>Phone</th><th>Email</th><th>Address</th><th>Returned Orders</th><th>Total Orders</th><th>Return Rate</th><th>Fraud Score</th><th>Reason</th><th>Risk Status</th><th>Actions</th></tr></thead><tbody>
-    {customers.map((customer) => {
+    {pagination.pageItems.map((customer) => {
       const returned = customer.returnedOrderCount ?? 0;
       const total = customer.totalOrderCount ?? customer.completedOrderCount ?? returned;
       const score = customer.fraudScore ?? Math.min(99, returned * 15);
@@ -785,7 +790,7 @@ function FraudTable({ customers, isLoading, onChangeRisk, onRemove }) {
       return <Fragment key={customer.id}><tr><td className="management-table__expand-cell"><button type="button" aria-label={`${expandedFraudCustomerId === customer.id ? "Collapse" : "Expand"} fraud details`} aria-expanded={expandedFraudCustomerId === customer.id} onClick={() => setExpandedFraudCustomerId((current) => current === customer.id ? null : customer.id)}>{expandedFraudCustomerId === customer.id ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</button></td><td><strong>{customer.name}</strong></td><td>+{customer.normalizedPhone || "—"}</td><td>{customer.email || "—"}</td><td>{[address.line1, address.city].filter(Boolean).join(", ") || "—"}</td><td>{returned}</td><td>{total}</td><td>{total ? `${Math.round((returned / total) * 100)}%` : "0%"}</td><td><span className={`fraud-score fraud-score--${risk}`}>{score}</span></td><td>{customer.returnReason || customer.fraudReason || "Unspecified"}</td><td><span className={`management-table__badge management-table__badge--${risk}`}>{risk} risk</span></td><td><ActionMenu label={`Open ${customer.name} fraud actions`} items={[{ label: "Change risk level", icon: <Pencil size={16} aria-hidden="true" />, onClick: () => onChangeRisk(customer) }, { label: "Remove from fraud list", icon: <Trash2 size={16} aria-hidden="true" />, danger: true, onClick: () => onRemove(customer) }]} /></td></tr>{expandedFraudCustomerId === customer.id && <tr className="management-table__expanded-row fraud-expanded-row"><td colSpan={12}><div className="customer-expanded-details"><div><strong>Customer</strong><span>{customer.name}</span><span>+{customer.normalizedPhone || "—"}</span><span>{customer.email || "No email"}</span></div><div><strong>Address</strong><span>{[address.line1, address.line2, address.city, address.district].filter(Boolean).join(", ") || "No address"}</span></div><div><strong>Order history</strong><span>{returned} returned of {total} orders</span><span>Return rate: {total ? `${Math.round((returned / total) * 100)}%` : "0%"}</span></div><div><strong>Fraud assessment</strong><span>Score: {score}</span><span>Risk: {risk}</span><span>Reason: {customer.returnReason || customer.fraudReason || "Unspecified"}</span></div></div></td></tr>}</Fragment>;
     })}
     {!isLoading && customers.length === 0 && <tr><td colSpan={12}>No fraud reports found.</td></tr>}
-  </tbody></table></div><CustomerTableFooter count={customers.length} label="reports" /></section>;
+  </tbody></table></div><TablePagination pagination={pagination} label="reports" variant="customers" /></section>;
 }
 
 function FraudRiskDialog({ isOpen, customer, riskLevel, isWorking, onRiskLevelChange, onCancel, onConfirm }) {
@@ -806,23 +811,6 @@ function FraudRiskDialog({ isOpen, customer, riskLevel, isWorking, onRiskLevelCh
         </footer>
       </div>
     </ModalShell>
-  );
-}
-
-function CustomerTableFooter({ count, label }) {
-  return (
-    <footer className="customer-table-footer">
-      <span>
-        Showing {count === 0 ? 0 : 1} to {count} of {count} {label}
-      </span>
-      <div className="customer-table-pagination" aria-label={`${label} pagination`}>
-        <button type="button" disabled>Previous</button>
-        <button className="is-active" type="button" aria-current="page">1</button>
-        <button type="button" disabled={count === 0}>2</button>
-        <button type="button" disabled={count === 0}>3</button>
-        <button type="button" disabled={count === 0}>Next</button>
-      </div>
-    </footer>
   );
 }
 

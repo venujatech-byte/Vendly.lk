@@ -11,6 +11,8 @@ import {
   Trash2,
 } from "lucide-react";
 import ActionMenu from "./ActionMenu";
+import TablePagination from "./TablePagination";
+import useTablePagination from "../hooks/useTablePagination";
 
 // Product data, stock calculation helpers, and the nested size table.
 import {
@@ -228,6 +230,7 @@ function InventoryTable({ products = [], categories = [], onViewReviews, onAdjus
     null,
   );
   const [selectedProductIds, setSelectedProductIds] = useState([]);
+  const pagination = useTablePagination(products);
 
   // True when every visible product checkbox is selected.
   const allProductsSelected =
@@ -351,7 +354,7 @@ function InventoryTable({ products = [], categories = [], onViewReviews, onAdjus
           </thead>
 
           <tbody>
-            {products.map((product) => {
+            {pagination.pageItems.map((product) => {
               // Values calculated separately for the current product row.
               const isExpanded = expandedProductId === product.id;
               const isSelected = selectedProductIds.includes(product.id);
@@ -477,24 +480,7 @@ function InventoryTable({ products = [], categories = [], onViewReviews, onAdjus
         </table>
       </div>
 
-      {/* Record count and temporary pagination controls. */}
-      <footer className="orders-table__footer">
-        <span>
-          Showing {products.length === 0 ? 0 : 1} to {products.length} of{" "}
-          {products.length} products
-        </span>
-        <div className="orders-table__pagination">
-          <button type="button" disabled>
-            Previous
-          </button>
-          <button className="orders-table__page--active" type="button">
-            1
-          </button>
-          <button type="button">2</button>
-          <button type="button">3</button>
-          <button type="button">Next</button>
-        </div>
-      </footer>
+      <TablePagination pagination={pagination} label="products" />
     </section>
   );
 }
