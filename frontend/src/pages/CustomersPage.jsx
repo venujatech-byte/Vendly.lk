@@ -337,7 +337,7 @@ function CustomersPage() {
   }
 
   return (
-    <main className="dashboard customers-page">
+    <main className={`dashboard customers-page ${activeCustomerTab === "messages" ? "customers-page--messages" : ""}`}>
 
       <nav className="customer-tabs" aria-label="Customer sections">
         {customerTabs.map((tab) => {

@@ -2611,6 +2611,138 @@
   }
 }
 
+/* The composer floats above the message stream, like Telegram's glass bar. */
+.storefront-chat-panel {
+  /* ChatbotView contains the message list plus absolutely positioned
+     composer controls (there is no header inside this panel). */
+  grid-template-rows: minmax(0, 1fr);
+  isolation: isolate;
+}
+
+.storefront-chat-messages {
+  padding-bottom: 132px;
+}
+
+.storefront-chat-quick-actions,
+.storefront-chat-input {
+  position: absolute;
+  right: 14px;
+  left: 14px;
+  margin-right: 0;
+  margin-left: 0;
+  border-color: rgba(170, 190, 210, .5);
+  background: rgba(246, 250, 254, .82);
+  box-shadow: 0 10px 24px rgba(7,45,78,.12), inset 0 1px 0 rgba(255,255,255,.8);
+  backdrop-filter: blur(18px) saturate(1.15);
+}
+
+.storefront-chat-quick-actions {
+  bottom: 68px;
+  padding-bottom: 6px;
+  border-bottom: 0;
+  border-radius: 20px 20px 0 0;
+  box-shadow: 0 -2px 12px rgba(7,45,78,.04), inset 0 1px 0 rgba(255,255,255,.8);
+}
+
+.storefront-chat-input {
+  bottom: 14px;
+  border-top: 0;
+  border-radius: 0 0 20px 20px;
+  box-shadow: 0 10px 24px rgba(7,45,78,.12), inset 0 -1px 0 rgba(255,255,255,.55);
+}
+
+.storefront-chat-quick-actions button {
+  background: rgba(255,255,255,.46);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.72), 0 3px 10px rgba(7,45,78,.07);
+}
+
+.storefront-chat-input input {
+  background: rgba(255,255,255,.62);
+}
+
+@media (max-width: 640px) {
+  .storefront-chat-messages {
+    padding-bottom: 138px;
+  }
+
+  .storefront-chat-quick-actions {
+    position: fixed;
+    right: 10px;
+    bottom: 62px;
+    left: 10px;
+    border-radius: 18px 18px 0 0;
+  }
+
+  .storefront-chat-input {
+    position: fixed;
+    right: 10px;
+    bottom: 10px;
+    left: 10px;
+    border-radius: 0 0 18px 18px;
+  }
+}
+
+/* One structural composer: suggestions and message input now share the same
+   frosted surface.  This supersedes the earlier independent floating bars. */
+.storefront-chat-composer {
+  position: absolute;
+  z-index: 5;
+  right: 14px;
+  bottom: 14px;
+  left: 14px;
+  display: grid;
+  overflow: hidden;
+  border: 1px solid rgba(165, 185, 205, .56);
+  border-radius: 22px;
+  backdrop-filter: blur(20px) saturate(1.12);
+}
+
+.storefront-chat-composer .storefront-chat-quick-actions,
+.storefront-chat-composer .storefront-chat-input {
+  position: static;
+  inset: auto;
+  width: auto;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.storefront-chat-composer .storefront-chat-quick-actions {
+  padding: 8px 10px 6px;
+  border-bottom: 1px solid rgba(165,185,205,.32);
+}
+
+
+.storefront-chat-composer .storefront-chat-input {
+  padding: 7px 8px 8px;
+}
+
+.storefront-chat-composer .storefront-chat-input input {
+  border-color: rgba(173,190,207,.3);
+  background: rgba(255,255,255,.55);
+}
+
+.storefront-chat-messages {
+  padding-bottom: 142px;
+}
+
+@media (max-width: 640px) {
+  .storefront-chat-composer {
+    position: fixed;
+    right: 10px;
+    bottom: 10px;
+    left: 10px;
+    border-radius: 20px;
+  }
+
+  .storefront-chat-messages {
+    padding-bottom: 136px;
+  }
+}
+
 @media (max-width: 640px) {
   .storefront-page,
   .storefront-contact-page {
@@ -2964,103 +3096,141 @@ body:has(.storefront-chat-page) {
   }
 }
 
-/* Floating Telegram-style composer and suggestion pills.  These overrides
-   intentionally come last so they apply consistently to desktop and mobile. */
-.storefront-chat-quick-actions {
-  position: relative;
-  z-index: 3;
-  margin: 0 14px 6px;
-  padding: 7px 8px;
-  gap: 8px;
-  overflow-x: auto;
-  border: 1px solid color-mix(in srgb, var(--sf-border) 72%, transparent);
-  border-radius: 18px;
-  background: color-mix(in srgb, var(--sf-surface) 66%, transparent);
-  box-shadow: 0 8px 24px rgba(7, 45, 78, .08);
-  backdrop-filter: blur(18px) saturate(1.35);
+/* Final chatbot composer theme and scroll clearance. Keep this block last so
+   older responsive rules cannot hide the newest message behind the composer. */
+.storefront--dark .storefront-chat-composer {
+  border-color: rgba(130, 165, 200, .28);
+  background: rgba(12, 26, 41, .88);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, .38), inset 0 1px 0 rgba(255,255,255,.08);
 }
 
-.storefront-chat-quick-actions button {
-  min-height: 30px;
-  padding: 6px 13px;
-  border-color: color-mix(in srgb, var(--sf-primary) 18%, var(--sf-border));
-  background: color-mix(in srgb, var(--sf-surface) 76%, transparent);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.5), 0 2px 7px rgba(7,45,78,.06);
-  transition: transform 160ms ease, background 160ms ease, box-shadow 160ms ease;
+.storefront--dark .storefront-chat-composer .storefront-chat-quick-actions {
+  border-bottom-color: rgba(130,165,200,.2);
 }
 
-.storefront-chat-quick-actions button:hover {
-  transform: translateY(-1px);
-  background: color-mix(in srgb, var(--sf-primary) 10%, var(--sf-surface));
-  box-shadow: 0 5px 12px rgba(7,45,78,.1);
+.storefront--dark .storefront-chat-composer .storefront-chat-quick-actions button {
+  border-color: rgba(91, 166, 235, .38);
+  color: #8fc9ff;
+  background: rgba(20, 43, 65, .78);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.07);
 }
 
-.storefront-chat-input {
-  position: relative;
-  z-index: 4;
-  margin: 0 14px 14px;
-  padding: 7px 8px 7px 10px;
-  grid-template-columns: 38px minmax(0, 1fr) auto 42px;
-  gap: 7px;
-  border: 1px solid color-mix(in srgb, var(--sf-border) 70%, transparent);
-  border-radius: 22px;
-  background: color-mix(in srgb, var(--sf-surface) 70%, transparent);
-  box-shadow: 0 10px 28px rgba(7, 45, 78, .12), inset 0 1px 0 rgba(255,255,255,.55);
-  backdrop-filter: blur(20px) saturate(1.45);
+.storefront--dark .storefront-chat-composer .storefront-chat-input input {
+  border-color: rgba(130,165,200,.2);
+  color: var(--sf-text);
+  background: rgba(7, 20, 33, .72);
 }
 
-.storefront-chat-input input {
-  height: 40px;
-  border-color: transparent;
-  border-radius: 15px;
-  background: color-mix(in srgb, var(--sf-surface) 78%, transparent);
-  box-shadow: inset 0 1px 2px rgba(7,45,78,.05);
+.storefront--dark .storefront-chat-composer .storefront-chat-input input::placeholder {
+  color: #8497ac;
 }
 
-.storefront-chat-input input:focus {
-  border-color: color-mix(in srgb, var(--sf-primary) 52%, transparent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--sf-primary) 13%, transparent);
-}
-
-.storefront-chat-input > button,
-.storefront-chat-input__voice-tools button {
-  border-color: transparent;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--sf-surface) 55%, transparent);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.55);
-}
-
-.storefront-chat-input__voice-tools {
-  gap: 3px;
-}
-
-.storefront-chat-input__voice-tools button {
-  width: 30px;
-  height: 30px;
-}
-
-.storefront-chat-input .storefront-chat-input__send {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: linear-gradient(145deg, color-mix(in srgb, var(--sf-primary) 82%, #69c7ff), var(--sf-primary));
-  box-shadow: 0 6px 16px color-mix(in srgb, var(--sf-primary) 28%, transparent), inset 0 1px 0 rgba(255,255,255,.25);
+.storefront-chat-messages > div:last-child {
+  min-height: 1px;
+  scroll-margin-bottom: 154px;
 }
 
 @media (max-width: 640px) {
-  .storefront-chat-quick-actions {
-    margin: 0 10px 5px;
+  .storefront-chat-messages {
+    padding: 14px 10px calc(132px + env(safe-area-inset-bottom));
+    scroll-padding-bottom: calc(132px + env(safe-area-inset-bottom));
   }
 
-  .storefront-chat-input {
-    margin: 0 10px 10px;
-    padding: 6px 7px 6px 8px;
-    grid-template-columns: 36px minmax(0, 1fr) auto 39px;
-    border-radius: 20px;
+  .storefront-chat-messages > div:last-child {
+    scroll-margin-bottom: calc(132px + env(safe-area-inset-bottom));
   }
 
-  .storefront-chat-input input {
-    height: 39px;
-    font-size: .82rem;
+  .storefront-chat-composer {
+    right: 4px;
+    bottom: calc(10px + env(safe-area-inset-bottom));
+    left: 4px;
+    border-radius: 17px;
   }
+
+  .storefront-chat-composer .storefront-chat-quick-actions {
+    padding: 5px 6px 4px;
+    gap: 5px;
+  }
+
+  .storefront-chat-composer .storefront-chat-quick-actions button {
+    min-height: 25px;
+    padding: 3px 8px;
+    font-size: .65rem;
+  }
+
+  .storefront-chat-composer .storefront-chat-input {
+    padding: 4px 5px 5px;
+    grid-template-columns: 30px minmax(0, 1fr) auto 31px;
+    gap: 4px;
+  }
+
+  .storefront-chat-composer .storefront-chat-input input {
+    height: 33px;
+    min-height: 33px;
+    padding: 0 10px;
+  }
+
+  .storefront-chat-composer .storefront-chat-input > button {
+    width: 30px;
+    height: 30px;
+  }
+
+  .storefront-chat-composer .storefront-chat-input__voice-tools {
+    gap: 2px;
+  }
+
+  .storefront-chat-composer .storefront-chat-input__voice-tools button {
+    width: 27px;
+    height: 27px;
+  }
+
+  .storefront-chat-composer .storefront-chat-input .storefront-chat-input__send {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+  }
+
+  .storefront-chat-composer .storefront-chat-input__send svg {
+    width: 16px;
+    height: 16px;
+  }
+}
+
+/* Quick actions float independently above the frosted message input. */
+.storefront-chat-composer {
+  overflow: visible;
+}
+
+.storefront-chat-composer .storefront-chat-quick-actions {
+  position: absolute;
+  right: auto;
+  bottom: calc(100% + 7px);
+  left: 6px;
+  width: max-content;
+  max-width: calc(100% - 12px);
+  margin: 0;
+  padding: 0;
+  gap: 6px;
+  overflow-x: auto;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.storefront-chat-composer .storefront-chat-quick-actions button {
+  border: 1px solid color-mix(in srgb, var(--sf-primary) 28%, var(--sf-border));
+  background: var(--sf-surface);
+  box-shadow: 0 4px 10px rgba(7,45,78,.1);
+  backdrop-filter: none;
+}
+
+.storefront--dark .storefront-chat-composer .storefront-chat-quick-actions {
+  border: 0;
+  background: transparent;
+}
+
+.storefront--dark .storefront-chat-composer .storefront-chat-quick-actions button {
+  border-color: rgba(91,166,235,.38);
+  background: var(--sf-soft);
+  box-shadow: 0 4px 10px rgba(0,0,0,.24);
 }

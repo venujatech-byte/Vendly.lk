@@ -1790,31 +1790,32 @@ function ChatbotView({
           <div ref={messagesEndRef} />
         </div>
 
-        <div className="storefront-chat-quick-actions">
-          <button
-            type="button"
-            onClick={() => onQuickMessage("Show products")}
-            disabled={isSending}
-          >
-            Show products
-          </button>
-          <button
-            type="button"
-            onClick={() => onQuickMessage("I want to order")}
-            disabled={isSending}
-          >
-            I want to order
-          </button>
-          <button
-            type="button"
-            onClick={() => onQuickMessage("Show customer reviews")}
-            disabled={isSending}
-          >
-            Reviews
-          </button>
-        </div>
+        <div className="storefront-chat-composer">
+          <div className="storefront-chat-quick-actions">
+            <button
+              type="button"
+              onClick={() => onQuickMessage("Show products")}
+              disabled={isSending}
+            >
+              Show products
+            </button>
+            <button
+              type="button"
+              onClick={() => onQuickMessage("I want to order")}
+              disabled={isSending}
+            >
+              I want to order
+            </button>
+            <button
+              type="button"
+              onClick={() => onQuickMessage("Show customer reviews")}
+              disabled={isSending}
+            >
+              Reviews
+            </button>
+          </div>
 
-        <form className="storefront-chat-input" onSubmit={onSendMessage}>
+          <form className="storefront-chat-input" onSubmit={onSendMessage}>
           <button
             className={`storefront-chat-input__voice ${isListening || isHoldingVoiceButton ? "is-listening" : ""}`}
             type="button"
@@ -1866,7 +1867,8 @@ function ChatbotView({
           >
             <Send size={20} />
           </button>
-        </form>
+          </form>
+        </div>
       </section>
 
       {(isListening || isHoldingVoiceButton) && (
