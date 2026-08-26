@@ -55,6 +55,28 @@ import { claimPublicChatSession } from "../services/publicService";
 
 import "./StorefrontPage.css";
 
+// Speech recognition and synthesis need a BCP 47 tag; the chat API answers with
+// a plain language code. The chat is the source of truth, so a reply in Sinhala
+// switches the microphone and the spoken reply to Sinhala too.
+const VOICE_LANGUAGES = ["en-LK", "si-LK", "ta-LK"];
+
+const VOICE_LANGUAGE_LABELS = {
+  "en-LK": "EN",
+  "si-LK": "සිං",
+  "ta-LK": "தமி",
+};
+
+const CHAT_LANGUAGE_TO_VOICE = {
+  en: "en-LK",
+  si: "si-LK",
+  ta: "ta-LK",
+};
+
+function nextVoiceLanguage(current) {
+  const index = VOICE_LANGUAGES.indexOf(current);
+  return VOICE_LANGUAGES[(index + 1) % VOICE_LANGUAGES.length];
+}
+
 const EMPTY_CUSTOMER = {
   name: "",
   phoneNumber: "",
@@ -570,6 +592,11 @@ function StorefrontPage({ linkType }) {
         ...current,
         state: response.state,
       }));
+      // The backend decided which language this conversation is in, including
+      // for romanised Sinhala the browser cannot detect. Follow it.
+      if (CHAT_LANGUAGE_TO_VOICE[response.language]) {
+        setVoiceLanguage(CHAT_LANGUAGE_TO_VOICE[response.language]);
+      }
       if (response.message) {
         setMessages((current) => [
           ...current,
@@ -1072,9 +1099,7 @@ function StorefrontPage({ linkType }) {
               setSpeechEnabled((current) => !current);
             }}
             onToggleVoiceLanguage={() =>
-              setVoiceLanguage((current) =>
-                current === "en-LK" ? "si-LK" : "en-LK",
-              )
+              setVoiceLanguage((current) => nextVoiceLanguage(current))
             }
             onQuickMessage={requestChatMessage}
             onAddFromChat={addFromChat}
@@ -1848,7 +1873,7 @@ function ChatbotView({
               aria-label="Change voice language"
               title="Change voice language"
             >
-              {voiceLanguage === "en-LK" ? "EN" : "සිං"}
+              {VOICE_LANGUAGE_LABELS[voiceLanguage] ?? "EN"}
             </button>
             <button
               type="button"

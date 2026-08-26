@@ -11,7 +11,27 @@ OPENAI_COMPATIBLE_BASE_URLS = {
 }
 
 
-def product_prompt(question, product):
+CHAT_LANGUAGES = {"en", "si", "ta"}
+
+# The model replies in the customer's language, so the chat service cannot spot
+# "I don't know" by matching English phrases. It appends this marker instead,
+# which survives translation and is stripped before the customer sees the reply.
+MISSING_FACT_MARKER = "[NO_DATA]"
+
+LANGUAGE_NAMES = {"en": "English", "si": "Sinhala", "ta": "Tamil"}
+
+
+def language_instruction(language):
+    """Tell the model which single language the customer is speaking."""
+    name = LANGUAGE_NAMES.get(language, "English")
+    return (
+        f"The customer is writing in {name}. Reply only in {name}, and keep "
+        "using it for the whole conversation. Do not add an English translation "
+        f"unless {name} is English."
+    )
+
+
+def product_prompt(question, product, language="en"):
     context = {
         "name": product.get("name"),
         "brand": product.get("brand"),
@@ -31,14 +51,16 @@ def product_prompt(question, product):
     return (
         "You are Vendly's friendly order-taking product assistant for a small "
         "Sri Lankan online business. Chat naturally and briefly, like a real seller "
-        "replying on Messenger. Reply in both English and Sinhala when possible, "
-        "using no more than three short sentences in total. "
+        f"replying on Messenger. {language_instruction(language)} "
+        "Use no more than three short sentences in total. "
         "Only discuss the product supplied in PRODUCT FACTS. Do not claim that the "
         "seller carries another product unless it is supplied by the Vendly catalogue. "
         "Use only the seller-provided JSON facts below. Never invent features, "
         "warranties, waterproof ratings, SIM support, video support, reviews, or "
         "availability. If the facts do not answer the question, say the seller has "
-        "not provided that information yet. Do not claim to have searched or verified "
+        f"not provided that information yet and end your reply with {MISSING_FACT_MARKER}. "
+        f"Never write {MISSING_FACT_MARKER} when the facts do answer the question. "
+        "Do not claim to have searched or verified "
         "information on the internet because no web-search tool is connected. Mention "
         "that delivery is calculated from district and total order weight when relevant.\n\n"
         f"PRODUCT FACTS:\n{json.dumps(context, ensure_ascii=False)}\n\n"
@@ -46,7 +68,7 @@ def product_prompt(question, product):
     )
 
 
-def generate_openai_compatible_answer(prompt, provider, settings):
+def generate_openai_compatible_answer(prompt, provider, settings, max_tokens=350):
     base_url = settings.get("AI_API_BASE_URL") or OPENAI_COMPATIBLE_BASE_URLS.get(
         provider,
     )
@@ -67,7 +89,7 @@ def generate_openai_compatible_answer(prompt, provider, settings):
                 {"role": "user", "content": prompt},
             ],
             "temperature": 0.1,
-            "max_tokens": 350,
+            "max_tokens": max_tokens,
         },
         timeout=settings["AI_TIMEOUT_SECONDS"],
     )
@@ -87,7 +109,7 @@ def generate_gemini_answer(prompt, settings):
     return interaction.output_text.strip()
 
 
-def generate_product_answer(question, product):
+def generate_product_answer(question, product, language="en"):
     """Return an optional AI answer; failures safely fall back to deterministic chat."""
     settings = current_app.config
     provider = settings.get("AI_PROVIDER", "none")
@@ -95,7 +117,7 @@ def generate_product_answer(question, product):
     if provider == "none" or not settings.get("AI_API_KEY") or not settings.get("AI_MODEL"):
         return None
 
-    prompt = product_prompt(question, product)
+    prompt = product_prompt(question, product, language)
 
     try:
         if provider == "gemini":
@@ -108,6 +130,114 @@ def generate_product_answer(question, product):
 
     current_app.logger.warning("Unsupported AI_PROVIDER value: %s", provider)
     return None
+
+
+def request_ai_text(prompt, max_tokens=350):
+    """Send one prompt to the configured provider, or None when unavailable."""
+    settings = current_app.config
+    provider = settings.get("AI_PROVIDER", "none")
+
+    if provider == "none" or not settings.get("AI_API_KEY") or not settings.get("AI_MODEL"):
+        return None
+
+    try:
+        if provider == "gemini":
+            return generate_gemini_answer(prompt, settings)
+        if provider in {"groq", "cerebras", "openai-compatible"}:
+            return generate_openai_compatible_answer(
+                prompt,
+                provider,
+                settings,
+                max_tokens=max_tokens,
+            )
+    except Exception:  # External SDKs use provider-specific exception classes.
+        current_app.logger.exception("The configured AI provider request failed.")
+        return None
+
+    current_app.logger.warning("Unsupported AI_PROVIDER value: %s", provider)
+    return None
+
+
+def detect_chat_language(message):
+    """Identify the language a storefront customer is writing in.
+
+    This exists for romanised input. Sri Lankan customers routinely type
+    Sinhala and Tamil in Latin letters ("mata bag ekak ona", "enakku venum"),
+    which no character-range check can tell apart from English. Returns None
+    when the provider is unavailable so the caller keeps its current language.
+    """
+    prompt = (
+        "Identify the language of one online-shopping message from a Sri Lankan "
+        "customer. Answer with exactly one code and nothing else: "
+        "en for English, si for Sinhala, ta for Tamil. "
+        "Sinhala and Tamil are often typed in Latin letters rather than their "
+        "own script - classify those as si or ta, not en. Examples: "
+        "'mata meka ganna ona' is si, 'enakku idhu venum' is ta, "
+        "'is this available' is en. "
+        "A message that is only a name, a phone number, an address or a number "
+        "carries no language signal, so answer en for it.\n\n"
+        f"CUSTOMER MESSAGE:\n{message}"
+    )
+    answer = request_ai_text(prompt, max_tokens=8)
+
+    if not answer:
+        return None
+
+    code = re.sub(r"[^a-z]", "", str(answer).casefold())[:2]
+    return code if code in CHAT_LANGUAGES else None
+
+
+# ponytail: plain dict, cleared wholesale when it grows. The chat prompts repeat
+# constantly across sessions, so this removes almost every translation call.
+# Swap for a TTL cache only if a single process starts holding too much.
+_TRANSLATION_CACHE = {}
+_TRANSLATION_CACHE_LIMIT = 1000
+
+
+def translate_chat_message(text, language):
+    """Translate one deterministic chat reply, keeping every value verbatim.
+
+    Only the wording is translated. Prices, order numbers, product names,
+    districts and the quoted commands the customer has to type back must
+    survive unchanged, or the reply stops matching what the code expects.
+    """
+    clean_text = str(text or "").strip()
+
+    if not clean_text or language not in CHAT_LANGUAGES or language == "en":
+        return text
+
+    cache_key = (language, clean_text)
+
+    if cache_key in _TRANSLATION_CACHE:
+        return _TRANSLATION_CACHE[cache_key]
+
+    prompt = (
+        f"Translate the shop assistant message below into "
+        f"{LANGUAGE_NAMES[language]}. Return only the translation, with no "
+        "explanation, no quotes around the whole reply and no English version.\n"
+        "Keep these unchanged, exactly as written: numbers, prices, currency "
+        "codes such as LKR, weights, order numbers, waybill numbers, product "
+        "names, courier names, district names and email addresses.\n"
+        "Any word or phrase inside single quotes is a command the customer must "
+        "type back to the system. Keep those in English inside their quotes, and "
+        "translate only the words around them.\n"
+        "Keep the tone of a polite Sri Lankan shop assistant.\n\n"
+        f"MESSAGE:\n{clean_text}"
+    )
+    translation = request_ai_text(prompt, max_tokens=600)
+
+    if not translation:
+        # A provider failure must never blank the reply. English is degraded,
+        # but it still moves the order forward.
+        return text
+
+    translation = translation.strip()
+
+    if len(_TRANSLATION_CACHE) >= _TRANSLATION_CACHE_LIMIT:
+        _TRANSLATION_CACHE.clear()
+
+    _TRANSLATION_CACHE[cache_key] = translation
+    return translation
 
 
 def generate_product_description(product_details):

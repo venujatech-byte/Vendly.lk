@@ -2,6 +2,8 @@ from firebase_admin import firestore
 from google.cloud import firestore as google_firestore
 from google.cloud.firestore_v1.base_query import FieldFilter
 
+from app.services.ai_service import translate_chat_message
+
 
 ORDER_STATUS_LABELS = {
     "needs-confirmation": "needs confirmation",
@@ -85,10 +87,16 @@ def send_order_status_chat_message(database, business_id, order_id, order, statu
         session = snapshot.to_dict()
         if session.get("businessId") != business_id:
             continue
+        # The customer reads this one, so it follows the language the rest of
+        # the conversation settled on rather than always arriving in English.
+        session_message = translate_chat_message(
+            message,
+            session.get("language", "en"),
+        )
         snapshot.reference.collection("messages").document().set(
             {
                 "role": "seller",
-                "message": message,
+                "message": session_message,
                 "metadata": {
                     "automated": True,
                     "action": "order-status-update",
@@ -100,7 +108,7 @@ def send_order_status_chat_message(database, business_id, order_id, order, statu
         )
         snapshot.reference.set(
             {
-                "lastMessage": message,
+                "lastMessage": session_message,
                 "lastMessageRole": "seller",
                 "updatedAt": firestore.SERVER_TIMESTAMP,
             },

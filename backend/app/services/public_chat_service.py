@@ -14,7 +14,12 @@ from app.services.customer_service import (
     list_customers,
     normalize_sri_lankan_phone,
 )
-from app.services.ai_service import generate_product_answer
+from app.services.ai_service import (
+    MISSING_FACT_MARKER,
+    detect_chat_language,
+    generate_product_answer,
+    translate_chat_message,
+)
 from app.services.chat_event_service import notify_seller_attention
 from app.services.courier_service import (
     district_display_name,
@@ -265,6 +270,55 @@ def message_tokens(value):
         for token in word_characters(value).split()
         if len(token) > 2 and token not in PRODUCT_STOP_WORDS
     }
+
+
+SINHALA_SCRIPT = re.compile(r"[඀-෿]")
+TAMIL_SCRIPT = re.compile(r"[஀-௿]")
+
+# An explicit request always wins over detection, in any of the three languages.
+LANGUAGE_REQUESTS = {
+    "en": ("in english", "english please", "reply in english", "ඉංග්‍රීසි", "ஆங்கில"),
+    "si": ("in sinhala", "sinhala please", "සිංහලෙන්", "සිංහල", "சிங்கள"),
+    "ta": ("in tamil", "tamil please", "தமிழில்", "தமிழ்", "දෙමළ"),
+}
+
+
+def requested_language(message):
+    text = str(message).casefold()
+
+    for language, phrases in LANGUAGE_REQUESTS.items():
+        if any(phrase in text for phrase in phrases):
+            return language
+
+    return None
+
+
+def conversation_language(message, current_language):
+    """Decide which language to answer one customer message in.
+
+    Sinhala and Tamil script are certain, so they are matched directly and cost
+    nothing. The AI is asked only about Latin text, which is the genuinely
+    ambiguous case: romanised Sinhala and Tamil are indistinguishable from
+    English by character range alone. Once a language is established it is kept,
+    so a customer typing a phone number or an address does not get switched back
+    to English mid-order.
+    """
+    language = current_language if current_language in {"en", "si", "ta"} else "en"
+    explicit_request = requested_language(message)
+
+    if explicit_request:
+        return explicit_request
+
+    if SINHALA_SCRIPT.search(str(message)):
+        return "si"
+
+    if TAMIL_SCRIPT.search(str(message)):
+        return "ta"
+
+    if language != "en":
+        return language
+
+    return detect_chat_language(message) or language
 
 
 def find_matching_products(message, products):
@@ -680,10 +734,17 @@ def parse_delivery_address(message):
 
 
 def is_optional_phone_skip(message):
-    """Return True when the customer intentionally has no second number."""
+    """Return True when the customer intentionally has no second number.
+
+    The prompt asks them to type 'skip', and the translation keeps that command
+    in English, but a Sinhala or Tamil speaker will often answer in their own
+    words instead. Both are accepted.
+    """
     return str(message).strip().lower() in {
         "skip", "no", "none", "n/a", "na", "no second number",
         "i don't have one", "i do not have one", "continue",
+        "නෑ", "නැහැ", "එපා", "නැත", "අවශ්‍ය නැහැ", "දෙවෙනි නම්බර් නෑ",
+        "இல்லை", "வேண்டாம்", "தவிர்", "கிடையாது",
     }
 
 
@@ -728,6 +789,8 @@ def create_public_chat_session(database, payload, customer_uid=None):
             "selectedProductId": product["id"] if product else None,
             "tokenHash": token_hash(session_token),
             "state": "browsing",
+            # Set from the customer's first message; the greeting cannot know it.
+            "language": "en",
             "cart": [],
             "customerDraft": {},
             "customerUid": customer_uid,
@@ -946,6 +1009,7 @@ def answer_public_message(database, session_id, provided_token, payload):
     customer_draft = dict(session.get("customerDraft") or {})
     current_state = session.get("state", "browsing")
     lowered_message = message.strip().casefold()
+    language = conversation_language(message, session.get("language", "en"))
 
     def respond(
         response_message,
@@ -958,16 +1022,26 @@ def answer_public_message(database, session_id, provided_token, payload):
         review_summary=None,
         seller_rating=None,
         selected_product_id="unchanged",
+        is_translated=False,
     ):
         state = next_state or current_state
+        # Every deterministic reply is written in English in this file, so this
+        # is the one place that turns it into the customer's language. Answers
+        # the model already wrote in that language skip it.
+        localized_message = (
+            response_message
+            if is_translated
+            else translate_chat_message(response_message, language)
+        )
         save_chat_message(
             session_snapshot.reference,
             "assistant",
-            response_message,
+            localized_message,
             {
                 "action": action,
                 "productId": product.get("id") if product else None,
                 "state": state,
+                "language": language,
             },
         )
         changes = {
@@ -975,6 +1049,7 @@ def answer_public_message(database, session_id, provided_token, payload):
             "state": state,
             "cart": cart,
             "customerDraft": customer_draft,
+            "language": language,
         }
 
         if selected_product_id != "unchanged":
@@ -982,7 +1057,8 @@ def answer_public_message(database, session_id, provided_token, payload):
 
         session_snapshot.reference.update(changes)
         return {
-            "message": response_message,
+            "message": localized_message,
+            "language": language,
             "action": action,
             "state": state,
             "product": product,
@@ -1314,29 +1390,36 @@ def answer_public_message(database, session_id, provided_token, payload):
                     "deliveryNote": customer_draft.get("deliveryNote", ""),
                 },
             )
-            response_message = (
+            response_message = translate_chat_message(
                 f"Your order {order['orderNumber']} was placed successfully. "
                 f"Items subtotal: LKR {order['subtotalMinor'] / 100:,.2f}, "
                 f"delivery: LKR {order['deliveryFeeMinor'] / 100:,.2f}, total: "
-                f"LKR {order['totalAmountMinor'] / 100:,.2f}."
+                f"LKR {order['totalAmountMinor'] / 100:,.2f}.",
+                language,
             )
             save_chat_message(
                 session_snapshot.reference,
                 "assistant",
                 response_message,
-                {"action": "order-confirmed", "orderId": order["id"]},
+                {
+                    "action": "order-confirmed",
+                    "orderId": order["id"],
+                    "language": language,
+                },
             )
             session_snapshot.reference.update(
                 {
                     "state": "completed",
                     "status": "completed",
                     "cart": [],
+                    "language": language,
                     "selectedProductId": firestore.DELETE_FIELD,
                     "updatedAt": firestore.SERVER_TIMESTAMP,
                 },
             )
             return {
                 "message": response_message,
+                "language": language,
                 "action": "order-confirmed",
                 "state": "completed",
                 "product": None,
@@ -1534,6 +1617,7 @@ def answer_public_message(database, session_id, provided_token, payload):
 
         product_reviews = []
         product_review_summary = None
+        answer_in_customer_language = False
 
         if is_product_overview_request:
             product_reviews = list_public_product_reviews(
@@ -1567,18 +1651,25 @@ def answer_public_message(database, session_id, provided_token, payload):
                 "Order this product when you are ready."
             )
         else:
-            generated_answer = generate_product_answer(message, selected_product)
-            answer_is_uncertain = not generated_answer or any(
-                phrase in generated_answer.casefold()
-                for phrase in (
-                    "i don't know",
-                    "i do not know",
-                    "not enough information",
-                    "cannot answer",
-                    "can't answer",
-                    "seller has not provided",
-                )
+            generated_answer = generate_product_answer(
+                message,
+                selected_product,
+                language,
             )
+            # The model answers in the customer's language, so an English
+            # phrase list can no longer tell whether it knew the answer. It
+            # marks its own uncertainty instead, which works in any language.
+            answer_is_uncertain = not generated_answer or MISSING_FACT_MARKER in (
+                generated_answer
+            )
+
+            if generated_answer:
+                generated_answer = generated_answer.replace(
+                    MISSING_FACT_MARKER,
+                    "",
+                ).strip()
+
+            answer_in_customer_language = bool(generated_answer)
             response_message = generated_answer or (
                 f"Based on the seller's information: {deterministic_description} "
                 "If that does not answer the specific feature you asked about, the "
@@ -1604,6 +1695,7 @@ def answer_public_message(database, session_id, provided_token, payload):
             # to see the nearest alternatives.
             response_products=related_products(products, selected_product),
             selected_product_id=selected_product["id"],
+            is_translated=answer_in_customer_language,
         )
 
     # The message named several products equally well. Asking which one is a

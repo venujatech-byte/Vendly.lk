@@ -200,3 +200,70 @@ def test_related_products_prefer_the_same_category_and_nearest_price():
     suggestions = related_products(products, products[0])
 
     assert [product["id"] for product in suggestions] == ["near", "far", "other"]
+
+
+def test_script_decides_the_language_without_calling_the_ai(monkeypatch):
+    from app.services import public_chat_service
+
+    def fail(_message):
+        raise AssertionError("script is unambiguous, the AI must not be called")
+
+    monkeypatch.setattr(public_chat_service, "detect_chat_language", fail)
+
+    assert public_chat_service.conversation_language("මට බෑග් එකක් ඕන", "en") == "si"
+    assert public_chat_service.conversation_language("எனக்கு வேண்டும்", "en") == "ta"
+
+
+def test_ai_is_asked_only_about_romanised_latin_text(monkeypatch):
+    from app.services import public_chat_service
+
+    calls = []
+
+    def fake_detect(message):
+        calls.append(message)
+        return "si"
+
+    monkeypatch.setattr(public_chat_service, "detect_chat_language", fake_detect)
+
+    # Latin letters cannot be told apart by character range, so the AI decides.
+    assert public_chat_service.conversation_language("mata meka ganna ona", "en") == "si"
+    assert calls == ["mata meka ganna ona"]
+
+
+def test_an_established_language_survives_a_plain_data_reply(monkeypatch):
+    from app.services import public_chat_service
+
+    def fail(_message):
+        raise AssertionError("a settled language must not be re-detected")
+
+    monkeypatch.setattr(public_chat_service, "detect_chat_language", fail)
+
+    # Names, phone numbers and addresses carry no language signal. Re-detecting
+    # them would switch a Sinhala customer back to English mid-order.
+    assert public_chat_service.conversation_language("0771234567", "si") == "si"
+    assert public_chat_service.conversation_language("No. 45 Park Road", "si") == "si"
+
+
+def test_a_failed_detection_keeps_the_current_language(monkeypatch):
+    from app.services import public_chat_service
+
+    monkeypatch.setattr(
+        public_chat_service,
+        "detect_chat_language",
+        lambda _message: None,
+    )
+
+    assert public_chat_service.conversation_language("hello there", "en") == "en"
+
+
+def test_an_explicit_language_request_overrides_detection(monkeypatch):
+    from app.services import public_chat_service
+
+    monkeypatch.setattr(
+        public_chat_service,
+        "detect_chat_language",
+        lambda _message: "si",
+    )
+
+    assert public_chat_service.conversation_language("reply in english", "si") == "en"
+    assert public_chat_service.conversation_language("in tamil please", "en") == "ta"
