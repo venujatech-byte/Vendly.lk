@@ -153,3 +153,50 @@ def test_chat_delivery_address_requires_street_city_and_district():
     assert address["line1"] == "No. 45 Park Road"
     assert address["city"] == "Dehiwala"
     assert address["district"] == "Colombo"
+
+
+def test_sinhala_and_tamil_words_survive_tokenisation():
+    from app.services.public_chat_service import message_tokens, word_characters
+
+    # Combining vowel signs are part of the word. Dropping them, as \w does,
+    # turns one Sinhala word into unrelated fragments.
+    assert word_characters("නැහැ").strip() == "නැහැ"
+    assert word_characters("யாழ்ப்பாணம்").strip() == "யாழ்ப்பாணம்"
+    assert "බෑග්" in message_tokens("මට බෑග් එකක් ඕන")
+    assert message_tokens("hello, world!") == {"hello", "world"}
+
+
+def test_products_are_matched_by_a_sinhala_product_name():
+    products = [
+        {"id": "bag", "name": "ලෙදර් බෑග්", "shortCode": "B1a2Cd"},
+        {"id": "watch", "name": "ස්මාට් වොච්", "shortCode": "W3e4Fg"},
+    ]
+
+    assert find_product_in_message("ලෙදර් බෑග් ගැන කියන්න", products)["id"] == "bag"
+    assert find_product_in_message("ස්මාට් වොච් තියෙනවද", products)["id"] == "watch"
+
+
+def test_ambiguous_matches_are_returned_for_a_follow_up_question():
+    from app.services.public_chat_service import find_matching_products
+
+    products = [
+        {"id": "pink", "name": "Daisy Running Shoes Pink"},
+        {"id": "black", "name": "Daisy Running Shoes Black"},
+    ]
+    matches = find_matching_products("Tell me about Daisy shoes", products)
+
+    # The chat asks which one instead of falling through to a dead end.
+    assert {product["id"] for product in matches} == {"pink", "black"}
+    assert find_product_in_message("Tell me about Daisy shoes", products) is None
+
+
+def test_related_products_prefer_the_same_category_and_nearest_price():
+    products = [
+        {"id": "target", "name": "Bag A", "categoryName": "Bags", "sellingPriceMinor": 300000},
+        {"id": "far", "name": "Bag B", "categoryName": "Bags", "sellingPriceMinor": 2500000},
+        {"id": "near", "name": "Bag C", "categoryName": "Bags", "sellingPriceMinor": 350000},
+        {"id": "other", "name": "Watch", "categoryName": "Watches", "sellingPriceMinor": 310000},
+    ]
+    suggestions = related_products(products, products[0])
+
+    assert [product["id"] for product in suggestions] == ["near", "far", "other"]

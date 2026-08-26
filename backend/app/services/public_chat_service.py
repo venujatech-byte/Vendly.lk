@@ -2,6 +2,7 @@ import hashlib
 import hmac
 import re
 import secrets
+import unicodedata
 from datetime import datetime, timedelta, timezone
 
 from firebase_admin import firestore
@@ -47,6 +48,11 @@ PRODUCT_STOP_WORDS = {
     "item",
 }
 
+# ponytail: these keyword sets are the deterministic intent ladder. They carry
+# the Sinhala and Tamil wording customers actually use, plus the romanised
+# Sinhala most people type on a phone. Replace the whole ladder with an AI
+# intent classifier (see generate_business_assistant_intent) when the phrase
+# lists start needing a new entry every week.
 ORDER_INTENT_PHRASES = {
     "i want to order",
     "place order",
@@ -54,6 +60,16 @@ ORDER_INTENT_PHRASES = {
     "order this",
     "ready to order",
     "checkout",
+    "order karanna",
+    "ganna one",
+    "ganna ona",
+    "mata one",
+    "ඕඩර් කරන්න",
+    "ගන්න ඕන",
+    "ගන්න ඕනේ",
+    "මට ඕන",
+    "ஆர்டர் செய்ய",
+    "வாங்க வேண்டும்",
 }
 
 CONFIRMATION_PHRASES = {
@@ -65,6 +81,15 @@ CONFIRMATION_PHRASES = {
     "place it",
     "ok",
     "okay",
+    "ow",
+    "ehenam",
+    "හරි",
+    "ඔව්",
+    "ඔව්, තහවුරු කරන්න",
+    "තහවුරු කරන්න",
+    "ஆம்",
+    "சரி",
+    "உறுதிப்படுத்து",
 }
 
 NEW_ORDER_PHRASES = {
@@ -74,6 +99,12 @@ NEW_ORDER_PHRASES = {
     "place another order",
     "make another order",
     "buy something else",
+    "aluth order",
+    "තව ඕඩර්",
+    "අලුත් ඕඩර්",
+    "නව ඇණවුම",
+    "மற்றொரு ஆர்டர்",
+    "புதிய ஆர்டர்",
 }
 
 ORDER_ENQUIRY_WORDS = {
@@ -91,6 +122,70 @@ ORDER_ENQUIRY_WORDS = {
     "dispatch",
     "arrive",
     "arrival",
+    "තත්ත්වය",
+    "බෙදාහැරීම",
+    "ලැබුණාද",
+    "එවලාද",
+    "ට්‍රැක්",
+    "நிலை",
+    "டெலிவரி",
+    "கண்காணி",
+    "வந்ததா",
+}
+
+CATALOG_PHRASES = {
+    "show products",
+    "show catalogue",
+    "show catalog",
+    "what do you have",
+    "mokakda thiyenne",
+    "monawada thiyenne",
+    "නිෂ්පාදන",
+    "මොනවද තියෙන්නේ",
+    "බඩු පෙන්නන්න",
+    "පෙන්නන්න",
+    "பொருட்கள்",
+    "என்ன இருக்கு",
+    "காட்டுங்கள்",
+}
+
+ALTERNATIVE_PHRASES = {
+    "not satisfied",
+    "not interested",
+    "don't like",
+    "do not like",
+    "something else",
+    "similar product",
+    "similar items",
+    "other option",
+    "other item",
+    "another product",
+    "wenna deyak",
+    "වෙන එකක්",
+    "වෙනත්",
+    "සමාන",
+    "කැමති නෑ",
+    "வேறு",
+    "மாற்று",
+    "பிடிக்கவில்லை",
+}
+
+GREETING_PHRASES = {
+    "hi",
+    "hello",
+    "hey",
+    "goodmorning",
+    "goodafternoon",
+    "goodevening",
+    "ayubowan",
+    "kohomada",
+    "ආයුබෝවන්",
+    "හලෝ",
+    "කොහොමද",
+    "වணක්කම්",
+    "வணக்கம்",
+    "ஹலோ",
+    "எப்படிஇருக்கிறீர்கள்",
 }
 
 
@@ -102,9 +197,10 @@ def is_explicit_new_order_request(message):
 
 def is_order_enquiry(message):
     """Recognise delivery, tracking and existing-order questions."""
-    words = set(re.findall(r"[a-z0-9]+", str(message).casefold()))
-    return bool(words & ORDER_ENQUIRY_WORDS) or "order info" in str(message).casefold() \
-        or "order details" in str(message).casefold()
+    clean_message = str(message).casefold()
+    words = set(word_characters(clean_message).split())
+    return bool(words & ORDER_ENQUIRY_WORDS) or "order info" in clean_message \
+        or "order details" in clean_message
 
 
 def latest_order_for_session(database, session):
@@ -148,16 +244,35 @@ def order_information_message(order):
     return " ".join(parts)
 
 
+def word_characters(value):
+    """Keep letters, combining marks and digits; turn everything else to space.
+
+    Neither `[a-z0-9]` nor `\\w` can tokenise Sinhala or Tamil. The ASCII class
+    erases those scripts completely, and `\\w` silently drops the combining
+    vowel signs their words are built from, so "නැහැ" would arrive as two
+    unrelated fragments. Matching on the Unicode category keeps every script
+    whole.
+    """
+    return "".join(
+        character if unicodedata.category(character)[0] in {"L", "M", "N"} else " "
+        for character in str(value).casefold()
+    )
+
+
 def message_tokens(value):
     return {
         token
-        for token in re.findall(r"[a-z0-9]+", str(value).casefold())
+        for token in word_characters(value).split()
         if len(token) > 2 and token not in PRODUCT_STOP_WORDS
     }
 
 
-def find_product_in_message(message, products):
-    """Resolve a catalogue choice by number, name, short code or useful words."""
+def find_matching_products(message, products):
+    """Every catalogue item that matches the customer's wording equally well.
+
+    More than one result means the message is genuinely ambiguous, and the
+    caller should ask which product was meant instead of giving up.
+    """
     clean_message = str(message).strip().casefold()
     numbered_choice = re.fullmatch(
         r"(?:product|item)?\s*#?\s*(\d+)",
@@ -167,16 +282,16 @@ def find_product_in_message(message, products):
     if numbered_choice:
         product_index = int(numbered_choice.group(1)) - 1
         if 0 <= product_index < len(products):
-            return products[product_index]
+            return [products[product_index]]
 
     for product in products:
         product_name = product.get("name", "").strip().casefold()
         short_code = product.get("shortCode", "").strip().casefold()
 
         if short_code and short_code in clean_message:
-            return product
+            return [product]
         if product_name and product_name in clean_message:
-            return product
+            return [product]
 
     customer_tokens = message_tokens(clean_message)
     scored_products = []
@@ -189,14 +304,17 @@ def find_product_in_message(message, products):
             scored_products.append((len(matching_words), product))
 
     if not scored_products:
-        return None
+        return []
 
     scored_products.sort(key=lambda item: item[0], reverse=True)
     highest_score = scored_products[0][0]
-    best_matches = [
-        product for score, product in scored_products if score == highest_score
-    ]
-    return best_matches[0] if len(best_matches) == 1 else None
+    return [product for score, product in scored_products if score == highest_score]
+
+
+def find_product_in_message(message, products):
+    """Resolve a catalogue choice by number, name, short code or useful words."""
+    matches = find_matching_products(message, products)
+    return matches[0] if len(matches) == 1 else None
 
 
 def is_catalog_number_choice(message):
@@ -210,7 +328,7 @@ def is_catalog_number_choice(message):
 
 
 def normalized_phrase(value):
-    return re.sub(r"[^a-z0-9]+", "", str(value).casefold())
+    return "".join(word_characters(value).split())
 
 
 def is_finished_selecting_items(message):
@@ -229,11 +347,17 @@ def is_finished_selecting_items(message):
         "continue",
         "proceed",
         "checkout",
-    } or clean_message in {
+    } or compact_message in {
         "නැහැ",
         "නෑ",
         "එපා",
-        "වෙන මොනවත් එපා",
+        "වෙනමොනවත්එපා",
+        "ඇති",
+        "ඉවරයි",
+        "இல்லை",
+        "வேண்டாம்",
+        "போதும்",
+        "முடிந்தது",
     }
 
 
@@ -280,18 +404,39 @@ def category_products(products, category_name, excluded_product_id=None):
 
 
 def related_products(products, selected_product, limit=4):
-    """Recommend catalogue items without allowing the AI to invent products."""
+    """Recommend catalogue items without allowing the AI to invent products.
+
+    Same category first, then the rest of the catalogue. Within each group the
+    closest price comes first, because a shopper looking at a LKR 3,000 bag is
+    far more likely to want the LKR 3,500 one than the LKR 25,000 one.
+    """
     if not selected_product:
         return []
 
     selected_id = selected_product.get("id")
-    category_name = selected_product.get("categoryName")
-    same_category = category_products(products, category_name, selected_id)
-    other_products = [
-        product
-        for product in products
-        if product.get("id") != selected_id and product not in same_category
-    ]
+    target_price = selected_product.get("sellingPriceMinor", 0)
+
+    def price_distance(product):
+        return abs(product.get("sellingPriceMinor", 0) - target_price)
+
+    same_category = sorted(
+        category_products(
+            products,
+            selected_product.get("categoryName"),
+            selected_id,
+        ),
+        key=price_distance,
+    )
+    same_category_ids = {product.get("id") for product in same_category}
+    other_products = sorted(
+        (
+            product
+            for product in products
+            if product.get("id") != selected_id
+            and product.get("id") not in same_category_ids
+        ),
+        key=price_distance,
+    )
     return (same_category + other_products)[:limit]
 
 
@@ -1238,32 +1383,16 @@ def answer_public_message(database, session_id, provided_token, payload):
             response_products=[],
         )
 
-    wants_catalog = any(
-        phrase in lowered_message
-        for phrase in (
-            "show products",
-            "show catalogue",
-            "show catalog",
-            "what do you have",
-        )
-    )
+    wants_catalog = any(phrase in lowered_message for phrase in CATALOG_PHRASES)
     wants_to_order = any(phrase in lowered_message for phrase in ORDER_INTENT_PHRASES)
     wants_alternatives = any(
-        phrase in lowered_message
-        for phrase in (
-            "not satisfied",
-            "not interested",
-            "don't like",
-            "do not like",
-            "something else",
-            "similar product",
-            "other option",
-            "other item",
-            "another product",
-        )
+        phrase in lowered_message for phrase in ALTERNATIVE_PHRASES
     )
     category_request = find_category_request(message, products)
-    explicitly_selected_product = find_product_in_message(message, products)
+    matching_products = find_matching_products(message, products)
+    explicitly_selected_product = (
+        matching_products[0] if len(matching_products) == 1 else None
+    )
     remembered_product_id = session.get("productId") or session.get(
         "selectedProductId",
     )
@@ -1470,16 +1599,27 @@ def answer_public_message(database, session_id, provided_token, payload):
             product=selected_product,
             response_reviews=(product_reviews[:4] if is_product_overview_request else []),
             review_summary=product_review_summary,
-            response_products=(
-                related_products(products, selected_product)
-                if is_product_overview_request
-                else []
-            ),
+            # Similar products accompany every product answer, not only a full
+            # overview. A shopper asking about one feature is exactly who wants
+            # to see the nearest alternatives.
+            response_products=related_products(products, selected_product),
             selected_product_id=selected_product["id"],
         )
 
+    # The message named several products equally well. Asking which one is a
+    # real answer; falling through to the generic prompt is a dead end that
+    # also pages the seller for a question the catalogue can settle.
+    if len(matching_products) > 1:
+        return respond(
+            "I found more than one product matching that. Which one would you "
+            "like to know about?",
+            "show-catalog",
+            next_state="browsing",
+            response_products=matching_products[:4],
+        )
+
     is_simple_greeting = normalized_phrase(message) in {
-        "hi", "hello", "hey", "goodmorning", "goodafternoon", "goodevening"
+        normalized_phrase(phrase) for phrase in GREETING_PHRASES
     }
     if not is_simple_greeting:
         notify_seller_attention(
