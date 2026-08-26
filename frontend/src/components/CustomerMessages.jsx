@@ -267,7 +267,7 @@ export default function CustomerMessages({
 
             <form className="customer-messages__composer" onSubmit={handleSubmit}>
               <input value={reply} onChange={(event) => setReply(event.target.value)} placeholder="Type a reply..." aria-label="Reply message" />
-              <button type="submit" disabled={!reply.trim() || isSending} aria-label="Send reply">
+              <button  type="submit" disabled={!reply.trim() || isSending} aria-label="Send reply">
                 <Send size={18} />
               </button>
             </form>

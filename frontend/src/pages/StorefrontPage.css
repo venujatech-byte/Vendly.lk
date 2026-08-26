@@ -203,7 +203,7 @@
   top: 0;
   z-index: 35;
   display: flex;
-  height: 40px;
+  height: 50px;
   padding: 0 27px;
   align-items: center;
   justify-content: space-between;
@@ -608,7 +608,7 @@
   display: grid;
   width: min(1280px, calc(100% - 36px));
   height: calc(100vh - 64px);
-  min-height: 680px;
+  min-height: 660px;
   padding: 0;
   grid-template-columns: minmax(0, 1fr) 320px;
   gap: 18px;
@@ -2688,7 +2688,7 @@
   position: absolute;
   z-index: 5;
   right: 14px;
-  bottom: 14px;
+  bottom: 6px;
   left: 14px;
   display: grid;
   overflow: hidden;
@@ -3098,11 +3098,7 @@ body:has(.storefront-chat-page) {
 
 /* Final chatbot composer theme and scroll clearance. Keep this block last so
    older responsive rules cannot hide the newest message behind the composer. */
-.storefront--dark .storefront-chat-composer {
-  border-color: rgba(130, 165, 200, .28);
-  background: rgba(12, 26, 41, .88);
-  box-shadow: 0 14px 34px rgba(0, 0, 0, .38), inset 0 1px 0 rgba(255,255,255,.08);
-}
+
 
 .storefront--dark .storefront-chat-composer .storefront-chat-quick-actions {
   border-bottom-color: rgba(130,165,200,.2);
