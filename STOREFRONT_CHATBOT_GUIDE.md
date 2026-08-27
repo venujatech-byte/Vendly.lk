@@ -1817,3 +1817,52 @@ true while mobile browser chrome slides away.
 The magic numbers were the bug. Four places encoding the same measurement
 guarantees three of them are wrong after any change to the fourth - the same
 duplication failure as §23.38, §23.41 and §23.45, in CSS this time.
+
+### 23.51 Prices invisible in dark mode — FIXED
+
+**Seen:** the price on the product details panel could not be read in dark
+mode.
+
+**Cause:** it used `--sf-navy`, which is a *fixed dark accent*, not a text
+colour. In dark mode that variable becomes `#021e37` - near-black on the
+`#0d1927` surface behind it.
+
+**Fix:** a semantic `--sf-heading` that flips with the theme (`#003158` light,
+`#eef6ff` dark), and **all eight** text uses of `--sf-navy` moved onto it - the
+chat price, the popup price, the review-centre headings and form labels, a
+sidebar button and the brand mark. Only the one genuine background use of
+`--sf-navy` remains.
+
+The other seven were the same bug waiting to be reported. A variable that
+means "this specific dark colour" cannot also mean "emphasised text", because
+the second meaning has to invert with the theme and the first must not.
+
+**The catalogue price badge needed its background theming too**, and the first
+pass made it worse: the pill floats over a photo with a hardcoded white
+surface, so switching its text to `--sf-heading` turned it white-on-white in
+dark mode. Both halves have to flip together - `--sf-badge-surface` is now
+white in light mode and `rgba(13, 25, 39, 0.92)` in dark.
+
+The lesson generalises: **theming a text colour is only safe when the surface
+under it is themed as well.** An audit for hardcoded light surfaces found one
+more - the brand mark's alt text over a fixed white square - which is pinned to
+a literal colour on purpose, with a comment saying why.
+
+### 23.52 Category chips cut their own labels off — FIXED
+
+**Seen:** on a phone the category row read "PowerBa", "Smart w", "speake".
+
+**Cause:** the chips already had `white-space: nowrap`, which is why it looked
+like a text bug - but they are flex items, and flex items **shrink by
+default**. In a row with `overflow-x: auto` they were squeezed narrower than
+their own text and clipped it. `flex: 0 0 auto` makes the row scroll instead of
+the chips shrinking.
+
+**Also fixed:** `justify-content: center` on an overflowing scroll row pushes
+the first chip off the left edge, where no amount of scrolling reaches it - the
+customer simply loses that category. It is now `safe center`, which centres
+while the chips fit and packs from the left once they do not, with a plain
+`center` declared first as the fallback for browsers without it.
+
+Mobile also gets slightly smaller chips so more of the row is visible before
+scrolling.

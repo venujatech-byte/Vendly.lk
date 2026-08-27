@@ -16,6 +16,11 @@
      reachable - four breakpoints each subtracting a different guess (64, 40,
      84, auto) is how the panel ended up not fitting. */
   --sf-topbar-height: 50px;
+  /* Emphasised text - prices, headings. Separate from --sf-navy, which is a
+     fixed dark accent: in dark mode that becomes #021e37, so anything using it
+     as a text colour was near-black on a near-black surface. */
+  --sf-heading: #003158;
+  --sf-badge-surface: rgba(255, 255, 255, 0.94);
   --sf-shadow: 0 14px 42px rgba(19, 45, 78, 0.09);
   min-height: 100vh;
   color: var(--sf-text);
@@ -33,6 +38,8 @@
   --sf-soft: #122131;
   --sf-border: #23374d;
   --sf-shadow: 0 18px 46px rgba(0, 0, 0, 0.28);
+  --sf-heading: #eef6ff;
+  --sf-badge-surface: rgba(13, 25, 39, 0.92);
 }
 
 .storefront *,
@@ -116,7 +123,9 @@
   height: 34px;
   place-items: center;
   border-radius: 8px;
-  color: var(--sf-navy);
+  /* Fixed, because the background below is fixed white. This is the alt text
+     when the logo fails to load, so it must not follow the theme. */
+  color: #003158;
   object-fit: contain;
   font-size: 1.15rem;
   font-weight: 900;
@@ -404,7 +413,11 @@
 .storefront-categories {
   display: flex;
   margin-bottom: 28px;
+  /* Centred while they fit, packed from the left once they overflow. Centring
+     an overflowing row pushes its first chip off the left edge, where it
+     cannot be scrolled back to. */
   justify-content: center;
+  justify-content: safe center;
   gap: 8px;
   overflow-x: auto;
   scrollbar-width: none;
@@ -415,6 +428,10 @@
 }
 
 .storefront-categories button {
+  /* Flex items shrink by default, so in a scrolling row they were squeezed
+     narrower than their own text - "PowerBanks" rendered as "PowerBa". The row
+     scrolls; the chips must keep their natural width. */
+  flex: 0 0 auto;
   min-width: 72px;
   padding: 8px 17px;
   border: 1px solid var(--sf-border);
@@ -484,8 +501,11 @@
   right: 12px;
   padding: 6px 10px;
   border-radius: 999px;
-  color: var(--sf-navy);
-  background: rgba(255, 255, 255, 0.94);
+  /* The pill floats over a photo, so it carries its own surface rather than
+     the card's - and both halves must flip together. Theming only the text
+     left it white-on-white; theming only the pill leaves it dark-on-dark. */
+  color: var(--sf-heading);
+  background: var(--sf-badge-surface);
   box-shadow: 0 4px 12px rgba(19, 40, 64, 0.1);
 }
 
@@ -1800,7 +1820,7 @@
   gap: 10px;
   border: 0;
   border-radius: 9px;
-  color: var(--sf-navy);
+  color: var(--sf-heading);
   text-align: left;
   background: var(--sf-soft);
   cursor: pointer;
@@ -2502,7 +2522,7 @@
 
 .storefront-review-center__hero h1 {
   margin: 0 0 8px;
-  color: var(--sf-navy);
+  color: var(--sf-heading);
   font-size: clamp(1.7rem, 4vw, 2.3rem);
 }
 
@@ -2523,14 +2543,14 @@
 
 .storefront-review-center__form h2 {
   margin: 0 0 4px;
-  color: var(--sf-navy);
+  color: var(--sf-heading);
   font-size: 1.15rem;
 }
 
 .storefront-review-center__form label {
   display: grid;
   gap: 7px;
-  color: var(--sf-navy);
+  color: var(--sf-heading);
   font-size: .86rem;
   font-weight: 650;
 }
@@ -2762,6 +2782,16 @@
 }
 
 @media (max-width: 640px) {
+  .storefront-categories {
+    margin-bottom: 18px;
+    padding-bottom: 2px;
+  }
+
+  .storefront-categories button {
+    padding: 7px 14px;
+    font-size: 0.82rem;
+  }
+
   .storefront-page,
   .storefront-contact-page {
     width: calc(100% - 28px);
@@ -3621,7 +3651,7 @@ body:has(.storefront-chat-page) {
 }
 
 .storefront-product-modal__price strong {
-  color: var(--sf-navy);
+  color: var(--sf-heading);
   font-size: 1.3rem;
 }
 
@@ -4026,7 +4056,7 @@ body:has(.storefront-chat-page) {
 }
 
 .chat-product-details__price b {
-  color: var(--sf-navy);
+  color: var(--sf-heading);
   font-size: 1.05rem;
 }
 
