@@ -263,6 +263,7 @@ function StorefrontPage({ linkType }) {
   const [reviewMessage, setReviewMessage] = useState("");
   const [isAccountOpen, setIsAccountOpen] = useState(false);
   const messagesEndRef = useRef(null);
+  const latestMessageRef = useRef(null);
   const recognitionRef = useRef(null);
   const voiceHoldTimerRef = useRef(null);
   const skipNextVoiceClickRef = useRef(false);
@@ -480,10 +481,33 @@ function StorefrontPage({ linkType }) {
   }, []);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({
-      behavior: "smooth",
-      block: "nearest",
-    });
+    const newest = messages[messages.length - 1];
+    const latest = latestMessageRef.current;
+    const list = latest?.parentElement;
+
+    if (!list) return;
+
+    // Scroll THIS list, never `scrollIntoView`. That walks every scrollable
+    // ancestor, so it also scrolled the page and dragged the whole chat panel
+    // up under the sticky top bar. Setting scrollTop moves one element.
+    const scrollList = (top) =>
+      list.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+
+    // A reply carrying a product card, a comparison table or a cart runs
+    // taller than the window. Stopping at its bottom left the customer at the
+    // end of an answer they had not read; its top lets them read downwards.
+    // Only when it will not fit - pinning a one-line answer to the top strands
+    // it above a screen of blank space.
+    const replyOverflows = latest.offsetHeight > list.clientHeight * 0.7;
+
+    if (newest?.role === "assistant" && !isSending && replyOverflows) {
+      scrollList(latest.offsetTop - list.offsetTop - 12);
+      return;
+    }
+
+    // Their own message, or the typing indicator: the newest thing is short
+    // and at the bottom, so that is where to be.
+    scrollList(list.scrollHeight);
   }, [messages, isSending]);
 
   useEffect(() => {
@@ -1166,7 +1190,7 @@ function StorefrontPage({ linkType }) {
               </>
             )}
             <button
-              className="storefront-icon-button"
+              className="storefront-icon-button storefront-topbar__notifications"
               type="button"
               aria-label="Notifications"
             >
@@ -1253,6 +1277,7 @@ function StorefrontPage({ linkType }) {
             messageText={messageText}
             isSending={isSending}
             messagesEndRef={messagesEndRef}
+            latestMessageRef={latestMessageRef}
             onMessageTextChange={setMessageText}
             onSendMessage={sendMessage}
             isListening={isListening}
@@ -2250,6 +2275,7 @@ function ChatbotView({
   isHoldingVoiceButton,
   voiceTranscript,
   messagesEndRef,
+  latestMessageRef,
   onMessageTextChange,
   onSendMessage,
   onToggleListening,
@@ -2286,6 +2312,7 @@ function ChatbotView({
             <div
               className={`storefront-chat-message storefront-chat-message--${message.role}`}
               key={message.id || `${message.role}-${index}`}
+              ref={index === messages.length - 1 ? latestMessageRef : undefined}
             >
               <span className="storefront-chat-message__avatar">
                 {message.role === "assistant" ? (

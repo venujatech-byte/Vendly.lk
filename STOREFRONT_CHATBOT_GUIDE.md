@@ -1734,3 +1734,86 @@ the name, description and price as prose immediately above a card that now
 shows all three - everything twice, with the card pushed off a phone screen.
 The message is now the invitation only, and a test asserts the price and
 description do not appear in it while remaining available on the card.
+
+### 23.47 Long replies scrolled past their own beginning — FIXED
+
+**Seen:** a reply carrying a product card, a comparison table or the cart runs
+taller than the window. Auto-scrolling to the bottom landed the customer at
+the *end* of an answer they had not read, and they had to scroll back up to
+find where it started.
+
+**Fix:** when the newest reply is taller than about two thirds of the visible
+list, its **top** is scrolled into view instead of the list's bottom, so the
+answer is read downwards from its first line. The container's existing
+`scroll-padding-top` keeps it clear of the sticky top bar.
+
+Short replies keep the old behaviour. Pinning a one-line answer to the top
+would strand it above a screen of blank space, which reads as though something
+failed to load - so the rule is by measured height, not by message type. The
+customer's own messages and the typing indicator still scroll to the bottom,
+since the newest thing there is short and belongs at the end.
+
+### 23.48 Top bar icons did not fit a phone — FIXED
+
+**Seen:** with the voice controls moved up in §23.44 the top bar carries six
+icons, and on a phone the last of them fell off the edge.
+
+**The positional selector was the real damage.** The mobile rule hid
+`.storefront-topbar__actions .storefront-icon-button:first-child`, which used
+to be the notifications bell. Adding the voice controls in front of it made
+the **language toggle** first, so every phone silently lost the control that
+switches the chat between English, Sinhala and Tamil - on a storefront whose
+whole point is being usable in all three. The rule now names the notifications
+button by class. Hide by what a button *is*, never by where it sits.
+
+**Spacing**, mobile only: gap 5px to 1px, buttons 40px to 34px, and the top
+bar's 27px side padding down to 8px - over a seventh of a phone's width was
+being spent on nothing. The title block is `flex: 1 1 auto; min-width: 0` and
+the actions `flex: 0 0 auto`, so the shop name truncates and the buttons never
+compress.
+
+Measured rather than guessed: five visible buttons at 34px with 1px gaps and
+8px padding is 190px, leaving 130px for the title on a 320px screen - the
+narrowest phone still in use.
+
+### 23.49 The chat panel slid under the top bar — FIXED
+
+**Seen:** the panel sat correctly on load, then rose under the sticky top bar
+once the conversation grew.
+
+**Cause 1 - a height floor taller than the window.** `.storefront-chat-page`
+had `height: calc(100vh - 64px)` with `min-height: 660px`. On a window shorter
+than ~724px the floor wins, the page becomes taller than the viewport, and the
+*page* scrolls - carrying the whole panel up behind the top bar. The message
+list was never the thing moving. It is now
+`min-height: min(660px, calc(100vh - 64px))`, which keeps the floor's intent
+without ever exceeding the space available.
+
+**Cause 2 - `scrollIntoView` scrolls ancestors.** §23.47 used it to bring a
+tall reply's top into view. It walks *every* scrollable ancestor, so with a
+page that could scroll it moved the page too, turning a latent layout fault
+into a visible one on every message. The effect now sets `scrollTop` on the
+message list itself, which can only move that one element.
+
+Worth keeping: `scrollIntoView` is the wrong tool inside a fixed-height panel.
+It optimises for "make this visible somehow", which is exactly the freedom a
+constrained layout does not want.
+
+### 23.50 The chat page did not fit the window — FIXED
+
+**Cause:** four breakpoints each subtracted a different guess for the top bar -
+`100vh - 64px`, `100dvh - 40px`, `100vh - 84px`, and `height: auto` with
+`10px/24px` margins - while the bar is 50px everywhere. Whenever the guess was
+too small the panel ran past the bottom of the window, and because
+`body:has(.storefront-chat-page)` sets `overflow: hidden`, the excess was
+**clipped rather than scrollable**. Nothing was broken visually until the
+content reached the bottom, which is why it looked fine on load.
+
+**Fix:** one `--sf-topbar-height: 50px` variable, and every rule now uses
+`height: calc(100dvh - var(--sf-topbar-height))` with no vertical margins. Top
+bar plus chat equals the viewport exactly at every size, and `dvh` keeps that
+true while mobile browser chrome slides away.
+
+The magic numbers were the bug. Four places encoding the same measurement
+guarantees three of them are wrong after any change to the fourth - the same
+duplication failure as §23.38, §23.41 and §23.45, in CSS this time.
