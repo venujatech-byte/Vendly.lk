@@ -227,6 +227,16 @@ function OrderDetails({
         </div>
       </section>
 
+      {/* The customer's own instruction for this delivery - a landmark, a time
+          to call, gift wrapping. Given its own block rather than a line in the
+          address, because it is the one thing here nobody can guess. */}
+      {order.customerNote && (
+        <section className="order-details__section order-details__customer-note">
+          <h3>Customer note</h3>
+          <p>{order.customerNote}</p>
+        </section>
+      )}
+
       {/* Product subtotal, delivery fee, final total, and waybill number. */}
       <section className="order-details__section order-details__summary">
         <div>

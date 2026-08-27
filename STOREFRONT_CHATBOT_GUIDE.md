@@ -2053,3 +2053,48 @@ and the button is a circle to match the field's pill.
 Two stale mobile rules from the two-control version were removed - one set the
 search to `flex: 1 1 100%` and the next line immediately overrode it, which is
 what dead CSS from an earlier layout looks like.
+
+### 23.62 The notification panel took the page down — FIXED
+
+**Seen:** clicking the bell blanked the storefront.
+
+**Cause:** the panel referenced `text.notifications`, but `text` is declared
+inside each *sub*-component. The top bar lives in `StorefrontPage` itself,
+which had none - so the reference threw the moment the panel rendered.
+
+**The build passed.** Vite resolves modules, not identifiers, so an undefined
+variable is a runtime error it never sees. `npm run lint` (oxlint) catches
+exactly this and had not been run - it is now part of the check set alongside
+the tests and the build, and it also found a dead import and a stale hook
+dependency left by earlier work.
+
+### 23.63 An order note the seller never saw — FIXED
+
+The delivery note was concatenated into `privateNote` behind boilerplate, so
+it could not be shown as the customer's own words and the new-order
+notification had nothing to quote.
+
+It is now its own `customerNote` field: quoted in the seller's **notification**
+("… placed an order. Note: \"leave with security\""), and given its own
+tinted block in the **order expand view** rather than a line in the address.
+Older orders have no such field and fall back to empty.
+
+### 23.64 Only the newest order's updates reached the chat — FIXED
+
+**Seen:** two orders from one chat. The customer got notifications for both 15
+and 16, but the chat showed an update for 16 only.
+
+**Cause:** `send_order_status_chat_message` finds the session by
+`where("orderId", "==", order_id)`, and a session's `orderId` is **overwritten
+by each new order**. Once 16 was placed, no session matched 15 - so confirming
+it reached nobody. The notification poller worked because it reads the
+customer's orders directly, which is why the two disagreed.
+
+**Fix:** the session records `orderIds`, every order it has produced, and the
+notifier queries that list. It still queries the single field too, because
+every session already in the database predates the list - dropping it would
+have silently stopped updates for orders already placed. Results are
+deduplicated by document id, since the newest order matches both queries and
+would otherwise be announced twice.
+
+Four tests cover it; the first fails against the old single-field query.

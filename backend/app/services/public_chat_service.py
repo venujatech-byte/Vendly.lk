@@ -3183,6 +3183,7 @@ def answer_public_message(database, session_id, provided_token, payload):
             session_snapshot.reference.update(
                 {
                     "orderId": updated["id"],
+                    "orderIds": firestore.ArrayUnion([updated["id"]]),
                     "status": "completed",
                     "updatedAt": firestore.SERVER_TIMESTAMP,
                 },
@@ -4550,6 +4551,7 @@ def create_public_chat_order(database, session_id, provided_token, payload):
         "source": "chatbot",
         "discountAmount": 0,
         "privateNote": private_note,
+        "customerNote": delivery_note,
         "customerUid": session.get("customerUid", ""),
     }
 
@@ -4594,6 +4596,11 @@ def create_public_chat_order(database, session_id, provided_token, payload):
             "state": "completed",
             "cart": [],
             "orderId": order["id"],
+            # Every order this chat has produced, not just the newest. The
+            # status notifier looks a session up by order, and `orderId` is
+            # overwritten by each new order - so a status change on the earlier
+            # one reached nobody.
+            "orderIds": firestore.ArrayUnion([order["id"]]),
             "customerDraft": customer_summary,
             "customerSummary": customer_summary,
             "updatedAt": firestore.SERVER_TIMESTAMP,

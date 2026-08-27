@@ -72,11 +72,25 @@ def notify_seller_attention(
 
 def send_order_status_chat_message(database, business_id, order_id, order, status, note=""):
     """Append an automated order update to its originating storefront chat."""
-    sessions = (
-        database.collection("publicChatSessions")
-        .where(filter=FieldFilter("orderId", "==", order_id))
-        .stream()
-    )
+    # Two queries, because a session holds a list of every order it produced
+    # AND a single `orderId` for its most recent one. The list is the correct
+    # source; the single field is how sessions written before the list exists
+    # are still reachable. Deduplicated by document id, since a recent order
+    # matches both.
+    session_collection = database.collection("publicChatSessions")
+    snapshots = {}
+
+    for snapshot in session_collection.where(
+        filter=FieldFilter("orderIds", "array_contains", order_id),
+    ).stream():
+        snapshots[snapshot.id] = snapshot
+
+    for snapshot in session_collection.where(
+        filter=FieldFilter("orderId", "==", order_id),
+    ).stream():
+        snapshots.setdefault(snapshot.id, snapshot)
+
+    sessions = list(snapshots.values())
     label = ORDER_STATUS_LABELS.get(status, status.replace("-", " "))
     order_number = order.get("orderNumber", "Your order")
     message = f"Order {order_number} status update: {label}."

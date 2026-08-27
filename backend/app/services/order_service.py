@@ -66,6 +66,10 @@ def validate_order_request(payload):
     try:
         customer_id = required_text(payload.get("customerId"), "Customer", 120)
         private_note = optional_text(payload.get("privateNote"), 2000)
+        # The customer's own words, kept as their own field. Buried inside the
+        # seller's private note they could not be shown as the customer's
+        # instruction, and the notification had nothing to quote.
+        customer_note = optional_text(payload.get("customerNote"), 500)
         source = optional_text(payload.get("source"), 40) or "dashboard"
         payment_method = optional_text(payload.get("paymentMethod"), 40) or "cod"
         discount_minor = money_to_minor_units(
@@ -142,6 +146,7 @@ def validate_order_request(payload):
         "paymentMethod": payment_method,
         "source": source,
         "privateNote": private_note,
+        "customerNote": customer_note,
         "assignedStaffUid": optional_text(payload.get("assignedStaffUid"), 120),
         "customerUid": optional_text(payload.get("customerUid"), 128),
     }
@@ -604,6 +609,7 @@ def create_order(database, business_id, uid, payload):
                 "totalWeightGrams": total_weight_grams,
                 "source": request_data["source"],
                 "privateNote": request_data["privateNote"],
+                "customerNote": request_data["customerNote"],
                 "assignedStaffUid": request_data["assignedStaffUid"] or uid,
                 "waybillNumber": waybill_number,
                 "stockReservationStatus": "reserved",
@@ -682,7 +688,18 @@ def create_order(database, business_id, uid, payload):
             {
                 "type": "new-order",
                 "title": f"New order {order_number}",
-                "message": f"{customer_data.get('name', 'Customer')} placed an order.",
+                # A note is an instruction about this delivery - a landmark, a
+                # time to call, a gift wrap. It is worth nothing if the seller
+                # only finds it after opening the order.
+                "message": (
+                    f"{customer_data.get('name', 'Customer')} placed an order."
+                    + (
+                        f' Note: "{request_data["customerNote"]}"'
+                        if request_data["customerNote"]
+                        else ""
+                    )
+                ),
+                "hasCustomerNote": bool(request_data["customerNote"]),
                 "orderId": order_reference.id,
                 "orderNumber": order_number,
                 "isRead": False,

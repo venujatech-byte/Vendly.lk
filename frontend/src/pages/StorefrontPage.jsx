@@ -484,7 +484,12 @@ function StorefrontPage({ linkType }) {
       isCurrent = false;
       window.clearInterval(timer);
     };
-  }, [business?.shortCode, session?.sessionId, session?.sessionToken]);
+  }, [
+    business?.name,
+    business?.shortCode,
+    session?.sessionId,
+    session?.sessionToken,
+  ]);
 
 
   // Orders are loaded once at startup, so a status the seller changes minutes

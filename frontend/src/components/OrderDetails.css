@@ -384,3 +384,20 @@ html[data-theme="dark"] .orders-table__details-cell {
     border-bottom: 0;
   }
 }
+
+/* The customer's own instruction for this delivery. Tinted so it is not read
+   as one more field of address: it is the one thing on this screen that
+   nobody in the shop can guess. */
+.order-details__customer-note {
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--warning, #f19b16) 40%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--warning, #f19b16) 9%, transparent);
+}
+
+.order-details__customer-note p {
+  margin: 4px 0 0;
+  font-size: 0.86rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}

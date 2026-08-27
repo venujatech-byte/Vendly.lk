@@ -40,6 +40,10 @@ export function mapOrderForTable(order) {
     fulfilmentStatus: order.fulfilmentStatus,
     paymentMethod: order.paymentMethod ?? "cod",
     privateNote: order.privateNote ?? "",
+    // The customer's own instruction, kept separate from the seller's private
+    // note so the two are never shown as one another's words. Older orders
+    // predate the field and fall back to an empty string.
+    customerNote: order.customerNote ?? "",
     fraudWarning,
     total: formatCurrency(order.totalAmountMinor),
     subtotal: formatCurrency(order.subtotalMinor),
