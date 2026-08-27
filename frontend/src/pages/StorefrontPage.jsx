@@ -38,7 +38,7 @@ import {
 import { useParams } from "react-router-dom";
 import vendlyLogo from "../assets/vendly-logo.png";
 import { SRI_LANKA_DISTRICTS } from "../data/districts";
-import { storefrontText } from "../data/storefrontText";
+import { CHAT_SUGGESTIONS, storefrontText } from "../data/storefrontText";
 import {
   createPublicChatOrder,
   createPublicChatSession,
@@ -701,6 +701,7 @@ function StorefrontPage({ linkType }) {
             role: "assistant",
             text: response.message,
             action: response.action,
+            suggestions: response.suggestions,
             product: response.product,
             products: response.products,
             reviews: response.reviews,
@@ -1785,6 +1786,27 @@ function ChatbotView({
                 )}
                 {message.text && <p>{message.text}</p>}
 
+                {/* Only under the newest reply: older chips would stack up and
+                    keep offering actions that no longer make sense. */}
+                {message.role === "assistant"
+                  && index === messages.length - 1
+                  && (message.suggestions || []).length > 0 && (
+                  <div className="storefront-chat-suggestions">
+                    {message.suggestions
+                      .filter((id) => CHAT_SUGGESTIONS[id])
+                      .map((id) => (
+                        <button
+                          key={id}
+                          type="button"
+                          disabled={isSending}
+                          onClick={() => onQuickMessage(CHAT_SUGGESTIONS[id].message)}
+                        >
+                          {text[CHAT_SUGGESTIONS[id].labelKey]}
+                        </button>
+                      ))}
+                  </div>
+                )}
+
                 {message.role === "assistant" &&
                   [
                     "show-catalog",
@@ -1967,30 +1989,6 @@ function ChatbotView({
         </div>
 
         <div className="storefront-chat-composer">
-          <div className="storefront-chat-quick-actions">
-            <button
-              type="button"
-              onClick={() => onQuickMessage("Show products")}
-              disabled={isSending}
-            >
-              {text.showProducts}
-            </button>
-            <button
-              type="button"
-              onClick={() => onQuickMessage("I want to order")}
-              disabled={isSending}
-            >
-              {text.wantToOrder}
-            </button>
-            <button
-              type="button"
-              onClick={() => onQuickMessage("Show customer reviews")}
-              disabled={isSending}
-            >
-              {text.reviews}
-            </button>
-          </div>
-
           <form className="storefront-chat-input" onSubmit={onSendMessage}>
           <button
             className={`storefront-chat-input__voice ${isListening || isHoldingVoiceButton ? "is-listening" : ""}`}

@@ -88,6 +88,9 @@ def public_business(snapshot):
         # opening hours. It is the only source the chatbot may answer policy
         # questions from.
         "storefrontFaq": business.get("storefrontFaq", ""),
+        # A shop address is meant to be found, so unlike bankDetails this is
+        # safe to publish with the rest of the storefront.
+        "storeLocation": business.get("storeLocation") or {},
         "status": business.get("status", "inactive"),
     }
 

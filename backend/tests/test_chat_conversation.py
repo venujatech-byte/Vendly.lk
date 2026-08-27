@@ -844,3 +844,129 @@ def test_the_amount_question_is_only_asked_once(chat):
 
     assert chat.session["customerDraft"]["depositChoice"] == "full"
     assert "Noted" not in reply["message"]
+
+
+def test_suggestions_follow_the_conversation(chat):
+    # Nothing chosen yet.
+    reply = chat.say("hello", intent="greeting")
+    assert "show-products" in reply["suggestions"]
+    assert "checkout" not in reply["suggestions"]
+
+    # Being asked how many: offer the numbers, nothing else.
+    reply = chat.say("mata GM2 pro ona", intent="start_order",
+                     productQuery="GM2 pro", quantity=0, quantityMode="total")
+    assert reply["suggestions"] == ["qty-1", "qty-2", "qty-3"]
+
+    # With items in the cart, finishing becomes the useful next step.
+    reply = chat.say("2", intent="set_quantity", quantity=2, quantityMode="total")
+    assert "checkout" in reply["suggestions"]
+
+
+def test_no_suggestions_while_typing_a_name_or_address(chat):
+    chat.say("mata GM2 pro dekak ona", intent="start_order",
+             productQuery="GM2 pro", quantity=2, quantityMode="total")
+    reply = chat.say("that's all", intent="finished_selecting")
+
+    # A chip cannot answer "what is your name", and would sit in the way.
+    assert reply["suggestions"] == []
+
+    chat.say("Nimal Perera")
+    reply = chat.say("0771234567")
+
+    # The optional steps are the exception: "skip" is a real answer.
+    assert reply["suggestions"] == ["skip"]
+
+
+def test_the_confirmation_step_offers_both_ways_out(chat):
+    chat.say("mata GM2 pro dekak ona", intent="start_order",
+             productQuery="GM2 pro", quantity=2, quantityMode="total")
+    for line in ["that's all", "Nimal", "0771234567", "skip",
+                 "No. 45 Park Road", "Colombo", "Nugegoda"]:
+        chat.say(line, intent="finished_selecting" if line == "that's all" else None)
+    reply = chat.say("skip")
+
+    assert reply["suggestions"] == ["confirm-order", "change-order"]
+
+
+def test_bank_details_offer_the_two_amounts(chat):
+    chat.bank = BANK
+    reply = chat.say("can I do a bank transfer?")
+
+    assert reply["suggestions"] == ["pay-full", "pay-part"]
+
+
+def test_a_completed_order_offers_order_actions(chat, monkeypatch):
+    monkeypatch.setattr(
+        public_chat_service,
+        "latest_order_for_session",
+        lambda *a: {"id": "o1", "orderNumber": "VD-000012",
+                    "fulfilmentStatus": "packed", "totalAmountMinor": 945000},
+    )
+    chat.session["orderId"] = "o1"
+    chat.session["state"] = "completed"
+    chat.session["status"] = "completed"
+
+    reply = chat.say("where is my order")
+
+    assert reply["suggestions"] == ["order-status", "another-order", "cancel-order"]
+
+
+def test_answering_the_district_keeps_an_english_chat_in_english(chat):
+    # Reproduces the reported bug: an English conversation, "what is the
+    # delivery fee", then "Gampaha" - and every later reply came back Sinhala.
+    chat.say("what is the delivery fee", intent="delivery_quote")
+    assert chat.state == "quoting-district"
+
+    reply = chat.say("Gampaha", intent="delivery_quote", language="si")
+
+    assert reply["language"] == "en"
+    assert chat.session["language"] == "en"
+
+
+def test_the_district_reply_is_not_sent_to_the_classifier(chat, monkeypatch):
+    calls = []
+    monkeypatch.setattr(public_chat_service, "storefront_intent", REAL_STOREFRONT_INTENT)
+    monkeypatch.setattr(
+        public_chat_service,
+        "generate_storefront_intent",
+        lambda message, *a: calls.append(message) or None,
+    )
+
+    chat.session["state"] = "quoting-district"
+    chat.say("Gampaha")
+
+    # A district name is data. Classifying it made the model guess a language
+    # from a place name, and it costs a provider call for nothing.
+    assert calls == []
+
+
+def test_asking_where_the_shop_is_answers_from_the_store_location(chat, monkeypatch):
+    monkeypatch.setattr(
+        public_chat_service,
+        "session_catalog",
+        lambda *a: {
+            "business": {
+                "name": "VS Tech Store",
+                "storefrontFaq": "",
+                "storeLocation": {
+                    "isOnlineOnly": False,
+                    "addressLine": "No. 45 Galle Road",
+                    "city": "Nugegoda",
+                    "district": "Colombo",
+                },
+            },
+            "products": catalogue(),
+        },
+    )
+
+    reply = chat.say("do you have a physical shop?")
+
+    assert reply["action"] == "show-store-location"
+    assert "No. 45 Galle Road" in reply["message"]
+
+
+def test_an_online_only_seller_tells_the_customer_not_to_travel(chat):
+    # The fixture's business has no storeLocation configured.
+    reply = chat.say("where are you located?")
+
+    assert "online store" in reply["message"]

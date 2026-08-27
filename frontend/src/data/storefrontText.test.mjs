@@ -5,6 +5,10 @@ import STOREFRONT_TEXT, { storefrontText } from "./storefrontText.js";
 
 const englishKeys = Object.keys(STOREFRONT_TEXT.en).sort();
 
+// Numerals read the same in all three languages, so "differs from English" is
+// not a meaningful check for them.
+const SHARED_ACROSS_LANGUAGES = new Set(["suggestQty2", "suggestQty3"]);
+
 for (const language of ["si", "ta"]) {
   assert.deepEqual(
     Object.keys(STOREFRONT_TEXT[language]).sort(),
@@ -12,6 +16,7 @@ for (const language of ["si", "ta"]) {
     `${language} is missing or has extra keys versus en`,
   );
   for (const key of englishKeys) {
+    if (SHARED_ACROSS_LANGUAGES.has(key)) continue;
     assert.notEqual(
       STOREFRONT_TEXT[language][key],
       STOREFRONT_TEXT.en[key],

@@ -816,3 +816,102 @@ def test_half_and_full_transfers_are_told_apart():
     # "Not the full amount" is a part payment, so "part" wins a tie.
     assert deposit_choice("not the full amount, only part") == "part"
     assert deposit_choice("ok") == ""
+
+
+def test_a_district_name_never_switches_the_conversation_language(monkeypatch):
+    from app.services import public_chat_service
+
+    def fail(_message):
+        raise AssertionError("a one-word answer must not be language-detected")
+
+    monkeypatch.setattr(public_chat_service, "detect_chat_language", fail)
+
+    # A Sri Lankan place name looks Sinhala to a model, and answering "Gampaha"
+    # in an English chat used to flip every later reply to Sinhala.
+    assert public_chat_service.conversation_language("Gampaha", "en", "si") == "en"
+    assert public_chat_service.conversation_language("Colombo", "en", "si") == "en"
+
+
+def test_short_data_answers_never_switch_the_language(monkeypatch):
+    from app.services import public_chat_service
+
+    monkeypatch.setattr(
+        public_chat_service, "detect_chat_language", lambda _m: "si",
+    )
+
+    for answer in ("Nimal Perera", "0771234567", "2", "yes", "skip", "XL"):
+        assert public_chat_service.conversation_language(answer, "en", "si") == "en", answer
+
+
+def test_a_real_sentence_can_still_switch_the_language(monkeypatch):
+    from app.services import public_chat_service
+
+    monkeypatch.setattr(public_chat_service, "detect_chat_language", lambda _m: None)
+
+    # Long enough to carry actual language, so romanised Sinhala still works.
+    assert public_chat_service.conversation_language(
+        "mata meka ganna ona", "en", "si",
+    ) == "si"
+
+
+def test_sinhala_script_switches_however_short_it_is(monkeypatch):
+    from app.services import public_chat_service
+
+    def fail(_message):
+        raise AssertionError("script is unambiguous; no AI call needed")
+
+    monkeypatch.setattr(public_chat_service, "detect_chat_language", fail)
+
+    # The word-count guard applies to Latin text only - script is proof.
+    assert public_chat_service.conversation_language("නෑ", "en", None) == "si"
+    assert public_chat_service.conversation_language("இல்லை", "en", None) == "ta"
+
+
+def test_location_questions_are_recognised():
+    from app.services.public_chat_service import is_location_question
+
+    assert is_location_question("where are you located?") is True
+    assert is_location_question("do you have a physical shop?") is True
+    assert is_location_question("can I come to the shop") is True
+    assert is_location_question("shop eka kohedha") is True
+    assert is_location_question("කඩේ කොහෙද") is True
+    assert is_location_question("where is my order") is False
+
+
+def test_a_physical_shop_is_given_with_its_address():
+    from app.services.public_chat_service import store_location_message
+
+    message = store_location_message(
+        {
+            "isOnlineOnly": False,
+            "addressLine": "No. 45 Galle Road",
+            "city": "Nugegoda",
+            "district": "Colombo",
+            "openingHours": "Mon-Sat, 9am to 6pm",
+            "mapUrl": "https://maps.app.goo.gl/x",
+        },
+        "VS Tech Store",
+    )
+
+    assert "No. 45 Galle Road, Nugegoda, Colombo" in message
+    assert "Mon-Sat, 9am to 6pm" in message
+    assert "maps.app.goo.gl" in message
+
+
+def test_an_online_only_shop_says_so_plainly():
+    from app.services.public_chat_service import store_location_message
+
+    # A customer planning to travel needs a straight answer. Saying nothing is
+    # what makes them phone the seller.
+    message = store_location_message({"isOnlineOnly": True}, "VS Tech Store")
+
+    assert "online store" in message
+    assert "no shop to visit" in message
+
+
+def test_an_unconfigured_location_is_treated_as_online_only():
+    from app.services.public_chat_service import store_location_message
+
+    # Better a correct default than an empty address block.
+    for location in ({}, None, {"isOnlineOnly": False}):
+        assert "online store" in store_location_message(location, "VS Tech Store")

@@ -108,6 +108,21 @@ const STOREFRONT_TEXT = {
     reviewImagesHint: "Select up to 4 images. They will be sent with your review.",
     attachImage: "Send a photo",
     sentImage: "Image sent to the seller",
+    suggestQty1: "Just 1",
+    suggestQty2: "2",
+    suggestQty3: "3",
+    suggestConfirmOrder: "Confirm order",
+    suggestChangeOrder: "Change details",
+    suggestSkip: "Skip",
+    suggestOrderStatus: "Where is my order?",
+    suggestAnotherOrder: "Order something else",
+    suggestCancelOrder: "Cancel my order",
+    suggestPayFull: "Send the full amount",
+    suggestPayPart: "Send part only",
+    suggestOrderThis: "Order this",
+    suggestSimilar: "Show similar",
+    suggestDeliveryFee: "Delivery fee?",
+    suggestCheckout: "That's everything",
   },
   si: {
     showProducts: "නිෂ්පාදන පෙන්වන්න",
@@ -210,6 +225,21 @@ const STOREFRONT_TEXT = {
     reviewImagesHint: "රූප 4ක් දක්වා තෝරන්න. ඒවා ඔබේ සමාලෝචනය සමඟ යැවේ.",
     attachImage: "ඡායාරූපයක් යවන්න",
     sentImage: "විකුණුම්කරුට යැවූ ඡායාරූපය",
+    suggestQty1: "එකක් විතරයි",
+    suggestQty2: "2",
+    suggestQty3: "3",
+    suggestConfirmOrder: "ඇණවුම තහවුරු කරන්න",
+    suggestChangeOrder: "විස්තර වෙනස් කරන්න",
+    suggestSkip: "මඟ හරින්න",
+    suggestOrderStatus: "මගේ ඇණවුම කොහෙද?",
+    suggestAnotherOrder: "වෙන දෙයක් ඕඩර් කරන්න",
+    suggestCancelOrder: "ඇණවුම අවලංගු කරන්න",
+    suggestPayFull: "මුළු මුදලම එවනවා",
+    suggestPayPart: "කොටසක් විතරක් එවනවා",
+    suggestOrderThis: "මේක ඕඩර් කරන්න",
+    suggestSimilar: "සමාන ඒවා පෙන්නන්න",
+    suggestDeliveryFee: "බෙදාහැරීමේ ගාස්තුව?",
+    suggestCheckout: "ඒක ඇති",
   },
   ta: {
     showProducts: "பொருட்களைக் காட்டு",
@@ -312,6 +342,21 @@ const STOREFRONT_TEXT = {
     reviewImagesHint: "4 படங்கள் வரை தேர்ந்தெடுக்கவும். அவை உங்கள் மதிப்புரையுடன் அனுப்பப்படும்.",
     attachImage: "புகைப்படம் அனுப்பு",
     sentImage: "விற்பனையாளருக்கு அனுப்பிய படம்",
+    suggestQty1: "ஒன்று மட்டும்",
+    suggestQty2: "2",
+    suggestQty3: "3",
+    suggestConfirmOrder: "ஆர்டரை உறுதிப்படுத்து",
+    suggestChangeOrder: "விவரங்களை மாற்று",
+    suggestSkip: "தவிர்",
+    suggestOrderStatus: "என் ஆர்டர் எங்கே?",
+    suggestAnotherOrder: "வேறு ஏதாவது ஆர்டர் செய்",
+    suggestCancelOrder: "ஆர்டரை ரத்து செய்",
+    suggestPayFull: "முழுத் தொகையை அனுப்புகிறேன்",
+    suggestPayPart: "ஒரு பகுதி மட்டும் அனுப்புகிறேன்",
+    suggestOrderThis: "இதை ஆர்டர் செய்",
+    suggestSimilar: "ஒத்தவற்றைக் காட்டு",
+    suggestDeliveryFee: "டெலிவரி கட்டணம்?",
+    suggestCheckout: "அவ்வளவுதான்",
   },
 };
 
@@ -320,3 +365,27 @@ export function storefrontText(language) {
 }
 
 export default STOREFRONT_TEXT;
+
+// Suggestion chips. The backend decides WHICH to show from the conversation
+// state; this maps each id to a localised label and the English command that
+// is actually sent, so the deterministic keyword ladder still matches when the
+// AI provider is unavailable.
+export const CHAT_SUGGESTIONS = {
+  "qty-1": { labelKey: "suggestQty1", message: "1" },
+  "qty-2": { labelKey: "suggestQty2", message: "2" },
+  "qty-3": { labelKey: "suggestQty3", message: "3" },
+  "confirm-order": { labelKey: "suggestConfirmOrder", message: "confirm order" },
+  "change-order": { labelKey: "suggestChangeOrder", message: "change order" },
+  skip: { labelKey: "suggestSkip", message: "skip" },
+  "order-status": { labelKey: "suggestOrderStatus", message: "where is my order" },
+  "another-order": { labelKey: "suggestAnotherOrder", message: "another order" },
+  "cancel-order": { labelKey: "suggestCancelOrder", message: "cancel my order" },
+  "pay-full": { labelKey: "suggestPayFull", message: "I will send the full amount" },
+  "pay-part": { labelKey: "suggestPayPart", message: "I will send part only" },
+  "order-this": { labelKey: "suggestOrderThis", message: "I want to order this" },
+  "similar-products": { labelKey: "suggestSimilar", message: "show similar products" },
+  reviews: { labelKey: "reviews", message: "Show customer reviews" },
+  "delivery-fee": { labelKey: "suggestDeliveryFee", message: "what is the delivery fee" },
+  checkout: { labelKey: "suggestCheckout", message: "that is everything" },
+  "show-products": { labelKey: "showProducts", message: "Show products" },
+};

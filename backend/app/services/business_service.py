@@ -231,6 +231,27 @@ def update_public_contact(database, business_id, payload):
         except ValueError as error:
             raise ApiError("validation_error", str(error), 422) from error
 
+    # Where the shop is, or that there is nowhere to visit. Unlike bank details
+    # this is public by nature - a shop address exists to be found - so it is
+    # part of the public store payload.
+    if "storeLocation" in payload:
+        raw_location = payload.get("storeLocation") or {}
+
+        if not isinstance(raw_location, dict):
+            raise ApiError("validation_error", "Store location must be an object.", 422)
+
+        try:
+            changes["storeLocation"] = {
+                "isOnlineOnly": bool(raw_location.get("isOnlineOnly")),
+                "addressLine": optional_text(raw_location.get("addressLine"), 200),
+                "city": optional_text(raw_location.get("city"), 120),
+                "district": optional_text(raw_location.get("district"), 120),
+                "openingHours": optional_text(raw_location.get("openingHours"), 200),
+                "mapUrl": optional_text(raw_location.get("mapUrl"), 500),
+            }
+        except ValueError as error:
+            raise ApiError("validation_error", str(error), 422) from error
+
     if "storefrontFaq" in payload:
         try:
             changes["storefrontFaq"] = optional_text(

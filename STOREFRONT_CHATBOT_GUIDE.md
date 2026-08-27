@@ -179,6 +179,20 @@ async function requestChatMessage(text) {
 
 Actions are plain objects, for example `{ type: "show-catalog", products }`, `{ type: "show-product", product }`, `{ type: "show-reviews", reviews }`, `{ type: "confirm-order", summary }`, or `{ type: "start-order" }`. `ChatbotView` switches on `action.type` and renders a small component. This makes the AI replaceable: the UI contract stays stable even if the model changes.
 
+## 7a. Suggestion chips
+
+Every reply carries a `suggestions` array of **ids**, chosen by `chat_suggestions()` from the action, the state, whether the cart has items and whether an order exists. They render under the newest bot reply only — older chips would stack up and keep offering actions that no longer apply.
+
+Ids rather than text, because the storefront already has the localised labels: `CHAT_SUGGESTIONS` in `storefrontText.js` maps each id to a label key and to the **English command** that is actually sent. So the chips cost no AI call, translate instantly, and still match the deterministic keyword ladder when the provider is down.
+
+What they offer tracks the conversation: the numbers `1 / 2 / 3` while a quantity is being asked for, "confirm" and "change" at the confirmation step, the two amounts after bank details, order actions once an order exists, and "that's everything" as soon as the cart has items.
+
+**Nothing is offered mid-checkout.** A chip cannot answer "what is your name" and would only sit in the way of typing it. The exceptions are the genuinely optional steps — second phone and delivery note — where "skip" is a real answer.
+
+Adding a suggestion means adding it in both places; there is a check for that in the notes below §19.
+
+**A warning about the CSS.** The composer's chips shared selector lists with the input bar — `.storefront-chat-quick-actions, .storefront-chat-input { … }`. Removing the chips with a regex over the selector name deleted those whole rules, taking the input bar's glass styling and its dark-mode background with it. If you strip a class from this stylesheet, check for grouped selectors first and keep the surviving half; and remember the rule has to go back in its **original position**, because re-adding it after the `.storefront--dark` overrides makes the light background win in dark mode.
+
 ## 8. Browsing versus ordering (important business rule)
 
 The first greeting should ask what the customer wants to know. Do not put products in the cart merely because they were displayed. In browsing mode cards show `View product details`; clicking it sends a product-information request. In ordering mode cards show `Add`, and only that click adds a line to the cart.
@@ -339,7 +353,7 @@ The phrase lists (`ORDER_INTENT_PHRASES`, `CATALOG_PHRASES`, `ALTERNATIVE_PHRASE
 The stored `state` field takes exactly these values:
 
 ```text
-browsing ──delivery-fee question, no district known──> quoting-district
+browsing ──delivery-fee or delivery-time question────> quoting-district
 quoting-district ──district recognised─────────────> browsing (district saved to draft)
 quoting-district ──not a district──────────────────> browsing (handled as a normal message)
 
@@ -377,6 +391,11 @@ businesses/{businessId}
   shortCode, name, logoUrl, publicPhone, publicEmail, currency, status
   storefrontFaq            <- seller's free-text policies; the ONLY source the
                               bot may answer returns/COD/hours questions from
+  storeLocation            <- {isOnlineOnly, addressLine, city, district,
+                              openingHours, mapUrl}; public
+  bankDetails              <- {bankName, branch, accountName, accountNumber,
+                              instructions}; NOT public, read only when a
+                              customer asks how to pay
 businesses/{businessId}/products/{productId}
   name, description, aiDescription, categoryId, categoryName, brand, colourName,
   sellingPriceMinor, compareAtPriceMinor, costPriceMinor, weightGrams,
@@ -480,7 +499,12 @@ The customer's language is decided once per message by `conversation_language()`
 1. Explicit request ("reply in english", "සිංහලෙන්", "தமிழில்") — wins outright.
 2. Sinhala or Tamil **script** present — certain, free, no AI call.
 3. A language already settled on the session — **kept**.
-4. Latin text on an English session — ask the AI.
+4. Fewer than `MINIMUM_WORDS_TO_SWITCH_LANGUAGE` Latin words — **kept**.
+5. Latin text on an English session — ask the AI.
+
+Step 4 exists because of a real bug. An English customer asked for the delivery fee, answered the district with `Gampaha`, and every reply after that came back in Sinhala: the classifier saw a bare Sri Lankan place name and guessed `si`. A short Latin reply is almost always an *answer* — a district, a name, a phone number, "yes" — and carries no language to detect, so it must never switch a settled conversation. Script still switches however short it is, because script is proof rather than a guess.
+
+`quoting-district` was also removed from `INTENT_CLASSIFIED_STATES` for the same reason: the expected reply there is data, exactly like the `collecting-*` states, so classifying it both guessed a language and cost a provider call for nothing.
 
 Step 4 is the only one that needs a model: `mata bag ekak ona` is Sinhala in Latin letters and no character range can tell it from English. Step 3 matters just as much — a phone number or `No. 45 Park Road` carries no language signal, and re-detecting it would switch a Sinhala customer back to English mid-order.
 
@@ -526,6 +550,14 @@ fee = districtFirstKgPricesMinor[district] + (ceil((weight - 1000) / 1000) x ext
 Order status says the same thing from the courier snapshot frozen at checkout, so it stays right even if the seller later changes the courier's estimate — but **not** for a delivered, returned or cancelled order, where promising a future delivery is worse than saying nothing.
 
 Weights and prices must come from the **variant**, not the product: `create_order` bills `variant.sellingPriceMinor` and `variant.weightGrams`. Using the product's values showed one subtotal and charged another.
+
+### Shop location
+
+`businesses/{id}.storeLocation` is set in Settings → General: either an address a customer can walk into, or an explicit `isOnlineOnly`. Unlike `bankDetails` this **is** part of `public_business` — a shop address exists to be found.
+
+`is_location_question` covers "where are you", "do you have a shop", "can I come there", `kohedha` and the Sinhala and Tamil equivalents. An online-only seller gets a plain *"there is no shop to visit, everything is delivered by courier"* rather than silence, because a customer planning to travel needs a straight answer either way — and an unanswered question is what sends them to the phone.
+
+An unconfigured or empty location is treated as online-only. That is the safe default: better a correct general answer than a half-empty address block.
 
 ### Deposits and bank transfer
 

@@ -4,6 +4,7 @@ import {
   CreditCard,
   Landmark,
   Mail,
+  MapPin,
   MessageCircleQuestion,
   Palette,
   Phone,
@@ -21,6 +22,7 @@ import {
   getBusinessBilling,
   redirectToPayHere,
 } from "../services/billingService";
+import { SRI_LANKA_DISTRICTS } from "../data/districts";
 import { updatePublicContact } from "../services/businessService";
 import ModalShell from "./ModalShell";
 import StaffSettings from "./StaffSettings";
@@ -91,6 +93,16 @@ function SettingsModal({
     accountNumber: "",
     instructions: "",
   });
+  // Either a shop customers can walk into, or an explicit "online only" so
+  // the chatbot can say so rather than leaving the question unanswered.
+  const [storeLocation, setStoreLocation] = useState({
+    isOnlineOnly: true,
+    addressLine: "",
+    city: "",
+    district: "",
+    openingHours: "",
+    mapUrl: "",
+  });
   const [contactError, setContactError] = useState("");
   const [contactMessage, setContactMessage] = useState("");
   const [isContactSaving, setIsContactSaving] = useState(false);
@@ -136,10 +148,19 @@ function SettingsModal({
       accountNumber: business?.bankDetails?.accountNumber || "",
       instructions: business?.bankDetails?.instructions || "",
     });
+    setStoreLocation({
+      isOnlineOnly: business?.storeLocation?.isOnlineOnly ?? true,
+      addressLine: business?.storeLocation?.addressLine || "",
+      city: business?.storeLocation?.city || "",
+      district: business?.storeLocation?.district || "",
+      openingHours: business?.storeLocation?.openingHours || "",
+      mapUrl: business?.storeLocation?.mapUrl || "",
+    });
     setContactError("");
     setContactMessage("");
   }, [
     business?.bankDetails,
+    business?.storeLocation,
     business?.publicEmail,
     business?.publicPhone,
     business?.storefrontFaq,
@@ -190,6 +211,15 @@ function SettingsModal({
     }));
   }
 
+  function updateStoreLocation(event) {
+    setStoreLocation((current) => ({
+      ...current,
+      [event.target.name]: event.target.value,
+    }));
+    setContactError("");
+    setContactMessage("");
+  }
+
   function updateBankDetail(event) {
     setBankDetails((current) => ({
       ...current,
@@ -217,7 +247,11 @@ function SettingsModal({
     setContactMessage("");
 
     try {
-      await updatePublicContact(business.id, { ...contactDetails, bankDetails });
+      await updatePublicContact(business.id, {
+        ...contactDetails,
+        bankDetails,
+        storeLocation,
+      });
       await refreshSellerProfile();
       setContactMessage("Storefront contact details and policies saved.");
     } catch (error) {
@@ -328,6 +362,60 @@ Opening hours: Monday to Saturday, 9am to 6pm.`}
               than guess.
             </small>
           </label>
+
+          <fieldset className="settings-modal__bank">
+            <legend><MapPin size={14} /> Shop location</legend>
+            <p className="settings-modal__bank-hint">
+              A customer who asks "where are you?" gets this answer. Say you are
+              online only rather than leaving the question unanswered.
+            </p>
+            <label className="settings-modal__online-toggle">
+              <input
+                type="checkbox"
+                checked={storeLocation.isOnlineOnly}
+                onChange={(event) =>
+                  setStoreLocation((current) => ({
+                    ...current,
+                    isOnlineOnly: event.target.checked,
+                  }))
+                }
+                disabled={!canManageBusiness || isContactSaving}
+              />
+              <span>We are online only — there is no shop to visit</span>
+            </label>
+
+            {!storeLocation.isOnlineOnly && (
+              <>
+                <div className="settings-modal__contact-grid">
+                  <label>
+                    <span>Street address</span>
+                    <input name="addressLine" value={storeLocation.addressLine} onChange={updateStoreLocation} placeholder="No. 45 Galle Road" disabled={!canManageBusiness || isContactSaving} />
+                  </label>
+                  <label>
+                    <span>City</span>
+                    <input name="city" value={storeLocation.city} onChange={updateStoreLocation} placeholder="Nugegoda" disabled={!canManageBusiness || isContactSaving} />
+                  </label>
+                  <label>
+                    <span>District</span>
+                    <select name="district" value={storeLocation.district} onChange={updateStoreLocation} disabled={!canManageBusiness || isContactSaving}>
+                      <option value="">Select a district</option>
+                      {SRI_LANKA_DISTRICTS.map((district) => (
+                        <option key={district} value={district}>{district}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    <span>Opening hours</span>
+                    <input name="openingHours" value={storeLocation.openingHours} onChange={updateStoreLocation} placeholder="Mon-Sat, 9am to 6pm" disabled={!canManageBusiness || isContactSaving} />
+                  </label>
+                </div>
+                <label className="settings-modal__bank-note">
+                  <span>Map link (optional)</span>
+                  <input name="mapUrl" value={storeLocation.mapUrl} onChange={updateStoreLocation} placeholder="https://maps.app.goo.gl/..." disabled={!canManageBusiness || isContactSaving} />
+                </label>
+              </>
+            )}
+          </fieldset>
 
           <fieldset className="settings-modal__bank">
             <legend><Landmark size={14} /> Bank details for deposits</legend>

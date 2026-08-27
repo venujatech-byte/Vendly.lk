@@ -353,6 +353,9 @@ def message_tokens(value):
     }
 
 
+# Below this, a Latin-script message is an answer, not a sentence.
+MINIMUM_WORDS_TO_SWITCH_LANGUAGE = 3
+
 GREETING_LANGUAGES = {"en", "si", "ta"}
 
 SINHALA_SCRIPT = re.compile(r"[඀-෿]")
@@ -401,6 +404,13 @@ def conversation_language(message, current_language, detected_language=None):
     if language != "en":
         return language
 
+    # A short Latin-script reply is nearly always an answer rather than a
+    # sentence: a district, a name, a phone number, "yes". There is no language
+    # in it to detect, and the model will guess - "Gampaha" was read as Sinhala
+    # and switched an English conversation over. Too little signal to act on.
+    if len(word_characters(message).split()) < MINIMUM_WORDS_TO_SWITCH_LANGUAGE:
+        return language
+
     # The intent classifier already read this message and reported its
     # language, so reuse that instead of paying for a second call.
     if detected_language in {"en", "si", "ta"}:
@@ -428,7 +438,6 @@ DRAFT_IN_PROGRESS_STATES = {
 
 INTENT_CLASSIFIED_STATES = {
     "browsing",
-    "quoting-district",
     "awaiting-item-quantity",
     "awaiting-confirmation",
     "completed",
@@ -757,6 +766,97 @@ def deposit_choice(message):
         return "full"
 
     return ""
+
+
+def chat_suggestions(action, state, has_items, has_order):
+    """Pick the next things worth offering, given where the conversation is.
+
+    Ids only. The storefront turns them into localised labels from its own
+    table and sends a fixed English command back, so these cost no AI call and
+    still work when the provider is down.
+    """
+    if state == "awaiting-item-quantity":
+        return ["qty-1", "qty-2", "qty-3"]
+
+    if state == "awaiting-confirmation":
+        return ["confirm-order", "change-order"]
+
+    if state == "quoting-district":
+        return []
+
+    # Mid-checkout the answer is a name or a phone number; a chip would only
+    # get in the way of typing it.
+    if state in DRAFT_IN_PROGRESS_STATES:
+        return ["skip"] if action in {
+            "collect-secondary-phone",
+            "collect-delivery-note",
+        } else []
+
+    if state == "completed" or has_order and action == "show-order-info":
+        return ["order-status", "another-order", "cancel-order"]
+
+    if action == "show-bank-details":
+        return ["pay-full", "pay-part"]
+
+    if action == "show-product":
+        return ["order-this", "similar-products", "reviews", "delivery-fee"]
+
+    if has_items:
+        return ["checkout", "show-products", "delivery-fee"]
+
+    return ["show-products", "delivery-fee", "reviews"]
+
+
+LOCATION_QUESTION_PHRASES = (
+    "where are you", "where is your shop", "where is the shop", "your address",
+    "shop address", "physical shop", "physical store", "have a shop",
+    "have a store", "can i come", "can i visit", "come to the shop",
+    "walk in", "showroom", "located", "location",
+    "kohedha", "koheda", "thiyenne kohe",
+    "කොහේද", "කොහෙද", "සාප්පුව", "ලිපිනය",
+    "எங்கே", "கடை", "முகவரி",
+)
+
+
+def is_location_question(message):
+    """Recognise "where are you", "do you have a shop", "can I come there"."""
+    return any(
+        phrase in str(message).casefold() for phrase in LOCATION_QUESTION_PHRASES
+    )
+
+
+def store_location_message(location, business_name):
+    """Answer where the shop is, or say plainly that there is nowhere to visit.
+
+    A customer planning to travel needs a straight answer either way. Silence
+    or a vague reply is what makes them phone the seller.
+    """
+    location = location or {}
+    parts = [
+        piece
+        for piece in (
+            location.get("addressLine", ""),
+            location.get("city", ""),
+            location.get("district", ""),
+        )
+        if piece
+    ]
+
+    if location.get("isOnlineOnly") or not parts:
+        return (
+            f"{business_name} is an online store, so there is no shop to visit. "
+            "Everything is ordered here and delivered to your address by courier."
+        )
+
+    lines = [f"You can visit {business_name} at {', '.join(parts)}."]
+
+    if location.get("openingHours"):
+        lines.append(f"Open {location['openingHours']}.")
+    if location.get("mapUrl"):
+        lines.append(f"Map: {location['mapUrl']}")
+
+    lines.append("You can also order here and have it delivered.")
+    return " ".join(lines)
 
 
 def find_matching_products(message, products):
@@ -1613,6 +1713,12 @@ def answer_public_message(database, session_id, provided_token, payload):
             "language": language,
             "action": action,
             "state": state,
+            "suggestions": chat_suggestions(
+                action,
+                state,
+                bool(cart_summary),
+                bool(session.get("orderId")),
+            ),
             "product": product,
             "products": response_products or [],
             "reviews": response_reviews or [],
@@ -1895,6 +2001,16 @@ def answer_public_message(database, session_id, provided_token, payload):
             "order so the seller can check for your transfer. Send a photo of "
             "the bank slip here once you have paid.",
             "show-bank-details",
+            next_state=current_state,
+        )
+
+    if is_location_question(message) or intent_is("location_question"):
+        return respond(
+            store_location_message(
+                catalog["business"].get("storeLocation"),
+                catalog["business"].get("name", "This store"),
+            ),
+            "show-store-location",
             next_state=current_state,
         )
 
@@ -2426,6 +2542,7 @@ def answer_public_message(database, session_id, provided_token, payload):
             return {
                 "message": response_message,
                 "language": language,
+                "suggestions": ["order-status", "another-order", "cancel-order"],
                 "action": "order-confirmed",
                 "state": "completed",
                 "product": None,
