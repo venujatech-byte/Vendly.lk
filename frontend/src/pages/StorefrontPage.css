@@ -1406,7 +1406,10 @@
 .storefront-chat-input {
   display: grid;
   padding: 5px 16px 5px;
-  grid-template-columns: 42px 38px minmax(0, 1fr) auto 0px;
+  /* Mic, attach, field, send. The fifth column held the voice tools before
+     they moved to the top bar; left behind, it still claimed a gap and pushed
+     the send button in from the edge. */
+  grid-template-columns: 42px 38px minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
   border-top: 1px solid var(--sf-border);
@@ -3228,25 +3231,31 @@ body:has(.storefront-chat-page) {
   }
 
   .storefront-chat-composer .storefront-chat-input {
-    padding: 4px 5px 5px;
-    grid-template-columns: 30px 28px minmax(0, 1fr) auto 31px;
-    gap: 4px;
+    /* Equal padding both sides. The right side used to carry the leftover
+       voice-tools column as well, so the send button sat inset from the edge
+       while the mic hugged the left. */
+    padding: 5px;
+    grid-template-columns: 45px 45px minmax(0, 1fr) 45px;
+    gap: 5px;
   }
 
   .storefront-chat-composer .storefront-chat-input input {
-    height: 40px;
-    min-height: 40px;
-    padding: 0 10px;
+    height: 45px;
+    min-height: 45px;
+    padding: 0 12px;
   }
 
-  .storefront-chat-composer .storefront-chat-input > button {
-    width: 30px;
-    height: 30px;
+  /* One height for every control in the bar, so nothing floats against a
+     taller neighbour. */
+  .storefront-chat-composer .storefront-chat-input > button,
+  .storefront-chat-composer .storefront-chat-input > label {
+    width: 45px;
+    height: 45px;
   }
 
   .storefront-chat-composer .storefront-chat-input .storefront-chat-input__send {
-    width: 36px;
-    height: 36px;
+    width: 45px;
+    height: 45px;
     border-radius: 50%;
   }
 
@@ -3325,12 +3334,14 @@ body:has(.storefront-chat-page) {
   height: auto;
 }
 
+/* The attach control is a label, not a button, so it carried its own heights
+   and drifted out of step with the bar around it. One value, matching the
+   mic, the field and the send button. */
 @media (max-width: 640px) {
-  .storefront-chat-input__attach { height: 34px; }
-}
-
-@media (max-width: 430px) {
-  .storefront-chat-composer .storefront-chat-input__attach { height: 30px; }
+  .storefront-chat-input__attach,
+  .storefront-chat-composer .storefront-chat-input__attach {
+    height: 45px;
+  }
 }
 
 /* Suggestions under the newest bot reply. The backend chooses which ones from
@@ -4123,4 +4134,25 @@ body:has(.storefront-chat-page) {
   font-size: 0.7rem;
   font-weight: 700;
   background: color-mix(in srgb, var(--sf-success) 12%, transparent);
+}
+
+/* A chosen option. Clicking one used to add it to the cart outright; it now
+   selects, and the Add to cart button below acts on the selection - so the
+   customer can change their mind before committing. */
+.storefront-variant-gallery button.is-selected {
+  border-color: var(--sf-primary);
+  border-width: 2px;
+  padding: 6px;
+  background: color-mix(in srgb, var(--sf-primary) 9%, var(--sf-surface));
+}
+
+.storefront-product-modal__variants button.is-selected {
+  border-color: var(--sf-primary);
+  color: #fff;
+  background: var(--sf-primary);
+}
+
+.storefront-product-modal__variants button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }

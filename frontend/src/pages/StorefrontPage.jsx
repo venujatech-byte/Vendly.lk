@@ -1510,6 +1510,13 @@ function ProductDetailModal({
   const [activeImage, setActiveImage] = useState(mediaUrls[0] || "");
   const firstVariant = product.variants?.[0];
   const hasVariantPhotos = (product.variants || []).some(variantImageUrl);
+  const hasChoice = (product.variants || []).length > 1;
+  // With one option there is nothing to choose. With several, nothing is
+  // chosen until the customer says so - picking for them is how the wrong
+  // colour ends up in a real order.
+  const [selectedVariant, setSelectedVariant] = useState(
+    hasChoice ? null : firstVariant,
+  );
   const cartQuantity = (cart || [])
     .filter((item) =>
       (product.variants || []).some((variant) => variant.id === item.variantId),
@@ -1634,7 +1641,8 @@ function ProductDetailModal({
               <VariantGallery
                 product={product}
                 chatLanguage={chatLanguage}
-                onChoose={(variant) => onAddToCart(product, variant)}
+                selectedId={selectedVariant?.id}
+                onChoose={setSelectedVariant}
               />
             ) : (
               <div className="storefront-product-modal__variants">
@@ -1644,7 +1652,12 @@ function ProductDetailModal({
                     <button
                       type="button"
                       key={variant.id}
-                      onClick={() => onAddToCart(product, variant)}
+                      className={
+                        variant.id === selectedVariant?.id ? "is-selected" : ""
+                      }
+                      aria-pressed={variant.id === selectedVariant?.id}
+                      disabled={(variant.availableStock ?? 0) < 1}
+                      onClick={() => setSelectedVariant(variant)}
                     >
                       {variant.size || variant.sku}
                     </button>
@@ -1663,10 +1676,11 @@ function ProductDetailModal({
           <div className="storefront-product-modal__actions">
             <button
               type="button"
-              disabled={!firstVariant}
-              onClick={() => onAddToCart(product, firstVariant)}
+              disabled={!selectedVariant}
+              onClick={() => onAddToCart(product, selectedVariant)}
             >
-              <ShoppingCart size={17} /> {text.addToCart}
+              <ShoppingCart size={17} />{" "}
+              {selectedVariant || !hasChoice ? text.addToCart : text.chooseOption}
             </button>
             <button type="button" onClick={() => onOpenChat(product)}>
               <Bot size={17} />
@@ -2104,7 +2118,7 @@ function ChatCartLines({
   );
 }
 
-function VariantGallery({ product, chatLanguage, onChoose }) {
+function VariantGallery({ product, chatLanguage, onChoose, selectedId }) {
   const text = storefrontText(chatLanguage);
   const shown = (product?.variants || []).filter(variantImageUrl);
 
@@ -2123,6 +2137,8 @@ function VariantGallery({ product, chatLanguage, onChoose }) {
             <button
               type="button"
               key={variant.id}
+              className={variant.id === selectedId ? "is-selected" : ""}
+              aria-pressed={variant.id === selectedId}
               disabled={!inStock || !onChoose}
               onClick={() => onChoose?.(variant)}
             >

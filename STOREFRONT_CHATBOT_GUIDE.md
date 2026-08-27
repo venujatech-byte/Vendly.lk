@@ -1913,3 +1913,46 @@ cart** with the quantity - catalogue cards, the popup, and the chat cards
 (whose confirmation was hardcoded English and is now localised). Before this
 the only feedback was the cart badge in the top bar, which on a phone is far
 from the button just pressed.
+
+### 23.55 Mobile composer padding and control sizes — FIXED
+
+**Seen:** on a phone the send button sat inset from the right edge while the
+mic hugged the left, and the controls were three different heights.
+
+**Cause of the padding:** the grid still had **five** columns -
+`30px 28px 1fr auto 31px`. The fourth held the voice tools until §23.44 moved
+them to the top bar; empty, it still claimed a 4px gap and pushed the send
+button inward. The desktop grid had the same leftover as a `0px` column. Both
+are now four columns: mic, attach, field, send.
+
+**Sizes:** every control in the bar is 45px, with equal 5px padding on both
+sides. The attach control is a `<label>` rather than a `<button>`, so it had
+been carrying its own heights (37px, then 34px, then 30px at three
+breakpoints) and drifting out of step with everything around it. One value now.
+
+Checked rather than eyeballed: three 45px controls, three 5px gaps and the
+composer inset leave a 152px input field on a 320px screen.
+
+**Removing a control is not finished when its markup goes.** The grid column
+it occupied outlived it by several changes, and the symptom - asymmetric
+padding - looked nothing like its cause.
+
+### 23.56 Clicking a variant photo added it straight to the cart — FIXED
+
+**Seen:** in the details popup, tapping a colour put it in the cart
+immediately. A customer comparing Black against Orange had bought both by
+looking at them.
+
+**Fix:** the photos are a **chooser**. Clicking selects, the selection is shown
+(border and tint on the picture tiles, filled pill on the plain chips), and the
+**Add to cart** button below acts on it. Nothing is chosen by default when
+there is a choice to make - the button reads "Choose an option" and stays
+disabled until one is picked. A product with a single option selects it
+automatically, because there is nothing to decide.
+
+This is the same rule as §23.54's "Add first size" and the variant question in
+chat: **an order flow may never choose a variant on the customer's behalf.**
+Three surfaces, one rule - the popup was the last one still breaking it.
+
+Out-of-stock options are shown but not selectable, so the customer can see the
+colour exists without being able to order it.
