@@ -6,8 +6,17 @@ import STOREFRONT_TEXT, { storefrontText } from "./storefrontText.js";
 const englishKeys = Object.keys(STOREFRONT_TEXT.en).sort();
 
 // Numerals read the same in all three languages, so "differs from English" is
-// not a meaningful check for them.
-const SHARED_ACROSS_LANGUAGES = new Set(["suggestQty2", "suggestQty3"]);
+// not a meaningful check for them. Neither are the terms Sri Lankan customers
+// say in English while speaking Sinhala or Tamil - translating "Brand" or
+// "Warranty" would read as stilted, not as localised.
+const SHARED_ACROSS_LANGUAGES = new Set([
+  "suggestQty2",
+  "suggestQty3",
+  "specBrand",
+  "specCategory",
+  "specWarranty",
+  "specSize",
+]);
 
 for (const language of ["si", "ta"]) {
   assert.deepEqual(

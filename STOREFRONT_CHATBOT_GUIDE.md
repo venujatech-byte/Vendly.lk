@@ -1243,3 +1243,33 @@ cannot be misheard, which is the whole point for a customer ordering in Sinhala.
 did not exist before the fix, so it cannot pass against the old code. The
 previous test asserted the opposite (`state == "browsing"`) and had to be
 rewritten — the old behaviour was pinned by a test that described the bug.
+
+### 23.28 Catalogue photos were cropped, and a card was a dead end — FIXED
+
+**Seen:** a power bank photo with its top and bottom cut off, on a card whose
+only actions were *Add to Cart* and *ask the chatbot*.
+
+**Cause:** `object-fit: cover` on the card image. Cover fills the frame by
+cropping whatever does not fit, which is right for banners and wrong for
+products - sellers upload whatever their phone took, in every aspect ratio, and
+the part cropped away is the product. Now `contain` with padding, so the whole
+item is visible whatever its shape and the frame stays a consistent grid.
+
+**Second half:** clicking a card did nothing. The catalogue showed a truncated
+description and a review *count*, and the only route to the full picture was
+asking the chatbot - which is exactly the phone call this product exists to
+avoid. Cards now open a **detail popup**: full gallery with thumbnails, price
+and any compare-at price, star rating averaged from the reviews themselves,
+a spec grid (brand, category, warranty, size, weight, stock), the complete
+description, variant chips, add-to-cart, and every approved review.
+
+Reviews load on open from the existing `/public/products/<code>/reviews`
+endpoint; a product with none renders the empty state rather than an error.
+The average is computed from the loaded reviews because the catalogue payload
+carries `approvedReviewCount` but no average - one round trip, not two.
+
+**Note on the localisation self-check:** it asserts every Sinhala and Tamil
+string differs from English, which caught `specBrand: "Brand"`. That one is
+deliberate - the rule is to keep terms Sri Lankan customers say in English.
+The four such keys are allowlisted by name in `storefrontText.test.mjs`, not
+excused by loosening the assertion.

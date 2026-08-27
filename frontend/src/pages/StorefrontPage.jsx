@@ -232,6 +232,9 @@ function StorefrontPage({ linkType }) {
   const [confirmedOrder, setConfirmedOrder] = useState(null);
   const [copiedField, setCopiedField] = useState("");
   const [reviews, setReviews] = useState([]);
+  const [detailProduct, setDetailProduct] = useState(null);
+  const [detailReviews, setDetailReviews] = useState([]);
+  const [isLoadingDetailReviews, setIsLoadingDetailReviews] = useState(false);
   const [customerOrders, setCustomerOrders] = useState([]);
   const [storefrontReviewDraft, setStorefrontReviewDraft] = useState({
     orderNumber: "",
@@ -851,6 +854,25 @@ function StorefrontPage({ linkType }) {
     skipNextVoiceClickRef.current = false;
   }
 
+  async function openProductDetails(product) {
+    setDetailProduct(product);
+    setDetailReviews([]);
+
+    if (!product.shortCode) return;
+
+    setIsLoadingDetailReviews(true);
+    try {
+      const response = await getPublicProductReviews(product.shortCode);
+      setDetailReviews(response.reviews || []);
+    } catch {
+      // A product with no reviews yet answers 404. The panel already reads
+      // correctly with an empty list, so there is nothing to report.
+      setDetailReviews([]);
+    } finally {
+      setIsLoadingDetailReviews(false);
+    }
+  }
+
   function addFromChat(product, variant) {
     if (!variant || variant.availableStock < 1) return;
 
@@ -1169,6 +1191,7 @@ function StorefrontPage({ linkType }) {
             onCategoryChange={setActiveCategory}
             onAddToCart={addToCart}
             onOpenChat={() => changeView("chatbot")}
+            onOpenDetails={openProductDetails}
             onReviewFormChange={setReviewForm}
             onSubmitReview={submitReview}
           />
@@ -1270,6 +1293,21 @@ function StorefrontPage({ linkType }) {
         }}
       />
 
+      {detailProduct && (
+        <ProductDetailModal
+          product={detailProduct}
+          reviews={detailReviews}
+          isLoadingReviews={isLoadingDetailReviews}
+          chatLanguage={chatLanguage}
+          onAddToCart={addToCart}
+          onOpenChat={() => {
+            setDetailProduct(null);
+            changeView("chatbot");
+          }}
+          onClose={() => setDetailProduct(null)}
+        />
+      )}
+
       {isCheckoutOpen && (
         <CheckoutModal
           chatLanguage={chatLanguage}
@@ -1323,6 +1361,7 @@ function CatalogView({
   onCategoryChange,
   onAddToCart,
   onOpenChat,
+  onOpenDetails,
   onReviewFormChange,
   onSubmitReview,
 }) {
@@ -1367,6 +1406,7 @@ function CatalogView({
             key={product.id}
             onAddToCart={onAddToCart}
             onOpenChat={onOpenChat}
+            onOpenDetails={onOpenDetails}
           />
         ))}
         {products.length === 0 && (
@@ -1393,7 +1433,176 @@ function CatalogView({
   );
 }
 
-function ProductCard({ product, onAddToCart, onOpenChat }) {
+function ProductDetailModal({
+  product,
+  reviews,
+  isLoadingReviews,
+  chatLanguage,
+  onAddToCart,
+  onOpenChat,
+  onClose,
+}) {
+  const text = storefrontText(chatLanguage);
+  const mediaUrls = productMediaUrls(product);
+  const [activeImage, setActiveImage] = useState(mediaUrls[0] || "");
+  const firstVariant = product.variants?.[0];
+
+  // The catalogue carries a review count but no average, and the reviews are
+  // already here - averaging them beats a second round trip.
+  const averageRating = reviews.length
+    ? reviews.reduce((total, review) => total + (Number(review.rating) || 0), 0) /
+      reviews.length
+    : 0;
+
+  const specs = [
+    [text.specPrice, money(product.sellingPriceMinor)],
+    product.brand && [text.specBrand, product.brand],
+    product.categoryName && [text.specCategory, product.categoryName],
+    product.warrantyPeriodMonths > 0 && [
+      text.specWarranty,
+      `${product.warrantyPeriodMonths} months`,
+    ],
+    product.productSize && [text.specSize, product.productSize],
+    product.weightGrams > 0 && [text.specWeight, `${product.weightGrams} g`],
+    [text.specAvailability, `${product.availableStock} available`],
+  ].filter(Boolean);
+
+  useEffect(() => {
+    function closeOnEscape(event) {
+      if (event.key === "Escape") onClose();
+    }
+
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [onClose]);
+
+  return (
+    <div
+      className="storefront-product-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-label={product.name}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <article className="storefront-product-modal__panel">
+        <button
+          type="button"
+          className="storefront-product-modal__close"
+          onClick={onClose}
+          aria-label={text.close}
+        >
+          <X size={18} />
+        </button>
+
+        <div className="storefront-product-modal__gallery">
+          <div className="storefront-product-modal__stage">
+            {activeImage ? (
+              <img src={activeImage} alt={product.name} />
+            ) : (
+              <Package size={54} />
+            )}
+          </div>
+          {mediaUrls.length > 1 && (
+            <div className="storefront-product-modal__thumbs">
+              {mediaUrls.map((url) => (
+                <button
+                  type="button"
+                  key={url}
+                  className={url === activeImage ? "is-active" : ""}
+                  onClick={() => setActiveImage(url)}
+                  aria-label={`${product.name} photo`}
+                >
+                  <img src={url} alt="" loading="lazy" />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="storefront-product-modal__info">
+          <span className="storefront-product-modal__eyebrow">
+            {product.categoryName || product.brand || "Product"}
+          </span>
+          <h2>{product.name}</h2>
+
+          <div className="storefront-product-modal__price">
+            <strong>{money(product.sellingPriceMinor)}</strong>
+            {product.compareAtPriceMinor > product.sellingPriceMinor && (
+              <small>{money(product.compareAtPriceMinor)}</small>
+            )}
+          </div>
+
+          <div className="storefront-product-modal__rating">
+            <ReviewStars rating={averageRating} size={15} />
+            <b>{averageRating.toFixed(1)}</b>
+            <small>
+              {reviews.length || product.approvedReviewCount || 0} {text.reviews}
+            </small>
+          </div>
+
+          <dl className="storefront-product-modal__specs">
+            {specs.map(([label, value]) => (
+              <div key={label}>
+                <dt>{label}</dt>
+                <dd>{value}</dd>
+              </div>
+            ))}
+          </dl>
+
+          {(product.description || product.aiDescription) && (
+            <div className="storefront-product-modal__description">
+              <h3>{text.description}</h3>
+              <p>{product.description || product.aiDescription}</p>
+            </div>
+          )}
+
+          {product.variants?.length > 1 && (
+            <div className="storefront-product-modal__variants">
+              <h3>{text.chooseOption}</h3>
+              <div>
+                {product.variants.map((variant) => (
+                  <button
+                    type="button"
+                    key={variant.id}
+                    onClick={() => onAddToCart(product, variant)}
+                  >
+                    {variant.size || variant.sku}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="storefront-product-modal__actions">
+            <button
+              type="button"
+              disabled={!firstVariant}
+              onClick={() => onAddToCart(product, firstVariant)}
+            >
+              <ShoppingCart size={17} /> {text.addToCart}
+            </button>
+            <button type="button" onClick={() => onOpenChat(product)}>
+              <Bot size={17} />
+            </button>
+          </div>
+        </div>
+
+        <div className="storefront-product-modal__reviews">
+          <h3>{text.verifiedReviews}</h3>
+          {isLoadingReviews ? (
+            <p className="chat-reviews__empty">{text.loadingReviews}</p>
+          ) : (
+            <ChatReviewCards reviews={reviews} limit={20} />
+          )}
+        </div>
+      </article>
+    </div>
+  );
+}
+
+function ProductCard({ product, onAddToCart, onOpenChat, onOpenDetails }) {
   const firstVariant = product.variants?.[0];
   const hasMultipleVariants = product.variants?.length > 1;
   const productImage =
@@ -1403,11 +1612,18 @@ function ProductCard({ product, onAddToCart, onOpenChat }) {
   return (
     <article className="storefront-product-card">
       <div className="storefront-product-card__media">
-        {productImage ? (
-          <img src={productImage} alt={product.name} />
-        ) : (
-          <Package size={52} />
-        )}
+        <button
+          type="button"
+          className="storefront-product-card__open"
+          onClick={() => onOpenDetails(product)}
+          aria-label={`View details for ${product.name}`}
+        >
+          {productImage ? (
+            <img src={productImage} alt={product.name} />
+          ) : (
+            <Package size={52} />
+          )}
+        </button>
         <strong>{money(product.sellingPriceMinor)}</strong>
         {product.compareAtPriceMinor > product.sellingPriceMinor && (
           <small>{money(product.compareAtPriceMinor)}</small>
@@ -1416,7 +1632,11 @@ function ProductCard({ product, onAddToCart, onOpenChat }) {
 
       <div className="storefront-product-card__body">
         <span>{product.categoryName || product.brand || "Product"}</span>
-        <h2>{product.name}</h2>
+        <h2>
+          <button type="button" onClick={() => onOpenDetails(product)}>
+            {product.name}
+          </button>
+        </h2>
         <p>
           {product.description ||
             product.aiDescription ||

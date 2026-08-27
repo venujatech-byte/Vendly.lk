@@ -460,7 +460,11 @@
 .storefront-product-card__media img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  /* Sellers upload whatever their phone took - tall, square, wide. `cover`
+     filled the frame by cropping, which cut the top and bottom off the
+     product itself. `contain` shows all of it whatever the shape. */
+  object-fit: contain;
+  padding: 10px;
   transition: transform 350ms ease;
 }
 
@@ -3487,4 +3491,280 @@ body:has(.storefront-chat-page) {
 .storefront-chat-variant small {
   color: var(--sf-muted);
   font-size: 0.6rem;
+}
+
+/* Product detail popup. The card is a summary; this is where a customer
+   actually decides, so it carries the photos, specs, description and reviews
+   together rather than sending them to the chatbot to ask. */
+.storefront-product-modal {
+  position: fixed;
+  z-index: 60;
+  inset: 0;
+  display: grid;
+  padding: 18px;
+  place-items: center;
+  overflow-y: auto;
+  background: rgba(12, 30, 50, 0.55);
+  backdrop-filter: blur(3px);
+}
+
+.storefront-product-modal__panel {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  width: min(940px, 100%);
+  max-height: min(90vh, 900px);
+  gap: 0 22px;
+  padding: 22px;
+  overflow-y: auto;
+  border-radius: 18px;
+  color: var(--sf-text);
+  background: var(--sf-surface);
+  box-shadow: 0 24px 60px rgba(9, 32, 56, 0.28);
+}
+
+.storefront-product-modal__close {
+  position: absolute;
+  z-index: 1;
+  top: 14px;
+  right: 14px;
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border: 1px solid var(--sf-border);
+  border-radius: 50%;
+  color: var(--sf-text);
+  background: var(--sf-surface);
+  cursor: pointer;
+}
+
+.storefront-product-modal__stage {
+  display: grid;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 14px;
+  color: var(--sf-primary);
+  background: var(--sf-soft);
+}
+
+.storefront-product-modal__stage img {
+  width: 100%;
+  height: 100%;
+  padding: 12px;
+  object-fit: contain;
+}
+
+.storefront-product-modal__thumbs {
+  display: flex;
+  gap: 7px;
+  margin-top: 9px;
+  overflow-x: auto;
+}
+
+.storefront-product-modal__thumbs button {
+  flex: 0 0 auto;
+  width: 58px;
+  height: 58px;
+  padding: 3px;
+  border: 1px solid var(--sf-border);
+  border-radius: 9px;
+  background: var(--sf-surface);
+  cursor: pointer;
+}
+
+.storefront-product-modal__thumbs button.is-active {
+  border-color: var(--sf-primary);
+  border-width: 2px;
+  padding: 2px;
+}
+
+.storefront-product-modal__thumbs img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.storefront-product-modal__info {
+  display: grid;
+  gap: 11px;
+  align-content: start;
+  padding-right: 34px;
+}
+
+.storefront-product-modal__eyebrow {
+  color: var(--sf-primary);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.storefront-product-modal__info h2 {
+  margin: 0;
+  font-size: 1.22rem;
+  line-height: 1.3;
+}
+
+.storefront-product-modal__price {
+  display: flex;
+  gap: 9px;
+  align-items: baseline;
+}
+
+.storefront-product-modal__price strong {
+  color: var(--sf-navy);
+  font-size: 1.3rem;
+}
+
+.storefront-product-modal__price small {
+  color: var(--sf-muted);
+  text-decoration: line-through;
+}
+
+.storefront-product-modal__rating {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  font-size: 0.78rem;
+}
+
+.storefront-product-modal__rating small {
+  color: var(--sf-muted);
+}
+
+.storefront-product-modal__specs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.storefront-product-modal__specs dt {
+  color: var(--sf-muted);
+  font-size: 0.64rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.storefront-product-modal__specs dd {
+  margin: 1px 0 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.storefront-product-modal__description h3,
+.storefront-product-modal__variants h3,
+.storefront-product-modal__reviews h3 {
+  margin: 0 0 6px;
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--sf-muted);
+}
+
+.storefront-product-modal__description p {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.storefront-product-modal__variants div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.storefront-product-modal__variants button {
+  padding: 6px 12px;
+  border: 1px solid var(--sf-border);
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  background: var(--sf-surface);
+  cursor: pointer;
+}
+
+.storefront-product-modal__variants button:hover {
+  border-color: var(--sf-primary);
+  color: var(--sf-primary);
+}
+
+.storefront-product-modal__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.storefront-product-modal__actions button:first-child {
+  display: inline-flex;
+  flex: 1;
+  gap: 7px;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  border: 0;
+  border-radius: 11px;
+  color: #fff;
+  font-weight: 700;
+  background: var(--sf-primary);
+  cursor: pointer;
+}
+
+.storefront-product-modal__actions button:last-child {
+  display: grid;
+  width: 42px;
+  place-items: center;
+  border: 1px solid var(--sf-primary);
+  border-radius: 11px;
+  color: var(--sf-primary);
+  background: var(--sf-surface);
+  cursor: pointer;
+}
+
+.storefront-product-modal__reviews {
+  grid-column: 1 / -1;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--sf-border);
+}
+
+/* The image and the title are the affordance for opening the popup, so they
+   must not look like the buttons around them. */
+.storefront-product-card__open {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.storefront-product-card__body h2 button {
+  padding: 0;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  background: none;
+  cursor: pointer;
+}
+
+.storefront-product-card__body h2 button:hover {
+  color: var(--sf-primary);
+}
+
+@media (max-width: 760px) {
+  .storefront-product-modal__panel {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .storefront-product-modal__info {
+    padding-right: 0;
+  }
 }
