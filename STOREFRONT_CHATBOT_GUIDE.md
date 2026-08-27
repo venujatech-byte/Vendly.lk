@@ -985,6 +985,32 @@ Found by the seller testing a full catalogue (power banks, smart watches, earbud
 
 **Fixed as:** the gallery caps its **cells** (`minmax(110px, 148px)` with `justify-content: start`) instead of clipping the container, and thumbnails use `object-fit: contain`.
 
+### 23.10 Recommendation cards contradicted the answer — FIXED
+
+**Seen:** "what is cheapest and best here" while browsing power banks. The text was correct — it named the WIWU P-08B and the ASPOR A337 — but the cards underneath showed a Xiaomi power bank, some Baseus earbuds and a T800 smart watch.
+
+**Cause:** both the catalogue-answer fallthrough and the category-recommendation branch attached `products[:4]` / `scoped[:4]` — the first few items of the catalogue, chosen without reference to what the answer actually said.
+
+**Fixed as:** `products_named_in(answer, products)` returns the catalogue items the reply mentions, in catalogue order, and those become the cards. It falls back to the scoped category, then the catalogue, when the answer names nothing (for example "we do not stock laptops"). A recommendation and the cards beneath it now agree.
+
+**Rule for anything similar:** when a reply talks about specific products, the cards must be derived from the reply, not from the catalogue. Attaching a default slice silently contradicts the words above it.
+
+### 23.11 Brand requests fell through to the category picker — FIXED
+
+**Seen:** "show me lenovo products" and "show me baseus products" both returned *"What kind of product are you looking for?"* with the category chips. The brand was ignored.
+
+**Cause:** products carry a `brand` field, but nothing ever matched on it. A brand name is not a product name and not a category, so every such message reached the picker.
+
+**Fixed as:** `find_brand_request` / `brand_products`, checked before the category picker on the browse path and alongside the category fallback on the ordering path. It reuses the same whole-word and n-gram alias matching as categories, so "asp" does not match "ASPOR". The two alias builders — `message_word_alias_set` and `message_phrase_aliases` — were extracted from `find_category_request` so both features share one implementation.
+
+### 23.12 Naming a product returned text with no card — FIXED
+
+**Seen:** "lenovo gm2 pro" answered with price and specs as plain text, no product card.
+
+**Cause:** the 23.8 fix routes non-overview questions to `product-answer` (no card), and `is_product_overview_request` only recognised "tell me about", "product details" and catalogue numbers. A bare product name matched none of them.
+
+**Fixed as:** naming a product **in this message** (`explicitly_selected_product`) now counts as an overview request. The distinction that matters is *naming a product* — show it — versus *asking a feature about the product already on screen* — just answer.
+
 ### Note on ordering
 
 23.1, 23.3 and 23.4 are the same underlying gap — **the conversation has no memory of what the customer was just looking at**, so every question is answered against the whole catalogue. Fixing that once addresses all three; the rest are presentation.

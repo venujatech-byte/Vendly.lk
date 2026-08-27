@@ -871,6 +871,87 @@ def wants_a_recommendation(message):
     return any(phrase in str(message).casefold() for phrase in SUPERLATIVE_PHRASES)
 
 
+def products_named_in(answer, products):
+    """The catalogue items an answer actually mentions, in catalogue order.
+
+    A recommendation names specific products; showing the first few items of
+    the whole catalogue underneath it contradicts the words directly - the text
+    said "WIWU P-08B and ASPOR A337" while the cards showed a Xiaomi power
+    bank, some earbuds and a smart watch.
+    """
+    text = str(answer or "").casefold()
+
+    if not text:
+        return []
+
+    return [
+        product
+        for product in products
+        if product.get("name") and product["name"].casefold() in text
+    ]
+
+
+def message_word_alias_set(message):
+    """Words the customer typed, with singular and plural forms of each.
+
+    Matching a name against these keeps it a whole-word match. Substring
+    matching once made "show" resolve to the "Shoes" category.
+    """
+    words = message_tokens(message)
+    aliases = set(words)
+
+    for word in words:
+        if word.endswith("s"):
+            aliases.add(word[:-1])
+        if word.endswith("es"):
+            aliases.add(word[:-2])
+
+    return aliases
+
+
+def message_phrase_aliases(message, sizes=(2, 3)):
+    """Joined runs of consecutive words, so "power bank" matches "Powerbanks"."""
+    words = word_characters(message).split()
+    return {
+        "".join(words[start:start + size])
+        for size in sizes
+        for start in range(len(words) - size + 1)
+    }
+
+
+def find_brand_request(message, products):
+    """Return the brand named in a message, if this seller carries it.
+
+    Customers shop by brand as readily as by category - "show me Lenovo
+    products", "any Baseus earbuds". Without this the message matched no
+    product name and no category, so it fell through to the category picker
+    and the brand was ignored entirely.
+    """
+    words = message_word_alias_set(message)
+    phrases = message_phrase_aliases(message)
+    brands = {
+        product.get("brand", "").strip()
+        for product in products
+        if product.get("brand", "").strip()
+    }
+
+    for brand in sorted(brands, key=len, reverse=True):
+        aliases = {normalized_phrase(brand)}
+        if aliases & (words | phrases):
+            return brand
+
+    return None
+
+
+def brand_products(products, brand, excluded_product_id=None):
+    return [
+        product
+        for product in products
+        if product.get("brand", "").strip().casefold() == str(brand).strip().casefold()
+        and product.get("id") != excluded_product_id
+    ]
+
+
 def find_matching_products(message, products):
     """Every catalogue item that matches the customer's wording equally well.
 
@@ -973,24 +1054,14 @@ def find_category_request(message, products, require_cue=True):
     message_words = message_tokens(clean_message)
     # Singular and plural forms of what the customer actually typed, so a
     # category alias has to match a whole word rather than any run of letters.
-    message_word_aliases = set(message_words)
-    for word in message_words:
-        if word.endswith("s"):
-            message_word_aliases.add(word[:-1])
-        if word.endswith("es"):
-            message_word_aliases.add(word[:-2])
+    message_word_aliases = message_word_alias_set(clean_message)
     categories = {
         product.get("categoryName", "").strip()
         for product in products
         if product.get("categoryName", "").strip()
     }
 
-    ordered_words = word_characters(clean_message).split()
-    message_phrase_aliases = {
-        "".join(ordered_words[start:start + size])
-        for size in (2, 3)
-        for start in range(len(ordered_words) - size + 1)
-    }
+    phrase_aliases = message_phrase_aliases(clean_message)
 
     for category in categories:
         compact_category = normalized_phrase(category)
@@ -1009,7 +1080,7 @@ def find_category_request(message, products, require_cue=True):
         # This keeps whole-word matching - unlike substring matching, which
         # made "show" resolve to the Shoes category.
         category_is_named = bool(category_aliases & message_word_aliases) or bool(
-            category_aliases & message_phrase_aliases
+            category_aliases & phrase_aliases
         ) or (
             bool(category_words) and category_words.issubset(message_words)
         )
@@ -2844,6 +2915,10 @@ def answer_public_message(database, session_id, provided_token, payload):
             category_products(products, ordering_category) if ordering_category else []
         )
 
+        if not category_matches and requested_brand:
+            ordering_category = requested_brand
+            category_matches = brand_products(products, requested_brand)
+
         if category_matches:
             return respond(
                 f"Which {ordering_category} would you like to order? Tell me "
@@ -2912,11 +2987,12 @@ def answer_public_message(database, session_id, provided_token, payload):
         if recommendation and MISSING_FACT_MARKER not in recommendation:
             for marker in (MISSING_FACT_MARKER, ANSWERED_MARKER):
                 recommendation = recommendation.replace(marker, "")
+            named = products_named_in(recommendation, scoped or products)
             return respond(
                 recommendation.strip(),
                 "show-category",
                 next_state="browsing",
-                response_products=scoped[:4],
+                response_products=(named or scoped)[:4],
                 is_translated=True,
             )
 
@@ -2929,6 +3005,19 @@ def answer_public_message(database, session_id, provided_token, payload):
             response_products=matches,
             selected_product_id=None if not session.get("productId") else "unchanged",
         )
+
+    requested_brand = find_brand_request(message, products)
+
+    if requested_brand and not selected_product:
+        brand_matches = brand_products(products, requested_brand)
+
+        if brand_matches:
+            return respond(
+                f"Here is what we have from {requested_brand}.",
+                "show-category",
+                next_state="browsing",
+                response_products=brand_matches,
+            )
 
     if wants_catalog:
         category_names = catalogue_categories(products)
@@ -3005,7 +3094,10 @@ def answer_public_message(database, session_id, provided_token, payload):
             or "The seller has not added a detailed description yet."
         )
 
-        is_product_overview_request = is_catalog_number_choice(message) or any(
+        # Naming the product in this message - "lenovo gm2 pro" - is a request
+        # to see it, so it earns the full card. Only a follow-up about a
+        # product already on screen returns a bare answer.
+        is_product_overview_request = bool(explicitly_selected_product) or is_catalog_number_choice(message) or any(
             phrase in lowered_message
             for phrase in (
                 "tell me about",
@@ -3145,11 +3237,12 @@ def answer_public_message(database, session_id, provided_token, payload):
             for marker in (MISSING_FACT_MARKER, ANSWERED_MARKER):
                 catalogue_answer = catalogue_answer.replace(marker, "")
 
+            named = products_named_in(catalogue_answer, products)
             return respond(
                 catalogue_answer.strip(),
                 "show-catalog",
                 next_state="browsing",
-                response_products=products[:4],
+                response_products=(named or scoped_products or products)[:4],
                 is_translated=True,
             )
 

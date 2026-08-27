@@ -967,3 +967,73 @@ def test_superlatives_are_recognised():
     assert wants_a_recommendation("which one do you recommend") is True
     assert wants_a_recommendation("what is the cheapest") is True
     assert wants_a_recommendation("show me smart watches") is False
+
+
+def test_cards_follow_the_products_the_answer_named():
+    from app.services.public_chat_service import products_named_in
+
+    products = [
+        {"id": "p1", "name": "WIWU Essen P-08B 10000mAh 4-Cable Power Bank"},
+        {"id": "p2", "name": "ASPOR A337 30,000mAh 22.5W Fast Charging Power Bank"},
+        {"id": "x", "name": "Xiaomi 20,000mAh 18W Fast Power Bank"},
+        {"id": "w", "name": "T800 Ultra Smart Watch"},
+    ]
+    answer = (
+        "The cheapest is WIWU Essen P-08B 10000mAh 4-Cable Power Bank at LKR "
+        "3,990.00. The best value is ASPOR A337 30,000mAh 22.5W Fast Charging "
+        "Power Bank at LKR 8,000.00."
+    )
+
+    # The cards used to be the first few of the whole catalogue, contradicting
+    # the words directly - a smart watch under an answer about power banks.
+    assert [p["id"] for p in products_named_in(answer, products)] == ["p1", "p2"]
+
+
+def test_an_answer_naming_nothing_matches_nothing():
+    from app.services.public_chat_service import products_named_in
+
+    products = [{"id": "p1", "name": "WIWU Power Bank"}]
+
+    # The caller falls back to the scoped category rather than guessing.
+    assert products_named_in("We do not stock laptops.", products) == []
+    assert products_named_in("", products) == []
+    assert products_named_in(None, products) == []
+
+
+def branded_catalogue():
+    return [
+        {"id": "1", "name": "Lenovo GM2 Pro", "brand": "Lenovo", "categoryName": "Earbuds"},
+        {"id": "2", "name": "Lenovo LP40", "brand": "Lenovo", "categoryName": "Earbuds"},
+        {"id": "3", "name": "Baseus Bowei EZ10", "brand": "Baseus", "categoryName": "Earbuds"},
+        {"id": "4", "name": "ASPOR A337", "brand": "ASPOR", "categoryName": "Power banks"},
+    ]
+
+
+def test_a_named_brand_is_recognised():
+    from app.services.public_chat_service import brand_products, find_brand_request
+
+    products = branded_catalogue()
+
+    # Customers shop by brand as readily as by category. Without this the
+    # message matched no product and no category, so it fell through to the
+    # category picker and the brand was ignored.
+    assert find_brand_request("show me lenovo products", products) == "Lenovo"
+    assert find_brand_request("show me baseus products", products) == "Baseus"
+    assert [p["id"] for p in brand_products(products, "Lenovo")] == ["1", "2"]
+
+
+def test_a_message_with_no_brand_matches_none():
+    from app.services.public_chat_service import find_brand_request
+
+    products = branded_catalogue()
+
+    assert find_brand_request("show me products", products) is None
+    assert find_brand_request("I want a smart watch", products) is None
+
+
+def test_brand_matching_is_whole_word():
+    from app.services.public_chat_service import find_brand_request
+
+    # "asp" must not match ASPOR, the same guarantee category matching has.
+    products = [{"id": "1", "name": "A337", "brand": "ASPOR"}]
+    assert find_brand_request("do you have asp cables", products) is None
