@@ -1865,7 +1865,6 @@ function ChatbotView({
 
                 {message.role === "assistant" &&
                   message.action === "show-product" &&
-                  index === messages.length - 1 &&
                   message.product && (
                     <div className="storefront-chat-product-decision">
                       <ChatProductDetails

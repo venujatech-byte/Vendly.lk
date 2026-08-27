@@ -970,3 +970,28 @@ def test_an_online_only_seller_tells_the_customer_not_to_travel(chat):
     reply = chat.say("where are you located?")
 
     assert "online store" in reply["message"]
+
+
+def test_naming_a_product_shows_it_rather_than_starting_an_order(chat):
+    # The classifier reads a bare product name as start_order, which sent the
+    # customer to "how many would you like?" before they had seen the price,
+    # the photos or the reviews.
+    reply = chat.say("GM2 Pro Earbuds", intent="start_order",
+                     productQuery="GM2 Pro Earbuds", quantity=0, quantityMode="total")
+
+    assert chat.state == "browsing"
+    assert chat.cart == []
+    assert reply["action"] == "show-product"
+    # A full overview carries the photos, the reviews and the similar strip.
+    assert reply["product"]["id"] == "buds"
+    assert reply["products"]
+    assert "order-this" in reply["suggestions"]
+
+
+def test_naming_a_product_with_a_quantity_still_orders(chat):
+    reply = chat.say("2 GM2 Pro Earbuds", intent="start_order",
+                     productQuery="GM2 Pro Earbuds", quantity=2, quantityMode="total")
+
+    # Extra words beyond the name mean they really are ordering.
+    assert chat.cart == [{"variantId": "v-buds", "quantity": 2}]
+    assert reply["action"] == "start-order"

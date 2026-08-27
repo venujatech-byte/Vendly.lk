@@ -952,6 +952,57 @@ def brand_products(products, brand, excluded_product_id=None):
     ]
 
 
+def message_is_only_a_product_name(message, product):
+    """True when the customer typed a product name and nothing else.
+
+    "lenovo gm2 pro" is a request to see that product, not an instruction to
+    order it. The classifier reads a bare product name as start_order, which
+    sent the customer straight to "how many would you like?" before they had
+    seen the price, the specs or a photo.
+    """
+    if not product:
+        return False
+
+    words = message_tokens(message)
+
+    if not words:
+        return False
+
+    return words <= message_tokens(product.get("name", ""))
+
+
+def seller_contact_message(business):
+    """The handoff line for a question the catalogue cannot answer.
+
+    "We don't have that information" is a dead end, and a dead end is what
+    sends a customer to a competitor. The seller has already been notified, so
+    tell the customer that, and give them a way to reach a person now if they
+    do not want to wait.
+
+    The WhatsApp link is derived from the published phone number rather than
+    being a second field to keep in step.
+    """
+    phone = str(business.get("phone") or "").strip()
+
+    if not phone:
+        return "One of our agents will contact you shortly about this."
+
+    try:
+        whatsapp = normalize_sri_lankan_phone(phone)
+    except ValueError:
+        whatsapp = ""
+
+    parts = [
+        "One of our agents will contact you shortly about this.",
+        f"If you are in a hurry you can call {phone}",
+    ]
+
+    if whatsapp:
+        parts[-1] += f" or message us on WhatsApp: https://wa.me/{whatsapp}"
+
+    return " ".join(parts) + "."
+
+
 def find_matching_products(message, products):
     """Every catalogue item that matches the customer's wording equally well.
 
@@ -2831,6 +2882,19 @@ def answer_public_message(database, session_id, provided_token, payload):
             next_state="browsing",
         )
 
+    # A stated quantity is an order however terse the rest is. message_tokens
+    # drops one- and two-character words, so "2 GM2 Pro" looked like a bare
+    # product name until the quantity was checked separately.
+    if (
+        wants_to_order
+        and not ai_intent.get("quantity")
+        and not quantity_from_message(message)
+        and message_is_only_a_product_name(message, explicitly_selected_product)
+    ):
+        # They named a product and nothing else. Show it; the "Order this" chip
+        # and any explicit order wording still lead straight to the quantity.
+        wants_to_order = False
+
     if wants_to_order:
         # A customer who says "mata GM2 pro dekak ona" has already chosen. Being
         # told to click Add is a dead end for anyone typing Sinhala or speaking,
@@ -3169,6 +3233,14 @@ def answer_public_message(database, session_id, provided_token, payload):
                 "seller has not provided that detail yet."
             )
             if answer_is_uncertain:
+                handoff = seller_contact_message(catalog["business"])
+                response_message = (
+                    f"{response_message} "
+                    f"{translate_chat_message(handoff, language)}"
+                    if answer_in_customer_language
+                    else f"{response_message} {handoff}"
+                )
+
                 notify_seller_attention(
                     database,
                     session_snapshot.reference,
@@ -3271,7 +3343,8 @@ def answer_public_message(database, session_id, provided_token, payload):
     return respond(
         "Please choose a product or category. I can show product photos and "
         "descriptions, answer feature questions, suggest alternatives and take "
-        "a complete order.",
+        "a complete order. "
+        + seller_contact_message(catalog["business"]),
         "show-catalog",
         next_state="browsing",
         response_products=products,

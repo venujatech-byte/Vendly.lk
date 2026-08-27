@@ -1011,6 +1011,28 @@ Found by the seller testing a full catalogue (power banks, smart watches, earbud
 
 **Fixed as:** naming a product **in this message** (`explicitly_selected_product`) now counts as an overview request. The distinction that matters is *naming a product* — show it — versus *asking a feature about the product already on screen* — just answer.
 
+### 23.13 Naming a product jumped straight to "how many?" — FIXED
+
+**Seen:** typing "lenovo gm2 pro" replied *"LKR 2,500.00 each. How many would you like to order?"* — no photos, no specs, no reviews, no similar items. The customer was asked to commit before seeing anything.
+
+**Cause:** the classifier reads a bare product name as `start_order`, so `wants_to_order` was true and the ordering branch ran.
+
+**Fixed as:** `message_is_only_a_product_name` — when the message's word tokens are a subset of the product's name and no quantity was given, it is a request to *see* the product, so the ordering branch is skipped and the full card is returned. A stated quantity always wins: `message_tokens` drops one- and two-character words, so "2 GM2 Pro" looked like a bare name until the quantity was checked separately.
+
+**What "full info" means here:** a `show-product` overview carries the photos (`product`), the reviews (`response_reviews` + `review_summary`) and the similar-items strip (`response_products`). A `product-answer` follow-up carries none of them — see 23.8.
+
+Related: the newest-message gate added for 23.6 was removed. Once 23.8 stopped follow-ups carrying a card, nothing could duplicate, and the gate was making the product card vanish from history as soon as the customer asked anything else.
+
+### 23.14 An unanswerable question was a dead end — FIXED
+
+**Seen:** "is it waterproof" → *"We don't have information about waterproof capability for the Monster MQT52."* and nothing else. The seller was notified silently; the customer was left with no next step.
+
+**Fixed as:** `seller_contact_message` appends a handoff — *"One of our agents will contact you shortly about this. If you are in a hurry you can call 0771234567 or message us on WhatsApp: https://wa.me/94771234567."* It runs wherever `notify_seller_attention` fires: the `[NO_DATA]` product answer and the generic fallthrough.
+
+The WhatsApp link is **derived** from the published phone via `normalize_sri_lankan_phone`, so any format the seller typed resolves to the same `wa.me` link and there is no second field to keep in step. A seller with no published number still gets the "we will contact you" half, without a broken link.
+
+When the model answered in the customer's language the handoff is translated separately, because that reply bypasses `respond()`'s translation with `is_translated=True`.
+
 ### Note on ordering
 
 23.1, 23.3 and 23.4 are the same underlying gap — **the conversation has no memory of what the customer was just looking at**, so every question is answered against the whole catalogue. Fixing that once addresses all three; the rest are presentation.

@@ -1037,3 +1037,33 @@ def test_brand_matching_is_whole_word():
     # "asp" must not match ASPOR, the same guarantee category matching has.
     products = [{"id": "1", "name": "A337", "brand": "ASPOR"}]
     assert find_brand_request("do you have asp cables", products) is None
+
+
+def test_an_unanswerable_question_offers_a_way_to_reach_a_person():
+    from app.services.public_chat_service import seller_contact_message
+
+    message = seller_contact_message({"phone": "0771234567"})
+
+    # "We don't have that information" alone is a dead end, and a dead end is
+    # what sends the customer to a competitor.
+    assert "contact you shortly" in message
+    assert "0771234567" in message
+    assert "https://wa.me/94771234567" in message
+
+
+def test_the_whatsapp_link_is_derived_from_the_published_number():
+    from app.services.public_chat_service import seller_contact_message
+
+    # Any format the seller typed resolves to the same wa.me link, so it is
+    # not a second field to keep in step.
+    for typed in ("0771234567", "+94 77 123 4567", "94771234567"):
+        assert "https://wa.me/94771234567" in seller_contact_message({"phone": typed})
+
+
+def test_a_seller_with_no_published_phone_still_gets_a_handoff():
+    from app.services.public_chat_service import seller_contact_message
+
+    for business in ({}, {"phone": ""}, {"phone": "not a phone"}):
+        message = seller_contact_message(business)
+        assert "contact you shortly" in message
+        assert "wa.me" not in message
