@@ -427,6 +427,7 @@ STOREFRONT_INTENTS = {
     "similar_products",
     "reviews",
     "delivery_quote",
+    "cancel_order",
     "policy_question",
     "set_quantity",
     "start_order",
@@ -478,7 +479,7 @@ def generate_storefront_intent(message, product_names, category_names, state):
         "when they want to buy, finished_selecting "
         "when they say they have added everything they want, confirm_order to "
         "submit a summarised order, change_order to correct details, "
-        "order_status for an existing order's progress, new_order to start a "
+        "order_status for an existing order's progress, cancel_order when they ""want to call off an order they already placed, new_order to start a "
         "fresh order after one was placed, greeting for a bare greeting, and "
         "unknown when nothing fits.\n"
         "Copy productQuery, categoryQuery, sizeQuery and district verbatim from "

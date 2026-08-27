@@ -353,6 +353,9 @@ collecting-name ──> collecting-phone ──> collecting-secondary-phone
 awaiting-confirmation ──confirm───────────────────> completed (order created)
 awaiting-confirmation ──change────────────────────> collecting-name (draft cleared)
 completed ──status question───────────────────────> completed (order info)
+completed ──"cancel my order"─────────────────────> confirming-cancel
+confirming-cancel ──"yes cancel"──────────────────> completed (cancelled, stock released)
+confirming-cancel ──anything else─────────────────> completed (order untouched)
 completed ──"another order"───────────────────────> browsing (history kept, new draft)
 
 browsing ──names an order number, no order linked─> verifying-order
@@ -407,6 +410,21 @@ globalFraudCustomers/{customerKey}
 ```
 
 Use a transaction when creating an order: re-read each product/variant, reject insufficient stock, decrement stock, allocate order number/waybill, write order and order items, then write a chat event. Security rules must deny clients direct writes to stock, totals, fraud records and orders; only trusted backend code writes them.
+
+### Cancelling an order
+
+Cancellation is the last routine reason to phone a seller, and it is common in cash-on-delivery retail. The chat handles it by calling the seller's own `update_order_status`, so the transaction, the transition rules and the stock release are the existing tested ones — nothing about cancellation is reimplemented here.
+
+Four guards, each with a test that fails when it is removed:
+
+1. **The order must be on this session.** Only a conversation that placed the order or passed the phone check in `verifying-order` can reach it.
+2. **An explicit confirmation is required.** "Cancel my order" asks first; anything other than a clear yes leaves the order untouched. Releasing stock and voiding an order must not happen on one ambiguous line — and note that `is_cancel_order_request("cancel")` is deliberately `False`, because a bare "cancel" is as likely to mean "cancel that last thing you said".
+3. **Only `needs-confirmation` and `confirmed`** (`CUSTOMER_CANCELLABLE_STATUSES`). This is deliberately narrower than the seller's own `STATUS_TRANSITIONS`, which also permit `packed -> cancelled`: by the time an order is packed the seller has picked, boxed and often labelled it, so undoing that work is their decision. Packed and later are escalated to the seller instead. A test asserts the customer's window stays a strict subset of the seller's, so the chat can never drive an invalid transition.
+4. **The seller is always told**, on success and on refusal. They have stock to put back and may want to follow up, so this is never a silent change.
+
+An `ApiError` from the status update — most likely dispatch happening between the question and the answer — is caught, reported plainly and escalated rather than surfacing a raw transition error.
+
+**If you want to be more permissive,** add `packed` to `CUSTOMER_CANCELLABLE_STATUSES` to let customers cancel right up to dispatch. The seller's transition rules already allow it, so nothing else needs to change.
 
 ### Tracking an order with no session link
 

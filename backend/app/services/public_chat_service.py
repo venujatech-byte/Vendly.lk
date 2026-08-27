@@ -35,7 +35,7 @@ from app.services.courier_service import (
     recommend_couriers,
 )
 from app.services.operations_service import sync_ai_failure_notification
-from app.services.order_service import create_order
+from app.services.order_service import create_order, update_order_status
 from app.services.public_catalog_service import (
     get_public_product,
     get_public_store,
@@ -621,6 +621,36 @@ def catalogue_categories(products):
         if name and name not in seen:
             seen.append(name)
     return seen
+
+
+CANCEL_ORDER_PHRASES = (
+    "cancel my order",
+    "cancel the order",
+    "cancel order",
+    "cancel this order",
+    "i want to cancel",
+    "dont want it anymore",
+    "don't want it anymore",
+    "order eka cancel",
+    "cancel karanna",
+    "epa cancel",
+    "අවලංගු",
+    "අවලංගු කරන්න",
+    "ଇரத்து",
+    "ரத்து செய்",
+)
+
+# Deliberately narrower than the seller's own STATUS_TRANSITIONS, which also
+# permit packed -> cancelled. A packed order is work the seller has already
+# done: picked, boxed and often labelled. They should decide whether to undo it,
+# so the bot escalates instead of cancelling. Add "packed" here if you would
+# rather let customers cancel right up to dispatch.
+CUSTOMER_CANCELLABLE_STATUSES = {"needs-confirmation", "confirmed"}
+
+
+def is_cancel_order_request(message):
+    text = str(message).casefold()
+    return any(phrase in text for phrase in CANCEL_ORDER_PHRASES)
 
 
 def find_matching_products(message, products):
@@ -1670,6 +1700,115 @@ def answer_public_message(database, session_id, provided_token, payload):
             "number was used to place it?",
             "collect-order-phone",
             next_state="verifying-order",
+        )
+
+    # Cancelling is irreversible and releases stock, so it needs the customer's
+    # own order, an explicit confirmation, and a status the seller's own rules
+    # still allow. Only a session that already proved ownership - by placing the
+    # order or by passing the phone check - can reach this.
+    if current_state == "confirming-cancel":
+        cancel_order = latest_order_for_session(database, session)
+        confirms_cancel = intent_is("confirm_order") or bool(
+            set(word_characters(lowered_message).split())
+            & {"yes", "confirm", "cancel", "ow", "ඔව්", "හරි", "ஆம்", "சரி"}
+        )
+
+        if not cancel_order:
+            return respond(
+                "I could not find that order any more. Please contact the "
+                "seller so they can check it.",
+                "show-order-info",
+                next_state="completed",
+            )
+
+        if not confirms_cancel:
+            return respond(
+                f"Order {cancel_order.get('orderNumber', '')} has not been "
+                "cancelled. Tell me if there is anything else I can help with.",
+                "show-order-info",
+                next_state="completed",
+            )
+
+        try:
+            update_order_status(
+                database,
+                session["businessId"],
+                cancel_order["id"],
+                f"public-chat:{session_id}",
+                {
+                    "status": "cancelled",
+                    "note": "Cancelled by the customer in the storefront chat.",
+                },
+            )
+        except ApiError:
+            # Most likely it was dispatched between the question and the answer.
+            notify_seller_attention(
+                database,
+                session_snapshot.reference,
+                session["businessId"],
+                f"Customer asked to cancel {cancel_order.get('orderNumber', '')}",
+            )
+            return respond(
+                f"I could not cancel order {cancel_order.get('orderNumber', '')} "
+                "because it has already moved on. I have told the seller, and "
+                "they will contact you.",
+                "show-order-info",
+                next_state="completed",
+            )
+
+        # The seller has stock to put back on the shelf and may want to follow
+        # up, so this is never a silent change.
+        notify_seller_attention(
+            database,
+            session_snapshot.reference,
+            session["businessId"],
+            f"Customer cancelled {cancel_order.get('orderNumber', '')} in chat",
+        )
+        return respond(
+            f"Order {cancel_order.get('orderNumber', '')} has been cancelled "
+            "and the items are back in stock. Would you like to order something "
+            "else?",
+            "show-order-info",
+            next_state="completed",
+        )
+
+    if (is_cancel_order_request(message) or intent_is("cancel_order")) and session.get(
+        "orderId",
+    ):
+        order_to_cancel = latest_order_for_session(database, session)
+        current_order_status = (order_to_cancel or {}).get(
+            "fulfilmentStatus",
+            "",
+        )
+
+        if not order_to_cancel:
+            return respond(
+                "I could not find an order on this conversation to cancel.",
+                "show-order-info",
+                next_state="completed",
+            )
+
+        if current_order_status not in CUSTOMER_CANCELLABLE_STATUSES:
+            notify_seller_attention(
+                database,
+                session_snapshot.reference,
+                session["businessId"],
+                f"Customer asked to cancel {order_to_cancel.get('orderNumber', '')}",
+            )
+            return respond(
+                f"Order {order_to_cancel.get('orderNumber', '')} is already "
+                f"{current_order_status.replace('-', ' ')}, so I cannot cancel "
+                "it here. I have told the seller and they will contact you.",
+                "show-order-info",
+                next_state="completed",
+            )
+
+        return respond(
+            f"Just to confirm - you want to cancel order "
+            f"{order_to_cancel.get('orderNumber', '')}? This cannot be undone. "
+            "Reply 'yes cancel' to go ahead.",
+            "confirm-cancel-order",
+            next_state="confirming-cancel",
         )
 
     # The keyword list matches broad words like "deliver" and "shipping", so on

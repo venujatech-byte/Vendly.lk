@@ -470,3 +470,164 @@ def test_an_unrecognised_request_offers_categories_not_the_whole_catalogue(chat,
     assert reply["action"] == "show-categories"
     assert reply["products"] == []
     assert reply["categories"] == ["Earbuds", "Shoes", "Watches"]
+
+
+def cancellable_chat(chat, monkeypatch, status="confirmed"):
+    """A session that already owns an order, with status writes captured."""
+    calls = []
+    chat.session["orderId"] = "o1"
+    monkeypatch.setattr(
+        public_chat_service,
+        "latest_order_for_session",
+        lambda *a: {"id": "o1", "orderNumber": "VD-000012",
+                    "fulfilmentStatus": status, "totalAmountMinor": 945000},
+    )
+    monkeypatch.setattr(
+        public_chat_service,
+        "update_order_status",
+        lambda _db, _biz, order_id, uid, payload: calls.append((order_id, payload)),
+    )
+    return calls
+
+
+def test_cancelling_needs_an_explicit_confirmation(chat, monkeypatch):
+    calls = cancellable_chat(chat, monkeypatch)
+
+    reply = chat.say("cancel my order")
+
+    # Releasing stock and voiding an order cannot happen on one ambiguous line.
+    assert chat.state == "confirming-cancel"
+    assert calls == []
+    assert "cannot be undone" in reply["message"]
+
+    chat.say("yes cancel")
+
+    assert calls == [("o1", {"status": "cancelled",
+                             "note": "Cancelled by the customer in the storefront chat."})]
+
+
+def test_declining_at_the_confirmation_leaves_the_order_alone(chat, monkeypatch):
+    calls = cancellable_chat(chat, monkeypatch)
+
+    chat.say("cancel my order")
+    reply = chat.say("actually no, leave it")
+
+    assert calls == []
+    assert "has not been cancelled" in reply["message"]
+    assert chat.state == "completed"
+
+
+def test_a_shipped_order_is_not_cancellable_and_the_seller_is_told(chat, monkeypatch):
+    calls = cancellable_chat(chat, monkeypatch, status="shipped")
+    told = []
+    monkeypatch.setattr(
+        public_chat_service,
+        "notify_seller_attention",
+        lambda *a, **k: told.append(a[-1]),
+    )
+
+    reply = chat.say("cancel my order")
+
+    # The parcel is physically moving; only the seller can stop it.
+    assert calls == []
+    assert chat.state == "completed"
+    assert "already shipped" in reply["message"]
+    assert told
+
+
+def test_a_cancellation_always_notifies_the_seller(chat, monkeypatch):
+    cancellable_chat(chat, monkeypatch)
+    told = []
+    monkeypatch.setattr(
+        public_chat_service,
+        "notify_seller_attention",
+        lambda *a, **k: told.append(a[-1]),
+    )
+
+    chat.say("cancel my order")
+    reply = chat.say("yes cancel")
+
+    # The seller has stock to put back and may want to follow up.
+    assert told
+    assert "back in stock" in reply["message"]
+
+
+def test_a_race_with_dispatch_fails_safely(chat, monkeypatch):
+    from app.core.errors import ApiError
+
+    cancellable_chat(chat, monkeypatch)
+    monkeypatch.setattr(
+        public_chat_service,
+        "update_order_status",
+        lambda *a: (_ for _ in ()).throw(
+            ApiError("invalid_status_transition", "no", 409),
+        ),
+    )
+    told = []
+    monkeypatch.setattr(
+        public_chat_service, "notify_seller_attention", lambda *a, **k: told.append(a),
+    )
+
+    chat.say("cancel my order")
+    reply = chat.say("yes cancel")
+
+    # Dispatched between the question and the answer: report it, do not crash.
+    assert "already moved on" in reply["message"]
+    assert told
+
+
+def test_a_session_with_no_order_cannot_cancel_anything(chat, monkeypatch):
+    def fail(*_a):
+        raise AssertionError("must not touch order status without an order")
+
+    monkeypatch.setattr(public_chat_service, "update_order_status", fail)
+
+    reply = chat.say("cancel my order")
+
+    # Falls through to normal handling rather than acting on someone's order.
+    assert chat.state != "confirming-cancel"
+    assert "cannot be undone" not in reply["message"]
+
+
+def test_a_packed_order_is_escalated_rather_than_self_cancelled(chat, monkeypatch):
+    calls = cancellable_chat(chat, monkeypatch, status="packed")
+    told = []
+    monkeypatch.setattr(
+        public_chat_service,
+        "notify_seller_attention",
+        lambda *a, **k: told.append(a[-1]),
+    )
+
+    reply = chat.say("cancel my order")
+
+    # The seller's own rules permit packed -> cancelled, but by then they have
+    # picked, boxed and often labelled it. Undoing that work is their call.
+    assert calls == []
+    assert "already packed" in reply["message"]
+    assert told
+
+
+def test_a_confirmed_order_is_still_cancellable_by_the_customer(chat, monkeypatch):
+    calls = cancellable_chat(chat, monkeypatch, status="confirmed")
+
+    chat.say("cancel my order")
+    chat.say("yes cancel")
+
+    assert [order_id for order_id, _payload in calls] == ["o1"]
+
+
+def test_the_customer_cancel_window_is_narrower_than_the_sellers():
+    from app.services.order_service import STATUS_TRANSITIONS
+    from app.services.public_chat_service import CUSTOMER_CANCELLABLE_STATUSES
+
+    seller_can_cancel = {
+        status
+        for status, allowed in STATUS_TRANSITIONS.items()
+        if "cancelled" in allowed
+    }
+
+    # Every status the customer may cancel from must be one the seller allows,
+    # so the chat can never drive an invalid transition.
+    assert CUSTOMER_CANCELLABLE_STATUSES <= seller_can_cancel
+    assert "packed" in seller_can_cancel
+    assert "packed" not in CUSTOMER_CANCELLABLE_STATUSES
