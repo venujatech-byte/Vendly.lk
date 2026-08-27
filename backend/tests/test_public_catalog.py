@@ -1067,3 +1067,77 @@ def test_a_seller_with_no_published_phone_still_gets_a_handoff():
         message = seller_contact_message(business)
         assert "contact you shortly" in message
         assert "wa.me" not in message
+
+
+def charging_catalogue():
+    return [
+        {"id": "x", "name": "Xiaomi 20,000mAh 18W Fast Charge Power Bank"},
+        {"id": "a", "name": "ASPOR A337 30,000mAh 22.5W Fast Charging Power Bank"},
+        {"id": "l", "name": "Lenovo GM2 Pro Earbuds"},
+    ]
+
+
+def test_one_shared_word_does_not_identify_a_product():
+    from app.services.public_chat_service import find_matching_products
+
+    # "charge" is a word in "Fast Charge Power Bank". Matching on it alone
+    # selected the wrong product and turned a feature question into a request
+    # for that product's full spec sheet.
+    assert find_matching_products("how long does it take to charge", charging_catalogue()) == []
+    assert find_matching_products("is it waterproof", charging_catalogue()) == []
+
+
+def test_a_real_product_name_still_matches():
+    from app.services.public_chat_service import find_matching_products
+
+    products = charging_catalogue()
+
+    assert [p["id"] for p in find_matching_products("lenovo gm2 pro", products)] == ["l"]
+    assert [p["id"] for p in find_matching_products("ASPOR A337", products)] == ["a"]
+    # A short message is allowed a single-word match: it is all they typed.
+    assert [p["id"] for p in find_matching_products("earbuds", products)] == ["l"]
+
+
+def test_every_spelling_of_a_category_resolves():
+    from app.services.public_chat_service import find_category_request
+
+    products = [{"categoryName": "Smart watch"}, {"categoryName": "Power banks"}]
+
+    # One word, two words, singular and plural must all reach the same
+    # category. "smart watches" joins to "smartwatches" and needs singularising
+    # before it matches a category stored as "Smart watch".
+    for message in ("send me smartwatches", "send me smart watches",
+                    "send me smartwatch", "send me smart watch"):
+        assert find_category_request(message, products, require_cue=False) == "Smart watch", message
+
+    for message in ("I want a power bank", "powerbanks please"):
+        assert find_category_request(message, products, require_cue=False) == "Power banks", message
+
+
+def test_an_ordinary_question_is_not_read_as_a_category():
+    from app.services.public_chat_service import find_category_request
+
+    products = [{"categoryName": "Smart watch"}, {"categoryName": "Power banks"}]
+
+    for message in ("how long does it take to charge", "more info", "is it waterproof"):
+        assert find_category_request(message, products, require_cue=False) is None, message
+
+
+def test_a_price_filter_is_not_a_browse_request():
+    from app.services.public_chat_service import has_price_constraint
+
+    # "show me below Rs 2000" starts like a browse request, so the catalogue
+    # branch claimed it and returned the category picker instead of the
+    # products that fit the budget.
+    for message in ("show me below Rs 2000", "under 5000", "anything up to 3000",
+                    "less than 1500", "Rs 2000 ට අඩු"):
+        assert has_price_constraint(message) is True, message
+
+
+def test_ordinary_messages_carry_no_price_constraint():
+    from app.services.public_chat_service import has_price_constraint
+
+    # A bare quantity must not read as a budget.
+    for message in ("show me smart watches", "more info", "I want 2 of them",
+                    "how long does it take to charge"):
+        assert has_price_constraint(message) is False, message

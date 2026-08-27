@@ -995,3 +995,58 @@ def test_naming_a_product_with_a_quantity_still_orders(chat):
     # Extra words beyond the name mean they really are ordering.
     assert chat.cart == [{"variantId": "v-buds", "quantity": 2}]
     assert reply["action"] == "start-order"
+
+
+def test_an_ambiguous_budget_asks_which_scope(chat, monkeypatch):
+    asked = []
+    monkeypatch.setattr(
+        public_chat_service,
+        "generate_catalogue_answer",
+        lambda question, scope, *a: asked.append((question, [p["id"] for p in scope]))
+        or "The Runner Shoes at LKR 9,000.00 fit that budget.",
+    )
+    chat.session["lastCategoryShown"] = "Shoes"
+
+    reply = chat.say("show me below Rs 2000")
+
+    # Guessing the scope is wrong half the time, so it asks first.
+    assert chat.state == "clarifying-scope"
+    assert "Shoes" in reply["message"]
+    assert asked == []
+
+    chat.say("shoes")
+
+    # The original budget question is carried into the scoped answer.
+    question, scope = asked[0]
+    assert "below Rs 2000" in question
+    assert scope == ["shoes"]
+    assert chat.state == "browsing"
+
+
+def test_choosing_any_product_widens_the_search(chat, monkeypatch):
+    scopes = []
+    monkeypatch.setattr(
+        public_chat_service,
+        "generate_catalogue_answer",
+        lambda question, scope, *a: scopes.append([p["id"] for p in scope]) or "Nothing under that.",
+    )
+    chat.session["lastCategoryShown"] = "Shoes"
+
+    chat.say("show me below Rs 2000")
+    chat.say("any product")
+
+    assert scopes[0] == ["buds", "shoes"]
+
+
+def test_a_budget_with_no_category_in_view_does_not_ask(chat, monkeypatch):
+    monkeypatch.setattr(
+        public_chat_service,
+        "generate_catalogue_answer",
+        lambda *a: "Nothing under that price.",
+    )
+
+    reply = chat.say("show me below Rs 2000")
+
+    # Nothing to disambiguate against, so answering directly is right.
+    assert chat.state == "browsing"
+    assert "Just to be sure" not in reply["message"]

@@ -75,11 +75,24 @@ def product_facts(product):
 
 
 def catalogue_entry(product):
-    """A compact row for comparison questions, without the full description."""
+    """A compact row for comparison questions.
+
+    The description is included, trimmed. Without it the model cannot answer
+    "which of these supports a SIM?" across products - it would only see names
+    and prices, so it either guessed or listed everything regardless.
+    """
+    description = " ".join(
+        str(
+            product.get("description") or product.get("aiDescription") or "",
+        ).split(),
+    )
     return {
         "name": product.get("name"),
         "category": product.get("categoryName"),
         "brand": product.get("brand"),
+        "colour": product.get("colourName") or None,
+        "size": product.get("productSize") or None,
+        "description": description[:400] or None,
         "priceLkr": product.get("sellingPriceMinor", 0) / 100,
         "priceText": money_text(product.get("sellingPriceMinor", 0)),
         "warrantyMonths": product.get("warrantyPeriodMonths") or None,
@@ -196,6 +209,10 @@ def catalogue_prompt(question, products, language="en", store_policies=""):
         "below. The catalogue is the seller's complete list of available "
         "products. Never mention a product that is not in it, and never invent "
         "a price, a warranty, a feature or a shop policy.\n"
+        "Check the description of each product before answering a question "
+        "about a feature. If none of them has it, say so plainly and do not "
+        "list products that do not match - naming products under a question "
+        "they fail to answer reads as though they qualify.\n"
         "Name the specific products that answer the question, with their "
         "prices. Compare using priceLkr, but always write prices back to the "
         "customer exactly as they appear in priceText, never as a bare "

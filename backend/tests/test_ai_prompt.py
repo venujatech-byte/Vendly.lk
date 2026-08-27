@@ -233,3 +233,43 @@ def test_a_policy_question_is_answerable_without_any_products():
         ai_service.request_ai_text = original
 
     assert len(calls) == 1
+
+
+def test_catalogue_rows_carry_the_description():
+    from app.services.ai_service import catalogue_entry
+
+    # Without the description the model sees only names and prices, so a
+    # question like "which of these supports a SIM?" cannot be answered - it
+    # either guesses or lists everything regardless.
+    row = catalogue_entry(
+        {
+            "name": "T800 Watch",
+            "description": "  Bluetooth calling,\n  no SIM slot.  ",
+            "sellingPriceMinor": 130000,
+        },
+    )
+
+    assert row["description"] == "Bluetooth calling, no SIM slot."
+
+
+def test_a_long_description_is_trimmed_not_dropped():
+    from app.services.ai_service import catalogue_entry
+
+    row = catalogue_entry({"name": "X", "description": "word " * 200})
+
+    assert row["description"] and len(row["description"]) <= 400
+
+
+def test_a_product_with_no_description_says_none():
+    from app.services.ai_service import catalogue_entry
+
+    assert catalogue_entry({"name": "X"})["description"] is None
+
+
+def test_the_catalogue_prompt_forbids_listing_products_that_do_not_match():
+    from app.services.ai_service import catalogue_prompt
+
+    prompt = catalogue_prompt("which has SIM support?", [{"name": "X"}], "en")
+
+    assert "Check the description of each product" in prompt
+    assert "say so plainly" in prompt

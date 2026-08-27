@@ -1033,6 +1033,66 @@ The WhatsApp link is **derived** from the published phone via `normalize_sri_lan
 
 When the model answered in the customer's language the handoff is translated separately, because that reply bypasses `respond()`'s translation with `is_translated=True`.
 
+### 23.15 "More info" gave the wrong product and no card — FIXED
+
+**Seen:** after a recommendation named the ASPOR **A337**, "more info" replied about the **A336** as plain text — no photos, no reviews, no description card.
+
+**Two causes.** `is_product_overview_request` did not recognise "more info", so it went to `product-answer` (no card by design, see 23.8). And the recommendation branch never set `selectedProductId`, so the follow-up resolved against whatever had been selected earlier.
+
+**Fixed as:** "more info", "more detail", "full details", "specs" and the Sinhala/Tamil equivalents added to the overview phrases; and when a recommendation or catalogue answer names exactly one product, that product becomes the selected one, so the next question is about it.
+
+### 23.16 A feature question returned another product's spec sheet — FIXED
+
+**Seen:** "how long does it take to charge" returned the full spec dump for the *Xiaomi* power bank while the conversation was about the ASPOR.
+
+**Cause:** `find_matching_products` scores by token overlap, and "charge" is a word in "Fast **Charge** Power Bank". A single shared word selected the wrong product, and 23.12 then read that as "the customer named a product", so it returned the whole card.
+
+**Fixed as:** a single-word overlap only identifies a product when the message is essentially just that word (two tokens or fewer). Longer questions need at least two matching words. "earbuds" still resolves; "how long does it take to charge" resolves to nothing and falls through to the remembered product, which is what the customer was actually asking about.
+
+**The general rule:** token overlap is evidence, not proof. Product names contain ordinary words — charge, power, fast, pro, ultra — and any matcher built on them needs a floor.
+
+### 23.17 "Send me smartwatches" said the shop has none — FIXED
+
+**Seen:** after asking about an ASPOR power bank, "send me smartwatches" and "send me smart watches" both replied *"Sorry, we don't have any smartwatches listed right now"* — with a Smart watch category present. Then "send me smartwatch" ordered the **ASPOR power bank**.
+
+**Three causes, all the same theme: memory outranked what was just said.**
+
+1. `find_category_request`'s cue words are show/list/all/have — "send" is not among them, so the category branch never ran.
+2. It therefore fell through to `generate_catalogue_answer`, which 23.3 scopes to `lastCategoryShown` — still **Power banks**. The model saw only power banks and truthfully said there were no smart watches.
+3. The singular form reached the ordering branch, where `selected_product` was still the remembered ASPOR, so it asked how many of *that*.
+
+**Fixed as:** a category named in the current message is resolved before anything else and outranks both the remembered product and `lastCategoryShown`. Phrase aliases are singularised too, so "smart watches" → "smartwatches" → "smartwatch" matches a category stored as "Smart watch".
+
+**The rule:** conversational memory is a fallback for when the message says nothing, never an override for when it does. Every scoping mechanism added for continuity — `selectedProductId`, `lastCategoryShown` — needs the same escape hatch.
+
+### 23.18 Feature questions were answered without reading descriptions — FIXED
+
+**Seen:** "are there any alternatives which has sim support" listed Smart watch alternatives without checking whether any of them actually supports a SIM.
+
+**Cause:** `catalogue_entry` — the row shape every cross-product answer sees — carried name, category, brand, price, warranty and stock, but **no description**. The model had nothing to check a feature against, so it either guessed or listed the category regardless. Only the single-product path (`product_facts`) ever saw a description.
+
+**Fixed as:** `catalogue_entry` now includes the description (whitespace-collapsed, trimmed to 400 characters), plus colour and size. The catalogue prompt was given an explicit instruction: check each description before answering a feature question, and if none of them has it, **say so plainly and do not list products that do not match** — naming products under a question they fail to answer reads as though they qualify.
+
+**Why trimmed rather than whole:** the rows are sent for every product in scope, so full descriptions would blow the prompt out on a large catalogue. 400 characters covers the spec lines sellers actually write; if feature answers start missing details, raise it before reaching for anything cleverer.
+
+### 23.19 A price filter returned the category picker — FIXED
+
+**Seen:** after "show me smart watches", asking "show me below Rs 2000" returned *"What kind of product are you looking for?"* with the category chips.
+
+**Cause:** the message starts with "show me", which is a catalogue cue, so `wants_catalog` claimed it before anything looked at the number.
+
+**Fixed as:** `has_price_constraint` spots "below Rs 2000", "under 5000", "up to 3000", "less than 1500" and the Sinhala equivalents, and routes to a scoped catalogue answer instead of the picker. A bare quantity ("I want 2 of them") is not a budget.
+
+### 23.20 Ambiguous scope now asks instead of guessing
+
+**The customer's point:** looking at smart watches and asking "below Rs 2000" could mean *those* watches or *any* product. Guessing is wrong half the time.
+
+**Built as:** when a budget arrives with a category in view and none named in the message, the bot asks — *"Just to be sure — are you asking about Smart watch in that price range, or any product in the shop?"* — stores the original question in `pendingBudgetQuestion`, and enters `clarifying-scope`. The reply chooses the scope, the stored question is answered against it, and the pending question is cleared.
+
+**Placement matters:** the handler runs **before** product and category resolution. Left later, a one-word reply like "shoes" resolved as a *product* and returned that product's card instead of answering the budget question. This is the same rule as the `collecting-*` states — when a state is waiting for a specific answer, that answer must be read before anything else tries to interpret it.
+
+This is the pattern to reuse for any future ambiguity: ask, park the original question, resolve on the next turn.
+
 ### Note on ordering
 
 23.1, 23.3 and 23.4 are the same underlying gap — **the conversation has no memory of what the customer was just looking at**, so every question is answered against the whole catalogue. Fixing that once addresses all three; the rest are presentation.

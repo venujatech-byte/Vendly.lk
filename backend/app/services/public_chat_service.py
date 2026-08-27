@@ -912,11 +912,22 @@ def message_word_alias_set(message):
 def message_phrase_aliases(message, sizes=(2, 3)):
     """Joined runs of consecutive words, so "power bank" matches "Powerbanks"."""
     words = word_characters(message).split()
-    return {
+    joined = {
         "".join(words[start:start + size])
         for size in sizes
         for start in range(len(words) - size + 1)
     }
+
+    # Singular forms too: "smart watches" joins to "smartwatches", which must
+    # still match a category stored as "Smart watch".
+    aliases = set(joined)
+    for phrase in joined:
+        if phrase.endswith("es"):
+            aliases.add(phrase[:-2])
+        if phrase.endswith("s"):
+            aliases.add(phrase[:-1])
+
+    return aliases
 
 
 def find_brand_request(message, products):
@@ -1003,6 +1014,25 @@ def seller_contact_message(business):
     return " ".join(parts) + "."
 
 
+PRICE_CONSTRAINT_PATTERN = re.compile(
+    r"(?:below|under|less than|cheaper than|up to|within|max|maximum|"
+    r"above|over|more than|between|"
+    r"හා|අතර|අඩු|කුඩා|ගත|"
+    r"rs\.?|lkr|රු\.?)\s*[\d,]{3,}|[\d,]{3,}\s*(?:rs\.?|lkr|රු\.?|කින්)",
+    re.IGNORECASE,
+)
+
+
+def has_price_constraint(message):
+    """Spot "below Rs 2000", "under 5000", "anything up to 3000".
+
+    A price filter is not a browse request, even though it usually starts with
+    "show me". Left to the catalogue branch it produced the category picker
+    instead of the products that actually fit the budget.
+    """
+    return bool(PRICE_CONSTRAINT_PATTERN.search(str(message)))
+
+
 def find_matching_products(message, products):
     """Every catalogue item that matches the customer's wording equally well.
 
@@ -1044,6 +1074,15 @@ def find_matching_products(message, products):
 
     scored_products.sort(key=lambda item: item[0], reverse=True)
     highest_score = scored_products[0][0]
+
+    # One shared word is not an identification. "How long does it take to
+    # charge" overlaps "Fast Charge Power Bank" on "charge" alone, which
+    # selected the wrong product and made a feature question look like a
+    # request for that product's full details. A single-word match only counts
+    # when the message is essentially just that word.
+    if highest_score < 2 and len(customer_tokens) > 2:
+        return []
+
     return [product for score, product in scored_products if score == highest_score]
 
 
@@ -1949,6 +1988,40 @@ def answer_public_message(database, session_id, provided_token, payload):
             next_state=next_stock_state,
             response_products=products[:4] if not cart_summary else [],
         )
+
+    if current_state == "clarifying-scope":
+        pending = session.get("pendingBudgetQuestion", "")
+        wants_everything = any(
+            phrase in lowered_message
+            for phrase in ("any", "all", "everything", "whole", "සියලු", "எல்லா")
+        )
+        chosen = None if wants_everything else (
+            find_category_request(message, products, require_cue=False)
+            or session.get("lastCategoryShown")
+        )
+        scope = category_products(products, chosen) if chosen else products
+        answer = generate_catalogue_answer(
+            f"{pending} {message}".strip(),
+            scope or products,
+            language,
+            catalog["business"].get("storefrontFaq", ""),
+        )
+        session_snapshot.reference.set({"pendingBudgetQuestion": ""}, merge=True)
+
+        if answer:
+            for marker in (MISSING_FACT_MARKER, ANSWERED_MARKER):
+                answer = answer.replace(marker, "")
+            named = products_named_in(answer, scope or products)
+            return respond(
+                answer.strip(),
+                "show-category",
+                next_state="browsing",
+                response_products=named[:4],
+                is_translated=True,
+            )
+
+        current_state = "browsing"
+
 
     # A delivery-price question is answered before the order-status check below,
     # because "delivery" is also a tracking word. Checkout and completed states
@@ -2895,6 +2968,14 @@ def answer_public_message(database, session_id, provided_token, payload):
         # and any explicit order wording still lead straight to the quantity.
         wants_to_order = False
 
+    # A category named in this message outranks a product remembered from an
+    # earlier one: "send me smartwatch" after asking about a power bank must
+    # not order the power bank.
+    named_category = find_category_request(message, products, require_cue=False)
+
+    if named_category and not explicitly_selected_product:
+        selected_product = None
+
     if wants_to_order:
         # A customer who says "mata GM2 pro dekak ona" has already chosen. Being
         # told to click Add is a dead end for anyone typing Sinhala or speaking,
@@ -3057,6 +3138,11 @@ def answer_public_message(database, session_id, provided_token, payload):
                 "show-category",
                 next_state="browsing",
                 response_products=(named or scoped)[:4],
+                # "More info" after a recommendation must be about the product
+                # that was recommended, not whatever was selected before it.
+                selected_product_id=(
+                    named[0]["id"] if len(named) == 1 else "unchanged"
+                ),
                 is_translated=True,
             )
 
@@ -3169,6 +3255,14 @@ def answer_public_message(database, session_id, provided_token, payload):
                 "view details",
                 "know more",
                 "more about",
+                "more info",
+                "more detail",
+                "full detail",
+                "full info",
+                "specs",
+                "specification",
+                "තව තොරතුරු",
+                "மேலோம் தகவல்",
             )
         )
 
@@ -3288,13 +3382,70 @@ def answer_public_message(database, session_id, provided_token, payload):
     # and "do you accept cash on delivery" name no single product, so nothing
     # above matched. Only the catalogue and the seller's own policy text are
     # offered as facts.
+    # Ambiguous scope: they are looking at one category and asked for a budget
+    # without saying whether they mean that category or the whole shop.
+    # Guessing either way is wrong half the time, so ask.
+    if (
+        has_price_constraint(message)
+        and not named_category
+        and session.get("lastCategoryShown")
+        and current_state != "clarifying-scope"
+    ):
+        session_snapshot.reference.set(
+            {"pendingBudgetQuestion": message},
+            merge=True,
+        )
+        return respond(
+            f"Just to be sure - are you asking about "
+            f"{session['lastCategoryShown']} in that price range, or any "
+            "product in the shop? Reply with the category name, or say "
+            "'any product'.",
+            "confirm-scope",
+            next_state="clarifying-scope",
+        )
+
+    if has_price_constraint(message):
+        budget_scope = category_products(
+            products,
+            named_category or session.get("lastCategoryShown"),
+        ) if (named_category or session.get("lastCategoryShown")) else []
+        budget_answer = generate_catalogue_answer(
+            message,
+            budget_scope or products,
+            language,
+            catalog["business"].get("storefrontFaq", ""),
+        )
+
+        if budget_answer:
+            for marker in (MISSING_FACT_MARKER, ANSWERED_MARKER):
+                budget_answer = budget_answer.replace(marker, "")
+            named = products_named_in(budget_answer, budget_scope or products)
+            return respond(
+                budget_answer.strip(),
+                "show-category",
+                next_state="browsing",
+                response_products=named[:4],
+                is_translated=True,
+            )
+
+    if named_category:
+        matches = category_products(products, named_category)
+
+        if matches:
+            return respond(
+                f"Here is what we have in {named_category}.",
+                "show-category",
+                next_state="browsing",
+                response_products=matches,
+            )
+
     if not is_simple_greeting and intent_is(
         "product_question",
         "policy_question",
         "unknown",
     ):
         # Scope to what they were just shown when the question names nothing.
-        recent_category = session.get("lastCategoryShown")
+        recent_category = None if named_category else session.get("lastCategoryShown")
         scoped_products = (
             category_products(products, recent_category) if recent_category else []
         )
@@ -3315,6 +3466,9 @@ def answer_public_message(database, session_id, provided_token, payload):
                 "show-catalog",
                 next_state="browsing",
                 response_products=(named or scoped_products or products)[:4],
+                selected_product_id=(
+                    named[0]["id"] if len(named) == 1 else "unchanged"
+                ),
                 is_translated=True,
             )
 
