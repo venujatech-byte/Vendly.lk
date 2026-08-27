@@ -745,6 +745,11 @@ def update_order_status(database, business_id, order_id, uid, payload):
         .document(order_id)
     )
     business_reference = database.collection("businesses").document(business_id)
+    # Allocated outside the transaction, as create_order does: a document
+    # reference must not be created during a retry.
+    status_notification_reference = business_reference.collection(
+        "notifications",
+    ).document()
     transaction = database.transaction()
 
     @google_firestore.transactional
@@ -971,6 +976,32 @@ def update_order_status(database, business_id, order_id, uid, payload):
             order_changes["stockReservationStatus"] = "sold"
 
         current_transaction.update(order_reference, order_changes)
+
+        # A customer cancelling is news to the seller: stock has just been
+        # released, anything already picked has to be put back, and a courier
+        # may have been booked. A seller cancelling their own order is not -
+        # they were the one who did it.
+        if new_status == "cancelled" and str(uid).startswith("public-chat:"):
+            customer_name = (order.get("customerSnapshot") or {}).get(
+                "name",
+                "The customer",
+            )
+            current_transaction.set(
+                status_notification_reference,
+                {
+                    "type": "order-cancelled",
+                    "title": f"Order {order.get('orderNumber', '')} cancelled",
+                    "message": (
+                        f"{customer_name} cancelled this order from the chat."
+                        + (f" Reason: {note}" if note else "")
+                        + " The reserved stock has been released."
+                    ),
+                    "orderId": order_reference.id,
+                    "orderNumber": order.get("orderNumber", ""),
+                    "isRead": False,
+                    "createdAt": timestamp,
+                },
+            )
 
         if new_status == "delivered" and customer_snapshot and customer_snapshot.exists:
             customer = customer_snapshot.to_dict()

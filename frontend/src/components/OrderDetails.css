@@ -71,7 +71,12 @@ html[data-theme="dark"] .order-details__warning {
   border-right: 1px solid var(--color-border);
 }
 
-.order-details__section:last-child {
+/* The divider belongs between columns, so the rightmost column never has one.
+   `:last-child` stopped meaning that when the customer note was added after
+   the actions, which left a rule down the right edge of the panel. */
+.order-details__section:last-child,
+.order-details__actions,
+.order-details__customer-note {
   padding-right: 0;
   border-right: 0;
 }
@@ -202,6 +207,9 @@ html[data-theme="dark"] .order-details__warning {
 /* Order action buttons and their individual colour meanings. */
 .order-details__actions {
   display: grid;
+  /* Spans both rows, so the note fills the white space beside the buttons
+     instead of adding a band of its own under everything. */
+  grid-row: 1 / span 2;
   align-content: start;
   gap: 9px;
 }
@@ -389,6 +397,14 @@ html[data-theme="dark"] .orders-table__details-cell {
    as one more field of address: it is the one thing on this screen that
    nobody in the shop can guess. */
 .order-details__customer-note {
+  /* Under the address and totals, where those columns run short - the actions
+     column below is the tall one. Narrower than the full row so it reads as a
+     note rather than a banner, and high enough up to be seen without
+     scrolling past the buttons. */
+  grid-column: 1 / 4;
+  grid-row: 2;
+  align-self: start;
+  min-height: 76px;
   padding: 12px 14px;
   border: 1px solid color-mix(in srgb, var(--warning, #f19b16) 40%, transparent);
   border-radius: 12px;

@@ -4,6 +4,7 @@ import {
   Bot,
   Building2,
   Check,
+  ChevronDown,
   CheckCircle2,
   CircleUserRound,
   ClipboardList,
@@ -192,7 +193,9 @@ async function compressUploadImage(file) {
 
 function getInitialView() {
   const view = window.location.hash.replace("#", "");
-  return ["catalog", "chatbot", "reviews", "contact"].includes(view) ? view : "catalog";
+  return ["catalog", "chatbot", "reviews", "contact", "orders"].includes(view)
+    ? view
+    : "catalog";
 }
 
 function getInitialTheme() {
@@ -252,6 +255,7 @@ function StorefrontPage({ linkType }) {
     maxPrice: "",
   });
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [isDraftOpen, setIsDraftOpen] = useState(false);
   const [detailProduct, setDetailProduct] = useState(null);
   const [detailReviews, setDetailReviews] = useState([]);
   const [isLoadingDetailReviews, setIsLoadingDetailReviews] = useState(false);
@@ -1249,13 +1253,18 @@ function StorefrontPage({ linkType }) {
             <Star size={20} /> Reviews
           </button>
           <button
+            className={activeView === "orders" ? "is-active" : ""}
             type="button"
             onClick={() => {
               setIsMobileMenuOpen(false);
-              setIsAccountOpen(true);
+              // Orders are a page, not a modal. They are read, compared and
+              // acted on - a dialog that covers the shop is the wrong shape
+              // for that, and it cannot be linked to or returned to.
+              if (user) changeView("orders");
+              else setIsAccountOpen(true);
             }}
           >
-            <UserRound size={20} /> {user ? "My orders" : "Login / Guest"}
+            <UserRound size={20} /> {user ? text.myOrders : text.loginGuest}
           </button>
         </nav>
       </aside>
@@ -1286,6 +1295,7 @@ function StorefrontPage({ linkType }) {
                 {activeView === "chatbot" &&
                   `${business.name} – AI Ordering Assistant`}
                 {activeView === "reviews" && "Reviews"}
+                {activeView === "orders" && text.myOrders}
                 {activeView === "contact" && "Contact"}
               </strong>
               <small>{business.name}</small>
@@ -1409,7 +1419,21 @@ function StorefrontPage({ linkType }) {
             <button
               className="storefront-cart-button"
               type="button"
-              onClick={() => setIsCartOpen(true)}
+              onClick={() => {
+                // In the chat, the cart IS the order draft, and on a phone the
+                // draft panel is hidden for space. Opening a separate cart
+                // there shows the same items in a second place with none of
+                // the checkout context beside them.
+                if (
+                  activeView === "chatbot"
+                  && window.matchMedia("(max-width: 820px)").matches
+                ) {
+                  setIsDraftOpen(true);
+                  return;
+                }
+
+                setIsCartOpen(true);
+              }}
               aria-label={`Open cart with ${cartQuantity} items`}
             >
               <ShoppingCart size={21} />
@@ -1504,8 +1528,32 @@ function StorefrontPage({ linkType }) {
                 current.filter((item) => item.variantId !== variantId),
               )
             }
+            isDraftOpen={isDraftOpen}
+            onCloseDraft={() => setIsDraftOpen(false)}
             onOpenCheckout={() => setIsCheckoutOpen(true)}
             onOpenReviews={() => changeView("reviews")}
+          />
+        )}
+
+        {activeView === "orders" && (
+          <StorefrontOrdersView
+            business={business}
+            chatLanguage={chatLanguage}
+            orders={customerOrders}
+            isSignedIn={Boolean(user)}
+            onOpenAccount={() => setIsAccountOpen(true)}
+            onCancelOrder={(order) => {
+              // Routed through the chat on purpose. The rule for what may be
+              // cancelled, the confirmation step and the stock release all
+              // live there already; a second implementation would be a second
+              // set of rules to keep in step.
+              changeView("chatbot");
+              requestChatMessage(`Cancel order ${order.orderNumber}`);
+            }}
+            onOpenChat={(order) => {
+              changeView("chatbot");
+              requestChatMessage(`About order ${order.orderNumber}`);
+            }}
           />
         )}
 
@@ -1607,6 +1655,135 @@ function StorefrontPage({ linkType }) {
         storeCode={business.shortCode}
       />
     </main>
+  );
+}
+
+// A customer may cancel only while the shop has not started on the order.
+// Once it is packed, the parcel exists and the stock has moved with it. The
+// server enforces this too - this list only decides whether to offer a button
+// that would be refused.
+const CUSTOMER_CANCELLABLE_STATUSES = ["needs-confirmation", "confirmed"];
+
+function StorefrontOrdersView({
+  business,
+  chatLanguage,
+  orders,
+  isSignedIn,
+  onCancelOrder,
+  onOpenAccount,
+  onOpenChat,
+}) {
+  const text = storefrontText(chatLanguage);
+
+  if (!isSignedIn) {
+    return (
+      <div className="storefront-page storefront-orders-page">
+        <div className="storefront-empty-state">
+          <Package size={34} />
+          <h2>{text.signInToSeeOrders}</h2>
+          <p>{text.signInToSeeOrdersHint}</p>
+          <button type="button" onClick={onOpenAccount}>
+            {text.loginGuest}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="storefront-page storefront-orders-page">
+      <header className="storefront-orders-page__header">
+        <h1>{text.myOrders}</h1>
+        <p>{business.name}</p>
+      </header>
+
+      {orders.length === 0 && (
+        <div className="storefront-empty-state">
+          <Package size={34} />
+          <h2>{text.noOrdersYet}</h2>
+          <p>{text.noOrdersYetHint}</p>
+        </div>
+      )}
+
+      {orders.map((order) => {
+        const status = order.fulfilmentStatus || "needs-confirmation";
+        const canCancel = CUSTOMER_CANCELLABLE_STATUSES.includes(status);
+
+        return (
+          <article className="storefront-order-card" key={order.id}>
+            <header>
+              <div>
+                <strong>{order.orderNumber}</strong>
+                <small>
+                  {order.itemCount} {text.reviewYourItems.toLowerCase()}
+                </small>
+              </div>
+              <span className={`storefront-order-card__status is-${status}`}>
+                {String(status).replace(/-/g, " ")}
+              </span>
+            </header>
+
+            <div className="storefront-order-card__items">
+              {(order.items || []).map((item) => (
+                <div key={item.variantId || item.productId}>
+                  <span className="storefront-order-card__image">
+                    {item.mediaUrl ? (
+                      <img src={item.mediaUrl} alt="" />
+                    ) : (
+                      <Package size={16} />
+                    )}
+                  </span>
+                  <span>
+                    <strong>{item.name}</strong>
+                    {item.size ? <small>{item.size}</small> : null}
+                  </span>
+                  <span className="storefront-order-card__quantity">
+                    × {item.quantity}
+                  </span>
+                  <strong>{money(item.lineTotalMinor)}</strong>
+                </div>
+              ))}
+            </div>
+
+            <dl className="storefront-order-card__totals">
+              <div>
+                <dt>{text.itemsTotal}</dt>
+                <dd>{money(order.subtotalMinor)}</dd>
+              </div>
+              <div>
+                <dt>{text.deliveryFee}</dt>
+                <dd>{money(order.deliveryFeeMinor)}</dd>
+              </div>
+              <div>
+                <dt>{text.total}</dt>
+                <dd>{money(order.totalAmountMinor)}</dd>
+              </div>
+            </dl>
+
+            <footer>
+              <button type="button" onClick={() => onOpenChat(order)}>
+                {text.askAboutOrder}
+              </button>
+              {canCancel ? (
+                <button
+                  type="button"
+                  className="storefront-order-card__cancel"
+                  onClick={() => onCancelOrder(order)}
+                >
+                  <X size={15} /> {text.cancelOrder}
+                </button>
+              ) : (
+                // Saying why beats a button that fails, and beats no button at
+                // all - the customer would otherwise keep looking for one.
+                <small className="storefront-order-card__locked">
+                  {text.cannotCancelNow}
+                </small>
+              )}
+            </footer>
+          </article>
+        );
+      })}
+    </div>
   );
 }
 
@@ -2669,10 +2846,25 @@ function ChatbotView({
   onDecreaseItem,
   onIncreaseItem,
   onRemoveItem,
+  isDraftOpen,
+  onCloseDraft,
   onOpenCheckout,
   onOpenReviews,
 }) {
   const text = storefrontText(chatLanguage);
+  const listRef = useRef(null);
+  const [isAwayFromLatest, setIsAwayFromLatest] = useState(false);
+
+  // Reading back through a long conversation, the way down is otherwise a lot
+  // of scrolling - and new replies arrive while they read.
+  function trackScrollPosition(event) {
+    const list = event.currentTarget;
+    const distanceFromBottom =
+      list.scrollHeight - list.scrollTop - list.clientHeight;
+
+    setIsAwayFromLatest(distanceFromBottom > 240);
+  }
+
   // The editable panel reads the live browser cart, not the summary frozen
   // into the message, so quantities change as the customer adjusts them. The
   // next message uploads this cart, which is what makes the edit stick.
@@ -2688,7 +2880,12 @@ function ChatbotView({
   return (
     <div className="storefront-page storefront-chat-page">
       <section className="storefront-chat-panel">
-        <div className="storefront-chat-messages" aria-live="polite">
+        <div
+          className="storefront-chat-messages"
+          aria-live="polite"
+          ref={listRef}
+          onScroll={trackScrollPosition}
+        >
           {messages.map((message, index) => (
             <div
               className={`storefront-chat-message storefront-chat-message--${message.role}`}
@@ -3062,6 +3259,26 @@ function ChatbotView({
           </button>
           </form>
         </div>
+
+        {/* Inside the panel. As a sibling of it the button was positioned
+            against the chat PAGE, whose right-hand column is the draft, so on
+            a desktop it appeared over the draft instead of the conversation. */}
+        {isAwayFromLatest && (
+          <button
+            type="button"
+            className="storefront-chat-jump"
+            aria-label={text.jumpToLatest}
+            title={text.jumpToLatest}
+            onClick={() =>
+              listRef.current?.scrollTo({
+                top: listRef.current.scrollHeight,
+                behavior: "smooth",
+              })
+            }
+          >
+            <ChevronDown size={20} />
+          </button>
+        )}
       </section>
 
       {(isListening || isHoldingVoiceButton) && (
@@ -3075,7 +3292,25 @@ function ChatbotView({
         </div>
       )}
 
-      <aside className="storefront-draft">
+      {isDraftOpen && (
+        <button
+          className="storefront-draft-backdrop"
+          type="button"
+          aria-label={text.close}
+          onClick={onCloseDraft}
+        />
+      )}
+
+      <aside className={`storefront-draft ${isDraftOpen ? "is-open" : ""}`}>
+        <button
+          type="button"
+          className="storefront-draft__close"
+          onClick={onCloseDraft}
+          aria-label={text.close}
+        >
+          <X size={18} />
+        </button>
+
 
         <section>
           <h3>{text.productsAndQuantity}</h3>

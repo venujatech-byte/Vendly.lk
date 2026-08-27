@@ -2074,6 +2074,17 @@ The delivery note was concatenated into `privateNote` behind boilerplate, so
 it could not be shown as the customer's own words and the new-order
 notification had nothing to quote.
 
+**It did not show for existing orders**, and that is the part worth recording:
+adding a field only helps orders created *after* it exists. Every order already
+placed still carries its note inside `privateNote`, so `mapOrderForTable`
+recovers it from there when `customerNote` is absent. A schema change that
+leaves old data unreadable is a data loss with a deployment date.
+
+The extraction is a pure function in `services/orderNotes.js` with a
+`.test.mjs` beside it - the parsing has real edge cases (the deposit sentence
+appended after the note, a seller's own note that must never be shown as the
+customer's words) and none of them are visible from the call site.
+
 It is now its own `customerNote` field: quoted in the seller's **notification**
 ("… placed an order. Note: \"leave with security\""), and given its own
 tinted block in the **order expand view** rather than a line in the address.
@@ -2098,3 +2109,105 @@ deduplicated by document id, since the newest order matches both queries and
 would otherwise be announced twice.
 
 Four tests cover it; the first fails against the old single-field query.
+
+### 23.65 Orders became a page, with cancellation
+
+**A page, not a dialog.** "My orders" opened the account modal, which covers
+the shop, cannot be linked to and cannot be returned to - the wrong shape for
+something a customer reads, compares and acts on. It is a view now, listing
+each order with its items, photos, status and totals.
+
+**Cancellation** is offered only while the status is `needs-confirmation` or
+`confirmed`. Once the order is packed the parcel exists and the stock has moved
+with it. Where cancelling is not possible the card **says so** rather than
+hiding the control - otherwise the customer keeps looking for it.
+
+The button routes through the chat rather than a new endpoint. The rule for
+what may be cancelled, the confirmation step and the stock release all live
+there and are covered by tests; a second implementation would be a second set
+of rules to keep in step, and this session has already recorded four bugs of
+exactly that kind.
+
+### 23.66 Seller order view: the note, and the columns
+
+The customer note first went into the middle of the four-column grid, where it
+was a narrow box the eye skips. It now spans the full width **below** the
+columns, with a minimum height, and Order Actions keeps its original place
+beside the totals. Extra information is not a reason to relayout the screen
+around it.
+
+### 23.67 Chat on a phone: the draft, and the way back down
+
+**The cart button opens the order draft** while the chat is open on a phone. In
+the chat the cart *is* the draft, and the side panel that shows it is hidden
+for space - opening a separate cart drawer showed the same items in a second
+place with none of the checkout context beside them. It slides in with a
+backdrop; on desktop, where the panel is already visible, the button still
+opens the cart.
+
+**A jump-to-latest button** appears once the customer has scrolled more than
+240px from the bottom, and sits above the composer rather than over it. Reading
+back through a long conversation, the way down was otherwise a lot of
+scrolling - and replies keep arriving while they read.
+
+**Scope, twice in one session.** `isDraftOpen` was declared in
+`StorefrontPage` and used in `ChatbotView`, exactly like the `text` bug in
+§23.62. Lint caught this one before it shipped, which is the difference
+between the two.
+
+### 23.68 The seller is told when a customer cancels — NEW
+
+No status change created a notification, so a cancellation from the chat
+reached the seller only if they happened to notice the row change colour. By
+then the stock is already released and anything picked has to go back.
+
+`update_order_status` now writes an `order-cancelled` notification naming the
+customer, quoting the reason if one was given, and stating that the reserved
+stock has been released.
+
+**Only when the customer did it.** The actor is identified by the
+`public-chat:` uid prefix the chat passes; a seller cancelling their own order
+is not news to them. Two tests cover both directions, and the notification
+document reference is allocated outside the transaction as `create_order`
+does - a reference created during a retry would be a different document each
+attempt.
+
+### 23.69 The jump button appeared over the draft panel — FIXED
+
+It was `position: absolute` as a **sibling** of the chat panel, so it resolved
+against the chat page - a two-column grid whose right column is the order
+draft. On a desktop it landed there rather than over the conversation.
+
+Now inside the panel, with `position: relative` on the panel to anchor it. An
+absolutely positioned element belongs inside the box it is positioned against;
+placing it beside that box and setting coordinates only works while the layout
+has no second column.
+
+### 23.70 The mobile order draft was a mostly empty full-height drawer — FIXED
+
+It slid in as a full-height side panel, which covered the top bar the customer
+uses to get back and left a screen of blank space below three short fields.
+
+It is a **bottom sheet** now: full width, capped at 82dvh, rounded top corners,
+scrolling its own content, with the close button sticky at the top and the
+safe-area inset respected. That is the shape a short panel wants on a phone -
+near the thumb, and never taller than what it holds.
+
+### 23.71 Seller order view: the edge rule, the note, and weight
+
+**The vertical line down the right edge** came from
+`.order-details__section:last-child { border-right: 0 }`. The divider belongs
+*between* columns, so the rule was written as "not the last one" - and adding
+the customer note after the actions made the actions column no longer last, so
+it kept a border that now had nothing to its right. Named explicitly now
+rather than relying on document order.
+
+**The note** spans three of the four columns instead of all four, and the
+actions column spans both rows - so the note fills the white space beside the
+buttons rather than adding a band of its own beneath everything. Same
+information, no extra height.
+
+**Total weight** joins the totals, formatted in grams below a kilo and
+kilograms above. Couriers price by the kilo, and the seller has to check the
+parcel against that figure on the courier's scale - a mismatch is a surcharge
+they pay. Shown only when the order has a weight recorded.

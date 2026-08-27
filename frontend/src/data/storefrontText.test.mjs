@@ -18,6 +18,8 @@ const SHARED_ACROSS_LANGUAGES = new Set([
   "specSize",
   "filters",
   "sortFeatured",
+  "deliveryFee",
+  "loginGuest",
 ]);
 
 for (const language of ["si", "ta"]) {

@@ -227,16 +227,6 @@ function OrderDetails({
         </div>
       </section>
 
-      {/* The customer's own instruction for this delivery - a landmark, a time
-          to call, gift wrapping. Given its own block rather than a line in the
-          address, because it is the one thing here nobody can guess. */}
-      {order.customerNote && (
-        <section className="order-details__section order-details__customer-note">
-          <h3>Customer note</h3>
-          <p>{order.customerNote}</p>
-        </section>
-      )}
-
       {/* Product subtotal, delivery fee, final total, and waybill number. */}
       <section className="order-details__section order-details__summary">
         <div>
@@ -255,6 +245,15 @@ function OrderDetails({
           <span>Delivery Fee</span>
           <strong>{order.deliveryFee ?? "Not calculated"}</strong>
         </div>
+
+        {/* What the courier is charging for, and what the parcel must weigh on
+            their scale. A mismatch is a surcharge the seller pays. */}
+        {order.totalWeightGrams > 0 && (
+          <div>
+            <span>Total Weight</span>
+            <strong>{order.totalWeight}</strong>
+          </div>
+        )}
 
         <div className="order-details__total">
           <span>Total</span>
@@ -367,6 +366,16 @@ function OrderDetails({
           <p className="order-details__action-error" role="alert">{actionError}</p>
         )}
       </section>
+      {/* The customer's own instruction for this delivery - a landmark, a time
+          to call, gift wrapping. Given its own block rather than a line in the
+          address, because it is the one thing here nobody can guess. */}
+      {order.customerNote && (
+        <section className="order-details__section order-details__customer-note">
+          <h3>Customer note</h3>
+          <p>{order.customerNote}</p>
+        </section>
+      )}
+
     </div>
   );
 }

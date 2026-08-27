@@ -1,4 +1,5 @@
 import { apiRequest } from "./apiClient";
+import { customerNoteFromPrivateNote } from "./orderNotes";
 
 function formatCurrency(minorUnits = 0) {
   return `LKR ${(minorUnits / 100).toLocaleString("en-LK", {
@@ -40,10 +41,18 @@ export function mapOrderForTable(order) {
     fulfilmentStatus: order.fulfilmentStatus,
     paymentMethod: order.paymentMethod ?? "cod",
     privateNote: order.privateNote ?? "",
+    // Grams below a kilo, kilograms above: couriers price by the kilo, and
+    // "1250 g" makes the seller do the conversion at the counter.
+    totalWeightGrams: order.totalWeightGrams ?? 0,
+    totalWeight:
+      (order.totalWeightGrams ?? 0) >= 1000
+        ? `${((order.totalWeightGrams ?? 0) / 1000).toFixed(2)} kg`
+        : `${order.totalWeightGrams ?? 0} g`,
     // The customer's own instruction, kept separate from the seller's private
-    // note so the two are never shown as one another's words. Older orders
-    // predate the field and fall back to an empty string.
-    customerNote: order.customerNote ?? "",
+    // note so the two are never shown as one another's words. Orders placed
+    // before the field existed still have it, concatenated into privateNote by
+    // the chatbot - recovered here so those notes are not lost to the seller.
+    customerNote: order.customerNote || customerNoteFromPrivateNote(order.privateNote),
     fraudWarning,
     total: formatCurrency(order.totalAmountMinor),
     subtotal: formatCurrency(order.subtotalMinor),
