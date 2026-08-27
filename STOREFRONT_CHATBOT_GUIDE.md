@@ -1581,3 +1581,42 @@ comparison names two. The branch uses `products_named_in`, the tolerant
 matcher built in §23.35 for finding every product named in a piece of text.
 Two functions that both "find products in a message" answer different
 questions; picking the wrong one reads as correct until a message names two.
+
+### 23.41 A feature named with a category was ignored — FIXED
+
+**Seen:** "send me smart watches with water resistant" listed every smart
+watch, including the ones whose descriptions say nothing about water.
+
+**Cause:** the message is two requests in one - a category and a filter - and
+only the category was read. Listing all of them under the feature reads as
+though they all have it.
+
+**Fix, algorithm first.** `feature_terms` takes what is left after removing
+the request words ("send", "me", "with") and the category's own words, in
+singular and plural, so "smart watches" leaves nothing behind while "with
+water resistant" leaves `water resistant`. `products_with_features` then keeps
+products whose own text covers **every** term - one requirement in two words,
+not two alternatives.
+
+`FEATURE_SYNONYMS` bridges customer wording to seller wording: "waterproof"
+matches a description saying "IP67 water resistant", and vice versa. Without
+it the exact-word match found one of two and implied the other lacked the
+feature.
+
+**No AI on this path**, and a test fails outright if it is called. The
+seller's text either contains the feature or it does not; reading it here
+costs nothing, cannot hallucinate, and works while the provider is rate
+limited.
+
+**The model is only consulted when the algorithm finds nothing**, in case the
+feature was described in words the synonym table does not know. If it also
+finds nothing, the customer is told plainly that no product mentions it, with
+the category still offered - never a list of products that fail the filter.
+
+**Two branches, one rule.** A cued request ("show me smart watches") and a
+bare category name are handled by different branches, and the first attempt
+put the filter in only one - so the fix did nothing for the reported message.
+Both now call one `category_response` helper. This is the third time in this
+session a rule existed twice and only one copy was updated (§23.38, §23.40);
+`answer_public_message` being one 3,700-line function is the reason, and
+splitting it should move up the roadmap.

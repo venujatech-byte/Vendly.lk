@@ -1475,3 +1475,92 @@ def test_vs_is_read_as_a_comparison(chat, monkeypatch):
     reply = chat.say("GM2 Pro Earbuds vs Runner Shoes", intent="product_question")
 
     assert "| Spec |" in reply["message"]
+
+
+def watch_catalogue():
+    return [
+        {"id": "t800", "name": "T800 Ultra Smart Watch", "categoryName": "Smart watch",
+         "description": "Bluetooth calling, IP67 water resistant.",
+         "sellingPriceMinor": 130000, "weightGrams": 100, "availableStock": 48,
+         "media": [], "variants": [{"id": "v-t800", "size": "", "availableStock": 48,
+                                    "sellingPriceMinor": 130000, "weightGrams": 100}]},
+        {"id": "zeblace", "name": "Zeblace Gts 3 Smart Watch", "categoryName": "Smart watch",
+         "description": "AMOLED display, 30 days battery.",
+         "sellingPriceMinor": 500000, "weightGrams": 100, "availableStock": 40,
+         "media": [], "variants": [{"id": "v-zeb", "size": "", "availableStock": 40,
+                                    "sellingPriceMinor": 500000, "weightGrams": 100}]},
+    ]
+
+
+def test_a_feature_request_filters_the_category_without_calling_the_ai(chat, monkeypatch):
+    monkeypatch.setattr(
+        public_chat_service,
+        "session_catalog",
+        lambda *a: {"business": {"name": "VS Tech", "storefrontFaq": ""},
+                    "products": watch_catalogue()},
+    )
+    monkeypatch.setattr(
+        public_chat_service,
+        "generate_catalogue_answer",
+        lambda *a, **k: pytest.fail("the descriptions answer this without a call"),
+    )
+
+    reply = chat.say("send me smart watches with water resistant",
+                     intent="show_category", categoryQuery="Smart watch")
+
+    # Only the watch whose description mentions it. Listing both would read as
+    # though the Zeblace is water resistant too.
+    assert [item["id"] for item in reply["products"]] == ["t800"]
+    assert "water resistant" in reply["message"]
+
+
+def test_a_feature_nobody_has_is_said_plainly(chat, monkeypatch):
+    monkeypatch.setattr(
+        public_chat_service,
+        "session_catalog",
+        lambda *a: {"business": {"name": "VS Tech", "storefrontFaq": ""},
+                    "products": watch_catalogue()},
+    )
+
+    reply = chat.say("send me smart watches with satellite gps",
+                     intent="show_category", categoryQuery="Smart watch")
+
+    # The AI is stubbed to None here, standing in for a rate limited provider.
+    assert "None of our" in reply["message"]
+
+
+def test_the_ai_is_consulted_before_denying_a_feature(chat, monkeypatch):
+    monkeypatch.setattr(
+        public_chat_service,
+        "session_catalog",
+        lambda *a: {"business": {"name": "VS Tech", "storefrontFaq": ""},
+                    "products": watch_catalogue()},
+    )
+    monkeypatch.setattr(
+        public_chat_service,
+        "generate_catalogue_answer",
+        lambda *a, **k: "The Zeblace Gts 3 Smart Watch has an always-on "
+                        "screen. [ANSWERED]",
+    )
+
+    reply = chat.say("send me smart watches with always on display",
+                     intent="show_category", categoryQuery="Smart watch")
+
+    # A seller may describe a feature in words the matcher does not know, so
+    # the model gets a look before the customer is told it does not exist.
+    assert "always-on" in reply["message"]
+    assert [item["id"] for item in reply["products"]] == ["zeblace"]
+
+
+def test_a_plain_category_request_still_lists_the_category(chat, monkeypatch):
+    monkeypatch.setattr(
+        public_chat_service,
+        "session_catalog",
+        lambda *a: {"business": {"name": "VS Tech", "storefrontFaq": ""},
+                    "products": watch_catalogue()},
+    )
+
+    reply = chat.say("show me smart watches", intent="show_category",
+                     categoryQuery="Smart watch")
+
+    assert len(reply["products"]) == 2

@@ -1307,6 +1307,94 @@ def products_by_ids(products, ids):
     return [product for product in products if product.get("id") in wanted]
 
 
+
+# Words that carry no feature meaning, so what remains after removing them and
+# the category name is what the customer is actually filtering on.
+FEATURE_STOP_WORDS = {
+    "send", "show", "give", "me", "us", "my", "i", "want", "need", "looking",
+    "for", "with", "have", "having", "has", "that", "which", "the", "a", "an",
+    "any", "some", "all", "of", "and", "or", "is", "are", "do", "you", "your",
+    "please", "product", "products", "item", "items", "one", "ones", "thing",
+    "get", "find", "see", "list", "under", "in", "on", "at", "to", "can",
+    "there", "it", "this", "these", "those", "only", "also", "like", "good",
+    "ekak", "ona", "thiyenawada", "thiyenawa", "mata", "oni",
+}
+
+# A customer says "waterproof"; the seller writes "IP68" or "water resistant".
+# Matching the exact word alone found nothing and reported that no product had
+# a feature the seller had described in different words.
+FEATURE_SYNONYMS = {
+    "waterproof": ("waterproof", "water resistant", "water-resistant", "ip67", "ip68", "ipx7", "ipx8", "splash"),
+    "water": ("waterproof", "water resistant", "water-resistant", "ip67", "ip68", "ipx", "splash"),
+    "resistant": ("resistant", "resistance", "proof"),
+    "bluetooth": ("bluetooth", "wireless"),
+    "wireless": ("wireless", "bluetooth"),
+    "calling": ("calling", "call", "bluetooth calling", "phone call"),
+    "gaming": ("gaming", "game", "low latency"),
+    "noise": ("noise", "anc", "noise cancelling", "noise cancellation"),
+    "anc": ("anc", "noise cancelling", "noise cancellation"),
+    "fast": ("fast", "quick", "rapid"),
+    "charging": ("charging", "charge", "charger"),
+    "amoled": ("amoled", "oled"),
+    "sim": ("sim", "sim slot", "sim card"),
+    "battery": ("battery", "mah"),
+    "warranty": ("warranty", "guarantee"),
+}
+
+
+def feature_terms(message, category_name):
+    """The feature words left once the request and the category are removed.
+
+    "send me smart watches with water resistant" is a category request AND a
+    filter. Reading only the category answered it with every smart watch,
+    including the ones without the feature the customer asked for.
+    """
+    # Plural and singular both, so the "watches" of "smart watches" is
+    # recognised as part of the category "Smart watch" rather than surviving as
+    # a feature the customer never asked for.
+    category_words = message_word_alias_set(str(category_name or ""))
+
+    return [
+        word
+        for word in word_characters(str(message or "")).casefold().split()
+        if word not in FEATURE_STOP_WORDS
+        and len(word) > 1
+        and not (message_word_alias_set(word) & category_words)
+    ]
+
+
+def product_mentions_feature(product, term):
+    """True when this product's own text describes the feature asked for."""
+    haystack = " ".join(
+        str(product.get(field, "") or "")
+        for field in ("name", "description", "aiDescription", "productSize", "brand")
+    ).casefold()
+
+    for candidate in FEATURE_SYNONYMS.get(term, (term,)):
+        if candidate in haystack:
+            return True
+
+    return False
+
+
+def products_with_features(products, terms):
+    """Products whose descriptions cover every feature word the customer used.
+
+    Deterministic on purpose: the seller's text either contains the feature or
+    it does not, and reading it here costs nothing and cannot hallucinate. The
+    model is only worth calling when this finds nothing, in case the seller
+    described the feature in words this does not know.
+    """
+    if not terms:
+        return []
+
+    return [
+        product
+        for product in products
+        if all(product_mentions_feature(product, term) for term in terms)
+    ]
+
+
 def comparison_table(products):
     """Build a spec table from stored facts, with no AI call.
 
@@ -3791,14 +3879,80 @@ def answer_public_message(database, session_id, provided_token, payload):
                 is_translated=True,
             )
 
-    if category_request:
-        matches = category_products(products, category_request)
+    def category_response(category_name, matches, heading):
+        """Answer a category request, honouring any feature named alongside it.
+
+        Two branches list a category - one for a cued request ("show me smart
+        watches"), one for a bare category name. Both must apply the filter, so
+        it lives here rather than being written twice and drifting apart.
+        """
+        requested_features = feature_terms(message, category_name)
+
+        if not requested_features:
+            return respond(
+                heading,
+                "show-category",
+                next_state="browsing",
+                response_products=matches,
+                selected_product_id=(
+                    None if not session.get("productId") else "unchanged"
+                ),
+            )
+
+        # Read the seller's own text first. It cannot hallucinate, costs
+        # nothing, and works while the provider is rate limited.
+        feature_matches = products_with_features(matches, requested_features)
+        feature_text = " ".join(requested_features)
+
+        if feature_matches:
+            return respond(
+                f"Here is what we have in {category_name} with {feature_text}.",
+                "show-category",
+                next_state="browsing",
+                response_products=feature_matches,
+            )
+
+        # Nothing matched by reading. The seller may have described the feature
+        # in words the matcher does not know, so the model gets a look before
+        # the customer is told it does not exist.
+        feature_answer = generate_catalogue_answer(
+            message,
+            matches,
+            language,
+            catalog["business"].get("storefrontFaq", ""),
+        )
+
+        if feature_answer and MISSING_FACT_MARKER not in feature_answer:
+            for marker in (MISSING_FACT_MARKER, ANSWERED_MARKER):
+                feature_answer = feature_answer.replace(marker, "")
+
+            named = products_named_in(feature_answer, matches)
+
+            if named:
+                return respond(
+                    feature_answer.strip(),
+                    "show-category",
+                    next_state="browsing",
+                    response_products=named[:4],
+                    is_translated=True,
+                )
+
+        # Said plainly. Listing the category unfiltered under a feature request
+        # reads as though all of them have it.
         return respond(
-            f"Here are all available products in {category_request}.",
+            f"None of our {category_name} mentions {feature_text} in its "
+            f"description. Here is everything we have in {category_name} - "
+            "tell me what matters most and I will help you choose.",
             "show-category",
             next_state="browsing",
             response_products=matches,
-            selected_product_id=None if not session.get("productId") else "unchanged",
+        )
+
+    if category_request:
+        return category_response(
+            category_request,
+            category_products(products, category_request),
+            f"Here are all available products in {category_request}.",
         )
 
     if requested_brand and not selected_product:
@@ -4075,11 +4229,10 @@ def answer_public_message(database, session_id, provided_token, payload):
         matches = category_products(products, named_category)
 
         if matches:
-            return respond(
+            return category_response(
+                named_category,
+                matches,
                 f"Here is what we have in {named_category}.",
-                "show-category",
-                next_state="browsing",
-                response_products=matches,
             )
 
     if not is_simple_greeting and intent_is(
