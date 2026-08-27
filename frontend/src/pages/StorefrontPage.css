@@ -672,6 +672,9 @@
 .storefront-chat-messages {
   overflow-y: auto;
   padding: 26px 24px 38px;
+  /* The topbar is sticky above this list; without this, scrolling to a
+     message can tuck it underneath. */
+  scroll-padding-top: 12px;
   scrollbar-color: var(--sf-border) transparent;
 }
 
@@ -3096,7 +3099,7 @@ body:has(.storefront-chat-page) {
 
 .storefront-chat-messages > div:last-child {
   min-height: 1px;
-  scroll-margin-bottom: 154px;
+  scroll-margin-bottom: 92px;
 }
 
 @media (max-width: 640px) {
@@ -3106,7 +3109,7 @@ body:has(.storefront-chat-page) {
   }
 
   .storefront-chat-messages > div:last-child {
-    scroll-margin-bottom: calc(132px + env(safe-area-inset-bottom));
+    scroll-margin-bottom: calc(92px + env(safe-area-inset-bottom));
   }
 
   .storefront-chat-composer {
