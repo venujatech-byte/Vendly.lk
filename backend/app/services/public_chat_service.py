@@ -798,7 +798,7 @@ def chat_suggestions(action, state, has_items, has_order):
     if action == "show-bank-details":
         return ["pay-full", "pay-part"]
 
-    if action == "show-product":
+    if action in {"show-product", "product-answer"}:
         return ["order-this", "similar-products", "reviews", "delivery-fee"]
 
     if has_items:
@@ -857,6 +857,18 @@ def store_location_message(location, business_name):
 
     lines.append("You can also order here and have it delivered.")
     return " ".join(lines)
+
+
+SUPERLATIVE_PHRASES = (
+    "best", "which one", "recommend", "suggest", "top ", "good one",
+    "cheapest", "most popular", "worth", "should i",
+    "hoodama", "hondama", "හොඳම", "වරේම", "சிறந்த", "எது",
+)
+
+
+def wants_a_recommendation(message):
+    """"Which is the best one?" wants an answer, not the whole shelf."""
+    return any(phrase in str(message).casefold() for phrase in SUPERLATIVE_PHRASES)
 
 
 def find_matching_products(message, products):
@@ -953,7 +965,7 @@ def is_finished_selecting_items(message):
     }
 
 
-def find_category_request(message, products):
+def find_category_request(message, products, require_cue=True):
     """Resolve an explicit request for a whole product category."""
     clean_message = str(message).strip().casefold()
     compact_message = normalized_phrase(clean_message)
@@ -973,6 +985,13 @@ def find_category_request(message, products):
         if product.get("categoryName", "").strip()
     }
 
+    ordered_words = word_characters(clean_message).split()
+    message_phrase_aliases = {
+        "".join(ordered_words[start:start + size])
+        for size in (2, 3)
+        for start in range(len(ordered_words) - size + 1)
+    }
+
     for category in categories:
         compact_category = normalized_phrase(category)
         category_aliases = {compact_category}
@@ -985,12 +1004,21 @@ def find_category_request(message, products):
         # Match whole words, not substrings of the squashed message. Stripping
         # "es" off "Shoes" leaves the stub "sho", which is inside "show" - so
         # "show products" resolved to the Shoes category.
-        category_is_named = bool(category_aliases & message_word_aliases) or (
+        # A category written as one token ("Powerbanks") is often typed as two
+        # ("power bank"), so joined runs of consecutive words are compared too.
+        # This keeps whole-word matching - unlike substring matching, which
+        # made "show" resolve to the Shoes category.
+        category_is_named = bool(category_aliases & message_word_aliases) or bool(
+            category_aliases & message_phrase_aliases
+        ) or (
             bool(category_words) and category_words.issubset(message_words)
         )
         has_category_cue = bool(category_cues & message_words)
 
-        if exact_category or (category_is_named and has_category_cue):
+        # On the ordering path the intent is already known, so naming the
+        # category is enough - "I want to order a powerbank" carries no
+        # "show"/"list" cue and used to fall through to the whole catalogue.
+        if exact_category or (category_is_named and (has_category_cue or not require_cue)):
             return category
 
     return None
@@ -1039,7 +1067,23 @@ def related_products(products, selected_product, limit=4):
         ),
         key=price_distance,
     )
-    return (same_category + other_products)[:limit]
+    # A cross-sell should reach beyond the shelf they are already looking at,
+    # so at least a third of the strip comes from other categories when they
+    # exist. All same-category made it a duplicate of the listing above it.
+    # A cross-sell should reach past the shelf they are already looking at, so
+    # a slot or two is reserved for other categories when any exist. All
+    # same-category made the strip a duplicate of the listing above it.
+    reserved = min(len(other_products), max(1, limit // 3)) if other_products else 0
+    picked = same_category[: limit - reserved] + other_products[:reserved]
+
+    # Backfill if either side ran short, without repeating anything.
+    for product in same_category + other_products:
+        if len(picked) >= limit:
+            break
+        if product not in picked:
+            picked.append(product)
+
+    return picked[:limit]
 
 
 def normalize_chat_cart(value):
@@ -1703,6 +1747,22 @@ def answer_public_message(database, session_id, provided_token, payload):
 
         if selected_product_id != "unchanged":
             changes["selectedProductId"] = selected_product_id
+
+        # "What is the best one?" names nothing. Without this the catalogue
+        # answer saw every product and replied about a router while the
+        # customer was looking at smart watches.
+        shown_category = next(
+            (
+                item.get("categoryName")
+                for item in (response_products or [])
+                if item.get("categoryName")
+            ),
+            None,
+        )
+        if shown_category:
+            changes["lastCategoryShown"] = shown_category
+        elif product and product.get("categoryName"):
+            changes["lastCategoryShown"] = product["categoryName"]
 
         if pending_variant_id != "unchanged":
             changes["pendingVariantId"] = pending_variant_id or ""
@@ -2773,6 +2833,26 @@ def answer_public_message(database, session_id, provided_token, payload):
                     selected_product_id=selected_product["id"],
                 )
 
+        # No single product resolved. Before dumping the catalogue, see whether
+        # they named a category - "a powerbank", "a smart watch".
+        ordering_category = category_request or find_category_request(
+            message,
+            products,
+            require_cue=False,
+        )
+        category_matches = (
+            category_products(products, ordering_category) if ordering_category else []
+        )
+
+        if category_matches:
+            return respond(
+                f"Which {ordering_category} would you like to order? Tell me "
+                "the name and how many, or choose one below.",
+                "start-order",
+                next_state="browsing",
+                response_products=category_matches,
+            )
+
         if not cart_summary:
             response_message = (
                 "Which product would you like to order? Tell me the name and "
@@ -2818,6 +2898,27 @@ def answer_public_message(database, session_id, provided_token, payload):
             next_state="browsing",
             response_products=alternatives,
         )
+
+    if category_request and wants_a_recommendation(message):
+        # "Best smart watch" wants one picked and justified, not a listing.
+        scoped = category_products(products, category_request)
+        recommendation = generate_catalogue_answer(
+            message,
+            scoped or products,
+            language,
+            catalog["business"].get("storefrontFaq", ""),
+        )
+
+        if recommendation and MISSING_FACT_MARKER not in recommendation:
+            for marker in (MISSING_FACT_MARKER, ANSWERED_MARKER):
+                recommendation = recommendation.replace(marker, "")
+            return respond(
+                recommendation.strip(),
+                "show-category",
+                next_state="browsing",
+                response_products=scoped[:4],
+                is_translated=True,
+            )
 
     if category_request:
         matches = category_products(products, category_request)
@@ -2985,15 +3086,20 @@ def answer_public_message(database, session_id, provided_token, payload):
 
         return respond(
             response_message,
-            "show-product",
+            # A full overview earns the product card - gallery, reviews and
+            # the similar-products strip. A follow-up question ("does it have
+            # ANC?") wants the answer and nothing else; repeating the whole
+            # card under every reply buries it. "Show similar" is one chip away.
+            "show-product" if is_product_overview_request else "product-answer",
             next_state="browsing",
             product=selected_product,
             response_reviews=(product_reviews[:4] if is_product_overview_request else []),
             review_summary=product_review_summary,
-            # Similar products accompany every product answer, not only a full
-            # overview. A shopper asking about one feature is exactly who wants
-            # to see the nearest alternatives.
-            response_products=related_products(products, selected_product),
+            response_products=(
+                related_products(products, selected_product)
+                if is_product_overview_request
+                else []
+            ),
             selected_product_id=selected_product["id"],
             is_translated=answer_in_customer_language,
         )
@@ -3023,9 +3129,14 @@ def answer_public_message(database, session_id, provided_token, payload):
         "policy_question",
         "unknown",
     ):
+        # Scope to what they were just shown when the question names nothing.
+        recent_category = session.get("lastCategoryShown")
+        scoped_products = (
+            category_products(products, recent_category) if recent_category else []
+        )
         catalogue_answer = generate_catalogue_answer(
             message,
-            products,
+            scoped_products or products,
             language,
             catalog["business"].get("storefrontFaq", ""),
         )

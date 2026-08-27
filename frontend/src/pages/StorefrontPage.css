@@ -798,7 +798,9 @@
 .storefront-chat-catalog-card__image img {
   width: 100%;
   height: 100%;
-  object-fit: scale-down;
+  /* contain, not scale-down: scale-down never enlarges, so a small source
+     photo sat tiny in the middle of the card. */
+  object-fit: contain;
   object-position: center;
 }
 
@@ -927,7 +929,8 @@
 
 .chat-product-details__gallery {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(110px, 148px));
+  justify-content: start;
   gap: 8px;
 }
 
@@ -3276,3 +3279,44 @@ body:has(.storefront-chat-page) {
   .storefront-draft {
     font-size: 0.7rem;
   }
+
+/* 23.5 - keep the description scannable rather than a wall of text. The
+   gallery is sized by its grid cells above, not by clipping. */
+.chat-product-details__description,
+.storefront-chat-message--assistant .storefront-chat-message__content > p {
+  white-space: pre-line;
+}
+
+/* 23.7 - "You may also like" was a large two-column grid. One compact row
+   that scrolls sideways keeps the answer above it visible. */
+.storefront-chat-product-decision__related .storefront-chat-catalog {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scroll-snap-type: x mandatory;
+}
+
+.storefront-chat-product-decision__related .storefront-chat-catalog-card {
+  flex: 0 0 128px;
+  scroll-snap-align: start;
+  padding: 8px;
+}
+
+.storefront-chat-product-decision__related .storefront-chat-catalog-card__image {
+  aspect-ratio: 1 / 1;
+}
+
+.storefront-chat-product-decision__related .storefront-chat-catalog-card__details strong {
+  font-size: .72rem;
+}
+
+.storefront-chat-product-decision__related .storefront-chat-catalog-card small {
+  display: none;
+}
+
+.storefront-chat-product-decision__related .storefront-chat-catalog-card button {
+  padding: 4px 6px;
+  font-size: .64rem;
+}

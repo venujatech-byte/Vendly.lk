@@ -915,3 +915,55 @@ def test_an_unconfigured_location_is_treated_as_online_only():
     # Better a correct default than an empty address block.
     for location in ({}, None, {"isOnlineOnly": False}):
         assert "online store" in store_location_message(location, "VS Tech Store")
+
+
+def mixed_catalogue():
+    return [
+        {"id": "w1", "name": "T800 Watch", "categoryName": "Smart watch", "sellingPriceMinor": 130000},
+        {"id": "w2", "name": "T900 Watch", "categoryName": "Smart watch", "sellingPriceMinor": 140000},
+        {"id": "w3", "name": "Zeblace Watch", "categoryName": "Smart watch", "sellingPriceMinor": 500000},
+        {"id": "p1", "name": "Aspor Power Bank", "categoryName": "Power banks", "sellingPriceMinor": 800000},
+        {"id": "p2", "name": "Xiaomi Power Bank", "categoryName": "Power banks", "sellingPriceMinor": 1000000},
+    ]
+
+
+def test_related_products_reach_beyond_the_same_category():
+    categories = {
+        product["categoryName"]
+        for product in related_products(mixed_catalogue(), mixed_catalogue()[0], limit=4)
+    }
+
+    # All-same-category made the strip a duplicate of the listing above it.
+    assert len(categories) > 1
+
+
+def test_a_category_is_matched_without_a_show_or_list_cue():
+    from app.services.public_chat_service import find_category_request
+
+    products = mixed_catalogue()
+
+    # "I want to order a powerbank" carries no cue word, and used to fall
+    # through to the entire catalogue.
+    assert find_category_request("I want to order a powerbank", products, require_cue=False) == "Power banks"
+    assert find_category_request("I want to order a power bank", products, require_cue=False) == "Power banks"
+    assert find_category_request("I wan to order a smartwatch", products, require_cue=False) == "Smart watch"
+
+
+def test_browsing_still_needs_a_cue_so_a_stray_word_does_not_list_a_category():
+    from app.services.public_chat_service import find_category_request
+
+    products = mixed_catalogue()
+
+    assert find_category_request("show me power banks", products) == "Power banks"
+    # Without require_cue=False this stays None, so ordinary chatter about a
+    # product does not dump a whole category.
+    assert find_category_request("my power bank broke last year", products) is None
+
+
+def test_superlatives_are_recognised():
+    from app.services.public_chat_service import wants_a_recommendation
+
+    assert wants_a_recommendation("what is best one") is True
+    assert wants_a_recommendation("which one do you recommend") is True
+    assert wants_a_recommendation("what is the cheapest") is True
+    assert wants_a_recommendation("show me smart watches") is False

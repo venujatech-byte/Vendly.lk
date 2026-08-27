@@ -1468,7 +1468,8 @@ function ProductCard({ product, onAddToCart, onOpenChat }) {
   );
 }
 
-function ChatCatalogCard({ product, isOrderMode, cart, onQuickMessage, onAddFromChat, onDecreaseItem, onIncreaseItem }) {
+function ChatCatalogCard({ product, isOrderMode, chatLanguage, cart, onQuickMessage, onAddFromChat, onDecreaseItem, onIncreaseItem }) {
+  const text = storefrontText(chatLanguage);
   const variant = product.variants?.[0];
   const selectedItem = cart.find((item) => item.variantId === variant?.id);
   const quantity = selectedItem?.quantity ?? 0;
@@ -1494,7 +1495,7 @@ function ChatCatalogCard({ product, isOrderMode, cart, onQuickMessage, onAddFrom
           type="button"
           onClick={() => onQuickMessage(`Tell me about ${product.name}`)}
         >
-          View product details
+          {text.viewDetails}
         </button>
       </article>
     );
@@ -1519,7 +1520,17 @@ function ChatCatalogCard({ product, isOrderMode, cart, onQuickMessage, onAddFrom
         >
           <Plus size={14} /> {availableStock > 0 ? "Add" : "Out of stock"}
         </button>
-      ) : (
+      ) : null}
+      {!quantity && (
+        <button
+          type="button"
+          className="storefront-chat-catalog-card__details-link"
+          onClick={() => onQuickMessage(`Tell me about ${product.name}`)}
+        >
+          {text.viewDetails}
+        </button>
+      )}
+      {quantity ? (
         <>
           <span className="storefront-chat-catalog-card__added">
             <Check size={13} /> Added to cart
@@ -1530,7 +1541,7 @@ function ChatCatalogCard({ product, isOrderMode, cart, onQuickMessage, onAddFrom
             <button type="button" aria-label={`Add one ${product.name}`} disabled={quantity >= availableStock} onClick={() => onIncreaseItem(variant.id)}>+</button>
           </div>
         </>
-      )}
+      ) : null}
     </article>
   );
 }
@@ -1821,6 +1832,7 @@ function ChatbotView({
                         <ChatCatalogCard
                           key={product.id}
                           product={product}
+                          chatLanguage={chatLanguage}
                           isOrderMode={[
                             "start-order",
                             "start-another-order",
@@ -1853,6 +1865,7 @@ function ChatbotView({
 
                 {message.role === "assistant" &&
                   message.action === "show-product" &&
+                  index === messages.length - 1 &&
                   message.product && (
                     <div className="storefront-chat-product-decision">
                       <ChatProductDetails
@@ -1893,6 +1906,7 @@ function ChatbotView({
                               <ChatCatalogCard
                                 key={product.id}
                                 product={product}
+                          chatLanguage={chatLanguage}
                                 isOrderMode={false}
                                 cart={cart}
                                 onQuickMessage={onQuickMessage}

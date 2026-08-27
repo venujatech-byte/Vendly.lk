@@ -905,3 +905,86 @@ The in-memory failure state is process-local on purpose — a dead model fails o
 5. **Never classify intent in a `collecting-*` state.** The message is data there.
 6. **One provider call path** — `request_ai_text`. Adding a second loses the 4xx/429 handling.
 7. **Leave a runnable check** behind non-trivial logic; see `test_delivery.py` and `test_public_catalog.py` for the house style.
+
+---
+
+## 23. Open bugs — reported from real use, not yet fixed
+
+Found by the seller testing a full catalogue (power banks, smart watches, earbuds, routers, laptops). Ordered by impact. Each says what was seen, the likely cause, and where to look.
+
+### 23.1 A category word dumps the whole catalogue — FIXED
+
+**Seen:** "I want to order a powerbank" → *"Which product would you like to order?"* plus every product in the store. Once, after a backend restart, it correctly resolved a single power bank; adding a space ("power bank" vs "powerbank") pushed the whole category again.
+
+**Cause:** `find_matching_products` matches product *names* by token overlap. "powerbank" is a category, not a name, and `message_tokens` drops nothing useful — so nothing matches and `wants_to_order` falls through to the "which product?" branch with `products` attached. `find_category_request` is not consulted on the order path, and it needs an exact-ish category name anyway.
+
+**Fix direction:** on the order path, when no product resolves, try the category before giving up — and match categories on singular/plural and spacing variants ("powerbank" / "power bank" / "power banks"). Show only that category's items. `public_chat_service.find_category_request`, and the `wants_to_order` branch.
+
+### 23.2 Catalogue cards in order mode have no way to see details — FIXED
+
+**Seen:** cards show only **+ Add**. A customer has to commit before they can read anything about the product.
+
+**Fix direction:** `ChatCatalogCard` — show **View product details** alongside **Add** in order mode, not instead of it. `StorefrontPage.jsx`.
+
+### 23.3 "What is the best one?" answers about an unrelated product — FIXED
+
+**Seen:** after browsing smart watches, "what is best one" replied about a *Huawei 4G router*.
+
+**Cause:** the question names no product, so it falls through to `generate_catalogue_answer`, which sees the entire catalogue and picks whatever it considers premium. Nothing narrows it to what the customer was just looking at.
+
+**Fix direction:** carry the last shown category/product set into the catalogue answer and prefer it. The session already has `selectedProductId`; a `lastCategoryShown` would cover the rest.
+
+### 23.4 "Best smart watch" lists all of them instead of recommending one — FIXED
+
+**Seen:** "I meant best smart watch" → *"Here are all available products in Smart watch."*
+
+**Cause:** `find_category_request` matched, and the category branch returns the whole category. A superlative ("best", "cheapest", "top") should reach the AI answer, which can actually choose and justify one.
+
+**Fix direction:** detect a superlative and route to `generate_catalogue_answer` scoped to that category rather than to the category listing.
+
+### 23.5 Product detail images are too large, description is a wall of text — FIXED
+
+**Seen:** the gallery dominates the reply; the description is a raw spec dump with emoji and no structure.
+
+**Fix direction:** cap the gallery height in `.chat-product-details__gallery`; render the description with line breaks preserved and a "read more" fold past ~4 lines.
+
+### 23.6 Product photo and "similar items" render twice — FIXED
+
+**Seen:** asking a follow-up detail about a product repeats the whole product block and the similar-products grid again beneath the new answer.
+
+**Cause:** every `show-product` reply now carries `response_products` (added so similar items always appear), and the frontend renders the full `ChatProductDetails` block plus the related grid for each such message. Two product questions in a row therefore render the same product twice.
+
+**Fix direction:** render the product block and related grid only on the newest `show-product` message, the same rule the suggestion chips already use.
+
+### 23.7 "You may also like" is single-category and too big — FIXED
+
+**Seen:** the related strip is a large two-column grid from one category.
+
+**Fix direction:** make it a compact single-row horizontal scroller with small thumbnails; draw from more than one category so it is genuinely a cross-sell.
+
+### How they were fixed
+
+- **23.1** `find_category_request` gained `require_cue=False` for the ordering path, plus **n-gram matching** so a category stored as one token ("Powerbanks") matches two typed words ("power bank"). Whole-word matching is preserved — substring matching is what previously made "show" resolve to "Shoes".
+- **23.3** `respond()` now records `lastCategoryShown` on the session, and a catalogue-wide question with no product named is scoped to it first.
+- **23.4** `wants_a_recommendation` routes superlatives ("best", "which one", "cheapest") to `generate_catalogue_answer` scoped to the category, so one product is picked and justified instead of the shelf being listed.
+- **23.2/23.5/23.6/23.7** frontend only: a details button beside **Add**, a capped gallery, `white-space: pre-line` on descriptions, the product block rendered only on the newest reply, and the related strip as one compact scrolling row drawing from more than one category.
+
+### 23.8 A spec question repeated the whole product card — FIXED
+
+**Seen:** "does it have ANC?" answered correctly, then redrew the gallery, the reviews block and the similar-products strip beneath it.
+
+**Cause:** every product reply used the `show-product` action, which the storefront renders as the full card. Limiting it to the newest message did not help, because the spec answer *is* the newest message.
+
+**Fixed as:** a full overview keeps `show-product` and earns the card; a follow-up question returns the new `product-answer` action — text and chips only, no gallery, no reviews, no related strip. "Show similar" is one chip away when they want it.
+
+### 23.9 Single-image products rendered badly — FIXED
+
+**Seen:** products with one photo showed a large empty box with the image cut off; small photos appeared tiny inside a big card.
+
+**Cause:** two separate things. The gallery used `repeat(auto-fit, minmax(120px, 1fr))`, so a lone image stretched to the full width and its `aspect-ratio: 1/1` made it ~500px tall — which the `max-height: 190px; overflow: hidden` added for 23.5 then clipped, hiding the image and showing the empty top. Separately, catalogue thumbnails used `object-fit: scale-down`, which never enlarges, so a low-resolution photo stayed tiny.
+
+**Fixed as:** the gallery caps its **cells** (`minmax(110px, 148px)` with `justify-content: start`) instead of clipping the container, and thumbnails use `object-fit: contain`.
+
+### Note on ordering
+
+23.1, 23.3 and 23.4 are the same underlying gap — **the conversation has no memory of what the customer was just looking at**, so every question is answered against the whole catalogue. Fixing that once addresses all three; the rest are presentation.
