@@ -446,3 +446,25 @@
     font-size: 0;
   }
 }
+
+/* Shown under a seller reply that was translated into the customer's language,
+   so the seller can see exactly what was delivered in their name. */
+.customer-messages__translated {
+  display: block;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, .25);
+  opacity: .85;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.customer-messages__translated svg {
+  display: inline-block;
+  margin-right: 4px;
+  vertical-align: -2px;
+}
+
+.customer-messages__bubble.is-incoming .customer-messages__translated {
+  border-top-color: var(--color-border);
+}

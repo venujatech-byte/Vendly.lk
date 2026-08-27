@@ -598,6 +598,21 @@ def set_variant_quantity(cart, variant_id, quantity, available_stock, mode="tota
     return updated, capped
 
 
+# Below this many products, asking the customer to narrow down is friction:
+# they can just look. Above it, a full dump buries the conversation on a phone.
+BROWSABLE_CATALOGUE_SIZE = 6
+
+
+def catalogue_categories(products):
+    """Category names that actually have products, in a stable order."""
+    seen = []
+    for product in products:
+        name = product.get("categoryName", "").strip()
+        if name and name not in seen:
+            seen.append(name)
+    return seen
+
+
 def find_matching_products(message, products):
     """Every catalogue item that matches the customer's wording equally well.
 
@@ -698,6 +713,14 @@ def find_category_request(message, products):
     compact_message = normalized_phrase(clean_message)
     category_cues = {"show", "list", "all", "category", "categories", "have"}
     message_words = message_tokens(clean_message)
+    # Singular and plural forms of what the customer actually typed, so a
+    # category alias has to match a whole word rather than any run of letters.
+    message_word_aliases = set(message_words)
+    for word in message_words:
+        if word.endswith("s"):
+            message_word_aliases.add(word[:-1])
+        if word.endswith("es"):
+            message_word_aliases.add(word[:-2])
     categories = {
         product.get("categoryName", "").strip()
         for product in products
@@ -713,9 +736,11 @@ def find_category_request(message, products):
             category_aliases.add(compact_category[:-2])
         category_words = message_tokens(category)
         exact_category = compact_message in category_aliases
-        category_is_named = (
-            any(alias and alias in compact_message for alias in category_aliases)
-            or category_words.issubset(message_words)
+        # Match whole words, not substrings of the squashed message. Stripping
+        # "es" off "Shoes" leaves the stub "sho", which is inside "show" - so
+        # "show products" resolved to the Shoes category.
+        category_is_named = bool(category_aliases & message_word_aliases) or (
+            bool(category_words) and category_words.issubset(message_words)
         )
         has_category_cue = bool(category_cues & message_words)
 
@@ -1335,6 +1360,7 @@ def answer_public_message(database, session_id, provided_token, payload):
         product=None,
         response_products=None,
         response_reviews=None,
+        response_categories=None,
         review_summary=None,
         seller_rating=None,
         selected_product_id="unchanged",
@@ -1384,6 +1410,7 @@ def answer_public_message(database, session_id, provided_token, payload):
             "product": product,
             "products": response_products or [],
             "reviews": response_reviews or [],
+            "categories": response_categories or [],
             "reviewSummary": review_summary,
             "sellerRating": seller_rating,
             "cart": cart,
@@ -2301,9 +2328,26 @@ def answer_public_message(database, session_id, provided_token, payload):
         )
 
     if wants_catalog:
+        category_names = catalogue_categories(products)
+
+        # Dumping the whole catalogue makes the customer do the filtering, and
+        # on a phone it buries the conversation. Ask what they are after and
+        # offer the categories instead - unless the shop is small enough that
+        # narrowing would be pointless friction.
+        if len(products) > BROWSABLE_CATALOGUE_SIZE and category_names:
+            return respond(
+                "What kind of product are you looking for? Choose one of these, "
+                "or tell me what you need and I will find the closest matches: "
+                f"{', '.join(category_names)}.",
+                "show-categories",
+                next_state="browsing",
+                response_categories=category_names,
+                selected_product_id=None if not session.get("productId") else "unchanged",
+            )
+
         return respond(
-            "Here is the catalogue. Choose a product to see its image, description, "
-            "price, available sizes and stock.",
+            "Here is everything we have. Choose a product to see its image, "
+            "description, price, available sizes and stock.",
             "show-catalog",
             next_state="browsing",
             response_products=products,
@@ -2502,6 +2546,20 @@ def answer_public_message(database, session_id, provided_token, payload):
             session_snapshot.reference,
             session["businessId"],
             message,
+        )
+
+    fallback_categories = catalogue_categories(products)
+
+    # Nothing matched. Offering the categories is a smaller ask than scrolling
+    # a whole catalogue to work out what the shop even sells.
+    if len(products) > BROWSABLE_CATALOGUE_SIZE and fallback_categories:
+        return respond(
+            "I did not catch which product you meant. What kind of item are "
+            "you looking for? We have: "
+            f"{', '.join(fallback_categories)}.",
+            "show-categories",
+            next_state="browsing",
+            response_categories=fallback_categories,
         )
 
     return respond(

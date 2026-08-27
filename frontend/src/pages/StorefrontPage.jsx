@@ -668,6 +668,7 @@ function StorefrontPage({ linkType }) {
             product: response.product,
             products: response.products,
             reviews: response.reviews,
+            categories: response.categories,
             reviewSummary: response.reviewSummary,
             sellerRating: response.sellerRating,
             cartSummary: response.cartSummary,
@@ -1758,6 +1759,22 @@ function ChatbotView({
                           onDecreaseItem={onDecreaseItem}
                           onIncreaseItem={onIncreaseItem}
                         />
+                      ))}
+                    </div>
+                  )}
+
+                {message.role === "assistant" &&
+                  message.categories?.length > 0 && (
+                    <div className="storefront-chat-categories">
+                      {message.categories.map((category) => (
+                        <button
+                          key={category}
+                          type="button"
+                          onClick={() => onQuickMessage(category)}
+                          disabled={isSending}
+                        >
+                          {category}
+                        </button>
                       ))}
                     </div>
                   )}

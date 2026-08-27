@@ -395,3 +395,78 @@ def test_an_order_number_does_not_hijack_a_session_that_owns_an_order(chat, monk
 
     assert "VD-000001" in reply["message"]
     assert chat.state == "completed"
+
+
+def big_catalogue():
+    """More products than a customer will happily scroll on a phone."""
+    return [
+        {
+            "id": f"p{index}",
+            "name": f"Product {index}",
+            "categoryName": ["Earbuds", "Shoes", "Watches"][index % 3],
+            "sellingPriceMinor": 100000 + index,
+            "weightGrams": 200,
+            "availableStock": 5,
+            "media": [],
+            "variants": [{"id": f"v{index}", "size": "", "availableStock": 5,
+                          "sellingPriceMinor": 100000 + index, "weightGrams": 200}],
+        }
+        for index in range(12)
+    ]
+
+
+def test_show_products_asks_what_they_need_instead_of_dumping_everything(chat, monkeypatch):
+    monkeypatch.setattr(
+        public_chat_service,
+        "session_catalog",
+        lambda *a: {"business": {"name": "VS Tech", "storefrontFaq": ""},
+                    "products": big_catalogue()},
+    )
+
+    reply = chat.say("show products", intent="show_catalog")
+
+    # Twelve product cards makes the customer do the filtering and buries the
+    # conversation on a phone.
+    assert reply["action"] == "show-categories"
+    assert reply["products"] == []
+    assert reply["categories"] == ["Earbuds", "Shoes", "Watches"]
+    assert "What kind of product" in reply["message"]
+
+
+def test_a_small_shop_still_shows_everything(chat):
+    # With two products there is nothing to narrow; asking would be friction.
+    reply = chat.say("show products", intent="show_catalog")
+
+    assert reply["action"] == "show-catalog"
+    assert len(reply["products"]) == 2
+    assert reply["categories"] == []
+
+
+def test_naming_a_category_narrows_to_that_category(chat, monkeypatch):
+    monkeypatch.setattr(
+        public_chat_service,
+        "session_catalog",
+        lambda *a: {"business": {"name": "VS Tech", "storefrontFaq": ""},
+                    "products": big_catalogue()},
+    )
+
+    chat.say("show products", intent="show_catalog")
+    reply = chat.say("Shoes", intent="show_category", categoryQuery="Shoes")
+
+    assert reply["action"] == "show-category"
+    assert {p["categoryName"] for p in reply["products"]} == {"Shoes"}
+
+
+def test_an_unrecognised_request_offers_categories_not_the_whole_catalogue(chat, monkeypatch):
+    monkeypatch.setattr(
+        public_chat_service,
+        "session_catalog",
+        lambda *a: {"business": {"name": "VS Tech", "storefrontFaq": ""},
+                    "products": big_catalogue()},
+    )
+
+    reply = chat.say("hmm something nice", intent="unknown")
+
+    assert reply["action"] == "show-categories"
+    assert reply["products"] == []
+    assert reply["categories"] == ["Earbuds", "Shoes", "Watches"]

@@ -727,3 +727,40 @@ def test_an_unparseable_phone_is_rejected_before_any_lookup():
 
     assert find_order_by_number(Guard(), "biz", "VD-000012", "not a phone") is None
     assert find_order_by_number(Guard(), "biz", "VD-000012", "") is None
+
+
+def category_catalogue():
+    return [
+        {"categoryName": "Earbuds"},
+        {"categoryName": "Shoes"},
+        {"categoryName": "Watches"},
+    ]
+
+
+def test_a_catalogue_request_is_not_mistaken_for_a_category():
+    # Stripping "es" off "Shoes" leaves "sho", which sits inside "show". As a
+    # substring match that turned "show products" into the Shoes category.
+    assert find_category_request("show products", category_catalogue()) is None
+    assert find_category_request("show catalogue", category_catalogue()) is None
+    assert find_category_request("what do you have", category_catalogue()) is None
+
+
+def test_a_named_category_still_resolves_in_singular_or_plural():
+    assert find_category_request("show me shoes", category_catalogue()) == "Shoes"
+    assert find_category_request("shoe", category_catalogue()) == "Shoes"
+    assert find_category_request("do you have earbuds", category_catalogue()) == "Earbuds"
+    assert find_category_request("show all watches", category_catalogue()) == "Watches"
+
+
+def test_categories_are_listed_once_in_catalogue_order():
+    from app.services.public_chat_service import catalogue_categories
+
+    products = [
+        {"categoryName": "Shoes"},
+        {"categoryName": "Earbuds"},
+        {"categoryName": "Shoes"},
+        {"categoryName": ""},
+        {},
+    ]
+
+    assert catalogue_categories(products) == ["Shoes", "Earbuds"]

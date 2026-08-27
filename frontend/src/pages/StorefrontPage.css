@@ -3245,3 +3245,33 @@ body:has(.storefront-chat-page) {
   background: var(--sf-soft);
   box-shadow: 0 4px 10px rgba(0,0,0,.24);
 }
+
+/* Category choices offered instead of dumping the whole catalogue. One tap
+   answers "what kind of product are you looking for?". */
+.storefront-chat-categories {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.storefront-chat-categories button {
+  padding: 7px 13px;
+  border: 1px solid var(--sf-border, #d7dfe9);
+  border-radius: 999px;
+  background: var(--sf-surface, #fff);
+  color: var(--sf-text);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.storefront-chat-categories button:hover:not(:disabled) {
+  border-color: #2f80ed;
+  color: #2f80ed;
+}
+
+.storefront-chat-categories button:disabled {
+  opacity: .55;
+  cursor: default;
+}

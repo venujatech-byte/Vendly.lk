@@ -216,6 +216,14 @@ The `set_quantity` intent handles corrections and removals — "make it 2", `tha
 
 Server-side additions come back in `cartSummary`, and `requestChatMessage` reconciles local state from it. Without that reconciliation the added line is invisible **and** the next message uploads the stale local cart over the top of it.
 
+### Narrowing instead of dumping the catalogue
+
+"Show products" no longer returns every product. Above `BROWSABLE_CATALOGUE_SIZE` (6) the bot asks **what kind of product** the customer wants and offers the category names, returned in a `categories` field and rendered as one-tap chips. A full dump makes the customer do the filtering and buries the conversation on a phone.
+
+Below that size it still shows everything — with a handful of products there is nothing to narrow and the extra question is pure friction. The same narrowing covers the unmatched fallback, which used to answer "I did not understand" with the entire catalogue.
+
+**Category names are matched as whole words.** `find_category_request` used to substring-match against the squashed message, and stripping "es" from "Shoes" leaves the stub "sho" — which sits inside "show", so "show products" resolved to the Shoes category. Singular and plural forms of the customer's own words are compared against the category aliases instead.
+
 ## 9. Product cards and product information
 
 `ChatCatalogCard` receives `mode`, `product`, `onAdd`, `onDetails`, and variant data. Use `object-fit: contain` when the seller image must be shown completely; use a fixed aspect-ratio wrapper so cards do not jump when images have different dimensions.
@@ -505,7 +513,11 @@ It is passed to `generate_catalogue_answer` as a separate grounded block. When i
 
 ## 15. Seller replies and live updates
 
-Seller dashboard messages are stored in the same session/message model. `message_service.py` lets a seller pause AI and send a human reply. The storefront polls messages (currently about every five seconds) and merges only unseen ids. For production, replace polling with Firestore `onSnapshot` or Server-Sent Events, while retaining the same message shape.
+Seller dashboard messages are stored in the same session/message model. `message_service.py` lets a seller pause AI and send a human reply.
+
+**A human reply is translated into the customer's language.** The seller pauses AI precisely when a question is hard, and handing that customer a sudden English reply after ten Sinhala messages is where the language guarantee used to break — at the worst possible moment. `send_seller_message` translates whatever the seller typed into `session.language`: already writing Sinhala makes it a near no-op, typing English in a hurry still reaches the customer in their own language.
+
+The message document keeps both. `message` is what the customer reads and what `lastMessage` shows; `sellerMessage` is what the seller typed, so their own inbox shows their words back rather than a translation they cannot check. `metadata.translated` drives the small "Sent in Sinhala: …" line under the bubble, so the seller can always see what was delivered in their name. The storefront polls messages (currently about every five seconds) and merges only unseen ids. For production, replace polling with Firestore `onSnapshot` or Server-Sent Events, while retaining the same message shape.
 
 Order status updates call `chat_event_service.py`, which appends a customer-visible message such as “Order VD-000004 is packed and ready for dispatch.” The storefront listener/poller displays it without a browser refresh.
 
