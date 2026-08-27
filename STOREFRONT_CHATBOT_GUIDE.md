@@ -1956,3 +1956,24 @@ Three surfaces, one rule - the popup was the last one still breaking it.
 
 Out-of-stock options are shown but not selectable, so the customer can see the
 colour exists without being able to order it.
+
+### 23.57 Chat cart panel, and a way out of it
+
+**Checkout button.** The cart panel listed the items and then left the customer
+to work out that typing "that is everything" was what moved things along. It
+now carries a **Checkout** button, using the label that already exists in all
+three languages rather than adding a fourth key for the same word.
+
+It appears **only while the state is browsing**. Mid-checkout the next question
+is already on screen, and offering a second way to start something that has
+already started is a wrong turn, not a shortcut.
+
+**Layout:** a header with the item count as a badge, thumbnails at 46px instead
+of 38px so the product is recognisable, the option name under the title rather
+than crowded beside it, prices right-aligned into a column that reads down,
+hairline separators between rows, and the total set larger in the heading
+colour.
+
+Two products differing only by option stay as separate rows on purpose - they
+are picked, packed and cancelled separately, and merging them would hide that
+the customer ordered a Black *and* an Orange.

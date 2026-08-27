@@ -4156,3 +4156,102 @@ body:has(.storefront-chat-page) {
   cursor: not-allowed;
   opacity: 0.45;
 }
+
+/* Cart review panel. It is where the customer checks what they are about to
+   pay for, so it reads as a panel in its own right rather than another
+   paragraph of chat. */
+.storefront-chat-cart-review > header {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 9px;
+  border-bottom: 1px solid var(--sf-border);
+}
+
+.storefront-chat-cart-review > header strong {
+  font-size: 0.84rem;
+}
+
+.storefront-chat-cart-review > header span {
+  display: grid;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  place-items: center;
+  border-radius: 999px;
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 800;
+  background: var(--sf-primary);
+}
+
+.storefront-chat-cart-review__checkout {
+  display: inline-flex;
+  gap: 7px;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  margin-top: 2px;
+  border: 0;
+  border-radius: 11px;
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 700;
+  background: var(--sf-primary);
+  cursor: pointer;
+}
+
+.storefront-chat-cart-review__checkout:hover:not(:disabled) {
+  background: var(--sf-primary-dark);
+}
+
+.storefront-chat-cart-review__checkout:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+/* Roomier rows: a thumbnail large enough to recognise the product, the price
+   right-aligned so the column reads down, and the option name under the title
+   rather than beside it. */
+.storefront-chat-cart li {
+  grid-template-columns: 46px minmax(0, 1fr) auto auto;
+  padding: 7px 0;
+  gap: 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--sf-border) 55%, transparent);
+}
+
+.storefront-chat-cart li:last-child {
+  border-bottom: 0;
+}
+
+.storefront-chat-cart__image {
+  width: 46px;
+  height: 46px;
+}
+
+.storefront-chat-cart__name strong {
+  font-size: 0.79rem;
+  white-space: normal;
+}
+
+.storefront-chat-cart__total {
+  min-width: 74px;
+  text-align: right;
+}
+
+.storefront-chat-cart__subtotal {
+  align-items: baseline;
+  margin-top: 10px;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.storefront-chat-cart__subtotal strong {
+  font-size: 0.95rem;
+  color: var(--sf-heading);
+}
+
+.storefront-chat-cart li:has(.storefront-chat-cart__remove) {
+  grid-template-columns: 46px minmax(0, 1fr) auto auto auto;
+}

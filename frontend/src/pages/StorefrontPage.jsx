@@ -2591,7 +2591,15 @@ function ChatbotView({
                   ["collect-name", "show-cart"].includes(message.action) &&
                   cart.length > 0 && (
                     <div className="storefront-chat-cart-review">
-                      <strong>{text.reviewYourItems}</strong>
+                      <header>
+                        <strong>{text.reviewYourItems}</strong>
+                        <span>
+                          {cartLines.reduce(
+                            (total, line) => total + line.quantity,
+                            0,
+                          )}
+                        </span>
+                      </header>
                       <ChatCartLines
                         lines={cartLines}
                         chatLanguage={chatLanguage}
@@ -2600,6 +2608,19 @@ function ChatbotView({
                         onRemoveItem={onRemoveItem}
                       />
                       <small>{text.deliveryAddedLater}</small>
+                      {/* Only while still shopping. Mid-checkout the next
+                          question is already on screen, and a second way to
+                          start what has started is just a wrong turn. */}
+                      {chatState === "browsing" && (
+                        <button
+                          type="button"
+                          className="storefront-chat-cart-review__checkout"
+                          disabled={isSending}
+                          onClick={() => onQuickMessage("that is everything")}
+                        >
+                          <ShoppingCart size={15} /> {text.checkout}
+                        </button>
+                      )}
                     </div>
                   )}
 
