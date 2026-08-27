@@ -1712,3 +1712,25 @@ would turn a specific question into a plain category listing.
 **Method note:** "it worked the second time" was the most useful line in the
 report. Identical input answered differently means the branch, not the logic -
 and it pointed straight at a listing path nobody had filtered.
+
+### 23.46 Product details had photos and reviews but no facts — FIXED
+
+**Seen:** "View product details" showed a gallery and a review block, and
+nowhere on the card the name, the price or the warranty - the three things a
+buying decision actually turns on.
+
+**Fix:** a header on the details card carrying category or brand, the product
+name, the price with any compare-at price struck through, a spec grid
+(warranty, size, weight, availability) and the full description.
+
+Variants can be priced differently, so a single figure would be wrong for some
+of them. Where they differ the header reads **"From X"**, and the exact price
+follows when the customer picks a variant. Quoting one variant's price as the
+product's price is how a customer reaches checkout expecting a number that was
+never theirs.
+
+**The bot's own message was trimmed in the same change.** It had been printing
+the name, description and price as prose immediately above a card that now
+shows all three - everything twice, with the card pushed off a phone screen.
+The message is now the invitation only, and a test asserts the price and
+description do not appear in it while remaining available on the card.

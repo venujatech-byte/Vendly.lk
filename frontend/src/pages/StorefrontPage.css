@@ -3950,3 +3950,70 @@ body:has(.storefront-chat-page) {
   border-color: var(--sf-primary);
   background: var(--sf-primary);
 }
+
+/* The product details header. The gallery and reviews were there, but the
+   name, price and warranty - the three things a buying decision turns on -
+   were not. */
+.chat-product-details__header {
+  display: grid;
+  gap: 5px;
+  margin-bottom: 10px;
+}
+
+.chat-product-details__eyebrow {
+  color: var(--sf-primary);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.chat-product-details__name {
+  font-size: 0.95rem;
+  line-height: 1.35;
+}
+
+.chat-product-details__price {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.chat-product-details__price b {
+  color: var(--sf-navy);
+  font-size: 1.05rem;
+}
+
+.chat-product-details__price small {
+  color: var(--sf-muted);
+  text-decoration: line-through;
+}
+
+.chat-product-details__specs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
+  gap: 7px;
+  margin: 4px 0 0;
+}
+
+.chat-product-details__specs dt {
+  color: var(--sf-muted);
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.chat-product-details__specs dd {
+  margin: 1px 0 0;
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.chat-product-details__description {
+  margin: 4px 0 0;
+  font-size: 0.76rem;
+  line-height: 1.5;
+  color: var(--sf-text);
+  white-space: pre-wrap;
+}

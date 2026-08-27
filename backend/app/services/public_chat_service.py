@@ -4194,11 +4194,13 @@ def answer_public_message(database, session_id, provided_token, payload):
                 if available_sizes
                 else ""
             )
+            # The card below carries the name, price, warranty, stock and
+            # description in a readable layout. Repeating them here printed
+            # everything twice and pushed the card off a phone screen.
             response_message = (
-                f"{selected_product['name']}: {deterministic_description} "
-                f"Price: LKR {selected_product['sellingPriceMinor'] / 100:,.2f}."
-                f"{size_text} Ask about a feature, compare similar products, or choose "
-                "Order this product when you are ready."
+                f"Here are the details for {selected_product['name']}."
+                f"{size_text} Ask about a feature, compare similar products, or "
+                "choose Order this product when you are ready."
             )
         else:
             generated_answer = generate_product_answer(

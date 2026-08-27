@@ -1728,3 +1728,17 @@ def test_a_question_about_one_product_is_not_treated_as_a_filter(chat, monkeypat
 
     # Naming one product is a question about it, not a filter over a group.
     assert reply["action"] in {"show-product", "product-answer"}
+
+
+def test_a_product_overview_does_not_repeat_what_the_card_shows(chat):
+    reply = chat.say("tell me about GM2 pro", intent="product_question",
+                     productQuery="GM2 pro")
+
+    # The card carries name, price, warranty, stock and description in a
+    # readable layout. Printing them in the message too showed everything
+    # twice and pushed the card off a phone screen.
+    assert reply["product"]["id"] == "buds"
+    assert "Price: LKR" not in reply["message"]
+    assert "Black wireless earbuds" not in reply["message"]
+    # The card needs the facts it is now responsible for showing.
+    assert reply["product"]["sellingPriceMinor"] == 450000

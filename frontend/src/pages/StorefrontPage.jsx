@@ -2083,8 +2083,56 @@ function ChatProductDetails({ product, reviews = [], summary, chatLanguage, onCh
   const mediaUrls = productMediaUrls(product);
   const text = storefrontText(chatLanguage);
 
+  const variantPrices = (product?.variants || [])
+    .map((variant) => variant.sellingPriceMinor)
+    .filter((price) => price > 0);
+  const lowestPrice = variantPrices.length
+    ? Math.min(...variantPrices)
+    : product?.sellingPriceMinor;
+  // Variants can be priced differently, so a single figure would be wrong for
+  // some of them. "From X" is honest; the exact price follows on selection.
+  const pricesDiffer = new Set(variantPrices).size > 1;
+  const specs = [
+    product?.warrantyPeriodMonths > 0 && [
+      text.specWarranty,
+      `${product.warrantyPeriodMonths} months`,
+    ],
+    product?.productSize && [text.specSize, product.productSize],
+    product?.weightGrams > 0 && [text.specWeight, `${product.weightGrams} g`],
+    [text.specAvailability, `${product?.availableStock ?? 0} available`],
+  ].filter(Boolean);
+
   return (
     <section className="chat-product-details" aria-label={`Details for ${product?.name || "product"}`}>
+      <header className="chat-product-details__header">
+        <span className="chat-product-details__eyebrow">
+          {product?.categoryName || product?.brand || "Product"}
+        </span>
+        <strong className="chat-product-details__name">{product?.name}</strong>
+        <span className="chat-product-details__price">
+          <b>
+            {pricesDiffer ? `${text.priceFrom} ` : ""}
+            {money(lowestPrice)}
+          </b>
+          {product?.compareAtPriceMinor > (product?.sellingPriceMinor || 0) && (
+            <small>{money(product.compareAtPriceMinor)}</small>
+          )}
+        </span>
+        <dl className="chat-product-details__specs">
+          {specs.map(([label, value]) => (
+            <div key={label}>
+              <dt>{label}</dt>
+              <dd>{value}</dd>
+            </div>
+          ))}
+        </dl>
+        {(product?.description || product?.aiDescription) && (
+          <p className="chat-product-details__description">
+            {product.description || product.aiDescription}
+          </p>
+        )}
+      </header>
+
       <div className="chat-product-details__gallery">
         {mediaUrls.slice(0, 6).map((url, index) => (
           <a
