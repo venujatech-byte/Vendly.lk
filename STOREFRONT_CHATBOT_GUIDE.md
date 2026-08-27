@@ -1313,3 +1313,66 @@ reporting a failure.
 
 Three tests cover it, including one with no intent at all - the rate-limited
 case. All three fail with the branch removed.
+
+### 23.31 Ordering by brand name crashed the endpoint — FIXED
+
+**Seen:** a live 500 on `POST /public/chat/sessions/<id>/messages`.
+`UnboundLocalError: cannot access local variable 'requested_brand'`.
+
+**Cause:** `requested_brand` was read inside the ordering block and assigned
+about a hundred lines *below* it. Python binds a name at assignment, so the
+read only worked when the ordering block had already returned — which it does
+on almost every path. Reaching that line needed all three at once: an order
+intent, no single product resolved, and no matching category. "I want to order
+Lenovo" is exactly that shape, and it took the endpoint down rather than
+answering wrongly.
+
+**Fix:** resolve it once, above its first use, and delete the later
+assignment. Nothing between the two positions changes the message it reads,
+so the move is behaviour-preserving for every other path.
+
+**Worth noting:** this was latent before any of this session's work — a
+function long enough that a name could be used a hundred lines before it is
+defined is the actual finding. The 3,600-line `answer_public_message` is on
+the roadmap to be split; this is the second bug (with §23.27) caused by
+distance between related lines rather than by the logic itself.
+
+The test drives the real crashing shape and reproduces the exact
+`UnboundLocalError` with the assignment moved back.
+
+### 23.32 A brand name returned a text list and no cards — FIXED
+
+**Seen:** typing a brand listed the items as prose with no product cards, and
+adding ordinary words - "show me lenovo", "send me lenovo" - stopped it being
+recognised as a brand at all.
+
+**Diagnosis note:** the first probe showed every phrasing working perfectly,
+because the fake catalogue had `brand: "Lenovo"` filled in. The bug only
+appears with the field **empty**, which is how real sellers leave it - it is
+optional in the product form. Setting it to `""` reproduced both symptoms at
+once. A fake that is tidier than production hides the bug it was built to find.
+
+**Cause 1 - no brand recorded.** `find_brand_request` read the `brand` field
+only, so "Lenovo" - present in every product *name* - was invisible. The
+request fell through to name matching, which returned several products, and
+the answer came from the AI as prose instead of the brand branch's cards.
+
+**Cause 2 - cue words.** Name matching requires two overlapping tokens unless
+the message is two tokens or fewer (§23 records why: "charge" was matching
+"Fast Charge Power Bank"). "show me lenovo" is three tokens with one overlap,
+so it matched nothing and dumped the whole catalogue.
+
+**Fix:** `implied_brands` reads brands off the product names. A leading word
+counts only when **two or more** products share it and their **second words
+differ** - real brands are followed by different model names, while "Fast
+Charge Power Bank" and "Fast Charge Cable" share a descriptive phrase. Without
+that guard "is delivery fast?" answered with a product list. A short
+`NEVER_A_BRAND` set covers generic openers ("product", "item") that pass the
+structural test but are what a customer types to browse.
+
+`brand_products` had to change with it: matching the field alone recognised the
+brand and then returned nothing, which is worse than not recognising it - a
+confident answer with an empty list.
+
+Since cue words no longer matter, all seven phrasings tested reach the brand
+branch with cards, with the brand field empty.

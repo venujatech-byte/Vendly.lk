@@ -52,6 +52,7 @@ def catalogue():
             "id": "buds",
             "name": "GM2 Pro Earbuds",
             "categoryName": "Earbuds",
+            "brand": "Lenovo",
             "sellingPriceMinor": 450000,
             "weightGrams": 300,
             "availableStock": 5,
@@ -213,6 +214,17 @@ def test_a_stated_quantity_skips_the_question(chat):
     # They already answered it; asking again is friction.
     assert chat.state == "browsing"
     assert chat.cart == [{"variantId": "v-buds", "quantity": 2}]
+
+
+def test_ordering_by_brand_alone_lists_that_brand(chat):
+    # "I want to order Lenovo" resolves no single product and no category, so
+    # it reached the brand fallback - which read `requested_brand` a hundred
+    # lines before it was assigned. Live, that was a 500, not a wrong answer.
+    reply = chat.say("I want to order Lenovo", intent="start_order",
+                     productQuery="Lenovo")
+
+    assert "Lenovo" in reply["message"]
+    assert [item["id"] for item in reply["products"]] == ["buds"]
 
 
 def test_show_my_cart_lists_what_is_in_it(chat):

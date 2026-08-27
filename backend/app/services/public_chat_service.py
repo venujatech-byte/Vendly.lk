@@ -991,6 +991,13 @@ def message_phrase_aliases(message, sizes=(2, 3)):
     return aliases
 
 
+# Words that lead a product name often enough to look like a brand, but that a
+# customer types when asking to see the shop rather than naming a maker. A
+# catalogue of "Product 1", "Product 2" would otherwise answer "show products"
+# with "here is what we have from Product".
+NEVER_A_BRAND = {"product", "products", "item", "items", "new", "the"}
+
+
 def find_brand_request(message, products):
     """Return the brand named in a message, if this seller carries it.
 
@@ -1005,7 +1012,7 @@ def find_brand_request(message, products):
         product.get("brand", "").strip()
         for product in products
         if product.get("brand", "").strip()
-    }
+    } | implied_brands(products)
 
     for brand in sorted(brands, key=len, reverse=True):
         aliases = {normalized_phrase(brand)}
@@ -1015,11 +1022,61 @@ def find_brand_request(message, products):
     return None
 
 
+def implied_brands(products):
+    """Brands sellers never typed into the brand field, read off the names.
+
+    The field is optional and most sellers skip it, so "Lenovo" existed only
+    inside "Lenovo GM 2 pro". Brand requests then matched nothing and the
+    customer got the whole catalogue instead of that brand.
+
+    A leading word counts only when two or more products share it. One product
+    already resolves by its own name, so nothing is lost by requiring two.
+
+    Products sharing the second word too are a descriptive phrase, not a
+    brand: "Fast Charge Power Bank" and "Fast Charge Cable" would otherwise
+    make "Fast" a brand, and "is delivery fast?" would answer with a product
+    list. Real brands are followed by different model names.
+    """
+    leading_words = {}
+
+    for product in products:
+        words = str(product.get("name", "")).split()
+
+        if not words:
+            continue
+
+        entry = leading_words.setdefault(words[0].strip(), {"ids": set(), "seconds": set()})
+        entry["ids"].add(product.get("id"))
+        entry["seconds"].add(words[1].casefold() if len(words) > 1 else "")
+
+    return {
+        word
+        for word, entry in leading_words.items()
+        if word
+        and word.casefold() not in NEVER_A_BRAND
+        and len(entry["ids"]) > 1
+        and len(entry["seconds"]) > 1
+    }
+
+
 def brand_products(products, brand, excluded_product_id=None):
+    """Every product of a brand, whether the seller recorded it or not.
+
+    Matching the brand field alone returned nothing for the brands read off
+    product names, so the request was recognised and then answered with an
+    empty list.
+    """
+    wanted = str(brand).strip().casefold()
+
     return [
         product
         for product in products
-        if product.get("brand", "").strip().casefold() == str(brand).strip().casefold()
+        if (
+            product.get("brand", "").strip().casefold() == wanted
+            or str(product.get("name", "")).strip().casefold().startswith(
+                f"{wanted} ",
+            )
+        )
         and product.get("id") != excluded_product_id
     ]
 
@@ -3249,6 +3306,12 @@ def answer_public_message(database, session_id, provided_token, payload):
     if named_category and not explicitly_selected_product:
         selected_product = None
 
+    # Resolved here, above its first use. It was assigned further down, after
+    # the ordering block that reads it, so "I want to order <brand>" with no
+    # matching category crashed on an unbound name instead of listing the
+    # brand. Nothing between here and there changes the message it reads.
+    requested_brand = find_brand_request(message, products)
+
     if wants_to_order:
         # A customer who says "mata GM2 pro dekak ona" has already chosen. Being
         # told to click Add is a dead end for anyone typing Sinhala or speaking,
@@ -3427,8 +3490,6 @@ def answer_public_message(database, session_id, provided_token, payload):
             response_products=matches,
             selected_product_id=None if not session.get("productId") else "unchanged",
         )
-
-    requested_brand = find_brand_request(message, products)
 
     if requested_brand and not selected_product:
         brand_matches = brand_products(products, requested_brand)
