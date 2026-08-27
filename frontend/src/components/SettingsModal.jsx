@@ -2,6 +2,7 @@ import {
   Bell,
   Check,
   CreditCard,
+  Landmark,
   Mail,
   MessageCircleQuestion,
   Palette,
@@ -81,6 +82,15 @@ function SettingsModal({
     email: "",
     storefrontFaq: "",
   });
+  // Given to a customer who chooses to pay by transfer. Never published with
+  // the rest of the storefront details.
+  const [bankDetails, setBankDetails] = useState({
+    bankName: "",
+    branch: "",
+    accountName: "",
+    accountNumber: "",
+    instructions: "",
+  });
   const [contactError, setContactError] = useState("");
   const [contactMessage, setContactMessage] = useState("");
   const [isContactSaving, setIsContactSaving] = useState(false);
@@ -119,9 +129,17 @@ function SettingsModal({
       email: business?.publicEmail || "",
       storefrontFaq: business?.storefrontFaq || "",
     });
+    setBankDetails({
+      bankName: business?.bankDetails?.bankName || "",
+      branch: business?.bankDetails?.branch || "",
+      accountName: business?.bankDetails?.accountName || "",
+      accountNumber: business?.bankDetails?.accountNumber || "",
+      instructions: business?.bankDetails?.instructions || "",
+    });
     setContactError("");
     setContactMessage("");
   }, [
+    business?.bankDetails,
     business?.publicEmail,
     business?.publicPhone,
     business?.storefrontFaq,
@@ -172,6 +190,15 @@ function SettingsModal({
     }));
   }
 
+  function updateBankDetail(event) {
+    setBankDetails((current) => ({
+      ...current,
+      [event.target.name]: event.target.value,
+    }));
+    setContactError("");
+    setContactMessage("");
+  }
+
   function updateContactDetail(event) {
     setContactDetails((current) => ({
       ...current,
@@ -190,7 +217,7 @@ function SettingsModal({
     setContactMessage("");
 
     try {
-      await updatePublicContact(business.id, contactDetails);
+      await updatePublicContact(business.id, { ...contactDetails, bankDetails });
       await refreshSellerProfile();
       setContactMessage("Storefront contact details and policies saved.");
     } catch (error) {
@@ -301,6 +328,44 @@ Opening hours: Monday to Saturday, 9am to 6pm.`}
               than guess.
             </small>
           </label>
+
+          <fieldset className="settings-modal__bank">
+            <legend><Landmark size={14} /> Bank details for deposits</legend>
+            <p className="settings-modal__bank-hint">
+              Sent to a customer only when they choose to pay by transfer. Leave
+              blank if you take cash on delivery only.
+            </p>
+            <div className="settings-modal__contact-grid">
+              <label>
+                <span>Bank</span>
+                <input name="bankName" value={bankDetails.bankName} onChange={updateBankDetail} placeholder="Commercial Bank" disabled={!canManageBusiness || isContactSaving} />
+              </label>
+              <label>
+                <span>Branch</span>
+                <input name="branch" value={bankDetails.branch} onChange={updateBankDetail} placeholder="Nugegoda" disabled={!canManageBusiness || isContactSaving} />
+              </label>
+              <label>
+                <span>Account name</span>
+                <input name="accountName" value={bankDetails.accountName} onChange={updateBankDetail} placeholder="V S Tech Store (Pvt) Ltd" disabled={!canManageBusiness || isContactSaving} />
+              </label>
+              <label>
+                <span>Account number</span>
+                <input name="accountNumber" value={bankDetails.accountNumber} onChange={updateBankDetail} placeholder="8001234567" disabled={!canManageBusiness || isContactSaving} />
+              </label>
+            </div>
+            <label className="settings-modal__bank-note">
+              <span>Payment instructions (optional)</span>
+              <textarea
+                name="instructions"
+                value={bankDetails.instructions}
+                onChange={updateBankDetail}
+                rows={2}
+                maxLength={500}
+                placeholder="Send the slip to 077 123 4567 on WhatsApp after transferring."
+                disabled={!canManageBusiness || isContactSaving}
+              />
+            </label>
+          </fieldset>
 
           {contactError && <p className="settings-modal__error" role="alert">{contactError}</p>}
           {contactMessage && <p className="settings-modal__success" role="status">{contactMessage}</p>}

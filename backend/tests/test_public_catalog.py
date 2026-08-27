@@ -764,3 +764,55 @@ def test_categories_are_listed_once_in_catalogue_order():
     ]
 
     assert catalogue_categories(products) == ["Shoes", "Earbuds"]
+
+
+def test_a_request_to_pay_by_transfer_is_recognised():
+    from app.services.public_chat_service import is_deposit_request
+
+    assert is_deposit_request("can I do a bank transfer?") is True
+    assert is_deposit_request("deposit karanna puluwanda") is True
+    assert is_deposit_request("send me your account number") is True
+    assert is_deposit_request("බැංකු ගිණුම") is True
+    assert is_deposit_request("just cash on delivery please") is False
+
+
+def test_bank_details_are_laid_out_so_a_transfer_is_possible():
+    from app.services.public_chat_service import bank_details_message
+
+    message = bank_details_message(
+        {
+            "bankName": "Commercial Bank",
+            "branch": "Nugegoda",
+            "accountName": "VS Tech Store",
+            "accountNumber": "8001234567",
+            "instructions": "Send the slip on WhatsApp.",
+        },
+        "VS Tech Store",
+    )
+
+    assert "Commercial Bank" in message
+    assert "8001234567" in message
+    assert "Send the slip on WhatsApp." in message
+    # The customer has to be told what happens to the rest of the money.
+    assert "cash on delivery" in message
+
+
+def test_a_seller_with_no_bank_details_produces_nothing():
+    from app.services.public_chat_service import bank_details_message
+
+    # The caller falls back to a "cash on delivery only" reply rather than
+    # sending a half-empty account block.
+    assert bank_details_message({}, "VS Tech Store") == ""
+    assert bank_details_message({"instructions": "hi"}, "VS Tech Store") == ""
+
+
+def test_half_and_full_transfers_are_told_apart():
+    from app.services.public_chat_service import deposit_choice
+
+    assert deposit_choice("I will send the full amount") == "full"
+    assert deposit_choice("just half") == "part"
+    assert deposit_choice("only the delivery fee") == "part"
+    assert deposit_choice("සම්පූර්ණ") == "full"
+    # "Not the full amount" is a part payment, so "part" wins a tie.
+    assert deposit_choice("not the full amount, only part") == "part"
+    assert deposit_choice("ok") == ""

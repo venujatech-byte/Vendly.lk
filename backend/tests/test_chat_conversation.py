@@ -81,18 +81,50 @@ def catalogue():
     ]
 
 
+class FakeBusinessDatabase:
+    """Answers the one business-document read the deposit branch performs."""
+
+    def __init__(self, bank):
+        self.bank = bank
+
+    def collection(self, _name):
+        return self
+
+    def document(self, _name):
+        return self
+
+    def get(self):
+        return FakeBusinessSnapshot(self.bank)
+
+
+class FakeBusinessSnapshot:
+    exists = True
+
+    def __init__(self, bank):
+        self.bank = bank
+
+    def to_dict(self):
+        return {"bankDetails": self.bank}
+
+
 class Chat:
     """Drives a conversation, carrying session state between turns."""
 
     def __init__(self, session, intent_holder):
         self.session = session
         self.intent_holder = intent_holder
+        self.bank = {}
 
     def say(self, message, intent=None, **fields):
         self.intent_holder["value"] = (
             {"intent": intent, "language": "en", **fields} if intent else {}
         )
-        return answer_public_message(None, "session-1", "token", {"message": message})
+        return answer_public_message(
+            FakeBusinessDatabase(self.bank),
+            "session-1",
+            "token",
+            {"message": message},
+        )
 
     @property
     def state(self):
@@ -631,3 +663,184 @@ def test_the_customer_cancel_window_is_narrower_than_the_sellers():
     assert CUSTOMER_CANCELLABLE_STATUSES <= seller_can_cancel
     assert "packed" in seller_can_cancel
     assert "packed" not in CUSTOMER_CANCELLABLE_STATUSES
+
+
+def test_cancelling_with_items_in_the_cart_clears_the_draft_not_a_past_order(chat, monkeypatch):
+    def fail(*_a):
+        raise AssertionError("must not touch a placed order while a draft is open")
+
+    monkeypatch.setattr(public_chat_service, "update_order_status", fail)
+    monkeypatch.setattr(
+        public_chat_service,
+        "latest_order_for_session",
+        lambda *a: {"id": "o1", "orderNumber": "VD-000013",
+                    "fulfilmentStatus": "delivered", "totalAmountMinor": 100000},
+    )
+    # A customer who has ordered before keeps orderId on the session forever.
+    chat.session["orderId"] = "o1"
+    chat.say("mata GM2 pro dekak ona", intent="start_order",
+             productQuery="GM2 pro", quantity=2, quantityMode="total")
+
+    reply = chat.say("I want 55 if not available cancel my order")
+
+    # They meant "do not place this one", not "undo VD-000013".
+    assert chat.cart == []
+    assert chat.state == "browsing"
+    assert "VD-000013" not in reply["message"]
+    assert "cleared" in reply["message"]
+    assert "earlier order is not affected" in reply["message"]
+
+
+def test_cancelling_mid_checkout_clears_the_draft(chat, monkeypatch):
+    monkeypatch.setattr(public_chat_service, "latest_order_for_session", lambda *a: None)
+    chat.say("mata GM2 pro dekak ona", intent="start_order",
+             productQuery="GM2 pro", quantity=2, quantityMode="total")
+    chat.say("that's all", intent="finished_selecting")
+    assert chat.state == "collecting-name"
+
+    chat.say("cancel my order")
+
+    assert chat.cart == []
+    assert chat.session["customerDraft"] == {}
+    assert chat.state == "browsing"
+
+
+def test_cancelling_with_no_draft_still_targets_the_placed_order(chat, monkeypatch):
+    calls = cancellable_chat(chat, monkeypatch, status="confirmed")
+
+    reply = chat.say("cancel my order")
+
+    assert chat.state == "confirming-cancel"
+    assert "VD-000012" in reply["message"]
+    chat.say("yes cancel")
+    assert [order_id for order_id, _payload in calls] == ["o1"]
+
+
+BANK = {
+    "bankName": "Commercial Bank",
+    "branch": "Nugegoda",
+    "accountName": "VS Tech Store",
+    "accountNumber": "8001234567",
+}
+
+
+def test_asking_to_pay_by_transfer_sends_the_account_and_records_the_intent(chat):
+    chat.bank = BANK
+
+    reply = chat.say("can I do a bank transfer?")
+
+    assert "8001234567" in reply["message"]
+    assert "Commercial Bank" in reply["message"]
+    # Recorded so the order carries it and the seller watches for the money.
+    assert chat.session["customerDraft"]["paymentMethod"] == "deposit"
+
+
+def test_a_seller_with_no_bank_details_says_cash_on_delivery_only(chat):
+    chat.bank = {}
+
+    reply = chat.say("can I do a bank transfer?")
+
+    # Never send a half-empty account block.
+    assert "cash on delivery only" in reply["message"]
+    assert chat.session["customerDraft"].get("paymentMethod") is None
+
+
+def test_the_recorded_payment_method_reaches_the_order(chat, monkeypatch):
+    created = []
+    monkeypatch.setattr(
+        public_chat_service,
+        "create_public_chat_order",
+        lambda _db, _sid, _tok, payload: created.append(payload)
+        or {"id": "o1", "orderNumber": "VD-000014", "subtotalMinor": 900000,
+            "deliveryFeeMinor": 45000, "totalAmountMinor": 945000},
+    )
+    chat.bank = BANK
+
+    chat.say("mata GM2 pro dekak ona", intent="start_order",
+             productQuery="GM2 pro", quantity=2, quantityMode="total")
+    chat.say("can I do a bank transfer?")
+    chat.say("that's all", intent="finished_selecting")
+    chat.say("Nimal Perera")
+    chat.say("0771234567")
+    chat.say("skip")
+    chat.say("No. 45 Park Road")
+    chat.say("Colombo")
+    chat.say("Nugegoda")
+    chat.say("skip")
+    chat.say("confirm order")
+
+    assert created and created[0]["paymentMethod"] == "deposit"
+
+
+def test_a_plain_order_is_still_cash_on_delivery(chat, monkeypatch):
+    created = []
+    monkeypatch.setattr(
+        public_chat_service,
+        "create_public_chat_order",
+        lambda _db, _sid, _tok, payload: created.append(payload)
+        or {"id": "o1", "orderNumber": "VD-000015", "subtotalMinor": 900000,
+            "deliveryFeeMinor": 45000, "totalAmountMinor": 945000},
+    )
+
+    chat.say("mata GM2 pro dekak ona", intent="start_order",
+             productQuery="GM2 pro", quantity=2, quantityMode="total")
+    chat.say("that's all", intent="finished_selecting")
+    chat.say("Nimal Perera")
+    chat.say("0771234567")
+    chat.say("skip")
+    chat.say("No. 45 Park Road")
+    chat.say("Colombo")
+    chat.say("Nugegoda")
+    chat.say("skip")
+    chat.say("confirm order")
+
+    assert created and created[0]["paymentMethod"] == "cod"
+
+
+def test_the_stated_deposit_amount_is_captured_and_sent_to_the_order(chat, monkeypatch):
+    created = []
+    monkeypatch.setattr(
+        public_chat_service,
+        "create_public_chat_order",
+        lambda _db, _sid, _tok, payload: created.append(payload)
+        or {"id": "o1", "orderNumber": "VD-000016", "subtotalMinor": 900000,
+            "deliveryFeeMinor": 45000, "totalAmountMinor": 945000},
+    )
+    chat.bank = BANK
+    chat.say("mata GM2 pro dekak ona", intent="start_order",
+             productQuery="GM2 pro", quantity=2, quantityMode="total")
+    chat.say("can I do a bank transfer?")
+
+    reply = chat.say("just half")
+
+    assert chat.session["customerDraft"]["depositChoice"] == "part"
+    assert "balance on delivery" in reply["message"]
+
+    for line in ["that's all", "Nimal", "0771234567", "skip", "No. 45 Park Road",
+                 "Colombo", "Nugegoda", "skip", "confirm order"]:
+        chat.say(line, intent="finished_selecting" if line == "that's all" else None)
+
+    assert created[0]["depositChoice"] == "part"
+    assert created[0]["paymentMethod"] == "deposit"
+
+
+def test_a_full_transfer_is_captured_as_full(chat):
+    chat.bank = BANK
+    chat.say("can I do a bank transfer?")
+
+    reply = chat.say("I will send the full amount")
+
+    assert chat.session["customerDraft"]["depositChoice"] == "full"
+    assert "the full amount" in reply["message"]
+
+
+def test_the_amount_question_is_only_asked_once(chat):
+    chat.bank = BANK
+    chat.say("can I do a bank transfer?")
+    chat.say("full")
+
+    # A later unrelated message must not be re-read as an amount.
+    reply = chat.say("do you have GM2 pro?", intent="product_question")
+
+    assert chat.session["customerDraft"]["depositChoice"] == "full"
+    assert "Noted" not in reply["message"]

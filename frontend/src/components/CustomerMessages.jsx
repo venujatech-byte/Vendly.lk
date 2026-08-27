@@ -265,6 +265,18 @@ export default function CustomerMessages({
                   <article key={message.id} className={`customer-messages__bubble ${outgoing ? "is-outgoing" : "is-incoming"}`}>
                     {/* A seller's own reply is shown back in the words they
                         typed; `message` holds the version the customer read. */}
+                    {message.metadata?.imageUrl && (
+                      /* A bank slip or a photo of a damaged item. Showing only
+                         the caption would hide the thing that matters. */
+                      <a
+                        className="customer-messages__image"
+                        href={message.metadata.imageUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        <img src={message.metadata.imageUrl} alt="Sent by the customer" />
+                      </a>
+                    )}
                     <p>{message.sellerMessage || message.message}</p>
                     {message.metadata?.translated && (
                       <small className="customer-messages__translated">

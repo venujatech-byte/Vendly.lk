@@ -106,6 +106,8 @@ const STOREFRONT_TEXT = {
     notProvided: "Not provided by this seller",
     experiencePlaceholder: "Tell us about your experience",
     reviewImagesHint: "Select up to 4 images. They will be sent with your review.",
+    attachImage: "Send a photo",
+    sentImage: "Image sent to the seller",
   },
   si: {
     showProducts: "නිෂ්පාදන පෙන්වන්න",
@@ -206,6 +208,8 @@ const STOREFRONT_TEXT = {
     notProvided: "මෙම විකුණුම්කරු ලබා දී නැත",
     experiencePlaceholder: "ඔබේ අත්දැකීම ගැන කියන්න",
     reviewImagesHint: "රූප 4ක් දක්වා තෝරන්න. ඒවා ඔබේ සමාලෝචනය සමඟ යැවේ.",
+    attachImage: "ඡායාරූපයක් යවන්න",
+    sentImage: "විකුණුම්කරුට යැවූ ඡායාරූපය",
   },
   ta: {
     showProducts: "பொருட்களைக் காட்டு",
@@ -306,6 +310,8 @@ const STOREFRONT_TEXT = {
     notProvided: "இந்த விற்பனையாளர் வழங்கவில்லை",
     experiencePlaceholder: "உங்கள் அனுபவத்தைப் பற்றிச் சொல்லுங்கள்",
     reviewImagesHint: "4 படங்கள் வரை தேர்ந்தெடுக்கவும். அவை உங்கள் மதிப்புரையுடன் அனுப்பப்படும்.",
+    attachImage: "புகைப்படம் அனுப்பு",
+    sentImage: "விற்பனையாளருக்கு அனுப்பிய படம்",
   },
 };
 

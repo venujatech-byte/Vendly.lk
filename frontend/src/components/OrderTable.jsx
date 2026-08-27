@@ -251,6 +251,10 @@ function OrderTable({
               const isExpanded = expandedOrderId === order.id;
               const isSelected = selectedOrderIds.includes(order.id);
               const hasWarning = Boolean(order.fraudWarning?.matched ?? order.fraudWarning);
+              // The customer said they would transfer rather than pay the
+              // courier, so the seller has to watch for the money before
+              // dispatching. Fraud stays red; this is a caution, not a danger.
+              const awaitsDeposit = order.paymentMethod === "deposit";
               const currentStatus = order.fulfilmentStatus || order.status || "pending";
               const availableStatuses = nextStatuses[currentStatus] ?? [];
 
@@ -260,6 +264,7 @@ function OrderTable({
                className={[
                  isSelected ? "orders-table__row--selected" : "",
                  hasWarning ? "orders-table__row--warning" : "",
+                 !hasWarning && awaitsDeposit ? "orders-table__row--deposit" : "",
                ].filter(Boolean).join(" ")}
               >
                   <td>

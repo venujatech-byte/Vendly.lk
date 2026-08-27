@@ -210,6 +210,27 @@ def update_public_contact(database, business_id, payload):
     # Free text rather than named policy fields: a seller can write about
     # returns, cash on delivery, exchanges or opening hours in their own words,
     # and the chatbot answers from it without a schema to keep in step.
+    # Bank details are given to a customer who chooses to transfer, so they are
+    # stored per business. They are deliberately NOT part of public_business:
+    # an account number should not be handed to every anonymous storefront
+    # visitor, only to someone who asked how to pay.
+    if "bankDetails" in payload:
+        raw_bank = payload.get("bankDetails") or {}
+
+        if not isinstance(raw_bank, dict):
+            raise ApiError("validation_error", "Bank details must be an object.", 422)
+
+        try:
+            changes["bankDetails"] = {
+                "bankName": optional_text(raw_bank.get("bankName"), 120),
+                "branch": optional_text(raw_bank.get("branch"), 120),
+                "accountName": optional_text(raw_bank.get("accountName"), 160),
+                "accountNumber": optional_text(raw_bank.get("accountNumber"), 40),
+                "instructions": optional_text(raw_bank.get("instructions"), 500),
+            }
+        except ValueError as error:
+            raise ApiError("validation_error", str(error), 422) from error
+
     if "storefrontFaq" in payload:
         try:
             changes["storefrontFaq"] = optional_text(

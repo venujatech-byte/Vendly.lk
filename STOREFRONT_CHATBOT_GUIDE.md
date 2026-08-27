@@ -527,6 +527,20 @@ Order status says the same thing from the courier snapshot frozen at checkout, s
 
 Weights and prices must come from the **variant**, not the product: `create_order` bills `variant.sellingPriceMinor` and `variant.weightGrams`. Using the product's values showed one subtotal and charged another.
 
+### Deposits and bank transfer
+
+`businesses/{id}.bankDetails` is set in Settings → General and is deliberately **not** part of `public_business`: an account number should reach someone who asked how to pay, not every anonymous storefront visitor, so the chat reads the business document directly on that one path.
+
+Asking about a transfer sends the account block and records `paymentMethod: "deposit"` on the draft. The next reply is read for "half" or "full" — `deposit_choice` checks the part-payment phrases **first**, so "not the full amount" resolves to `part`. Note the list contains "only the delivery" but never a bare "delivery fee", which is the wording of a price question and would be misread as an amount.
+
+**No money is ever recorded as received.** `create_order` sets `paidAmountMinor = total` for method `"paid"`, so the chatbot must never use it — the order stays `unpaid`, and the stated amount goes on the private note in words. Converting "half" into a number is the seller's call once the transfer actually lands. Deposit rows are amber in the order table (fraud red still wins) so the seller knows to check for the money before packing.
+
+### Images in chat
+
+`POST /public/chat/sessions/{id}/images` takes a base64 data URL, the same shape reviews already use, and `upload_chat_data_url` shares the review uploader so there is one Cloudinary path with one set of type and size limits — only the folder differs. It is rate limited to **10 per minute**, far tighter than text, because each call costs storage and an outbound request.
+
+The image is saved as a customer message with the URL in `metadata.imageUrl` and always notifies the seller: a bank slip is something a person has to look at. Both the storefront and the seller inbox render it — showing only the caption would hide the thing that matters.
+
 ## 14d. Store policies
 
 `businesses/{id}.storefrontFaq` is free text the seller writes in Settings → General. It is deliberately *not* a set of named fields (returns / COD / hours): fixed fields can only answer questions someone anticipated, and a textarea costs one input instead of a repeatable editor.

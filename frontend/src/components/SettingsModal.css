@@ -402,3 +402,56 @@ html[data-theme="dark"] .settings-modal__payment-status .settings-modal__payment
   font-size: 10px;
   line-height: 1.5;
 }
+
+/* Bank details handed to a customer who chooses to pay by transfer. */
+.settings-modal__bank {
+  margin-top: 16px;
+  padding: 12px 14px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+}
+
+.settings-modal__bank legend {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 6px;
+  color: var(--color-text);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.settings-modal__bank legend svg { color: var(--color-accent); }
+
+.settings-modal__bank-hint {
+  margin: 0 0 4px;
+  color: var(--color-text-soft, #8b93a1);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.settings-modal__bank .settings-modal__contact-grid { margin-top: 8px; }
+
+.settings-modal__bank-note {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.settings-modal__bank-note > span {
+  color: var(--color-text);
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.settings-modal__bank-note textarea {
+  width: 100%;
+  padding: 10px 11px;
+  border: 1px solid var(--color-border);
+  border-radius: 9px;
+  color: var(--color-text);
+  background: var(--color-surface);
+  font: inherit;
+  font-size: 12px;
+  resize: vertical;
+}

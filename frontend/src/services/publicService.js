@@ -75,3 +75,12 @@ export function submitPublicReview(storeCode, reviewData) {
     requiresAuthentication: "optional",
   });
 }
+
+export function sendPublicChatImage(sessionId, sessionToken, image, caption = "") {
+  return apiRequest(`/public/chat/sessions/${sessionId}/images`, {
+    method: "POST",
+    headers: { "X-Chat-Session-Token": sessionToken },
+    body: { image, caption },
+    requiresAuthentication: false,
+  });
+}

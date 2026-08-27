@@ -6,6 +6,7 @@ import unicodedata
 from datetime import datetime, timedelta, timezone
 
 from firebase_admin import firestore
+from flask import current_app
 from google.cloud.firestore_v1.base_query import FieldFilter
 
 from app.core.errors import ApiError
@@ -26,6 +27,7 @@ from app.services.ai_service import (
     translate_chat_message,
 )
 from app.services.chat_event_service import notify_seller_attention
+from app.services.media_service import upload_chat_data_url
 from app.services.courier_service import (
     district_display_name,
     district_first_kg_price,
@@ -410,6 +412,20 @@ def conversation_language(message, current_language, detected_language=None):
 # Intent classification is worth an AI call only where the customer is steering
 # the conversation. In the collecting-* states the message IS the data - a name,
 # a phone number, an address - so it is read literally and never classified.
+# States where the customer is part-way through building or checking out an
+# order that has not been placed yet.
+DRAFT_IN_PROGRESS_STATES = {
+    "awaiting-item-quantity",
+    "collecting-name",
+    "collecting-phone",
+    "collecting-secondary-phone",
+    "collecting-address",
+    "collecting-district",
+    "collecting-nearest-city",
+    "collecting-delivery-note",
+    "awaiting-confirmation",
+}
+
 INTENT_CLASSIFIED_STATES = {
     "browsing",
     "quoting-district",
@@ -651,6 +667,96 @@ CUSTOMER_CANCELLABLE_STATUSES = {"needs-confirmation", "confirmed"}
 def is_cancel_order_request(message):
     text = str(message).casefold()
     return any(phrase in text for phrase in CANCEL_ORDER_PHRASES)
+
+
+DEPOSIT_REQUEST_PHRASES = (
+    "bank transfer",
+    "bank deposit",
+    "deposit",
+    "advance payment",
+    "pay online",
+    "pay in advance",
+    "prepay",
+    "account number",
+    "bank details",
+    "bank account",
+    "කරුව",
+    "බැංකු",
+    "ගිණුම",
+    "வங்கி",
+    "முன்பணம்",
+    "கணக்கு",
+)
+
+
+def is_deposit_request(message):
+    """Recognise a customer asking to pay by transfer rather than on delivery."""
+    return any(phrase in str(message).casefold() for phrase in DEPOSIT_REQUEST_PHRASES)
+
+
+def bank_details_message(bank, business_name):
+    """Lay out the seller's account so a customer can actually transfer to it."""
+    lines = [
+        line
+        for line in (
+            f"Bank: {bank.get('bankName', '')}" if bank.get("bankName") else "",
+            f"Branch: {bank.get('branch', '')}" if bank.get("branch") else "",
+            f"Account name: {bank.get('accountName', '')}" if bank.get("accountName") else "",
+            f"Account number: {bank.get('accountNumber', '')}" if bank.get("accountNumber") else "",
+        )
+        if line
+    ]
+
+    if not lines:
+        return ""
+
+    parts = [
+        f"You can pay {business_name} by bank transfer.",
+        " ".join(lines) + ".",
+    ]
+
+    if bank.get("instructions"):
+        parts.append(bank["instructions"])
+
+    parts.append(
+        "Tell me whether you are sending the full amount or only a part - the "
+        "balance is collected as cash on delivery. I will note it on your order "
+        "so the seller can check for your transfer.",
+    )
+    return " ".join(parts)
+
+
+FULL_DEPOSIT_PHRASES = (
+    "full", "whole", "entire", "all of it", "complete payment", "full amount",
+    "sampurna", "සම්පූර්ණ", "මුළු", "முழு", "முற்றிலும்",
+)
+
+PART_DEPOSIT_PHRASES = (
+    "half", "part", "partial", "advance", "deposit only",
+    # Not a bare "delivery fee" - that is the wording of a price question and
+    # would be misread as a payment amount during the transfer flow.
+    "delivery fee only", "only the delivery", "delivery only", "just the delivery",
+    "baagayak", "බාගයක්", "කොටසක්", "பாதி", "ஒரு பகுதி",
+)
+
+
+def deposit_choice(message):
+    """Read whether the customer is transferring everything or only a part.
+
+    Returned as a label rather than an amount: the customer says "half" or
+    "just the delivery", and turning that into money is the seller's call once
+    the transfer actually lands.
+    """
+    text = str(message).casefold()
+
+    # Checked first - "not the full amount" is a part payment.
+    if any(phrase in text for phrase in PART_DEPOSIT_PHRASES):
+        return "part"
+
+    if any(phrase in text for phrase in FULL_DEPOSIT_PHRASES):
+        return "full"
+
+    return ""
 
 
 def find_matching_products(message, products):
@@ -1772,9 +1878,76 @@ def answer_public_message(database, session_id, provided_token, payload):
             next_state="completed",
         )
 
-    if (is_cancel_order_request(message) or intent_is("cancel_order")) and session.get(
-        "orderId",
+    if (
+        customer_draft.get("paymentMethod") == "deposit"
+        and not customer_draft.get("depositChoice")
+        and deposit_choice(message)
+        and not is_deposit_request(message)
     ):
+        customer_draft["depositChoice"] = deposit_choice(message)
+        amount_text = (
+            "the full amount"
+            if customer_draft["depositChoice"] == "full"
+            else "part of the total, with the balance on delivery"
+        )
+        return respond(
+            f"Noted - you are sending {amount_text}. I have put that on your "
+            "order so the seller can check for your transfer. Send a photo of "
+            "the bank slip here once you have paid.",
+            "show-bank-details",
+            next_state=current_state,
+        )
+
+    if is_deposit_request(message) or intent_is("payment_question"):
+        business_document = (
+            database.collection("businesses").document(session["businessId"]).get()
+        )
+        bank = (business_document.to_dict() or {}).get("bankDetails") or {}
+        details = bank_details_message(bank, catalog["business"].get("name", "the seller"))
+
+        if details:
+            # Remember the choice so the order records it and the seller knows
+            # to watch for a transfer.
+            customer_draft["paymentMethod"] = "deposit"
+            stated = deposit_choice(message)
+            if stated:
+                customer_draft["depositChoice"] = stated
+            return respond(details, "show-bank-details", next_state=current_state)
+
+        return respond(
+            "This seller takes cash on delivery only, so there is nothing to "
+            "pay in advance. You pay the courier when your order arrives.",
+            "show-order-info",
+            next_state=current_state,
+        )
+
+    wants_to_cancel = is_cancel_order_request(message) or intent_is("cancel_order")
+
+    # "Cancel my order" while a draft is open means "do not place this one".
+    # `orderId` stays set forever after a customer's first order, so keying off
+    # it alone offered to cancel a delivered order while they were still
+    # choosing items - the opposite of what was asked.
+    has_open_draft = bool(cart_summary) or current_state in DRAFT_IN_PROGRESS_STATES
+
+    if wants_to_cancel and has_open_draft:
+        cart = []
+        cart_summary = []
+        customer_draft = {}
+        placed_order_hint = (
+            " Your earlier order is not affected - tell me its number if you "
+            "want to change that one."
+            if session.get("orderId")
+            else ""
+        )
+        return respond(
+            "I have cleared the items you were choosing, so nothing has been "
+            f"ordered.{placed_order_hint} Would you like to start again?",
+            "start-order",
+            next_state="browsing",
+            response_products=products[:4],
+        )
+
+    if wants_to_cancel and session.get("orderId"):
         order_to_cancel = latest_order_for_session(database, session)
         current_order_status = (order_to_cancel or {}).get(
             "fulfilmentStatus",
@@ -2198,6 +2371,8 @@ def answer_public_message(database, session_id, provided_token, payload):
                         },
                         "items": cart,
                         "deliveryNote": customer_draft.get("deliveryNote", ""),
+                        "paymentMethod": customer_draft.get("paymentMethod", "cod"),
+                        "depositChoice": customer_draft.get("depositChoice", ""),
                     },
                 )
             except ApiError as error:
@@ -2782,6 +2957,58 @@ def answer_public_message(database, session_id, provided_token, payload):
     )
 
 
+def attach_public_chat_image(database, session_id, provided_token, payload):
+    """Store one customer-sent image, such as a bank transfer slip.
+
+    The image is uploaded to Cloudinary and recorded as a customer message, so
+    it lands in the seller inbox next to the conversation it belongs to. The
+    seller is notified because a slip is something they have to act on.
+    """
+    session_snapshot, session = authorize_public_chat_session(
+        database,
+        session_id,
+        provided_token,
+    )
+    data_url = str(payload.get("image") or "").strip()
+
+    if not data_url:
+        raise ApiError("validation_error", "An image is required.", 422)
+
+    try:
+        caption = optional_text(payload.get("caption"), 300)
+    except ValueError as error:
+        raise ApiError("validation_error", str(error), 422) from error
+
+    uploaded = upload_chat_data_url(
+        data_url,
+        session["businessId"],
+        session_id,
+        {
+            "cloud_name": current_app.config.get("CLOUDINARY_CLOUD_NAME"),
+            "api_key": current_app.config.get("CLOUDINARY_API_KEY"),
+            "api_secret": current_app.config.get("CLOUDINARY_API_SECRET"),
+        },
+    )
+    save_chat_message(
+        session_snapshot.reference,
+        "customer",
+        caption or "Sent an image.",
+        {"imageUrl": uploaded["url"], "kind": "image"},
+    )
+    # A bank slip needs a human to look at it and confirm the money.
+    notify_seller_attention(
+        database,
+        session_snapshot.reference,
+        session["businessId"],
+        caption or "Customer sent an image",
+    )
+    return {
+        "imageUrl": uploaded["url"],
+        "message": "Thank you. I have sent the image to the seller, and they "
+                   "will confirm it shortly.",
+    }
+
+
 def create_public_chat_order(database, session_id, provided_token, payload):
     session_snapshot, session = authorize_public_chat_session(
         database,
@@ -2812,6 +3039,19 @@ def create_public_chat_order(database, session_id, provided_token, payload):
     if delivery_note:
         private_note = f"{private_note} Customer delivery note: {delivery_note}"
 
+    # The customer said "half" or "full" in the chat. Converting that to money
+    # is the seller's call once the transfer lands, so it is recorded as words
+    # on the order rather than as a deposit amount nobody has received.
+    deposit_intent = payload.get("depositChoice")
+    if deposit_intent:
+        stated = (
+            "the full amount" if deposit_intent == "full"
+            else "part of the total, balance on delivery"
+        )
+        private_note = (
+            f"{private_note} Customer said they will bank transfer {stated}."
+        )
+
     # The customer was quoted the cheapest courier for their district, so the
     # order is assigned that same courier instead of the dashboard's
     # quality-weighted recommendation. Both callers of this function - the chat
@@ -2837,7 +3077,11 @@ def create_public_chat_order(database, session_id, provided_token, payload):
         "items": payload.get("items"),
         "deliveryAddress": customer_payload.get("address"),
         "courierId": courier_id,
-        "paymentMethod": "cod",
+        # "deposit" records that the customer intends to transfer. The amount
+        # is deliberately left at zero: nothing has actually been received yet,
+        # and marking money as paid before it arrives is a far worse error than
+        # a seller having to confirm it.
+        "paymentMethod": payload.get("paymentMethod") or "cod",
         "source": "chatbot",
         "discountAmount": 0,
         "privateNote": private_note,

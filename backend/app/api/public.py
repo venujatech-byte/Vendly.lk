@@ -7,6 +7,7 @@ from app.core.rate_limit import limiter, public_chat_key
 from app.services.public_catalog_service import get_public_product, get_public_store
 from app.services.public_chat_service import (
     answer_public_message,
+    attach_public_chat_image,
     create_public_chat_order,
     create_public_chat_session,
     claim_public_chat_session,
@@ -56,6 +57,20 @@ def public_chat_message(session_id):
         get_json_object(),
     )
     return jsonify(response)
+
+
+@public_blueprint.post("/chat/sessions/<session_id>/images")
+# Uploading costs storage and an outbound request, so it is limited far more
+# tightly than sending text.
+@limiter.limit("10 per minute", key_func=public_chat_key)
+def public_chat_image(session_id):
+    response = attach_public_chat_image(
+        get_firestore_client(),
+        session_id,
+        request.headers.get("X-Chat-Session-Token", ""),
+        get_json_object(),
+    )
+    return jsonify(response), 201
 
 
 @public_blueprint.get("/chat/sessions/<session_id>/messages")

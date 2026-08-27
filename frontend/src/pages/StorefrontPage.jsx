@@ -8,6 +8,7 @@ import {
   CircleUserRound,
   ClipboardList,
   Copy,
+  Headset,
   Mail,
   MapPin,
   Menu,
@@ -17,6 +18,7 @@ import {
   Minus,
   Moon,
   Package,
+  Paperclip,
   Phone,
   Plus,
   Search,
@@ -46,6 +48,7 @@ import {
   getCustomerChats,
   getCustomerOrders,
   getPublicChatMessages,
+  sendPublicChatImage,
   sendPublicChatMessage,
   submitPublicReview,
 } from "../services/publicService";
@@ -151,9 +154,9 @@ function loadImageFile(file) {
   });
 }
 
-async function compressReviewImage(file) {
+async function compressUploadImage(file) {
   if (!file.type.startsWith("image/")) {
-    throw new Error("Review attachments must be image files.");
+    throw new Error("Attachments must be image files.");
   }
 
   const image = await loadImageFile(file);
@@ -399,12 +402,19 @@ function StorefrontPage({ linkType }) {
             ? getCustomerChats(business.shortCode).catch(() => ({ chats: [] }))
             : Promise.resolve({ chats: [] }),
         ]);
-        const candidates = [
+        // The current session is also one of the customer's chats, so the
+        // same message arrives from both sources. Collapse by id first: the
+        // "unseen" set is checked before any id is recorded, so a duplicate
+        // inside one batch passed the filter twice and rendered twice.
+        const candidates = new Map();
+        [
           ...(currentResponse.messages || []),
           ...(historyResponse.chats || []).flatMap((chat) => chat.messages || []),
-        ];
-        const unseen = candidates.filter(
-          (message) => message.role === "seller" && message.id
+        ].forEach((message) => {
+          if (message.id) candidates.set(message.id, message);
+        });
+        const unseen = [...candidates.values()].filter(
+          (message) => message.role === "seller"
             && !receivedSellerMessageIds.current.has(message.id),
         );
         if (!isCurrent || unseen.length === 0) return;
@@ -413,7 +423,7 @@ function StorefrontPage({ linkType }) {
           ...current,
           ...unseen.map((message) => ({
             id: message.id,
-            role: "assistant",
+            role: "seller",
             text: message.message,
           })),
         ]);
@@ -574,6 +584,32 @@ function StorefrontPage({ linkType }) {
         })
         .filter((item) => item.quantity > 0),
     );
+  }
+
+  // A customer sending a bank slip or a photo of a damaged item. The image
+  // goes to Cloudinary; only its URL is kept on the message.
+  async function sendChatImage(file) {
+    if (!file || !session?.sessionId) return;
+
+    setIsSending(true);
+    setErrorMessage("");
+    try {
+      const { url } = await compressUploadImage(file);
+      const response = await sendPublicChatImage(
+        session.sessionId,
+        session.sessionToken,
+        url,
+      );
+      setMessages((current) => [
+        ...current,
+        { role: "customer", text: "", imageUrl: response.imageUrl },
+        { role: "assistant", text: response.message },
+      ]);
+    } catch (error) {
+      setErrorMessage(error.message);
+    } finally {
+      setIsSending(false);
+    }
   }
 
   async function requestChatMessage(cleanMessage) {
@@ -1170,6 +1206,7 @@ function StorefrontPage({ linkType }) {
               })
             }
             onQuickMessage={requestChatMessage}
+            onSendImage={sendChatImage}
             onAddFromChat={addFromChat}
             onDecreaseItem={(variantId) => updateCartQuantity(variantId, -1)}
             onIncreaseItem={(variantId) => updateCartQuantity(variantId, 1)}
@@ -1197,7 +1234,7 @@ function StorefrontPage({ linkType }) {
                 setErrorMessage("");
                 const selectedFiles = Array.from(event.target.files || []).slice(0, 4);
                 const encodedFiles = await Promise.all(
-                  selectedFiles.map(compressReviewImage),
+                  selectedFiles.map(compressUploadImage),
                 );
                 setStorefrontReviewFiles(encodedFiles);
               } catch (error) {
@@ -1703,6 +1740,7 @@ function ChatbotView({
   onToggleSpeech,
   onToggleVoiceLanguage,
   onQuickMessage,
+  onSendImage,
   onAddFromChat,
   onDecreaseItem,
   onIncreaseItem,
@@ -1723,17 +1761,29 @@ function ChatbotView({
           {messages.map((message, index) => (
             <div
               className={`storefront-chat-message storefront-chat-message--${message.role}`}
-              key={`${message.role}-${index}`}
+              key={message.id || `${message.role}-${index}`}
             >
               <span className="storefront-chat-message__avatar">
                 {message.role === "assistant" ? (
                   <Bot size={18} />
+                ) : message.role === "seller" ? (
+                  <Headset size={18} />
                 ) : (
                   <UserRound size={18} />
                 )}
               </span>
               <div className="storefront-chat-message__content">
-                <p>{message.text}</p>
+                {message.imageUrl && (
+                  <a
+                    className="storefront-chat-message__image"
+                    href={message.imageUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <img src={message.imageUrl} alt={text.sentImage} />
+                  </a>
+                )}
+                {message.text && <p>{message.text}</p>}
 
                 {message.role === "assistant" &&
                   [
@@ -1957,6 +2007,24 @@ function ChatbotView({
           >
             {isListening ? <MicOff size={18} /> : <Mic size={18} />}
           </button>
+          <label
+            className="storefront-chat-input__attach"
+            title={text.attachImage}
+            aria-label={text.attachImage}
+          >
+            <Paperclip size={18} />
+            <input
+              type="file"
+              accept="image/*"
+              disabled={isSending}
+              onChange={(event) => {
+                const [file] = event.target.files || [];
+                // Reset so choosing the same file twice still fires onChange.
+                event.target.value = "";
+                if (file) onSendImage?.(file);
+              }}
+            />
+          </label>
           <input
             value={messageText}
             onChange={(event) => onMessageTextChange(event.target.value)}

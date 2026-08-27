@@ -428,6 +428,7 @@ STOREFRONT_INTENTS = {
     "reviews",
     "delivery_quote",
     "cancel_order",
+    "payment_question",
     "policy_question",
     "set_quantity",
     "start_order",
@@ -472,7 +473,9 @@ def generate_storefront_intent(message, product_names, category_names, state):
         "price, stock, sizes, colours or warranty. Use show_catalog when the "
         "customer wants to see what is available, show_category for one named "
         "category, similar_products when they want alternatives to something, "
-        "reviews for ratings or customer feedback, delivery_quote for delivery "
+        "reviews for ratings or customer feedback, payment_question when they "
+        "ask how to pay or about a bank transfer, deposit or advance, "
+        "delivery_quote for delivery "
         "cost or delivery time, policy_question for how the shop operates rather than "
         "what it sells - returns, refunds, exchanges, warranty claims, cash on "
         "delivery, payment methods, opening hours and contact - start_order "
