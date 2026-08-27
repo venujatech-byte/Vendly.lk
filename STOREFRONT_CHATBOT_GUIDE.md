@@ -1620,3 +1620,18 @@ Both now call one `category_response` helper. This is the third time in this
 session a rule existed twice and only one copy was updated (§23.38, §23.40);
 `answer_public_message` being one 3,700-line function is the reason, and
 splitting it should move up the roadmap.
+
+### 23.42 "Compare these" offered whenever several products are shown — NEW
+
+Any reply that puts more than one product on screen now leads its chips with
+**Compare these**. It is the next thing a customer wants from a list, and the
+hardest to phrase by typing - especially in Sinhala or Tamil, where the chip
+sends the fixed English command the comparison branch matches on.
+
+`chat_suggestions` takes the count of products in the reply, so the chip
+follows what is actually on screen rather than the action name. A single
+product keeps its own chips - a one-column table is not a comparison.
+
+A test asserts the chip's own message reaches the comparison branch. A chip
+whose wording no branch matches is worse than no chip: it looks like a
+supported action and answers with the fallback.

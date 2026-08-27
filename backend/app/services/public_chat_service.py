@@ -874,12 +874,15 @@ def deposit_choice(message):
     return ""
 
 
-def chat_suggestions(action, state, has_items, has_order):
+def chat_suggestions(action, state, has_items, has_order, shown_count=0):
     """Pick the next things worth offering, given where the conversation is.
 
     Ids only. The storefront turns them into localised labels from its own
     table and sends a fixed English command back, so these cost no AI call and
     still work when the provider is down.
+
+    `shown_count` is how many products this reply is putting on screen, so a
+    list of several can offer to compare them.
     """
     if state == "awaiting-item-quantity":
         return ["qty-1", "qty-2", "qty-3"]
@@ -909,6 +912,11 @@ def chat_suggestions(action, state, has_items, has_order):
 
     if action in {"show-product", "product-answer"}:
         return ["order-this", "similar-products", "reviews", "delivery-fee"]
+
+    # Several products on screen. Comparing them is the next thing a customer
+    # wants and the hardest thing to ask for by typing, so it leads.
+    if shown_count > 1:
+        return ["compare-these", "show-products", "delivery-fee"]
 
     if has_items:
         return ["checkout", "show-products", "delivery-fee"]
@@ -2383,6 +2391,7 @@ def answer_public_message(database, session_id, provided_token, payload):
                 state,
                 bool(cart_summary),
                 bool(session.get("orderId")),
+                len(response_products or []),
             ),
             "product": product,
             "products": response_products or [],

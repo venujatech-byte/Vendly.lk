@@ -1564,3 +1564,42 @@ def test_a_plain_category_request_still_lists_the_category(chat, monkeypatch):
                      categoryQuery="Smart watch")
 
     assert len(reply["products"]) == 2
+
+
+def test_a_group_of_products_offers_to_compare_them(chat, monkeypatch):
+    monkeypatch.setattr(
+        public_chat_service,
+        "session_catalog",
+        lambda *a: {"business": {"name": "VS Tech", "storefrontFaq": ""},
+                    "products": big_catalogue()},
+    )
+
+    reply = chat.say("show me earbuds", intent="show_category",
+                     categoryQuery="Earbuds")
+
+    # Comparing is the next thing a customer wants from a list and the hardest
+    # thing to phrase by typing.
+    assert len(reply["products"]) > 1
+    assert "compare-these" in reply["suggestions"]
+
+
+def test_a_single_product_does_not_offer_a_comparison(chat):
+    reply = chat.say("tell me about GM2 pro", intent="product_question",
+                     productQuery="GM2 pro")
+
+    assert "compare-these" not in reply["suggestions"]
+
+
+def test_the_compare_chip_sends_a_message_the_bot_acts_on(chat, monkeypatch):
+    # The chip is only useful if its wording reaches the comparison branch.
+    # "compare these" is what the storefront sends for this id.
+    monkeypatch.setattr(
+        public_chat_service,
+        "generate_comparison_answer",
+        lambda *a, **k: "| Spec | A | B |",
+    )
+    chat.session["lastShownProductIds"] = ["buds", "shoes"]
+
+    reply = chat.say("compare these", intent="product_question")
+
+    assert "| Spec |" in reply["message"]
