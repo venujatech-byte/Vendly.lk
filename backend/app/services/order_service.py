@@ -1137,3 +1137,290 @@ def update_order(database, business_id, order_id, uid, payload):
             merge=True,
         )
     return get_order(database, business_id, order_id)
+
+
+# Only an order the seller has not begun working on. Once it is confirmed,
+# picked or dispatched, the packed contents no longer match the record, and a
+# customer must not be able to change what is already on its way.
+MERGEABLE_ORDER_STATUSES = {"needs-confirmation"}
+
+
+def order_accepts_more_items(order):
+    return (order or {}).get("fulfilmentStatus") in MERGEABLE_ORDER_STATUSES
+
+
+def add_items_to_order(database, business_id, order_id, uid, items):
+    """Append items to an order the seller has not confirmed yet.
+
+    A customer who orders again minutes later usually means one delivery, not
+    two. `update_order` deliberately never touches reserved items, so this is
+    the one path that adds them: it reserves the new stock exactly as
+    `create_order` does, then reprices the order - subtotal, weight, delivery
+    for the new weight, and total.
+
+    The order keeps its number, its customer and its courier. Only the lines,
+    the weight and the money change.
+    """
+    if not items:
+        raise ApiError("validation_error", "No items to add.", 422)
+
+    business_reference = database.collection("businesses").document(business_id)
+    order_reference = business_reference.collection("orders").document(order_id)
+
+    @firestore.transactional
+    def apply(current_transaction):
+        order_snapshot = order_reference.get(transaction=current_transaction)
+
+        if not order_snapshot.exists:
+            raise ApiError("order_not_found", "Order not found.", 404)
+
+        order = order_snapshot.to_dict()
+
+        # Re-checked inside the transaction: the seller may have confirmed the
+        # order in the seconds between the customer being offered this and
+        # choosing it.
+        if not order_accepts_more_items(order):
+            raise ApiError(
+                "order_not_editable",
+                "That order is already being prepared, so it can no longer be "
+                "changed.",
+                409,
+            )
+
+        courier_snapshot = business_reference.collection("couriers").document(
+            order.get("courierId", ""),
+        ).get(transaction=current_transaction)
+
+        if not courier_snapshot.exists:
+            raise ApiError("courier_not_found", "Courier not found.", 404)
+
+        variant_snapshots = {}
+        product_snapshots = {}
+
+        for item in items:
+            variant_reference = business_reference.collection(
+                "productVariants",
+            ).document(item["variantId"])
+            variant_snapshot = variant_reference.get(transaction=current_transaction)
+
+            if not variant_snapshot.exists:
+                raise ApiError(
+                    "variant_not_found",
+                    "A selected item no longer exists.",
+                    404,
+                )
+
+            variant = variant_snapshot.to_dict()
+
+            if variant.get("stockAvailable", 0) < item["quantity"]:
+                raise ApiError(
+                    "insufficient_stock",
+                    "Only {0} unit(s) are available for SKU {1}.".format(
+                        variant.get("stockAvailable", 0),
+                        variant.get("sku"),
+                    ),
+                    409,
+                )
+
+            variant_snapshots[item["variantId"]] = variant_snapshot
+            product_id = variant.get("productId")
+
+            if product_id not in product_snapshots:
+                product_snapshot = business_reference.collection("products").document(
+                    product_id,
+                ).get(transaction=current_transaction)
+
+                if not product_snapshot.exists:
+                    raise ApiError(
+                        "inactive_product",
+                        "A selected product is unavailable.",
+                        409,
+                    )
+
+                product_snapshots[product_id] = product_snapshot
+
+        timestamp = firestore.SERVER_TIMESTAMP
+        existing_items = [dict(line) for line in (order.get("items") or [])]
+        quantities_by_product = defaultdict(int)
+        warranty_started_at = datetime.now(timezone.utc)
+
+        for item in items:
+            variant_snapshot = variant_snapshots[item["variantId"]]
+            variant = variant_snapshot.to_dict()
+            product = product_snapshots[variant["productId"]].to_dict()
+            quantity = item["quantity"]
+            unit_price_minor = variant.get("sellingPriceMinor", 0)
+            media = product.get("media", [])
+            existing_line = next(
+                (
+                    line
+                    for line in existing_items
+                    if line.get("variantId") == variant_snapshot.id
+                ),
+                None,
+            )
+
+            # Ordering the same item twice is one line of three, not two lines
+            # the picker has to notice are the same product.
+            if existing_line:
+                existing_line["quantity"] += quantity
+                existing_line["lineTotalMinor"] = (
+                    existing_line["unitPriceMinor"] * existing_line["quantity"]
+                )
+            else:
+                existing_items.append(
+                    {
+                        "productId": variant["productId"],
+                        "variantId": variant_snapshot.id,
+                        "name": product.get("name", "Product"),
+                        "size": variant.get("size", ""),
+                        "sku": variant.get("sku", ""),
+                        "barcode": variant.get("barcode", ""),
+                        "quantity": quantity,
+                        "unitPriceMinor": unit_price_minor,
+                        "unitCostMinor": variant.get("costPriceMinor", 0),
+                        "unitWeightGrams": variant.get("weightGrams", 0),
+                        "lineTotalMinor": unit_price_minor * quantity,
+                        "mediaUrl": media[0].get("url", "") if media else "",
+                        **warranty_snapshot(product, warranty_started_at),
+                    },
+                )
+
+            quantities_by_product[variant["productId"]] += quantity
+            available_before = variant.get("stockAvailable", 0)
+            available_after = available_before - quantity
+            current_transaction.update(
+                variant_snapshot.reference,
+                {
+                    "stockReserved": variant.get("stockReserved", 0) + quantity,
+                    "stockAvailable": available_after,
+                    "stockStatus": stock_status(
+                        available_after,
+                        product.get("lowStockThreshold", 0),
+                    ),
+                    "updatedAt": timestamp,
+                },
+            )
+            current_transaction.set(
+                business_reference.collection("inventoryTransactions").document(),
+                {
+                    "productId": variant["productId"],
+                    "variantId": variant_snapshot.id,
+                    "type": "reserve",
+                    "quantity": quantity,
+                    "stockBefore": available_before,
+                    "stockAfter": available_after,
+                    "orderId": order_reference.id,
+                    "reference": order.get("orderNumber", ""),
+                    "reason": "Items added to existing order",
+                    "performedBy": uid,
+                    "createdAt": timestamp,
+                },
+            )
+
+        for product_id, reserved_quantity in quantities_by_product.items():
+            product_snapshot = product_snapshots[product_id]
+            product = product_snapshot.to_dict()
+            added_by_variant = defaultdict(int)
+
+            for item in items:
+                variant = variant_snapshots[item["variantId"]].to_dict()
+
+                if variant.get("productId") == product_id:
+                    added_by_variant[item["variantId"]] += item["quantity"]
+
+            summaries = []
+
+            for summary in product.get("variantSummaries", []):
+                quantity = added_by_variant.get(summary.get("id"), 0)
+
+                if quantity:
+                    available = summary.get("stockAvailable", 0) - quantity
+                    summaries.append(
+                        {
+                            **summary,
+                            "stockReserved": summary.get("stockReserved", 0) + quantity,
+                            "stockAvailable": available,
+                            "stockStatus": stock_status(
+                                available,
+                                product.get("lowStockThreshold", 0),
+                            ),
+                        },
+                    )
+                else:
+                    summaries.append(summary)
+
+            available_product_stock = (
+                product.get("availableStock", 0) - reserved_quantity
+            )
+            current_transaction.update(
+                product_snapshot.reference,
+                {
+                    "reservedStock": product.get("reservedStock", 0) + reserved_quantity,
+                    "availableStock": available_product_stock,
+                    "stockStatus": stock_status(
+                        available_product_stock,
+                        product.get("lowStockThreshold", 0),
+                    ),
+                    "variantSummaries": summaries,
+                    "updatedAt": timestamp,
+                },
+            )
+
+        subtotal_minor = sum(line["lineTotalMinor"] for line in existing_items)
+        total_weight_grams = sum(
+            line.get("unitWeightGrams", 0) * line["quantity"]
+            for line in existing_items
+        )
+        # Delivery is charged on the whole parcel. Keeping the old fee would
+        # undercharge the seller on the extra weight.
+        delivery_fee_minor = calculate_delivery_fee(
+            courier_snapshot.to_dict(),
+            total_weight_grams,
+            order.get("district", ""),
+        )
+        discount_minor = order.get("discountTotalMinor", 0)
+        total_minor = (
+            subtotal_minor
+            - discount_minor
+            + delivery_fee_minor
+            + order.get("taxTotalMinor", 0)
+        )
+        paid_amount_minor = order.get("paidAmountMinor", 0)
+        added_quantity = sum(item["quantity"] for item in items)
+        current_transaction.update(
+            order_reference,
+            {
+                "items": existing_items,
+                "itemCount": sum(line["quantity"] for line in existing_items),
+                "subtotalMinor": subtotal_minor,
+                "deliveryFeeMinor": delivery_fee_minor,
+                "totalAmountMinor": total_minor,
+                "balanceAmountMinor": total_minor - paid_amount_minor,
+                # A deposit that covered the old total may not cover the new
+                # one, so the status is recomputed rather than carried over.
+                "paymentStatus": (
+                    "paid" if paid_amount_minor >= total_minor
+                    else "partially-paid" if paid_amount_minor > 0
+                    else "unpaid"
+                ),
+                "totalWeightGrams": total_weight_grams,
+                "updatedAt": timestamp,
+                "updatedBy": uid,
+            },
+        )
+        current_transaction.set(
+            order_reference.collection("events").document(),
+            {
+                "status": order.get("fulfilmentStatus", "needs-confirmation"),
+                "message": (
+                    "Customer added {0} item(s) to this order before "
+                    "confirmation.".format(added_quantity)
+                ),
+                "performedBy": uid,
+                "createdAt": timestamp,
+            },
+        )
+
+    apply(database.transaction())
+    return get_order(database, business_id, order_id)

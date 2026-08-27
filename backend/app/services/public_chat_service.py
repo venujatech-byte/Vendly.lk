@@ -23,6 +23,7 @@ from app.services.ai_service import (
     ai_status,
     detect_chat_language,
     generate_catalogue_answer,
+    generate_comparison_answer,
     generate_product_answer,
     generate_storefront_intent,
     translate_chat_message,
@@ -38,7 +39,12 @@ from app.services.courier_service import (
     recommend_couriers,
 )
 from app.services.operations_service import sync_ai_failure_notification
-from app.services.order_service import create_order, update_order_status
+from app.services.order_service import (
+    add_items_to_order,
+    create_order,
+    order_accepts_more_items,
+    update_order_status,
+)
 from app.services.public_catalog_service import (
     get_public_product,
     get_public_store,
@@ -228,6 +234,43 @@ GREETING_PHRASES = {
     "ஹலோ",
     "எப்படிஇருக்கிறீர்கள்",
 }
+
+
+MERGE_ORDER_PHRASES = (
+    "add to my order",
+    "add to that order",
+    "add to the order",
+    "add to my existing",
+    "add to existing",
+    "same order",
+    "one order",
+    "together",
+    "add it to",
+    "add them to",
+    "ekathu karanna",
+    "එකතු කරන්න",
+    "එකම order",
+)
+
+SEPARATE_ORDER_PHRASES = (
+    "separate order",
+    "separately",
+    "new order",
+    "another order",
+    "different order",
+    "wenama",
+    "වෙනම",
+)
+
+
+def wants_to_merge_orders(message):
+    lowered = str(message or "").casefold()
+    return any(phrase in lowered for phrase in MERGE_ORDER_PHRASES)
+
+
+def wants_separate_order(message):
+    lowered = str(message or "").casefold()
+    return any(phrase in lowered for phrase in SEPARATE_ORDER_PHRASES)
 
 
 def is_explicit_new_order_request(message):
@@ -446,6 +489,7 @@ def conversation_language(message, current_language, detected_language=None):
 # States where the customer is part-way through building or checking out an
 # order that has not been placed yet.
 DRAFT_IN_PROGRESS_STATES = {
+    "choosing-order-merge",
     "awaiting-variant",
     "awaiting-item-quantity",
     "collecting-name",
@@ -460,6 +504,7 @@ DRAFT_IN_PROGRESS_STATES = {
 
 INTENT_CLASSIFIED_STATES = {
     "browsing",
+    "choosing-order-merge",
     "awaiting-variant",
     "awaiting-item-quantity",
     "awaiting-confirmation",
@@ -839,6 +884,9 @@ def chat_suggestions(action, state, has_items, has_order):
     if state == "awaiting-item-quantity":
         return ["qty-1", "qty-2", "qty-3"]
 
+    if state == "choosing-order-merge":
+        return ["merge-order", "separate-order"]
+
     if state == "awaiting-confirmation":
         return ["confirm-order", "change-order"]
 
@@ -925,6 +973,37 @@ SUPERLATIVE_PHRASES = (
     "cheapest", "most popular", "worth", "should i",
     "hoodama", "hondama", "හොඳම", "වරේම", "சிறந்த", "எது",
 )
+
+
+COMPARISON_PHRASES = (
+    "compare",
+    "comparison",
+    "difference between",
+    "differences",
+    "what is the difference",
+    "side by side",
+    " vs ",
+    " vs.",
+    "versus",
+    "sasandanna",
+    "sasadanna",
+    "සසඳන්න",
+    "වෙනස මොකක්ද",
+    "වෙනස්කම්",
+    "ஒப்பிடு",
+    "வித்தியாசம்",
+)
+
+
+def wants_a_comparison(message):
+    """True when the customer asked to see the differences, not for a verdict.
+
+    "Which is best" and "compare these" read alike but want opposite answers:
+    one picks a winner, the other lays the specifications out and lets the
+    customer decide. Answering a comparison with a verdict hides the very
+    differences that were asked for.
+    """
+    return any(phrase in str(message).casefold() for phrase in COMPARISON_PHRASES)
 
 
 def wants_a_recommendation(message):
@@ -2684,6 +2763,24 @@ def answer_public_message(database, session_id, provided_token, payload):
                     "updatedAt": firestore.SERVER_TIMESTAMP,
                 },
             )
+            # Same rule as any other catalogue request: on a large catalogue,
+            # ask what they need instead of dumping every product and making
+            # the customer scroll it on a phone.
+            new_order_categories = catalogue_categories(products)
+
+            if len(products) > BROWSABLE_CATALOGUE_SIZE and new_order_categories:
+                return respond(
+                    "Of course. What kind of product are you looking for this "
+                    "time? Choose one of these, or tell me what you need: "
+                    f"{', '.join(new_order_categories)}.",
+                    "show-categories",
+                    next_state="browsing",
+                    response_categories=new_order_categories,
+                    selected_product_id=(
+                        None if not session.get("productId") else "unchanged"
+                    ),
+                )
+
             return respond(
                 "Of course. Here is the catalogue for your new order. Choose a "
                 "product to see its details, sizes and available stock.",
@@ -2886,6 +2983,78 @@ def answer_public_message(database, session_id, provided_token, payload):
                 product=pending_product,
                 pending_variant_id=None,
             )
+
+    # The customer was offered the choice between adding to an unconfirmed
+    # order and placing a separate one. Handled here, above the collecting-*
+    # states, because "add to my order" must not be read as a name.
+    if current_state == "choosing-order-merge":
+        open_order = latest_order_for_session(database, session)
+
+        if wants_to_merge_orders(message) or intent_is("confirm_order"):
+            if not order_accepts_more_items(open_order):
+                # The seller confirmed it while the customer was deciding.
+                return respond(
+                    "The seller has just started preparing that order, so I "
+                    "cannot add to it now. Let us place this as a separate "
+                    "order. What is your full name?",
+                    "collect-name",
+                    next_state="collecting-name",
+                )
+
+            try:
+                updated = add_items_to_order(
+                    database,
+                    session["businessId"],
+                    open_order["id"],
+                    f"public-chat:{session_id}",
+                    [
+                        {"variantId": line["variantId"], "quantity": line["quantity"]}
+                        for line in cart_summary
+                    ],
+                )
+            except ApiError as error:
+                # Stock can sell out between the offer and the choice. Say so
+                # and fall back to a separate order rather than losing the cart.
+                return respond(
+                    f"{error.message} Shall I place this as a separate order "
+                    "instead? Tell me your full name to continue.",
+                    "collect-name",
+                    next_state="collecting-name",
+                )
+
+            cart = []
+            cart_summary = []
+            session_snapshot.reference.update(
+                {
+                    "orderId": updated["id"],
+                    "status": "completed",
+                    "updatedAt": firestore.SERVER_TIMESTAMP,
+                },
+            )
+            return respond(
+                f"Done. Your order {updated.get('orderNumber', '')} now has "
+                f"{updated.get('itemCount', 0)} item(s), with delivery "
+                "recalculated for the new weight. "
+                + order_information_message(updated),
+                "show-order-info",
+                next_state="completed",
+            )
+
+        if wants_separate_order(message) or intent_is("new_order", "start_order"):
+            return respond(
+                "No problem, I will place this as a separate order. What is "
+                "your full name?",
+                "collect-name",
+                next_state="collecting-name",
+            )
+
+        return respond(
+            "Sorry, I did not catch that. Reply 'add to my order' to put these "
+            "items on your existing order, or 'separate order' to place a new "
+            "one.",
+            "choose-order-merge",
+            next_state="choosing-order-merge",
+        )
 
     # Above the collecting-* states as well as product resolution. Those states
     # read the message literally - it is meant to BE the name or the phone
@@ -3194,6 +3363,23 @@ def answer_public_message(database, session_id, provided_token, payload):
         and (is_finished_selecting_items(message) or intent_is("finished_selecting"))
     ):
         item_count = sum(item["quantity"] for item in cart_summary)
+        # An order the seller has not started on can still take these items,
+        # and one delivery costs the customer one delivery fee. Ask rather than
+        # decide: they may want them sent separately.
+        open_order = latest_order_for_session(database, session)
+
+        if order_accepts_more_items(open_order):
+            return respond(
+                f"You already have order {open_order.get('orderNumber', '')}, "
+                "which the seller has not confirmed yet. Shall I add these "
+                f"{item_count} item(s) to it, so everything arrives together "
+                "and you pay one delivery fee? Reply 'add to my order', or "
+                "'separate order' to place a new one.",
+                "choose-order-merge",
+                next_state="choosing-order-merge",
+                response_products=[],
+            )
+
         return respond(
             f"Great. Your order draft has {item_count} item(s). What is your "
             "full name?",
@@ -3214,6 +3400,63 @@ def answer_public_message(database, session_id, provided_token, payload):
     # A comparison of what is on screen must be answered before the remembered
     # single product claims the message - "what is best among them" was being
     # answered about one item instead of comparing the two that were listed.
+    # An explicit "compare these" is answered with the table itself. It sits
+    # above the recommendation branch because "compare" and "which is best"
+    # want different answers: one lays the differences out, the other picks a
+    # winner. Sharing a branch meant a comparison request got a verdict.
+    if wants_a_comparison(message):
+        # Most specific scope first. Naming the products outright has to beat
+        # a category word, because the category word is usually inside one of
+        # those names - "GM2 Pro Earbuds vs Runner Shoes" was being read as
+        # "the Earbuds category" and compared one product with itself.
+        matched_by_name = find_matching_products(message, products)
+        named_scope = find_category_request(message, products, require_cue=False)
+        on_screen = products_by_ids(products, session.get("lastShownProductIds"))
+
+        if len(matched_by_name) > 1:
+            to_compare = matched_by_name
+        elif named_scope:
+            # "compare the power banks" carries its own scope, so it does not
+            # depend on what happens to be on screen.
+            to_compare = category_products(products, named_scope)
+        elif on_screen:
+            to_compare = on_screen
+        elif session.get("lastCategoryShown"):
+            to_compare = category_products(products, session["lastCategoryShown"])
+        else:
+            to_compare = []
+
+        to_compare = to_compare[:4]
+
+        if len(to_compare) > 1:
+            table = generate_comparison_answer(to_compare, language)
+
+            # The model reads the descriptions and compares whatever features
+            # the seller wrote about. Without it, the stored fields still make
+            # a usable table - worse, but not nothing.
+            table = table or comparison_table(to_compare)
+
+            if table:
+                for marker in (MISSING_FACT_MARKER, ANSWERED_MARKER):
+                    table = table.replace(marker, "")
+
+                return respond(
+                    table.strip(),
+                    "show-category",
+                    next_state="browsing",
+                    response_products=to_compare,
+                    is_translated=True,
+                )
+
+        if len(to_compare) == 1:
+            return respond(
+                "I need at least two products to compare. Which others shall I "
+                f"put beside the {to_compare[0]['name']}?",
+                "show-category",
+                next_state="browsing",
+                response_products=products[:4],
+            )
+
     if refers_to_shown_products(message) and wants_a_recommendation(message):
         on_screen = products_by_ids(products, session.get("lastShownProductIds"))
 

@@ -165,6 +165,7 @@ def chat(monkeypatch):
         "detect_chat_language": lambda _message: None,
         "generate_product_answer": lambda *a, **k: None,
         "generate_catalogue_answer": lambda *a, **k: None,
+        "generate_comparison_answer": lambda *a, **k: None,
         "notify_seller_attention": lambda *a, **k: None,
         "latest_order_for_session": lambda *a: None,
         "describe_missing_variant": lambda *a: "Runner Shoes (size XL)",
@@ -1221,3 +1222,248 @@ def test_checking_the_cart_mid_checkout_does_not_restart_it(chat):
     # asked for their name again from the top.
     assert chat.state == "collecting-name"
     assert "GM2" in reply["message"]
+
+
+def open_order(status="needs-confirmation"):
+    return {
+        "id": "order-1",
+        "orderNumber": "VD-000041",
+        "fulfilmentStatus": status,
+        "itemCount": 2,
+        "totalAmountMinor": 500000,
+    }
+
+
+def test_an_unconfirmed_order_is_offered_the_new_items(chat, monkeypatch):
+    monkeypatch.setattr(
+        public_chat_service,
+        "latest_order_for_session",
+        lambda *a: open_order(),
+    )
+    chat.say("mata GM2 pro dekak ona", intent="start_order",
+             productQuery="GM2 pro", quantity=2, quantityMode="total")
+    reply = chat.say("that is everything", intent="finished_selecting")
+
+    # Two orders minutes apart usually mean one delivery. Asking beats both
+    # deciding for them and silently charging two delivery fees.
+    assert chat.state == "choosing-order-merge"
+    assert "VD-000041" in reply["message"]
+
+
+def test_a_confirmed_order_is_not_offered(chat, monkeypatch):
+    monkeypatch.setattr(
+        public_chat_service,
+        "latest_order_for_session",
+        lambda *a: open_order("preparing"),
+    )
+    chat.say("mata GM2 pro dekak ona", intent="start_order",
+             productQuery="GM2 pro", quantity=2, quantityMode="total")
+    chat.say("that is everything", intent="finished_selecting")
+
+    # Once the seller is packing it, the parcel no longer matches the record.
+    assert chat.state == "collecting-name"
+
+
+def test_choosing_to_merge_adds_the_items_and_reprices(chat, monkeypatch):
+    added = {}
+
+    def fake_add(_db, _business, order_id, _uid, items):
+        added["orderId"] = order_id
+        added["items"] = items
+        return {**open_order(), "itemCount": 4, "totalAmountMinor": 950000}
+
+    monkeypatch.setattr(
+        public_chat_service, "latest_order_for_session", lambda *a: open_order(),
+    )
+    monkeypatch.setattr(public_chat_service, "add_items_to_order", fake_add)
+    monkeypatch.setattr(
+        public_chat_service, "order_information_message", lambda _order: "Order info.",
+    )
+
+    chat.say("mata GM2 pro dekak ona", intent="start_order",
+             productQuery="GM2 pro", quantity=2, quantityMode="total")
+    chat.say("that is everything", intent="finished_selecting")
+    reply = chat.say("add to my order", intent="confirm_order")
+
+    assert added["orderId"] == "order-1"
+    assert added["items"] == [{"variantId": "v-buds", "quantity": 2}]
+    # The cart must be emptied, or the next message re-uploads it and the same
+    # items are added to the order a second time.
+    assert chat.cart == []
+    assert chat.state == "completed"
+    assert "VD-000041" in reply["message"]
+
+
+def test_choosing_a_separate_order_continues_to_checkout(chat, monkeypatch):
+    monkeypatch.setattr(
+        public_chat_service, "latest_order_for_session", lambda *a: open_order(),
+    )
+    monkeypatch.setattr(
+        public_chat_service,
+        "add_items_to_order",
+        lambda *a: pytest.fail("a separate order must not touch the old one"),
+    )
+
+    chat.say("mata GM2 pro dekak ona", intent="start_order",
+             productQuery="GM2 pro", quantity=2, quantityMode="total")
+    chat.say("that is everything", intent="finished_selecting")
+    reply = chat.say("separate order", intent="new_order")
+
+    assert chat.state == "collecting-name"
+    assert "full name" in reply["message"].lower()
+
+
+def test_stock_lost_between_the_offer_and_the_choice_falls_back(chat, monkeypatch):
+    from app.core.errors import ApiError
+
+    def sold_out(*_arguments):
+        raise ApiError("insufficient_stock", "Only 1 unit(s) are available.", 409)
+
+    monkeypatch.setattr(
+        public_chat_service, "latest_order_for_session", lambda *a: open_order(),
+    )
+    monkeypatch.setattr(public_chat_service, "add_items_to_order", sold_out)
+
+    chat.say("mata GM2 pro dekak ona", intent="start_order",
+             productQuery="GM2 pro", quantity=2, quantityMode="total")
+    chat.say("that is everything", intent="finished_selecting")
+    reply = chat.say("add to my order", intent="confirm_order")
+
+    # Losing the cart because a merge failed would be the worst outcome: the
+    # customer has to start again from an empty basket.
+    assert chat.state == "collecting-name"
+    assert "available" in reply["message"]
+
+
+def test_an_unclear_reply_asks_again_rather_than_guessing(chat, monkeypatch):
+    monkeypatch.setattr(
+        public_chat_service, "latest_order_for_session", lambda *a: open_order(),
+    )
+    chat.say("mata GM2 pro dekak ona", intent="start_order",
+             productQuery="GM2 pro", quantity=2, quantityMode="total")
+    chat.say("that is everything", intent="finished_selecting")
+    chat.say("hmm", intent="unknown")
+
+    # Guessing either way is expensive: a wrong merge changes an order the
+    # customer did not want changed, a wrong split charges a second delivery.
+    assert chat.state == "choosing-order-merge"
+
+
+def test_a_new_order_asks_what_they_need_on_a_large_catalogue(chat, monkeypatch):
+    monkeypatch.setattr(
+        public_chat_service,
+        "session_catalog",
+        lambda *a: {"business": {"name": "VS Tech", "storefrontFaq": ""},
+                    "products": big_catalogue()},
+    )
+    chat.session["state"] = "completed"
+    chat.session["status"] = "completed"
+
+    reply = chat.say("I want to order again", intent="new_order")
+
+    # Same rule as any other catalogue request. Dumping twelve products makes
+    # the customer do the filtering, and it buries the conversation on a phone.
+    assert reply["action"] == "show-categories"
+    assert reply["products"] == []
+    assert reply["categories"]
+
+
+def show_both(chat):
+    """Put two products on screen, the way a category listing would."""
+    chat.session["lastShownProductIds"] = ["buds", "shoes"]
+
+
+def test_compare_returns_a_table_and_no_verdict(chat, monkeypatch):
+    calls = {}
+    monkeypatch.setattr(
+        public_chat_service,
+        "generate_comparison_answer",
+        lambda products, language: calls.setdefault(
+            "products", [item["id"] for item in products],
+        ) and None or "| Spec | A | B |\n|---|---|---|\n| Price | 1 | 2 |",
+    )
+    monkeypatch.setattr(
+        public_chat_service,
+        "generate_catalogue_answer",
+        lambda *a, **k: pytest.fail("a comparison must not ask for a verdict"),
+    )
+    show_both(chat)
+
+    reply = chat.say("compare these", intent="product_question")
+
+    # "Compare" and "which is best" want opposite answers. Sharing a branch
+    # answered a comparison request with a recommendation, hiding the very
+    # differences that were asked for.
+    assert calls["products"] == ["buds", "shoes"]
+    assert "| Spec |" in reply["message"]
+    assert [item["id"] for item in reply["products"]] == ["buds", "shoes"]
+
+
+def test_the_best_product_path_is_untouched(chat, monkeypatch):
+    monkeypatch.setattr(
+        public_chat_service,
+        "generate_catalogue_answer",
+        lambda *a, **k: "The GM2 Pro Earbuds are the better buy. [ANSWERED]",
+    )
+    monkeypatch.setattr(
+        public_chat_service,
+        "generate_comparison_answer",
+        lambda *a, **k: pytest.fail("a recommendation must not become a table"),
+    )
+    show_both(chat)
+
+    reply = chat.say("what is best from these", intent="product_question")
+
+    assert "better buy" in reply["message"]
+
+
+def test_a_comparison_falls_back_to_stored_facts_when_the_ai_is_down(chat, monkeypatch):
+    monkeypatch.setattr(
+        public_chat_service, "generate_comparison_answer", lambda *a, **k: None,
+    )
+    show_both(chat)
+
+    reply = chat.say("compare these two", intent="product_question")
+
+    # Rate limited is the normal case on the free tier. A table from stored
+    # fields is worse than the model reading the descriptions, but it is an
+    # answer.
+    assert "|" in reply["message"]
+    assert "Price" in reply["message"]
+
+
+def test_a_named_category_is_compared_without_anything_on_screen(chat, monkeypatch):
+    monkeypatch.setattr(
+        public_chat_service,
+        "generate_comparison_answer",
+        lambda products, language: "| Spec |\n|---|\n"
+        + f"| {len(products)} products |",
+    )
+
+    reply = chat.say("compare the shoes", intent="product_question")
+
+    # "Compare the shoes" names its own scope, so it must not depend on what
+    # happened to be listed before it.
+    assert "1 products" in reply["message"] or "|" in reply["message"]
+
+
+def test_comparing_one_product_asks_what_to_compare_it_with(chat):
+    chat.session["lastShownProductIds"] = ["buds"]
+
+    reply = chat.say("compare this", intent="product_question")
+
+    # A one-column table is not a comparison.
+    assert "at least two" in reply["message"]
+
+
+def test_vs_is_read_as_a_comparison(chat, monkeypatch):
+    monkeypatch.setattr(
+        public_chat_service,
+        "generate_comparison_answer",
+        lambda *a, **k: "| Spec | A | B |",
+    )
+    show_both(chat)
+
+    reply = chat.say("GM2 Pro Earbuds vs Runner Shoes", intent="product_question")
+
+    assert "| Spec |" in reply["message"]

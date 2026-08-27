@@ -255,6 +255,51 @@ def generate_catalogue_answer(question, products, language="en", store_policies=
     )
 
 
+
+def comparison_prompt(products, language="en"):
+    """Ask for a comparison table and nothing else.
+
+    The catalogue prompt treats a table as the fallback for when it cannot
+    pick a winner. An explicit "compare these" is the opposite: the table IS
+    the answer, and a recommendation the customer did not ask for buries the
+    differences they wanted to read.
+    """
+    catalogue = [catalogue_entry(product) for product in products]
+    names = ", ".join(product.get("name", "") for product in products)
+    return (
+        "You are Vendly's assistant for a small Sri Lankan online business. "
+        f"{language_instruction(language)}\n"
+        "The customer asked to compare these products: "
+        f"{names}.\n"
+        "Reply with ONE markdown table and no other text - no introduction, "
+        "no summary, no recommendation. They asked to compare, not to be told "
+        "what to buy.\n"
+        "Layout: the first column is the feature name, then one column per "
+        "product, in the order listed above. The first row of the table must "
+        "be the header naming each product.\n"
+        "Choose the rows yourself by reading every description below and "
+        "pulling out the features they actually discuss - battery capacity, "
+        "charging speed, driver size, noise cancelling, water resistance, "
+        "connectivity, whatever the seller wrote about. Always include Price, "
+        "and include Warranty and Availability when the data has them.\n"
+        "Use a feature only if at least one product states it. Where a product "
+        "does not state it, put a dash. Never invent a value, and never carry "
+        "a value across from another product.\n"
+        "Write prices exactly as they appear in priceText, never as a bare "
+        "decimal. Keep every cell short - a few words, not a sentence.\n\n"
+        f"PRODUCTS:\n{json.dumps(catalogue, ensure_ascii=False)}"
+    )
+
+
+def generate_comparison_answer(products, language="en"):
+    """A feature table for an explicit comparison request."""
+    if len(products or []) < 2:
+        return None
+
+    return request_ai_text(
+        comparison_prompt(products, language),
+        max_tokens=1500,
+    )
 # The last provider failure, so the dashboard can show that the chatbot has
 # quietly dropped back to simplified English replies. A log line is only read
 # by someone already looking; a seller has no other way to find out.

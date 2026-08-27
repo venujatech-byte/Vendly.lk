@@ -1494,3 +1494,53 @@ Loosening this had to stay tight at the edges - a wrong phone number means an
 undeliverable order - so eight and ten digit numbers, empty input and letters
 are still rejected, now with a message that says what is expected. Eleven
 tests cover both directions.
+
+### 23.38 A new order dumped the whole catalogue — FIXED
+
+**Seen:** after completing an order, "new order" listed every product instead
+of asking what they were looking for.
+
+**Cause:** the `new_order` branch predates the ask-first rule and had its own
+hardcoded "here is the catalogue" reply, so it never picked the rule up.
+
+**Fix:** the same `BROWSABLE_CATALOGUE_SIZE` check every other catalogue
+request uses. A small shop still gets the full list; a large one is asked which
+category. Two copies of a rule is how one of them goes stale, so a shared
+helper would be better still - noted in §22.
+
+### 23.39 Ordering twice meant paying delivery twice — NEW
+
+**Behaviour:** when a customer finishes a second cart while their previous
+order is still **needs-confirmation**, the bot offers to add the new items to
+it so everything arrives together on one delivery fee, or to place a separate
+order. Nothing is decided for them: a wrong merge changes an order they wanted
+left alone, and a wrong split charges a second delivery.
+
+`add_items_to_order` is the one path that changes a reserved order's contents -
+`update_order` deliberately never touches items. Inside one transaction it
+reserves the new stock exactly as `create_order` does (variant, product
+summary, product totals, inventory event), merges a repeat item into its
+existing line rather than adding a duplicate, and reprices: subtotal, weight,
+**delivery recalculated for the new weight**, and total. Payment status is
+recomputed, because a deposit that covered the old total may not cover the new
+one. The order keeps its number, customer and courier.
+
+**Guards, each with a test:**
+
+- Only `needs-confirmation`. Once the seller is packing, the parcel no longer
+  matches the record.
+- The status is checked **again inside the transaction** - the seller may
+  confirm during the seconds the customer spends choosing.
+- Stock lost between the offer and the choice falls back to a separate order
+  and keeps the cart. Losing the cart on a failed merge would be the worst
+  outcome.
+- The cart is emptied on success, or the next message re-uploads it and the
+  same items are added twice.
+- An unclear reply asks again rather than guessing.
+
+**Unverified in production.** `create_order` has no test either - faking
+Firestore transactions is heavy - so this shares that gap. The conversation
+around it is covered, but the reservation writes themselves have only been
+read, not run. **Do one merge on a real order and check the variant's
+`stockAvailable`, the product totals and the recalculated delivery fee before
+relying on it.**
