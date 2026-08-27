@@ -1544,3 +1544,40 @@ around it is covered, but the reservation writes themselves have only been
 read, not run. **Do one merge on a real order and check the variant's
 `stockAvailable`, the product totals and the recalculated delivery fee before
 relying on it.**
+
+### 23.40 "Compare these" now answers with the table itself — NEW
+
+**Behaviour:** an explicit comparison request - "compare these", "what is the
+difference", "A vs B" - returns a feature table and nothing else. The model
+reads every description and picks the rows from what the seller actually wrote
+about: battery capacity, driver size, noise cancelling, water resistance,
+whatever is there, always with Price, plus Warranty and Availability when
+known. A feature only becomes a row if at least one product states it, and a
+product that does not state it gets a dash rather than a borrowed value.
+
+**Why a separate branch.** "Which is best" and "compare these" read alike and
+want opposite answers: one picks a winner, the other lays the differences out.
+Sharing a branch answered a comparison with a verdict, hiding the very
+differences that were asked for. The recommendation path is deliberately
+untouched - a test asserts each branch never calls the other's model function.
+
+Without the model, `comparison_table` still builds a table from stored fields.
+Worse than reading the descriptions, but an answer.
+
+**Scope, most specific first** - and the order matters:
+
+1. Products named in the message.
+2. A category named in the message.
+3. What is on screen.
+4. The last category shown.
+
+Naming the products has to outrank the category, because the category word is
+usually *inside* one of those names: "GM2 Pro Earbuds vs Runner Shoes" was
+read as "the Earbuds category" and compared one product with itself.
+
+**A second matcher bug, same root:** `find_matching_products` returns on the
+first exact name match and stops - it exists to resolve *one* product, and a
+comparison names two. The branch uses `products_named_in`, the tolerant
+matcher built in §23.35 for finding every product named in a piece of text.
+Two functions that both "find products in a message" answer different
+questions; picking the wrong one reads as correct until a message names two.

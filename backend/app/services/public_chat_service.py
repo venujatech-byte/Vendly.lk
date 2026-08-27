@@ -3409,7 +3409,11 @@ def answer_public_message(database, session_id, provided_token, payload):
         # a category word, because the category word is usually inside one of
         # those names - "GM2 Pro Earbuds vs Runner Shoes" was being read as
         # "the Earbuds category" and compared one product with itself.
-        matched_by_name = find_matching_products(message, products)
+        # `find_matching_products` returns the first exact name match and
+        # stops - it exists to resolve one product. A comparison names two, so
+        # it uses the matcher built for finding every product named in a piece
+        # of text.
+        matched_by_name = products_named_in(message, products)
         named_scope = find_category_request(message, products, require_cue=False)
         on_screen = products_by_ids(products, session.get("lastShownProductIds"))
 

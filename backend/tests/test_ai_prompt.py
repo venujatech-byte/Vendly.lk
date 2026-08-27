@@ -273,3 +273,35 @@ def test_the_catalogue_prompt_forbids_listing_products_that_do_not_match():
 
     assert "Check the description of each product" in prompt
     assert "say so plainly" in prompt
+
+
+def test_the_comparison_prompt_asks_for_a_table_and_forbids_a_verdict():
+    from app.services.ai_service import comparison_prompt
+
+    prompt = comparison_prompt(
+        [
+            {"name": "Anker R60i", "description": "Adaptive ANC 52dB, LDAC.",
+             "sellingPriceMinor": 999900},
+            {"name": "Redmi Buds 6", "description": "30h battery, IP54.",
+             "sellingPriceMinor": 500000},
+        ],
+        "en",
+    )
+
+    # "Compare these" asks to see the differences. A recommendation buries the
+    # very thing that was asked for, so the table is the whole reply.
+    assert "ONE markdown table" in prompt
+    assert "no recommendation" in prompt
+    # The rows come from what the seller actually wrote, not a fixed list.
+    assert "Adaptive ANC 52dB" in prompt
+    assert "30h battery" in prompt
+    assert "Never invent a value" in prompt
+    assert "put a dash" in prompt
+
+
+def test_a_comparison_needs_at_least_two_products():
+    from app.services.ai_service import generate_comparison_answer
+
+    # A one-column table is not a comparison, and it would still cost a call.
+    assert generate_comparison_answer([], "en") is None
+    assert generate_comparison_answer([{"name": "Solo"}], "en") is None

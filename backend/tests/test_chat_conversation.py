@@ -1435,16 +1435,24 @@ def test_a_comparison_falls_back_to_stored_facts_when_the_ai_is_down(chat, monke
 def test_a_named_category_is_compared_without_anything_on_screen(chat, monkeypatch):
     monkeypatch.setattr(
         public_chat_service,
+        "session_catalog",
+        lambda *a: {"business": {"name": "VS Tech", "storefrontFaq": ""},
+                    "products": big_catalogue()},
+    )
+    monkeypatch.setattr(
+        public_chat_service,
         "generate_comparison_answer",
         lambda products, language: "| Spec |\n|---|\n"
-        + f"| {len(products)} products |",
+        + f"| {len(products)} compared |",
     )
 
-    reply = chat.say("compare the shoes", intent="product_question")
+    # "Compare the earbuds" carries its own scope, so it must not depend on
+    # what happened to be listed before it - here, nothing was.
+    reply = chat.say("compare the earbuds", intent="product_question")
 
-    # "Compare the shoes" names its own scope, so it must not depend on what
-    # happened to be listed before it.
-    assert "1 products" in reply["message"] or "|" in reply["message"]
+    assert "compared |" in reply["message"]
+    assert len(reply["products"]) > 1
+    assert all(item["categoryName"] == "Earbuds" for item in reply["products"])
 
 
 def test_comparing_one_product_asks_what_to_compare_it_with(chat):
