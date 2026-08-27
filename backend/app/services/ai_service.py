@@ -451,6 +451,7 @@ def translate_chat_message(text, language):
 
 STOREFRONT_INTENTS = {
     "product_question",
+    "show_cart",
     "show_catalog",
     "show_category",
     "similar_products",
@@ -501,7 +502,8 @@ def generate_storefront_intent(message, product_names, category_names, state):
         f"Allowed intents: {', '.join(sorted(STOREFRONT_INTENTS))}.\n"
         "Use product_question for any question about a product's features, "
         "price, stock, sizes, colours or warranty. Use show_catalog when the "
-        "customer wants to see what is available, show_category for one named "
+        "customer wants to see what is available, show_cart when they ask what "
+        "is in their cart, basket or order so far, show_category for one named "
         "category, similar_products when they want alternatives to something, "
         "location_question when they ask where the shop is, for its address, "
         "or whether they can visit in person, "

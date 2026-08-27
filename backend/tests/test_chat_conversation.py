@@ -215,6 +215,37 @@ def test_a_stated_quantity_skips_the_question(chat):
     assert chat.cart == [{"variantId": "v-buds", "quantity": 2}]
 
 
+def test_show_my_cart_lists_what_is_in_it(chat):
+    chat.say("mata GM2 pro ekak ona", intent="start_order",
+             productQuery="GM2 pro", quantity=2, quantityMode="total")
+
+    # "show my cart" names no product, so it was resolved as one, matched
+    # nothing, and the customer was asked which product they meant - while
+    # holding a cart the bot could simply have read out.
+    reply = chat.say("show my cart", intent="show_cart")
+
+    assert "GM2" in reply["message"]
+    assert "2 x" in reply["message"]
+    assert "did not catch" not in reply["message"]
+
+
+def test_an_empty_cart_says_so_rather_than_asking_which_product(chat):
+    reply = chat.say("what is in my cart", intent="show_cart")
+
+    assert "empty" in reply["message"].lower()
+
+
+def test_the_cart_question_survives_the_ai_being_down(chat):
+    chat.say("mata GM2 pro ekak ona", intent="start_order",
+             productQuery="GM2 pro", quantity=1, quantityMode="total")
+
+    # No intent at all is what a rate-limited provider returns. The phrase
+    # match has to carry it, or the feature dies exactly when the shop is busy.
+    reply = chat.say("show my cart", intent=None)
+
+    assert "GM2" in reply["message"]
+
+
 def test_a_stated_quantity_replaces_rather_than_accumulates(chat):
     chat.say("mata GM2 pro ekak ona", intent="start_order",
              productQuery="GM2 pro", quantity=1, quantityMode="total")

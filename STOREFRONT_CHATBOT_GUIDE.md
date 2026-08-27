@@ -1273,3 +1273,43 @@ string differs from English, which caught `specBrand: "Brand"`. That one is
 deliberate - the rule is to keep terms Sri Lankan customers say in English.
 The four such keys are allowlisted by name in `storefrontText.test.mjs`, not
 excused by loosening the assertion.
+
+### 23.29 The corner cart button filled the card, and added silently — FIXED
+
+**Seen:** the round cart icon rendered as a full-width blue bar across the top
+of every card, and clicking it dropped one unit straight into the cart.
+
+**Cause of the width:** CSS specificity, not source order. `.card > button` is
+one class plus one type selector, which outranks a lone `.card__cart` class no
+matter how late it appears in the file. Placing the override after the rule it
+was meant to beat achieved nothing. Matching the same child combinator is what
+actually wins.
+
+Worth remembering: "put it later in the file" only settles ties between
+selectors of *equal* specificity.
+
+**Cause of the silent add:** the button called `addFromChat`, which adds one
+and posts its own local confirmation. One is a guess, and guessing a quantity
+is the same mistake §23 has already recorded twice. Both cart buttons now send
+`I want to order <name>` through the normal chat route, so the bot asks the
+variant when there is one and then how many - the same questions every other
+path to the cart asks.
+
+### 23.30 "Show my cart" asked which product they meant — FIXED
+
+**Seen:** "show my cart" answered with "I did not catch which product you
+meant" and a category list, while the cart had items in it.
+
+**Cause:** there was no cart intent. The message named no product, so it fell
+through to product resolution, matched nothing, and hit the generic fallback -
+the bot was holding the answer the whole time.
+
+**Fix:** a `show_cart` intent, plus `CART_PHRASES` so the phrase alone works
+when the provider is rate limited, handled **before** product resolution.
+`cart_contents_message` lists each line with its size, quantity and line total,
+then the items subtotal, and says plainly that delivery is added once the
+district is known. An empty cart says so and invites a search rather than
+reporting a failure.
+
+Three tests cover it, including one with no intent at all - the rate-limited
+case. All three fail with the branch removed.

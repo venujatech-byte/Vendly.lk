@@ -147,6 +147,23 @@ ORDER_ENQUIRY_WORDS = {
     "வந்ததா",
 }
 
+# "show my cart" carries no product name, so without this it fell through to
+# product resolution and the customer was asked which product they meant.
+CART_PHRASES = (
+    "my cart",
+    "the cart",
+    "in cart",
+    "my basket",
+    "my order so far",
+    "what did i add",
+    "what have i added",
+    "cart eke",
+    "cart එකේ",
+    "mage cart",
+    "මගේ cart",
+    "බඩු ලැයිස්තුව",
+)
+
 CATALOG_PHRASES = {
     "show products",
     "show catalogue",
@@ -1528,6 +1545,30 @@ def is_delivery_fee_question(message):
     )
     return asks_price and any(
         word in text for word in ("delivery", "shipping", "courier", "deliver")
+    )
+
+
+def cart_contents_message(cart_summary):
+    """List what is in the cart, priced, so "show my cart" has a real answer."""
+    if not cart_summary:
+        return (
+            "Your cart is empty at the moment. Tell me what you are looking "
+            "for and I will show you what we have."
+        )
+
+    lines = [
+        f"- {item['quantity']} x {item['productName']}"
+        + (f" ({item['size']})" if item["size"] else "")
+        + f" - LKR {item['lineTotalMinor'] / 100:,.2f}"
+        for item in cart_summary
+    ]
+    subtotal = sum(item["lineTotalMinor"] for item in cart_summary)
+
+    return (
+        "Here is what is in your cart:\n"
+        + "\n".join(lines)
+        + f"\nItems total: LKR {subtotal / 100:,.2f} (delivery is added once "
+        "I know your district). Anything else, or shall we continue?"
     )
 
 
@@ -3028,6 +3069,17 @@ def answer_public_message(database, session_id, provided_token, payload):
             "collect-name",
             next_state="collecting-name",
             response_products=[],
+        )
+
+    # Before product resolution: the message names no product, and resolving
+    # it as one is what produced "I did not catch which product you meant".
+    if any(phrase in lowered_message for phrase in CART_PHRASES) or intent_is(
+        "show_cart",
+    ):
+        return respond(
+            cart_contents_message(cart_summary),
+            "show-cart",
+            next_state="browsing" if cart_summary else current_state,
         )
 
     wants_catalog = any(

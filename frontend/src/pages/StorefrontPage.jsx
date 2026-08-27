@@ -1753,8 +1753,8 @@ function ChatCatalogCard({ product, isOrderMode, chatLanguage, cart, onQuickMess
       className="storefront-chat-catalog-card__cart"
       title={quantity ? text.addedToCart : text.addToCart}
       aria-label={`${quantity ? text.addedToCart : text.addToCart}: ${product.name}`}
-      disabled={!variant || availableStock < 1 || quantity >= availableStock}
-      onClick={() => onAddFromChat(product, variant)}
+      disabled={availableStock < 1}
+      onClick={() => onQuickMessage(`I want to order ${product.name}`)}
     >
       {quantity ? <Check size={14} /> : <ShoppingCart size={14} />}
     </button>
@@ -2207,15 +2207,10 @@ function ChatbotView({
                         </button>
                         <button
                           type="button"
-                          disabled={
-                            isSending ||
-                            !message.product.variants?.[0] ||
-                            (message.product.variants[0].availableStock ?? 0) < 1
-                          }
+                          disabled={isSending}
                           onClick={() =>
-                            onAddFromChat(
-                              message.product,
-                              message.product.variants?.[0],
+                            onQuickMessage(
+                              `I want to order ${message.product.name}`,
                             )
                           }
                         >

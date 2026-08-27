@@ -862,8 +862,10 @@
   font-weight: 700;
 }
 
-/* Overrides the `> button { width: 100% }` rule above, so it must stay after it. */
-.storefront-chat-catalog-card__cart {
+/* `.card > button` is one class plus one type, so it outranks a lone class
+   however late it appears - source order never had a say. Matching the child
+   combinator is what actually wins the width back. */
+.storefront-chat-catalog-card > .storefront-chat-catalog-card__cart {
   display: grid;
   position: absolute;
   z-index: 1;
@@ -880,19 +882,19 @@
   backdrop-filter: blur(4px);
 }
 
-.storefront-chat-catalog-card__cart:hover:not(:disabled) {
+.storefront-chat-catalog-card > .storefront-chat-catalog-card__cart:hover:not(:disabled) {
   color: #fff;
   background: var(--sf-primary);
   border-color: var(--sf-primary);
 }
 
-.storefront-chat-catalog-card.is-selected .storefront-chat-catalog-card__cart {
+.storefront-chat-catalog-card.is-selected > .storefront-chat-catalog-card__cart {
   color: #fff;
   background: var(--sf-primary);
   border-color: var(--sf-primary);
 }
 
-.storefront-chat-catalog-card__cart:disabled {
+.storefront-chat-catalog-card > .storefront-chat-catalog-card__cart:disabled {
   cursor: not-allowed;
   opacity: 0.55;
 }
