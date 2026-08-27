@@ -939,17 +939,76 @@ def products_named_in(answer, products):
     the whole catalogue underneath it contradicts the words directly - the text
     said "WIWU P-08B and ASPOR A337" while the cards showed a Xiaomi power
     bank, some earbuds and a smart watch.
+
+    The whole name had to appear verbatim, which almost never survives the
+    model writing naturally: the answer said "Anker Soundcore R60i NC" while
+    the catalogue read "Anker Soundcore R60i NC Earbuds". Nothing matched, so
+    the reply fell back to the previously shown items and recommended one
+    product while picturing two others.
     """
-    text = str(answer or "").casefold()
+    text = " ".join(word_characters(str(answer or "")).split())
 
     if not text:
         return []
 
+    answer_words = set(text.split())
+
     return [
         product
         for product in products
-        if product.get("name") and product["name"].casefold() in text
+        if name_appears_in(product.get("name", ""), text, answer_words)
     ]
+
+
+# Words that carry no identity in a product name, so their absence from an
+# answer says nothing about whether that product was meant.
+NAME_FILLER_WORDS = {"the", "a", "an", "and", "with", "for", "of", "in", "new"}
+
+
+def name_appears_in(name, text, answer_words):
+    """True when an answer names this product, allowing for natural phrasing.
+
+    Every part bearing a digit - "R60i", "EZ10", "A337", "20000mah" - must be
+    present: those are what separate one model from the next, and matching
+    without them would put a sibling product's card under the answer. The rest
+    only needs a majority, which absorbs a dropped trailing word like
+    "Earbuds" or a "The" the seller typed and the model did not.
+    """
+    words = [
+        word
+        for word in word_characters(str(name)).casefold().split()
+        if word not in NAME_FILLER_WORDS
+    ]
+
+    if not words:
+        return False
+
+    # The exact name still counts, however it is worded around.
+    if " ".join(words) in text:
+        return True
+
+    # A model code mixes letters and digits - "R60i", "EZ10", "A337",
+    # "10000mah". A bare number does not: the "6" in "Redmi buds 6 play"
+    # identifies nothing on its own and appears in half the answers written.
+    model_words = [
+        word
+        for word in words
+        if any(letter.isdigit() for letter in word)
+        and any(letter.isalpha() for letter in word)
+    ]
+    matched = [word for word in words if word in answer_words]
+
+    if model_words:
+        # The code pins the model; one more word confirms it is this seller's
+        # product and not a number quoted from somewhere else in the sentence.
+        return all(word in answer_words for word in model_words) and len(
+            matched,
+        ) > len(model_words)
+
+    # No code to rely on, so the name itself has to be mostly present. Two
+    # thirds absorbs a dropped trailing word without letting "buds" alone
+    # claim every earbud in the catalogue.
+    return len(matched) * 3 >= len(words) * 2
 
 
 def message_word_alias_set(message):
@@ -2828,6 +2887,21 @@ def answer_public_message(database, session_id, provided_token, payload):
                 pending_variant_id=None,
             )
 
+    # Above the collecting-* states as well as product resolution. Those states
+    # read the message literally - it is meant to BE the name or the phone
+    # number - so "show my cart" was being saved as the customer's name. It is
+    # matched by phrase because no intent is classified there.
+    if any(phrase in lowered_message for phrase in CART_PHRASES) or intent_is(
+        "show_cart",
+    ):
+        # Reading the cart back is not a step in the conversation, so the state
+        # is left exactly where it was.
+        return respond(
+            cart_contents_message(cart_summary),
+            "show-cart",
+            next_state=current_state,
+        )
+
     # Contact collection is deterministic so invalid details never reach orders.
     if current_state == "collecting-name":
         try:
@@ -3126,17 +3200,6 @@ def answer_public_message(database, session_id, provided_token, payload):
             "collect-name",
             next_state="collecting-name",
             response_products=[],
-        )
-
-    # Before product resolution: the message names no product, and resolving
-    # it as one is what produced "I did not catch which product you meant".
-    if any(phrase in lowered_message for phrase in CART_PHRASES) or intent_is(
-        "show_cart",
-    ):
-        return respond(
-            cart_contents_message(cart_summary),
-            "show-cart",
-            next_state="browsing" if cart_summary else current_state,
         )
 
     wants_catalog = any(

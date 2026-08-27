@@ -1205,3 +1205,19 @@ def test_a_comparison_needs_more_than_one_product_on_screen(chat, monkeypatch):
     # One product is not a comparison, so it falls through to the ordinary
     # answer path scoped to the category rather than to a list of one.
     assert scopes and scopes[0] == ["buds"]
+
+
+def test_checking_the_cart_mid_checkout_does_not_restart_it(chat):
+    chat.say("mata GM2 pro dekak ona", intent="start_order",
+             productQuery="GM2 pro", quantity=2, quantityMode="total")
+    chat.say("that is everything", intent="finished_selecting")
+
+    assert chat.state == "collecting-name"
+
+    reply = chat.say("show my cart", intent="show_cart")
+
+    # Reading the cart back is not a step in the conversation. Sending them to
+    # browsing dropped a customer half way through checkout, who was then
+    # asked for their name again from the top.
+    assert chat.state == "collecting-name"
+    assert "GM2" in reply["message"]

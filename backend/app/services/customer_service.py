@@ -10,21 +10,37 @@ from app.services.text import optional_text, required_text
 
 
 def normalize_sri_lankan_phone(value):
+    """Accept any Sri Lankan number, stored as 94 plus its nine national digits.
+
+    Every Sri Lankan number is nine digits after the leading zero, whether it
+    is a mobile (071, 077) or a landline (011 Colombo, 081 Kandy, 056, 046).
+    Requiring a 7 rejected every landline a customer might give for delivery -
+    and the customer had no way to know why their own number was "invalid".
+
+    Accepted, all the same number: 0712345678, 712345678, 94712345678,
+    +94 71 234 5678, 0094712345678.
+    """
     digits = re.sub(r"\D", "", str(value or ""))
 
-    if digits.startswith("0094"):
+    if digits.startswith("00"):
         digits = digits[2:]
-    elif digits.startswith("0") and len(digits) == 10:
-        digits = f"94{digits[1:]}"
-    elif len(digits) == 9 and digits.startswith("7"):
-        digits = f"94{digits}"
 
-    if not re.fullmatch(r"947\d{8}", digits):
+    if digits.startswith("94") and len(digits) == 11:
+        national = digits[2:]
+    elif digits.startswith("0") and len(digits) == 10:
+        national = digits[1:]
+    else:
+        national = digits
+
+    # A leading 0 never survives to here, so a national number that starts with
+    # one is a typo - 10 digits, or 8 with a digit dropped.
+    if not re.fullmatch(r"[1-9]\d{8}", national):
         raise ValueError(
-            "Phone number must be a valid Sri Lankan mobile number.",
+            "Phone number must be a Sri Lankan number with 9 digits after the "
+            "leading 0, for example 0712345678 or 0112345678.",
         )
 
-    return digits
+    return f"94{national}"
 
 
 def validate_address(value):

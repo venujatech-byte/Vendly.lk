@@ -30,6 +30,10 @@ def public_variant(variant):
         "weightGrams": variant.get("weightGrams", 0),
         "availableStock": variant.get("stockAvailable", 0),
         "stockStatus": variant.get("stockStatus", "out-of-stock"),
+        # Sellers photograph each colour or size separately in the product
+        # form, and this dropped it - so the storefront showed the same picture
+        # for every option and a customer choosing a colour could not see it.
+        "imageUrl": variant.get("imageUrl", ""),
     }
 
 

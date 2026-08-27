@@ -1376,3 +1376,121 @@ confident answer with an empty list.
 
 Since cue words no longer matter, all seven phrasings tested reach the brand
 branch with cards, with the brand field empty.
+
+### 23.33 An empty review panel took more space than the product — FIXED
+
+**Seen:** a product with no reviews still rendered "Verified customer reviews",
+an empty five-star row, "0.0", "0 reviews" and "No approved product reviews
+yet" - five lines saying nothing, pushing the photos and the buy buttons off
+the screen.
+
+**Fix:** with no reviews, the whole block is omitted in both the chat product
+details and the catalogue popup, along with the rating row that would read
+0.0. The photos are the answer. The reviews **tab** still shows its empty
+state, because there the customer asked for reviews specifically and silence
+would look broken.
+
+The popup keeps its block while reviews are loading, so it does not shift
+layout the moment they arrive.
+
+### 23.34 Variant photos never left the server — FIXED
+
+**Seen:** a product whose colours each had their own photo showed the same
+picture for every option, so a customer choosing "Orange" could not see it.
+
+**Cause:** sellers upload a per-variant image in the product form and it is
+stored on the variant as `imageUrl`, but `public_variant` never included it.
+The storefront was reading `variant.media[0]`, an array that does not exist on
+a variant - so every one of those reads had been silently falling back to the
+product photo since it was written. The frontend looked right and the data
+never arrived.
+
+Worth noting: this is not a rendering bug that a CSS change could reach. The
+field was missing three layers down, and the fallback made it look deliberate.
+
+**Fix:** expose `imageUrl` on the public variant, and read it through one
+`variantImageUrl` helper on the storefront so every call site - catalogue
+cards, chat cards, the variant chooser, and the cart line - picks up the same
+correction. It falls back to the product photo exactly as before when a
+variant has none.
+
+**Listed with their photos:** where a product's variants have their own
+pictures, both the chat product details and the catalogue popup now list them
+as picture tiles with the option name and its stock, instead of naming a colour
+and asking the customer to imagine it. Clicking one in the chat orders that
+variant; in the popup it adds that variant to the cart. Variants without photos
+keep the plain chips.
+
+### 23.35 The right answer with the wrong cards — FIXED
+
+**Seen:** "best from these" answered correctly - the Anker Soundcore R60i NC -
+and showed cards for a Baseus and a Redmi underneath.
+
+**Cause:** `products_named_in` required the product's **entire** catalogue name
+to appear verbatim in the answer. The catalogue read "Anker Soundcore R60i NC
+Earbuds"; the model wrote "Anker Soundcore R60i NC". One trailing word, no
+match, and the branch fell back to the previously shown items - so the reply
+recommended one product while picturing two others.
+
+This is the same failure §23 already records for the WIWU and ASPOR answer. It
+was fixed then by adding the fallback that produced these very cards. The
+fallback is right when an answer names nothing; the matching underneath it was
+what stayed brittle.
+
+**Fix:** match on the name's words rather than the whole string.
+
+- Parts mixing letters and digits - `R60i`, `EZ10`, `A337`, `10000mah` - are
+  model codes and **all** of them must be present. This is what stops an ASPOR
+  A337 answer showing the A389 card, which would be worse than showing nothing.
+- A bare number is **not** a code. "Redmi buds 6 play" matching on "6" would
+  have fired on a large share of answers, including "we have 6 in stock".
+- With a code matched, one further word from the name is required, so a number
+  quoted from elsewhere in the sentence cannot pull up a card.
+- With no code in the name at all, two thirds of its words must appear.
+
+Nine tests cover it, built from the real seller names in this shop -
+punctuation, trailing category words, a leading "The", and two products of one
+brand differing only by their code.
+
+### 23.36 A cart you could not see or adjust — FIXED
+
+**Seen:** checkout opened with "Your order draft has 5 item(s). What is your
+full name?" - a number, with no way to see what the five were or change them.
+
+**Fix:** an editable cart panel under that question and under any "show my
+cart" reply: photo, name, variant, quantity stepper, remove, line totals and
+an items subtotal, with a note that delivery is added once the district is
+known. The panel reads the live browser cart rather than the summary frozen
+into the message, so quantities change as they are adjusted; the next message
+uploads that cart, which is what makes the edit stick.
+
+**The final confirmation uses the same rows with the controls removed.** By
+then delivery has been quoted against the order weight, and an edit at that
+point would submit an order that no longer matches the total the customer just
+agreed to. `ChatCartLines` renders read-only unless handlers are passed, so
+this is structural rather than a flag someone can forget.
+
+**Found while testing:** "show my cart" during checkout was being **saved as
+the customer's name**. The `collecting-*` states read the message literally by
+design - it is meant to *be* the name - and the cart branch sat below them.
+Moving it above fixes that; it matches by phrase because no intent is
+classified in those states. It also no longer resets the state to browsing,
+which had been sending mid-checkout customers back to the start.
+
+### 23.37 Every landline was rejected — FIXED
+
+**Seen:** numbers starting 056, 046, 011 refused as invalid.
+
+**Cause:** `normalize_sri_lankan_phone` required `947\d{8}` - the 7 of a
+mobile prefix. Every Sri Lankan landline (011 Colombo, 081 Kandy, 056, 046)
+was rejected, and the customer was told their own number was wrong with
+nothing explaining why.
+
+**Fix:** the rule is nine national digits after the leading zero, whatever
+they start with. `0712345678`, `712345678`, `94712345678`, `+94 71 234 5678`
+and `0094712345678` all normalise to the same stored value.
+
+Loosening this had to stay tight at the edges - a wrong phone number means an
+undeliverable order - so eight and ten digit numbers, empty input and letters
+are still rejected, now with a message that says what is expected. Eleven
+tests cover both directions.

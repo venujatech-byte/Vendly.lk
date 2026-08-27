@@ -1189,3 +1189,24 @@ def test_one_product_is_not_a_comparison():
 
     assert comparison_table([{"name": "X", "sellingPriceMinor": 100}]) == ""
     assert comparison_table([]) == ""
+
+
+def test_public_variant_carries_its_own_photo():
+    from app.services.public_catalog_service import public_variant
+
+    # Sellers photograph each colour separately in the product form, and this
+    # field was dropped on the way out - so the storefront showed one picture
+    # for every option and a customer picking a colour could not see it.
+    variant = public_variant(
+        {"id": "v1", "size": "Orange", "imageUrl": "https://cdn/orange.jpg"},
+    )
+
+    assert variant["imageUrl"] == "https://cdn/orange.jpg"
+
+
+def test_a_variant_without_a_photo_reports_an_empty_string():
+    from app.services.public_catalog_service import public_variant
+
+    # The storefront falls back to the product photo on a falsy value, so this
+    # must not be None or the key missing.
+    assert public_variant({"id": "v1", "size": "S"})["imageUrl"] == ""

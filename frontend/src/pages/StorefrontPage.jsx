@@ -130,10 +130,18 @@ function publicMediaUrl(item) {
   return item?.secureUrl || item?.secure_url || item?.url || item?.downloadUrl || "";
 }
 
+// Per-variant photos arrive as a plain `imageUrl` string, not as a media
+// array - that is the shape the seller's product form writes.
+function variantImageUrl(variant) {
+  return publicMediaUrl(variant?.imageUrl) || publicMediaUrl(variant?.media?.[0]);
+}
+
 function productMediaUrls(product) {
   const media = [
     ...(product?.media || []),
-    ...(product?.variants || []).flatMap((variant) => variant.media || []),
+    ...(product?.variants || []).flatMap((variant) =>
+      variantImageUrl(variant) ? [variantImageUrl(variant)] : [],
+    ),
   ];
 
   return [...new Set(media.map(publicMediaUrl).filter(Boolean))];
@@ -564,8 +572,7 @@ function StorefrontPage({ linkType }) {
           size: variant.size,
           sku: variant.sku,
           imageUrl:
-            publicMediaUrl(variant.media?.[0]) ||
-            publicMediaUrl(product.media?.[0]),
+            variantImageUrl(variant) || publicMediaUrl(product.media?.[0]),
           sellingPriceMinor:
             variant.sellingPriceMinor ?? product.sellingPriceMinor,
           availableStock: variant.availableStock,
@@ -1446,6 +1453,7 @@ function ProductDetailModal({
   const mediaUrls = productMediaUrls(product);
   const [activeImage, setActiveImage] = useState(mediaUrls[0] || "");
   const firstVariant = product.variants?.[0];
+  const hasVariantPhotos = (product.variants || []).some(variantImageUrl);
 
   // The catalogue carries a review count but no average, and the reviews are
   // already here - averaging them beats a second round trip.
@@ -1534,13 +1542,15 @@ function ProductDetailModal({
             )}
           </div>
 
-          <div className="storefront-product-modal__rating">
-            <ReviewStars rating={averageRating} size={15} />
-            <b>{averageRating.toFixed(1)}</b>
-            <small>
-              {reviews.length || product.approvedReviewCount || 0} {text.reviews}
-            </small>
-          </div>
+          {reviews.length > 0 && (
+            <div className="storefront-product-modal__rating">
+              <ReviewStars rating={averageRating} size={15} />
+              <b>{averageRating.toFixed(1)}</b>
+              <small>
+                {reviews.length} {text.reviews}
+              </small>
+            </div>
+          )}
 
           <dl className="storefront-product-modal__specs">
             {specs.map(([label, value]) => (
@@ -1559,20 +1569,28 @@ function ProductDetailModal({
           )}
 
           {product.variants?.length > 1 && (
-            <div className="storefront-product-modal__variants">
-              <h3>{text.chooseOption}</h3>
-              <div>
-                {product.variants.map((variant) => (
-                  <button
-                    type="button"
-                    key={variant.id}
-                    onClick={() => onAddToCart(product, variant)}
-                  >
-                    {variant.size || variant.sku}
-                  </button>
-                ))}
+            hasVariantPhotos ? (
+              <VariantGallery
+                product={product}
+                chatLanguage={chatLanguage}
+                onChoose={(variant) => onAddToCart(product, variant)}
+              />
+            ) : (
+              <div className="storefront-product-modal__variants">
+                <h3>{text.chooseOption}</h3>
+                <div>
+                  {product.variants.map((variant) => (
+                    <button
+                      type="button"
+                      key={variant.id}
+                      onClick={() => onAddToCart(product, variant)}
+                    >
+                      {variant.size || variant.sku}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )
           )}
 
           <div className="storefront-product-modal__actions">
@@ -1589,14 +1607,16 @@ function ProductDetailModal({
           </div>
         </div>
 
-        <div className="storefront-product-modal__reviews">
-          <h3>{text.verifiedReviews}</h3>
-          {isLoadingReviews ? (
-            <p className="chat-reviews__empty">{text.loadingReviews}</p>
-          ) : (
-            <ChatReviewCards reviews={reviews} limit={20} />
-          )}
-        </div>
+        {(isLoadingReviews || reviews.length > 0) && (
+          <div className="storefront-product-modal__reviews">
+            <h3>{text.verifiedReviews}</h3>
+            {isLoadingReviews ? (
+              <p className="chat-reviews__empty">{text.loadingReviews}</p>
+            ) : (
+              <ChatReviewCards reviews={reviews} limit={20} />
+            )}
+          </div>
+        )}
       </article>
     </div>
   );
@@ -1606,7 +1626,7 @@ function ProductCard({ product, onAddToCart, onOpenChat, onOpenDetails }) {
   const firstVariant = product.variants?.[0];
   const hasMultipleVariants = product.variants?.length > 1;
   const productImage =
-    publicMediaUrl(firstVariant?.media?.[0]) ||
+    variantImageUrl(firstVariant) ||
     publicMediaUrl(product.media?.[0]);
 
   return (
@@ -1742,7 +1762,7 @@ function ChatCatalogCard({ product, isOrderMode, chatLanguage, cart, onQuickMess
   const quantity = selectedItem?.quantity ?? 0;
   const availableStock = variant?.availableStock ?? product.availableStock ?? 0;
   const imageUrl =
-    publicMediaUrl(variant?.media?.[0]) ||
+    variantImageUrl(variant) ||
     publicMediaUrl(product.media?.[0]);
   const sellingPriceMinor =
     variant?.sellingPriceMinor ?? product.sellingPriceMinor;
@@ -1912,7 +1932,129 @@ function ChatReviewCards({ reviews = [], limit = 6 }) {
   );
 }
 
-function ChatProductDetails({ product, reviews = [], summary, chatLanguage }) {
+function ChatCartLines({
+  lines = [],
+  chatLanguage,
+  onDecreaseItem,
+  onIncreaseItem,
+  onRemoveItem,
+}) {
+  const text = storefrontText(chatLanguage);
+  // Read-only is the default. At the final confirmation the totals have
+  // already been quoted with delivery, and an edit there would submit an order
+  // that does not match the figures the customer just agreed to.
+  const isEditable = Boolean(onIncreaseItem);
+  const subtotal = lines.reduce(
+    (total, line) => total + (line.lineTotalMinor || 0),
+    0,
+  );
+
+  return (
+    <div className="storefront-chat-cart">
+      <ul>
+        {lines.map((line) => (
+          <li key={line.variantId}>
+            <span className="storefront-chat-cart__image">
+              {line.imageUrl ? (
+                <img src={line.imageUrl} alt="" />
+              ) : (
+                <Package size={18} />
+              )}
+            </span>
+            <span className="storefront-chat-cart__name">
+              <strong>{line.productName}</strong>
+              {line.size ? <small>{line.size}</small> : null}
+            </span>
+            {isEditable ? (
+              <span className="storefront-chat-cart__quantity">
+                <button
+                  type="button"
+                  aria-label={`Remove one ${line.productName}`}
+                  onClick={() => onDecreaseItem(line.variantId)}
+                >
+                  -
+                </button>
+                <b>{line.quantity}</b>
+                <button
+                  type="button"
+                  aria-label={`Add one ${line.productName}`}
+                  disabled={line.quantity >= (line.availableStock ?? Infinity)}
+                  onClick={() => onIncreaseItem(line.variantId)}
+                >
+                  +
+                </button>
+              </span>
+            ) : (
+              <span className="storefront-chat-cart__fixed-quantity">
+                × {line.quantity}
+              </span>
+            )}
+            <strong className="storefront-chat-cart__total">
+              {money(line.lineTotalMinor)}
+            </strong>
+            {isEditable && (
+              <button
+                type="button"
+                className="storefront-chat-cart__remove"
+                aria-label={`Remove ${line.productName}`}
+                onClick={() => onRemoveItem(line.variantId)}
+              >
+                <Trash2 size={14} />
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
+      <div className="storefront-chat-cart__subtotal">
+        <span>{text.itemsTotal}</span>
+        <strong>{money(subtotal)}</strong>
+      </div>
+    </div>
+  );
+}
+
+function VariantGallery({ product, chatLanguage, onChoose }) {
+  const text = storefrontText(chatLanguage);
+  const shown = (product?.variants || []).filter(variantImageUrl);
+
+  // Nothing to add when the seller photographed the product but not each
+  // option - the main gallery already shows those pictures.
+  if (shown.length === 0) return null;
+
+  return (
+    <div className="storefront-variant-gallery">
+      <small>{text.chooseOption}</small>
+      <div>
+        {shown.map((variant) => {
+          const inStock = (variant.availableStock ?? 0) > 0;
+
+          return (
+            <button
+              type="button"
+              key={variant.id}
+              disabled={!inStock || !onChoose}
+              onClick={() => onChoose?.(variant)}
+            >
+              <span>
+                <img
+                  src={variantImageUrl(variant)}
+                  alt={variant.size || variant.sku}
+                  loading="lazy"
+                />
+              </span>
+              <strong>{variant.size || variant.sku}</strong>
+              <small>
+                {inStock ? `${variant.availableStock} available` : "Out of stock"}
+              </small>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function ChatProductDetails({ product, reviews = [], summary, chatLanguage, onChooseVariant }) {
   const mediaUrls = productMediaUrls(product);
   const text = storefrontText(chatLanguage);
 
@@ -1935,17 +2077,30 @@ function ChatProductDetails({ product, reviews = [], summary, chatLanguage }) {
         )}
       </div>
 
-      <div className="chat-product-details__reviews-heading">
-        <strong>{text.verifiedReviews}</strong>
-        <span>
-          <ReviewStars rating={summary?.averageRating} size={13} />
-          <b>{Number(summary?.averageRating || 0).toFixed(1)}</b>
-          <small>{summary?.reviewCount || 0} reviews</small>
-        </span>
-      </div>
-      <div className="chat-product-details__reviews">
-        <ChatReviewCards reviews={reviews} limit={3} />
-      </div>
+      <VariantGallery
+        product={product}
+        chatLanguage={chatLanguage}
+        onChoose={onChooseVariant}
+      />
+
+      {/* A heading, an empty star row and "no reviews yet" is three lines
+          telling the customer nothing. With none to show, the photos are the
+          answer. */}
+      {reviews.length > 0 && (
+        <>
+          <div className="chat-product-details__reviews-heading">
+            <strong>{text.verifiedReviews}</strong>
+            <span>
+              <ReviewStars rating={summary?.averageRating} size={13} />
+              <b>{Number(summary?.averageRating || 0).toFixed(1)}</b>
+              <small>{summary?.reviewCount || 0} reviews</small>
+            </span>
+          </div>
+          <div className="chat-product-details__reviews">
+            <ChatReviewCards reviews={reviews} limit={3} />
+          </div>
+        </>
+      )}
     </section>
   );
 }
@@ -2042,6 +2197,13 @@ function ChatbotView({
   onOpenReviews,
 }) {
   const text = storefrontText(chatLanguage);
+  // The editable panel reads the live browser cart, not the summary frozen
+  // into the message, so quantities change as the customer adjusts them. The
+  // next message uploads this cart, which is what makes the edit stick.
+  const cartLines = cart.map((item) => ({
+    ...item,
+    lineTotalMinor: (item.sellingPriceMinor || 0) * item.quantity,
+  }));
 
   function handleVoiceButtonClick() {
     onToggleListening?.();
@@ -2152,7 +2314,7 @@ function ChatbotView({
                       <div className="storefront-chat-variants__list">
                         {message.product.variants.map((variant) => {
                           const variantImage =
-                            publicMediaUrl(variant.media?.[0]) ||
+                            variantImageUrl(variant) ||
                             publicMediaUrl(message.product.media?.[0]);
                           const inStock = (variant.availableStock ?? 0) > 0;
 
@@ -2193,6 +2355,11 @@ function ChatbotView({
                         product={message.product}
                         reviews={message.reviews || []}
                         summary={message.reviewSummary}
+                        onChooseVariant={(variant) =>
+                          onQuickMessage(
+                            `I want to order ${message.product.name} ${variant.size || variant.sku}`,
+                          )
+                        }
                       />
 
                       <div className="storefront-chat-product-decision__actions">
@@ -2268,18 +2435,29 @@ function ChatbotView({
                   )}
 
                 {message.role === "assistant" &&
+                  ["collect-name", "show-cart"].includes(message.action) &&
+                  cart.length > 0 && (
+                    <div className="storefront-chat-cart-review">
+                      <strong>{text.reviewYourItems}</strong>
+                      <ChatCartLines
+                        lines={cartLines}
+                        chatLanguage={chatLanguage}
+                        onDecreaseItem={onDecreaseItem}
+                        onIncreaseItem={onIncreaseItem}
+                        onRemoveItem={onRemoveItem}
+                      />
+                      <small>{text.deliveryAddedLater}</small>
+                    </div>
+                  )}
+
+                {message.role === "assistant" &&
                   message.action === "confirm-order" && (
                     <div className="storefront-chat-confirmation">
                       <strong>Confirm order before submission</strong>
-                      <div className="storefront-chat-confirmation__items">
-                        {message.cartSummary?.map((item) => (
-                          <span key={item.variantId}>
-                            {item.quantity} × {item.productName}
-                            {item.size ? ` · Size ${item.size}` : ""}
-                            <strong>{money(item.lineTotalMinor)}</strong>
-                          </span>
-                        ))}
-                      </div>
+                      <ChatCartLines
+                        lines={message.cartSummary || []}
+                        chatLanguage={chatLanguage}
+                      />
                       <div className="storefront-chat-confirmation__customer">
                         <span>{message.customerDraft?.name}</span>
                         <span>{message.customerDraft?.phoneNumber}</span>
