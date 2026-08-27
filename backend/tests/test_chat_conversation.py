@@ -225,13 +225,47 @@ def test_a_stated_quantity_replaces_rather_than_accumulates(chat):
     assert chat.cart == [{"variantId": "v-buds", "quantity": 3}]
 
 
-def test_a_multi_size_product_asks_which_size(chat):
+def test_a_multi_variant_product_asks_which_variant(chat):
     chat.say("I want Runner Shoes", intent="start_order",
              productQuery="Runner Shoes", quantity=1, quantityMode="total")
 
-    # Guessing a size puts the wrong item in a real order.
+    # Guessing a variant puts the wrong item in a real order.
     assert chat.cart == []
-    assert chat.state == "browsing"
+    assert chat.state == "awaiting-variant"
+
+
+def test_a_bare_variant_name_answers_the_variant_question(chat):
+    chat.say("I want Runner Shoes", intent="start_order",
+             productQuery="Runner Shoes", quantity=1, quantityMode="total")
+
+    # The bug: "XL" on its own carries no sizeQuery, so the reply was read as
+    # a new product, resolved to nothing, and the same question was asked
+    # again - the customer could answer correctly and never get to order.
+    reply = chat.say("XL", intent="unknown")
+
+    assert chat.state == "awaiting-item-quantity"
+    assert "how many" in reply["message"].lower()
+
+    chat.say("1", intent="set_quantity", quantity=1)
+
+    assert chat.cart == [{"variantId": "v-xl", "quantity": 1}]
+
+
+def test_a_variant_answered_with_its_quantity_skips_the_extra_question(chat):
+    chat.say("I want Runner Shoes", intent="start_order",
+             productQuery="Runner Shoes", quantity=0, quantityMode="total")
+    chat.say("XL", intent="start_order", quantity=1, quantityMode="total")
+
+    assert chat.cart == [{"variantId": "v-xl", "quantity": 1}]
+
+
+def test_changing_your_mind_escapes_the_variant_question(chat):
+    chat.say("I want Runner Shoes", intent="start_order",
+             productQuery="Runner Shoes", quantity=1, quantityMode="total")
+    chat.say("actually show me the catalogue", intent="show_catalog")
+
+    # Re-asking forever traps anyone who did not want that product after all.
+    assert chat.state != "awaiting-variant"
 
 
 def test_a_named_size_is_accepted_and_capped_at_stock(chat):

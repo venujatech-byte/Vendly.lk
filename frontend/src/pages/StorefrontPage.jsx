@@ -1527,9 +1527,23 @@ function ChatCatalogCard({ product, isOrderMode, chatLanguage, cart, onQuickMess
   const sellingPriceMinor =
     variant?.sellingPriceMinor ?? product.sellingPriceMinor;
 
+  const cartButton = (
+    <button
+      type="button"
+      className="storefront-chat-catalog-card__cart"
+      title={quantity ? text.addedToCart : text.addToCart}
+      aria-label={`${quantity ? text.addedToCart : text.addToCart}: ${product.name}`}
+      disabled={!variant || availableStock < 1 || quantity >= availableStock}
+      onClick={() => onAddFromChat(product, variant)}
+    >
+      {quantity ? <Check size={14} /> : <ShoppingCart size={14} />}
+    </button>
+  );
+
   if (!isOrderMode) {
     return (
-      <article className="storefront-chat-catalog-card">
+      <article className={`storefront-chat-catalog-card ${quantity ? "is-selected" : ""}`}>
+        {cartButton}
         <div className="storefront-chat-catalog-card__image">
           {imageUrl ? <img src={imageUrl} alt={product.name} /> : <Package size={28} />}
         </div>
@@ -1911,6 +1925,46 @@ function ChatbotView({
                   )}
 
                 {message.role === "assistant" &&
+                  message.action === "select-variant" &&
+                  message.product?.variants?.length > 0 && (
+                    <div className="storefront-chat-variants">
+                      <small>{text.chooseOption}</small>
+                      <div className="storefront-chat-variants__list">
+                        {message.product.variants.map((variant) => {
+                          const variantImage =
+                            publicMediaUrl(variant.media?.[0]) ||
+                            publicMediaUrl(message.product.media?.[0]);
+                          const inStock = (variant.availableStock ?? 0) > 0;
+
+                          return (
+                            <button
+                              key={variant.id}
+                              type="button"
+                              className="storefront-chat-variant"
+                              disabled={isSending || !inStock}
+                              onClick={() => onQuickMessage(variant.size)}
+                            >
+                              <span className="storefront-chat-variant__image">
+                                {variantImage ? (
+                                  <img src={variantImage} alt={variant.size} />
+                                ) : (
+                                  <Package size={20} />
+                                )}
+                              </span>
+                              <strong>{variant.size}</strong>
+                              <small>
+                                {inStock
+                                  ? `${variant.availableStock} available`
+                                  : "Out of stock"}
+                              </small>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                {message.role === "assistant" &&
                   message.action === "show-product" &&
                   message.product && (
                     <div className="storefront-chat-product-decision">
@@ -1930,6 +1984,22 @@ function ChatbotView({
                           disabled={isSending}
                         >
                           <ShoppingCart size={14} /> {text.orderThisProduct}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={
+                            isSending ||
+                            !message.product.variants?.[0] ||
+                            (message.product.variants[0].availableStock ?? 0) < 1
+                          }
+                          onClick={() =>
+                            onAddFromChat(
+                              message.product,
+                              message.product.variants?.[0],
+                            )
+                          }
+                        >
+                          <Plus size={14} /> {text.addToCart}
                         </button>
                         <button
                           type="button"

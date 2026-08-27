@@ -429,6 +429,7 @@ def conversation_language(message, current_language, detected_language=None):
 # States where the customer is part-way through building or checking out an
 # order that has not been placed yet.
 DRAFT_IN_PROGRESS_STATES = {
+    "awaiting-variant",
     "awaiting-item-quantity",
     "collecting-name",
     "collecting-phone",
@@ -442,6 +443,7 @@ DRAFT_IN_PROGRESS_STATES = {
 
 INTENT_CLASSIFIED_STATES = {
     "browsing",
+    "awaiting-variant",
     "awaiting-item-quantity",
     "awaiting-confirmation",
     "completed",
@@ -547,7 +549,7 @@ def describe_missing_variant(database, business_id, variant_id, products):
     )
     name = product["name"] if product else "An item in your order"
     size = variant.get("size", "")
-    return f"{name} (size {size})" if size else name
+    return f"{name} ({size})" if size else name
 
 
 def quantity_from_message(message, ai_quantity=0):
@@ -593,6 +595,44 @@ def choose_variant(product, size_query):
 
     for variant in variants:
         if normalized_phrase(variant.get("size", "")) == wanted:
+            return variant
+
+    return None
+
+
+def variant_labels(product):
+    """The choices a customer picks between, in the order the seller set them."""
+    return [
+        option.get("size")
+        for option in product.get("variants", [])
+        if option.get("size")
+    ]
+
+
+def match_variant_in_message(product, message):
+    """Find the variant a bare reply names: "orange", "the black one", "42mm".
+
+    `choose_variant` reads the model's `sizeQuery`, which is empty for a
+    one-word reply the classifier saw no order intent in. That left the
+    customer answering the question correctly and being asked it again.
+    """
+    variants = product.get("variants", []) if product else []
+
+    if not variants:
+        return None
+
+    whole = normalized_phrase(message)
+    words = message_word_alias_set(message) | message_phrase_aliases(message)
+
+    for variant in variants:
+        label = normalized_phrase(variant.get("size", ""))
+
+        if not label:
+            continue
+
+        # Whole-word only. A substring match would let "large" claim a
+        # variant named "XL" inside some other word.
+        if label == whole or label in words:
             return variant
 
     return None
@@ -2046,7 +2086,7 @@ def answer_public_message(database, session_id, provided_token, payload):
         ]
         notes += [
             f"Only {available} of {product['name']}"
-            + (f" (size {variant['size']})" if variant.get("size") else "")
+            + (f" ({variant["size"]})" if variant.get("size") else "")
             + f" are left, so I reduced that line to {available}."
             for product, variant, available in reduced_lines
         ]
@@ -2515,6 +2555,76 @@ def answer_public_message(database, session_id, provided_token, payload):
             response_products=[],
         )
 
+    # The customer was asked which variant of a named product they want.
+    if current_state == "awaiting-variant":
+        pending_product = next(
+            (
+                item
+                for item in products
+                if item.get("id") == session.get("selectedProductId")
+            ),
+            None,
+        )
+        chosen_variant = (
+            match_variant_in_message(pending_product, message)
+            or choose_variant(pending_product, ai_intent.get("sizeQuery", ""))
+            if pending_product
+            else None
+        )
+
+        if chosen_variant:
+            wanted_quantity = quantity_from_message(
+                message,
+                ai_intent.get("quantity"),
+            )
+            label = (
+                f" ({chosen_variant['size']})" if chosen_variant.get("size") else ""
+            )
+
+            # Never assume one. The quantity question is the same one every
+            # other route through the order asks.
+            if wanted_quantity <= 0:
+                return respond(
+                    f"How many {pending_product['name']}{label} would you "
+                    "like? Send a number, for example 2.",
+                    "collect-item-quantity",
+                    next_state="awaiting-item-quantity",
+                    product=pending_product,
+                    pending_variant_id=chosen_variant["id"],
+                )
+
+            cart, line_quantity = set_variant_quantity(
+                cart,
+                chosen_variant["id"],
+                wanted_quantity,
+                chosen_variant.get("availableStock", 0),
+            )
+            cart_summary = summarize_chat_cart(cart, products)
+            return respond(
+                f"Added {line_quantity} x {pending_product['name']}{label} to "
+                "your order. Anything else, or shall we continue?",
+                "cart-updated",
+                next_state="browsing",
+                product=pending_product,
+                pending_variant_id=None,
+            )
+
+        # Not a variant name. Only ask again when they have not moved on -
+        # otherwise a customer who changed their mind is stuck in a loop.
+        if pending_product and (
+            not ai_intent.get("intent")
+            or intent_is("start_order", "set_quantity", "unknown")
+        ):
+            return respond(
+                f"Which option of {pending_product['name']} would you like? "
+                f"Available: {', '.join(variant_labels(pending_product))}.",
+                "select-variant",
+                next_state="awaiting-variant",
+                product=pending_product,
+            )
+
+        current_state = "browsing"
+
     # The customer was asked how many of a named product they want.
     if current_state == "awaiting-item-quantity":
         pending_product, pending_variant = find_variant(
@@ -2544,16 +2654,12 @@ def answer_public_message(database, session_id, provided_token, payload):
             if renamed_variant:
                 pending_product, pending_variant = renamed_product, renamed_variant
             else:
-                sizes = [
-                    option.get("size")
-                    for option in renamed_product.get("variants", [])
-                    if option.get("size")
-                ]
+                sizes = variant_labels(renamed_product)
                 return respond(
-                    f"Which size of {renamed_product['name']} would you like? "
-                    f"Available: {', '.join(sizes)}.",
-                    "show-product",
-                    next_state="browsing",
+                    f"Which option of {renamed_product['name']} would you "
+                    f"like? Available: {', '.join(sizes)}.",
+                    "select-variant",
+                    next_state="awaiting-variant",
                     product=renamed_product,
                     selected_product_id=renamed_product["id"],
                     pending_variant_id=None,
@@ -2596,7 +2702,7 @@ def answer_public_message(database, session_id, provided_token, payload):
             )
             cart_summary = summarize_chat_cart(cart, products)
             size_label = (
-                f" (size {pending_variant['size']})"
+                f" ({pending_variant["size"]})"
                 if pending_variant.get("size")
                 else ""
             )
@@ -2749,7 +2855,7 @@ def answer_public_message(database, session_id, provided_token, payload):
 
         item_text = ", ".join(
             f"{item['quantity']} × {item['productName']}"
-            + (f" (size {item['size']})" if item["size"] else "")
+            + (f" ({item["size"]})" if item["size"] else "")
             for item in cart_summary
         )
         address = customer_draft["address"]
@@ -3097,18 +3203,17 @@ def answer_public_message(database, session_id, provided_token, payload):
         # which is exactly who needs to order without calling the seller.
         if selected_product:
             variant = choose_variant(selected_product, ai_intent.get("sizeQuery", ""))
-            available_sizes = [
-                option.get("size")
-                for option in selected_product.get("variants", [])
-                if option.get("size")
-            ]
+            available_sizes = variant_labels(selected_product)
 
             if not variant and available_sizes:
+                # awaiting-variant, not browsing: the reply is a bare word like
+                # "orange", which browsing would try to resolve as a product and
+                # then ask this same question again.
                 return respond(
-                    f"Which size of {selected_product['name']} would you like? "
-                    f"Available: {', '.join(available_sizes)}.",
-                    "show-product",
-                    next_state="browsing",
+                    f"Which option of {selected_product['name']} would you "
+                    f"like? Available: {', '.join(available_sizes)}.",
+                    "select-variant",
+                    next_state="awaiting-variant",
                     product=selected_product,
                     selected_product_id=selected_product["id"],
                 )
@@ -3116,7 +3221,7 @@ def answer_public_message(database, session_id, provided_token, payload):
             if variant:
                 asked_quantity = ai_intent.get("quantity") or 0
                 size_label = (
-                    f" (size {variant['size']})" if variant.get("size") else ""
+                    f" ({variant["size"]})" if variant.get("size") else ""
                 )
 
                 # Confirm which product, and how many, before putting anything
@@ -3146,7 +3251,7 @@ def answer_public_message(database, session_id, provided_token, payload):
                     ai_intent.get("quantityMode", "total"),
                 )
                 cart_summary = summarize_chat_cart(cart, products)
-                size_text = f" (size {variant['size']})" if variant.get("size") else ""
+                size_text = f" ({variant["size"]})" if variant.get("size") else ""
                 capped_text = (
                     f" Only {line_quantity} left in stock, so that is what I "
                     "have put in your order."

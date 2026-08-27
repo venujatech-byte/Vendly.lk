@@ -195,7 +195,7 @@ Adding a suggestion means adding it in both places; there is a check for that in
 
 ## 8. Browsing versus ordering (important business rule)
 
-The first greeting should ask what the customer wants to know. Do not put products in the cart merely because they were displayed. In browsing mode cards show `View product details`; clicking it sends a product-information request. In ordering mode cards show `Add`, and only that click adds a line to the cart.
+The first greeting should ask what the customer wants to know. Do not put products in the cart merely because they were displayed. In browsing mode cards show `View product details`; clicking it sends a product-information request. In ordering mode cards show `Add`, and only that click adds a line to the cart. Every card also carries a **cart icon in its top-right corner**, and the product detail panel carries **Add to cart** beside **Order this product** — so a customer who has decided can add without first switching the bot into ordering mode. The icon turns into a tick once the item is in the cart. All of them route through the same `addFromChat`, which is what enforces the stock ceiling.
 
 ```js
 function addFromChat(product, variant) {
@@ -360,6 +360,11 @@ quoting-district ──not a district──────────────�
 browsing ──"that is everything" with a cart────────> collecting-name
 browsing ──"I want N of X"─────────────────────────> browsing (item added to cart)
 
+browsing ──names a multi-variant product──────────> awaiting-variant
+awaiting-variant ──a variant name─────────────────> awaiting-item-quantity
+awaiting-variant ──a variant name + a number──────> browsing (item added)
+awaiting-variant ──moves on to something else─────> browsing (handled normally)
+
 browsing ──names a product, no quantity────────────> awaiting-item-quantity
 awaiting-item-quantity ──a number─────────────────> browsing (item added)
 awaiting-item-quantity ──names another product────> that product's quantity
@@ -387,7 +392,7 @@ verifying-order ──wrong phone, under 5 attempts──> verifying-order (same
 verifying-order ──5th wrong phone────────────────> browsing (told to contact the seller)
 ```
 
-Both `awaiting-item-quantity` and `clarifying-scope` are handled **before** product and category resolution. A one-word reply like "shoes" or "2" would otherwise be claimed as a product or a catalogue number — the same rule the `collecting-*` states follow.
+`awaiting-variant`, `awaiting-item-quantity` and `clarifying-scope` are all handled **before** product and category resolution. A one-word reply like "shoes" or "2" would otherwise be claimed as a product or a catalogue number — the same rule the `collecting-*` states follow.
 
 `collecting-address` **skips `collecting-district`** when a district was already captured during a delivery quote. Do not remove that: asking again for something the customer just told you is the fastest way to lose them.
 
@@ -437,6 +442,7 @@ publicChatSessions/{sessionId}
   lastShownProductIds      <- the exact items listed, for "best among these two"
 
   -- parked questions. Each belongs to one state and is cleared on the way out.
+  selectedProductId        <- awaiting-variant: also the product awaiting a choice
   pendingVariantId         <- awaiting-item-quantity: the item awaiting a count
   pendingBudgetQuestion    <- clarifying-scope: the budget question to re-answer
   pendingOrderNumber       <- verifying-order: the order awaiting a phone check
@@ -1204,3 +1210,36 @@ This is the fourth time a memory field claimed a message meant for something els
 ### Note on ordering
 
 23.1, 23.3 and 23.4 are the same underlying gap — **the conversation has no memory of what the customer was just looking at**, so every question is answered against the whole catalogue. Fixing that once addresses all three; the rest are presentation.
+
+### 23.27 A variant could be answered correctly and still not order — FIXED
+
+**Seen:** "Which size of T800 Ultra would you like? Available: Black, Orange."
+The customer replied "orange". The bot answered with a sentence about the
+orange one, then asked the same question again. The order never progressed.
+
+**Cause:** the ask set `next_state="browsing"` and recorded nothing about the
+question it had just asked. So "orange" arrived as an ordinary browsing
+message. `choose_variant` reads the classifier's `sizeQuery`, which is empty
+for a bare word carrying no order intent, and the message itself was then
+resolved as a product name — matching nothing. The loop was structural: every
+correct answer took the same path as the first.
+
+**Fix:** a real `awaiting-variant` state, handled before product and category
+resolution like the other one-word-reply states. `match_variant_in_message`
+matches the reply against the seller's own variant labels directly, whole-word,
+without needing the model. A variant plus a number ("two orange") skips
+straight to the cart; anything that is clearly a change of subject drops back
+to browsing rather than asking forever.
+
+Two wording fixes went with it. The field is `size`, but sellers put colours in
+it, so the customer-facing question now asks which **option**, and cart lines
+read `T800 Ultra (Orange)` rather than `(size Orange)`.
+
+The storefront renders the options as **cards with their own images and stock
+counts**. Typing "orange" still works — the state handles both — but clicking
+cannot be misheard, which is the whole point for a customer ordering in Sinhala.
+
+**Method note:** the test for this asserts a state (`awaiting-variant`) that
+did not exist before the fix, so it cannot pass against the old code. The
+previous test asserted the opposite (`state == "browsing"`) and had to be
+rewritten — the old behaviour was pinned by a test that described the bug.
