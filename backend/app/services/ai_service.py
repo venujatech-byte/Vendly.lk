@@ -472,7 +472,7 @@ def generate_storefront_intent(message, product_names, category_names, state):
         "customer wants to see what is available, show_category for one named "
         "category, similar_products when they want alternatives to something, "
         "reviews for ratings or customer feedback, delivery_quote for delivery "
-        "or courier cost, policy_question for how the shop operates rather than "
+        "cost or delivery time, policy_question for how the shop operates rather than "
         "what it sells - returns, refunds, exchanges, warranty claims, cash on "
         "delivery, payment methods, opening hours and contact - start_order "
         "when they want to buy, finished_selecting "

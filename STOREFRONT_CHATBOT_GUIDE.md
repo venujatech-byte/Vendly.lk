@@ -503,6 +503,10 @@ fee = districtFirstKgPricesMinor[district] + (ceil((weight - 1000) / 1000) x ext
 - The storefront district field is a `<select>` and the chat rejects unrecognised districts. Free text there would silently fall back to the modal price and misprice the order.
 - The chatbot quotes and assigns the **cheapest** courier for the district (`cheapest_courier_quote`), with delivery quality only breaking a price tie. The seller dashboard's own `recommend_couriers` ranking is unchanged and still weighs success rate first — there is a test pinning that difference.
 
+**How long delivery takes is answered too.** Sellers configure `averageDeliveryDays` per courier and it is snapshotted onto every order, but it was never shown to a customer — so the most common pre-purchase question after price had no answer. `is_delivery_time_question` routes "how long will it take", `kochchara kalak yanawada` and "when will it arrive" into the same district-and-courier resolution as the fee, and the quote now ends with "Koombiyo usually delivers to Colombo in about 3 working days."
+
+Order status says the same thing from the courier snapshot frozen at checkout, so it stays right even if the seller later changes the courier's estimate — but **not** for a delivered, returned or cancelled order, where promising a future delivery is worse than saying nothing.
+
 Weights and prices must come from the **variant**, not the product: `create_order` bills `variant.sellingPriceMinor` and `variant.weightGrams`. Using the product's values showed one subtotal and charged another.
 
 ## 14d. Store policies

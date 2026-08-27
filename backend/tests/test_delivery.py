@@ -196,3 +196,84 @@ def test_seller_recommendation_still_prefers_delivery_quality():
     assert courier_recommendation_score(reliable, 60000, "Colombo") > (
         courier_recommendation_score(unreliable, 45000, "Colombo")
     )
+
+
+def test_delivery_time_questions_are_recognised_in_three_languages():
+    from app.services.public_chat_service import is_delivery_time_question
+
+    assert is_delivery_time_question("how long will delivery take?") is True
+    assert is_delivery_time_question("delivery how many days") is True
+    assert is_delivery_time_question("kochchara kalak yanawada delivery") is True
+    assert is_delivery_time_question("when will it arrive") is True
+
+
+def test_a_time_question_about_something_else_is_not_a_delivery_question():
+    from app.services.public_chat_service import is_delivery_time_question
+
+    # "How long is the warranty" shares the wording but not the subject.
+    assert is_delivery_time_question("how long is the warranty") is False
+    assert is_delivery_time_question("how much is delivery") is False
+    assert is_delivery_time_question("show products") is False
+
+
+def quote_with_days(days):
+    return {
+        "district": "Colombo",
+        "courierName": "Koombiyo",
+        "firstKgPriceMinor": 45000,
+        "extraKgPriceMinor": 10000,
+        "weightGrams": 600,
+        "isEstimate": False,
+        "deliveryFeeMinor": 45000,
+        "averageDeliveryDays": days,
+    }
+
+
+def test_the_quote_says_how_long_delivery_takes():
+    from app.services.public_chat_service import delivery_quote_message
+
+    # "When will it come?" follows "how much?" every single time, and the
+    # seller already configured the answer per courier.
+    message = delivery_quote_message(quote_with_days(3))
+
+    assert "about 3 working days" in message
+    assert "Koombiyo" in message
+
+
+def test_a_one_day_courier_is_not_described_as_one_days():
+    from app.services.public_chat_service import delivery_quote_message
+
+    assert "about 1 working day." in delivery_quote_message(quote_with_days(1))
+
+
+def test_a_courier_with_no_estimate_says_nothing_about_timing():
+    from app.services.public_chat_service import delivery_quote_message
+
+    message = delivery_quote_message(quote_with_days(0))
+
+    assert "working day" not in message
+    assert "450.00" in message
+
+
+def order_with_status(status):
+    return {
+        "orderNumber": "VD-000012",
+        "fulfilmentStatus": status,
+        "totalAmountMinor": 945000,
+        "courierSnapshot": {"name": "Koombiyo", "averageDeliveryDays": 3},
+    }
+
+
+def test_an_in_flight_order_shows_its_expected_delivery():
+    from app.services.public_chat_service import order_information_message
+
+    assert "about 3 working days" in order_information_message(order_with_status("packed"))
+
+
+def test_a_finished_order_does_not_promise_a_future_delivery():
+    from app.services.public_chat_service import order_information_message
+
+    # Telling someone their delivered order will arrive in 3 days is worse
+    # than saying nothing.
+    for status in ("delivered", "returned", "cancelled"):
+        assert "working days" not in order_information_message(order_with_status(status))

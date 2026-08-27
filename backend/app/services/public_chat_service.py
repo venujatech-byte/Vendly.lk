@@ -309,11 +309,21 @@ def order_information_message(order):
         f"Your order {order.get('orderNumber', '')} is currently {status}.",
         f"Order total: LKR {order.get('totalAmountMinor', 0) / 100:,.2f}.",
     ]
-    courier_name = (order.get("courierSnapshot") or {}).get("name")
+    courier = order.get("courierSnapshot") or {}
+    courier_name = courier.get("name")
     if courier_name:
         parts.append(f"Courier: {courier_name}.")
     if order.get("waybillNumber"):
         parts.append(f"Waybill number: {order['waybillNumber']}.")
+
+    # Frozen onto the order at checkout, so it stays accurate even if the
+    # seller later changes the courier's configured estimate.
+    days = courier.get("averageDeliveryDays") or 0
+    if days and order.get("fulfilmentStatus") not in {"delivered", "returned", "cancelled"}:
+        parts.append(
+            f"Expected delivery is about {days} working "
+            f"{'day' if days == 1 else 'days'} from dispatch.",
+        )
     parts.append("Ask me about this order, or say 'another order' to shop again.")
     return " ".join(parts)
 
@@ -903,6 +913,56 @@ DELIVERY_FEE_PHRASES = (
 )
 
 
+DELIVERY_TIME_PHRASES = (
+    "how long",
+    "how many days",
+    "how soon",
+    "delivery time",
+    "delivery days",
+    "when will i get",
+    "when will it",
+    "kochchara kalak",
+    "koccara kalak",
+    "kiyaa dawasak",
+    "kiya dawasak",
+    "කොනතරු",
+    "දවස්",
+    "කාලයක්",
+    "எத்தனை நாட்",
+    "எவ்வளவு நாள்",
+)
+
+
+def is_delivery_time_question(message):
+    """Recognise "how long will it take", the other half of every delivery ask.
+
+    Sellers configure averageDeliveryDays per courier and it is snapshotted
+    onto every order, but it was never shown to a customer - so the most common
+    pre-purchase question after price had no answer at all.
+    """
+    text = str(message).casefold()
+
+    if not any(phrase in text for phrase in DELIVERY_TIME_PHRASES):
+        return False
+
+    return any(
+        word in text
+        for word in (
+            "deliver",
+            "delivery",
+            "shipping",
+            "courier",
+            "arrive",
+            "order",
+            "ලැබෙ",
+            "යව",
+            "ඩෙලිවරි",
+            "டெலிவரி",
+            "வர",
+        )
+    )
+
+
 def is_delivery_fee_question(message):
     """Recognise a delivery-price question in English, Sinhala or Tamil."""
     text = str(message).casefold()
@@ -970,6 +1030,7 @@ def delivery_quote(database, business_id, district, weight_grams):
         "courierId": courier.get("id", ""),
         "district": district_display_name(district),
         "courierName": courier.get("name", ""),
+        "averageDeliveryDays": courier.get("averageDeliveryDays", 0),
         "firstKgPriceMinor": district_first_kg_price(
             courier,
             normalize_district(district),
@@ -999,6 +1060,15 @@ def delivery_quote_message(quote):
         parts.append(
             f"Your selected items weigh {quote['weightGrams'] / 1000:,.2f} kg, so "
             f"delivery is LKR {quote['deliveryFeeMinor'] / 100:,.2f}.",
+        )
+
+    # "When will it come?" is the question that follows "how much?" every time.
+    days = quote.get("averageDeliveryDays") or 0
+    if days:
+        parts.append(
+            f"{quote['courierName'] or 'The courier'} usually delivers to "
+            f"{quote['district']} in about {days} working "
+            f"{'day' if days == 1 else 'days'}.",
         )
 
     return " ".join(parts)
@@ -1474,6 +1544,7 @@ def answer_public_message(database, session_id, provided_token, payload):
     ) != "completed" and (
         current_state == "quoting-district"
         or is_delivery_fee_question(message)
+        or is_delivery_time_question(message)
         or intent_is("delivery_quote")
     ):
         draft_address = customer_draft.get("address") or {}
