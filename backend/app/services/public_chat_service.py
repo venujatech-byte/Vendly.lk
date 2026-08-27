@@ -18,6 +18,7 @@ from app.services.customer_service import (
 )
 from app.services.ai_service import (
     ANSWERED_MARKER,
+    money_text,
     MISSING_FACT_MARKER,
     ai_status,
     detect_chat_language,
@@ -1052,6 +1053,56 @@ def refers_to_shown_products(message):
 def products_by_ids(products, ids):
     wanted = list(ids or [])
     return [product for product in products if product.get("id") in wanted]
+
+
+def comparison_table(products):
+    """Build a spec table from stored facts, with no AI call.
+
+    The model is the better comparer, but it is not always available - the free
+    provider tier runs out of tokens per minute. Falling through left the
+    customer with no answer at all, when the seller's own data already covers
+    price, warranty and stock.
+    """
+    if len(products) < 2:
+        return ""
+
+    rows = [
+        ("Price", [money_text(item.get("sellingPriceMinor", 0)) for item in products]),
+        (
+            "Warranty",
+            [
+                f"{item['warrantyPeriodMonths']} months"
+                if item.get("warrantyPeriodMonths")
+                else "-"
+                for item in products
+            ],
+        ),
+        (
+            "Availability",
+            [
+                f"{item.get('availableStock', 0)} in stock"
+                if item.get("availableStock", 0) > 0
+                else "Out of stock"
+                for item in products
+            ],
+        ),
+        ("Brand", [item.get("brand") or "-" for item in products]),
+    ]
+    rows = [(label, values) for label, values in rows if any(v != "-" for v in values)]
+    names = [item.get("name", "") for item in products]
+    lines = [
+        "| Spec | " + " | ".join(names) + " |",
+        "|" + "---|" * (len(names) + 1),
+    ]
+    lines += ["| " + label + " | " + " | ".join(values) + " |" for label, values in rows]
+
+    cheapest = min(products, key=lambda item: item.get("sellingPriceMinor", 0))
+    return (
+        "Here is how they compare:\n\n"
+        + "\n".join(lines)
+        + f"\n\n{cheapest.get('name', '')} is the lowest priced. "
+        "Tell me which one you would like, or ask about any spec."
+    )
 
 
 def find_matching_products(message, products):
@@ -2882,6 +2933,41 @@ def answer_public_message(database, session_id, provided_token, payload):
     wants_alternatives = any(
         phrase in lowered_message for phrase in ALTERNATIVE_PHRASES
     ) or intent_is("similar_products")
+    # A comparison of what is on screen must be answered before the remembered
+    # single product claims the message - "what is best among them" was being
+    # answered about one item instead of comparing the two that were listed.
+    if refers_to_shown_products(message) and wants_a_recommendation(message):
+        on_screen = products_by_ids(products, session.get("lastShownProductIds"))
+
+        if len(on_screen) > 1:
+            comparison = generate_catalogue_answer(
+                message,
+                on_screen,
+                language,
+                catalog["business"].get("storefrontFaq", ""),
+            )
+
+            # The provider may be rate limited. A table built from stored
+            # facts is worse than the model's reasoning but far better than
+            # no answer.
+            fell_back = not comparison
+            comparison = comparison or comparison_table(on_screen)
+
+            if comparison:
+                for marker in (MISSING_FACT_MARKER, ANSWERED_MARKER):
+                    comparison = comparison.replace(marker, "")
+                named = [] if fell_back else products_named_in(comparison, on_screen)
+                return respond(
+                    comparison.strip(),
+                    "show-category",
+                    next_state="browsing",
+                    response_products=(named or on_screen)[:4],
+                    selected_product_id=(
+                        named[0]["id"] if len(named) == 1 else "unchanged"
+                    ),
+                    is_translated=True,
+                )
+
     category_request = find_category_request(message, products)
     matching_products = find_matching_products(message, products)
 
@@ -2983,35 +3069,6 @@ def answer_public_message(database, session_id, provided_token, payload):
             "start-order",
             next_state="browsing",
         )
-
-    # A comparison of what is on screen must be answered before the remembered
-    # single product claims the message - "what is best among them" was being
-    # answered about one item instead of comparing the two that were listed.
-    if refers_to_shown_products(message) and wants_a_recommendation(message):
-        on_screen = products_by_ids(products, session.get("lastShownProductIds"))
-
-        if len(on_screen) > 1:
-            comparison = generate_catalogue_answer(
-                message,
-                on_screen,
-                language,
-                catalog["business"].get("storefrontFaq", ""),
-            )
-
-            if comparison:
-                for marker in (MISSING_FACT_MARKER, ANSWERED_MARKER):
-                    comparison = comparison.replace(marker, "")
-                named = products_named_in(comparison, on_screen)
-                return respond(
-                    comparison.strip(),
-                    "show-category",
-                    next_state="browsing",
-                    response_products=(named or on_screen)[:4],
-                    selected_product_id=(
-                        named[0]["id"] if len(named) == 1 else "unchanged"
-                    ),
-                    is_translated=True,
-                )
 
     # A stated quantity is an order however terse the rest is. message_tokens
     # drops one- and two-character words, so "2 GM2 Pro" looked like a bare

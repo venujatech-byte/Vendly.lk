@@ -1150,3 +1150,42 @@ def test_a_question_about_the_products_on_screen_is_recognised():
     assert refers_to_shown_products("which of both is better") is True
     assert refers_to_shown_products("මේවා අතරින් හොඳම එක") is True
     assert refers_to_shown_products("show me smart watches") is False
+
+
+def test_a_comparison_survives_the_ai_being_unavailable():
+    from app.services.public_chat_service import comparison_table
+
+    table = comparison_table([
+        {"name": "Xiaomi Extender", "sellingPriceMinor": 699000,
+         "warrantyPeriodMonths": 6, "availableStock": 40, "brand": "Xiaomi"},
+        {"name": "R103 Router", "sellingPriceMinor": 599900,
+         "warrantyPeriodMonths": 3, "availableStock": 60, "brand": "R103"},
+    ])
+
+    # The free provider tier runs out of tokens per minute. Falling through
+    # left the customer with no answer when the seller's own data already
+    # covers price, warranty and stock.
+    assert "| Spec | Xiaomi Extender | R103 Router |" in table
+    assert "LKR 5,999.00" in table
+    assert "6 months" in table
+    assert "R103 Router is the lowest priced" in table
+
+
+def test_rows_with_nothing_to_show_are_left_out():
+    from app.services.public_chat_service import comparison_table
+
+    table = comparison_table([
+        {"name": "A", "sellingPriceMinor": 1000, "availableStock": 1},
+        {"name": "B", "sellingPriceMinor": 2000, "availableStock": 1},
+    ])
+
+    assert "Warranty" not in table
+    assert "Brand" not in table
+    assert "Price" in table
+
+
+def test_one_product_is_not_a_comparison():
+    from app.services.public_chat_service import comparison_table
+
+    assert comparison_table([{"name": "X", "sellingPriceMinor": 100}]) == ""
+    assert comparison_table([]) == ""

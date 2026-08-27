@@ -360,6 +360,15 @@ quoting-district ──not a district──────────────�
 browsing ──"that is everything" with a cart────────> collecting-name
 browsing ──"I want N of X"─────────────────────────> browsing (item added to cart)
 
+browsing ──names a product, no quantity────────────> awaiting-item-quantity
+awaiting-item-quantity ──a number─────────────────> browsing (item added)
+awaiting-item-quantity ──names another product────> that product's quantity
+awaiting-item-quantity ──anything else────────────> browsing (handled normally)
+
+browsing ──a budget, with a category on screen────> clarifying-scope
+clarifying-scope ──names a category───────────────> browsing (answered, scoped)
+clarifying-scope ──"any product"──────────────────> browsing (answered, whole shop)
+
 collecting-name ──> collecting-phone ──> collecting-secondary-phone
                 ──> collecting-address ──> collecting-district ──> collecting-nearest-city
                 ──> collecting-delivery-note ──> awaiting-confirmation
@@ -377,6 +386,8 @@ verifying-order ──phone matches the order────────> completed
 verifying-order ──wrong phone, under 5 attempts──> verifying-order (same generic reply)
 verifying-order ──5th wrong phone────────────────> browsing (told to contact the seller)
 ```
+
+Both `awaiting-item-quantity` and `clarifying-scope` are handled **before** product and category resolution. A one-word reply like "shoes" or "2" would otherwise be claimed as a product or a catalogue number — the same rule the `collecting-*` states follow.
 
 `collecting-address` **skips `collecting-district`** when a district was already captured during a delivery quote. Do not remove that: asking again for something the customer just told you is the fastest way to lose them.
 
@@ -414,11 +425,31 @@ businesses/{businessId}/reviews/{reviewId}
   productId, customerId, rating, text, imageUrls, approved, createdAt
 publicChatSessions/{sessionId}
   businessId, customerUid|null, tokenHash, status, state, cart, customerDraft,
+  orderId, aiPaused, unreadBySeller, createdAt, updatedAt, expiresAt
   language                 <- "en" | "si" | "ta", set from the first message and
                               then kept; drives every reply and the mic locale
-  selectedProductId, orderId, aiPaused, unreadBySeller, createdAt, updatedAt, expiresAt
+
+  -- conversational memory. Every one of these is a FALLBACK for a message that
+  -- says nothing itself; none may override what the customer just typed. Four
+  -- separate bugs came from one of them winning against the current message.
+  selectedProductId        <- the product a follow-up question is about
+  lastCategoryShown        <- scopes "what is the best one?" to what is on screen
+  lastShownProductIds      <- the exact items listed, for "best among these two"
+
+  -- parked questions. Each belongs to one state and is cleared on the way out.
+  pendingVariantId         <- awaiting-item-quantity: the item awaiting a count
+  pendingBudgetQuestion    <- clarifying-scope: the budget question to re-answer
+  pendingOrderNumber       <- verifying-order: the order awaiting a phone check
+  orderVerificationAttempts<- verifying-order: capped by MAX_ORDER_VERIFICATION_ATTEMPTS
+
+  customerDraft.paymentMethod / .depositChoice
+                           <- "deposit" plus "full"/"part"; recorded as intent,
+                              never as money received
 publicChatSessions/{sessionId}/messages/{messageId}
-  role, message, metadata{action, productId, state, language}, createdAt
+  role, message, metadata{action, productId, state, language, imageUrl, kind},
+  sellerMessage            <- what the seller typed, when `message` is its
+                              translation into the customer's language
+  createdAt
 businesses/{businessId}/orders/{orderId}
   orderNumber, customerId, customerName, phone, secondPhone, address, district, city,
   items, subtotal, deliveryFee, discount, taxAmount, totalAmount, status, waybillNumber, createdAt
@@ -661,7 +692,7 @@ cd frontend && npm run build
 node frontend/src/data/storefrontText.test.mjs && node frontend/src/data/messageBlocks.test.mjs
 ```
 
-252 backend tests at the time of writing.
+257 backend tests at the time of writing.
 
 `tests/test_chat_conversation.py` is the one that matters most when changing the chat. Every other test covers an extracted pure helper; that file drives real conversations through `answer_public_message`, so it catches the failures unit tests cannot see — a branch that stops being reachable, an early return that shadows a later one, a `respond()` that persists the wrong state. Only the real boundaries are faked (Firestore, the AI provider, the other services); the step ordering under test is production code.
 
@@ -1159,6 +1190,16 @@ The table scrolls sideways with the **spec column pinned**, so on a phone the ro
 **Fixed as:** an explicit branch — when the message refers to what is on screen *and* asks for a recommendation, and more than one product is listed, the comparison is answered against exactly those products, **before** single-product resolution runs. When the answer names one winner it becomes the selected product, so "more info" follows on correctly.
 
 This is the fourth time a memory field claimed a message meant for something else (see the themes at the top of this section). When adding a branch that needs the current message, check where in `answer_public_message` it actually runs — placing it after product resolution is usually too late.
+
+### 23.26 Comparisons died when the AI was rate limited — FIXED
+
+**Seen:** "what is best among them" kept failing in real use after 23.25, while a direct probe of the same code path worked.
+
+**Cause:** the provider was over its tokens-per-minute limit. `generate_catalogue_answer` returns `None` on a 429 (see §14a), and the comparison branch simply fell through — so the customer got no answer at all.
+
+**Fixed as:** `comparison_table` builds a spec table from stored facts with **no AI call** — price, warranty, availability, brand — and names the lowest priced. Rows where every product would show "-" are dropped, and fewer than two products is not a comparison. The model is still preferred; this is what runs when it is unavailable.
+
+**A method note.** I twice "fixed" this by moving code, and twice the tests passed either way. The tests could not tell the two paths apart because the end-of-sequence fallthrough produced the same scope — asserting on the scope alone proved nothing. What settled it was probing the live function with each branch stubbed to a distinct marker. **When a fix cannot be shown to fail without it, the diagnosis is still a guess.**
 
 ### Note on ordering
 

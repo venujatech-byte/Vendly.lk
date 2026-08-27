@@ -1096,10 +1096,19 @@ def test_best_among_them_compares_the_products_on_screen(chat, monkeypatch):
     chat.session["lastShownProductIds"] = ["buds", "shoes"]
     chat.session["selectedProductId"] = "buds"
 
+    # The single-product path must not claim this message. Asserting only on
+    # the scope cannot tell the two apart, because the end-of-sequence
+    # fallthrough scopes to the same products.
+    product_answers = []
+    monkeypatch.setattr(
+        public_chat_service,
+        "generate_product_answer",
+        lambda *a, **k: product_answers.append(a[1]) or "About one product.",
+    )
+
     reply = chat.say("what is best among them", intent="product_question")
 
-    # The remembered single product used to claim this and answer about one
-    # item instead of comparing the two that were listed.
+    assert product_answers == [], "the remembered product claimed the comparison"
     assert scopes and scopes[0] == ["buds", "shoes"]
     assert "wins on build quality" in reply["message"]
 
