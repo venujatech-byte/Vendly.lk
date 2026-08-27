@@ -1669,3 +1669,46 @@ alternatives** rather than listed under the feature. An outright no with
 nothing beside it ends a conversation the customer started in order to buy
 something. The model is still consulted first, in case the seller described
 the feature in words the synonym table does not know.
+
+### 23.44 Voice controls moved to the top bar
+
+The language toggle and the spoken-replies toggle were in the message
+composer, taking width from the field the customer types into - on a phone the
+input had five controls around it. They now sit in the top bar with the other
+icon buttons, and only while the chat view is open, since neither does
+anything on the catalogue.
+
+The state stays in `StorefrontPage`, so the buttons moved to where it already
+lives and `ChatbotView` lost four props it no longer needs. The old composer
+CSS went with them, including two responsive blocks that would otherwise have
+sat there sizing an element that no longer exists.
+
+### 23.45 "20000mah power banks" ignored the capacity — FIXED
+
+**Seen:** "send me 20000mah power banks" answered "Which PowerBanks would you
+like to order?" and listed all of them. Asking again *after* the category had
+been listed worked, which is the tell: a different branch handled the second
+attempt.
+
+**Cause 1 - the fifth branch.** The ordering branch lists a category too, and
+it had no filter. Four earlier branches had been fixed one at a time (§23.41,
+§23.43); patching a fifth would have left a sixth. The filter now runs as a
+**single gate before all of them**: any message naming a feature alongside a
+resolvable group is answered by `category_response`, whatever the customer
+intends to do with the result. A message naming exactly one product is
+excluded - "is the Xiaomi 20000mah?" is a question about that product, not a
+filter over a group.
+
+**Cause 2 - compound category names.** The seller writes "PowerBanks"; the
+customer types "power banks". Word matching left `power` and `banks` behind as
+features, so `all(...)` could never be satisfied and the filter silently
+matched nothing - even where the filter *was* wired in. Category words are now
+matched against the collapsed form in both directions.
+
+That substring rule deliberately never applies to a word containing a digit. A
+capacity is the whole request, and absorbing "20000mah" into the category name
+would turn a specific question into a plain category listing.
+
+**Method note:** "it worked the second time" was the most useful line in the
+report. Identical input answered differently means the branch, not the logic -
+and it pointed straight at a listing path nobody had filtered.

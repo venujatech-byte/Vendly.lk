@@ -1372,13 +1372,31 @@ def feature_terms(message, category_name):
     # recognised as part of the category "Smart watch" rather than surviving as
     # a feature the customer never asked for.
     category_words = message_word_alias_set(str(category_name or ""))
+    # Sellers write compounds as one word ("PowerBanks") and customers type
+    # them as two ("power banks"). Word matching alone left both halves behind
+    # as features nothing could satisfy.
+    category_collapsed = normalized_phrase(str(category_name or ""))
+
+    def belongs_to_category(word):
+        if message_word_alias_set(word) & category_words:
+            return True
+
+        # Only for words that could be part of a name. A capacity like
+        # "20000mah" must never be absorbed into the category.
+        if any(letter.isdigit() for letter in word):
+            return False
+
+        return bool(category_collapsed) and (
+            word.rstrip("s") in category_collapsed
+            or category_collapsed in word
+        )
 
     return [
         word
         for word in word_characters(str(message or "")).casefold().split()
         if word not in FEATURE_STOP_WORDS
         and len(word) > 1
-        and not (message_word_alias_set(word) & category_words)
+        and not belongs_to_category(word)
     ]
 
 
@@ -3760,6 +3778,109 @@ def answer_public_message(database, session_id, provided_token, payload):
     # brand. Nothing between here and there changes the message it reads.
     requested_brand = find_brand_request(message, products)
 
+    def category_response(category_name, matches, heading):
+        """Answer a category request, honouring any feature named alongside it.
+
+        Two branches list a category - one for a cued request ("show me smart
+        watches"), one for a bare category name. Both must apply the filter, so
+        it lives here rather than being written twice and drifting apart.
+        """
+        requested_features = feature_terms(message, category_name)
+
+        if not requested_features:
+            return respond(
+                heading,
+                "show-category",
+                next_state="browsing",
+                response_products=matches,
+                selected_product_id=(
+                    None if not session.get("productId") else "unchanged"
+                ),
+            )
+
+        # Read the seller's own text first. It cannot hallucinate, costs
+        # nothing, and works while the provider is rate limited.
+        feature_matches = products_with_features(matches, requested_features)
+        feature_text = " ".join(requested_features)
+
+        if feature_matches:
+            return respond(
+                f"Here is what we have in {category_name} with {feature_text}.",
+                "show-category",
+                next_state="browsing",
+                response_products=feature_matches,
+            )
+
+        # Nothing matched by reading. The seller may have described the feature
+        # in words the matcher does not know, so the model gets a look before
+        # the customer is told it does not exist.
+        feature_answer = generate_catalogue_answer(
+            message,
+            matches,
+            language,
+            catalog["business"].get("storefrontFaq", ""),
+        )
+
+        if feature_answer and MISSING_FACT_MARKER not in feature_answer:
+            for marker in (MISSING_FACT_MARKER, ANSWERED_MARKER):
+                feature_answer = feature_answer.replace(marker, "")
+
+            named = products_named_in(feature_answer, matches)
+
+            if named:
+                return respond(
+                    feature_answer.strip(),
+                    "show-category",
+                    next_state="browsing",
+                    response_products=named[:4],
+                    is_translated=True,
+                )
+
+        # Said plainly, then alternatives - the customer came for something
+        # and an outright "no" with nothing beside it ends the conversation.
+        # The alternatives are labelled as alternatives, because listing them
+        # under the feature reads as though they have it.
+        alternatives = matches or products
+        return respond(
+            f"We do not have any {category_name} with {feature_text} - none of "
+            "their descriptions mentions it, and I will not guess on something "
+            "you are paying for. The closest we have are below. Tell me what "
+            "matters most to you and I will help you choose, or ask me and one "
+            "of our agents can check for you.",
+            "show-category",
+            next_state="browsing",
+            response_products=alternatives[:4],
+        )
+
+
+    # One gate for every branch that lists a group. A feature named alongside
+    # a category is a filter wherever it appears - "send me 20000mah power
+    # banks" was reaching the ordering branch, which asked which power bank
+    # they wanted and listed all of them. Patching each listing branch in turn
+    # is what let this recur; this runs before all of them.
+    feature_scope = named_category or category_request
+    feature_group = (
+        category_products(products, feature_scope) if feature_scope else []
+    )
+
+    if not feature_group and len(matching_products) > 1:
+        feature_group = matching_products
+        feature_scope = shared_category_name(matching_products) or "products"
+
+    # A message naming one product is a question about that product, not a
+    # filter over a group - "is the T800 waterproof" must keep its own answer.
+    if (
+        feature_scope
+        and len(feature_group) > 1
+        and len(matching_products) != 1
+        and feature_terms(message, feature_scope)
+    ):
+        return category_response(
+            feature_scope,
+            feature_group,
+            f"Here is what we have in {feature_scope}.",
+        )
+
     if wants_to_order:
         # A customer who says "mata GM2 pro dekak ona" has already chosen. Being
         # told to click Add is a dead end for anyone typing Sinhala or speaking,
@@ -3928,80 +4049,6 @@ def answer_public_message(database, session_id, provided_token, payload):
                 ),
                 is_translated=True,
             )
-
-    def category_response(category_name, matches, heading):
-        """Answer a category request, honouring any feature named alongside it.
-
-        Two branches list a category - one for a cued request ("show me smart
-        watches"), one for a bare category name. Both must apply the filter, so
-        it lives here rather than being written twice and drifting apart.
-        """
-        requested_features = feature_terms(message, category_name)
-
-        if not requested_features:
-            return respond(
-                heading,
-                "show-category",
-                next_state="browsing",
-                response_products=matches,
-                selected_product_id=(
-                    None if not session.get("productId") else "unchanged"
-                ),
-            )
-
-        # Read the seller's own text first. It cannot hallucinate, costs
-        # nothing, and works while the provider is rate limited.
-        feature_matches = products_with_features(matches, requested_features)
-        feature_text = " ".join(requested_features)
-
-        if feature_matches:
-            return respond(
-                f"Here is what we have in {category_name} with {feature_text}.",
-                "show-category",
-                next_state="browsing",
-                response_products=feature_matches,
-            )
-
-        # Nothing matched by reading. The seller may have described the feature
-        # in words the matcher does not know, so the model gets a look before
-        # the customer is told it does not exist.
-        feature_answer = generate_catalogue_answer(
-            message,
-            matches,
-            language,
-            catalog["business"].get("storefrontFaq", ""),
-        )
-
-        if feature_answer and MISSING_FACT_MARKER not in feature_answer:
-            for marker in (MISSING_FACT_MARKER, ANSWERED_MARKER):
-                feature_answer = feature_answer.replace(marker, "")
-
-            named = products_named_in(feature_answer, matches)
-
-            if named:
-                return respond(
-                    feature_answer.strip(),
-                    "show-category",
-                    next_state="browsing",
-                    response_products=named[:4],
-                    is_translated=True,
-                )
-
-        # Said plainly, then alternatives - the customer came for something
-        # and an outright "no" with nothing beside it ends the conversation.
-        # The alternatives are labelled as alternatives, because listing them
-        # under the feature reads as though they have it.
-        alternatives = matches or products
-        return respond(
-            f"We do not have any {category_name} with {feature_text} - none of "
-            "their descriptions mentions it, and I will not guess on something "
-            "you are paying for. The closest we have are below. Tell me what "
-            "matters most to you and I will help you choose, or ask me and one "
-            "of our agents can check for you.",
-            "show-category",
-            next_state="browsing",
-            response_products=alternatives[:4],
-        )
 
     if category_request:
         return category_response(

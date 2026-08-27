@@ -1402,8 +1402,7 @@
   border-color: var(--sf-primary);
 }
 
-.storefront-chat-input > button,
-.storefront-chat-input__voice-tools button {
+.storefront-chat-input > button {
   display: grid;
   position: relative;
   width: 37px;
@@ -1415,28 +1414,6 @@
   color: var(--sf-primary);
   background: color-mix(in srgb, var(--sf-primary) 7%, var(--sf-surface));
   cursor: pointer;
-}
-
-.storefront-chat-input__voice-tools {
-  display: flex;
-  gap: 5px;
-}
-
-.storefront-chat-input__voice-tools button {
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
-}
-
-.storefront-chat-input__voice-tools button[aria-pressed="true"] {
-  color: #fff;
-  border-color: var(--sf-primary);
-  background: var(--sf-primary);
-}
-
-.storefront-chat-input__language {
-  font-size: 0.62rem;
-  font-weight: 800;
 }
 
 .storefront-chat-input__voice.is-listening {
@@ -3003,16 +2980,6 @@
     border-radius: 10px;
   }
 
-  .storefront-chat-input__voice-tools {
-    gap: 3px;
-  }
-
-  .storefront-chat-input__voice-tools button {
-    width: 29px;
-    height: 29px;
-    border-radius: 9px;
-  }
-
   .storefront-chat-input .storefront-chat-input__send {
     width: 39px;
     height: 39px;
@@ -3181,15 +3148,6 @@ body:has(.storefront-chat-page) {
   .storefront-chat-composer .storefront-chat-input > button {
     width: 30px;
     height: 30px;
-  }
-
-  .storefront-chat-composer .storefront-chat-input__voice-tools {
-    gap: 2px;
-  }
-
-  .storefront-chat-composer .storefront-chat-input__voice-tools button {
-    width: 27px;
-    height: 27px;
   }
 
   .storefront-chat-composer .storefront-chat-input .storefront-chat-input__send {
@@ -3979,4 +3937,16 @@ body:has(.storefront-chat-page) {
 .storefront-chat-cart-review > small {
   color: var(--sf-muted);
   font-size: 0.66rem;
+}
+
+/* The voice controls, now in the top bar beside the other icon buttons. */
+.storefront-topbar__language {
+  font-size: 0.66rem;
+  font-weight: 800;
+}
+
+.storefront-topbar__actions button[aria-pressed="true"] {
+  color: #fff;
+  border-color: var(--sf-primary);
+  background: var(--sf-primary);
 }

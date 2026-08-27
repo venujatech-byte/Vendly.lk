@@ -1127,6 +1127,44 @@ function StorefrontPage({ linkType }) {
           </div>
 
           <div className="storefront-topbar__actions">
+            {/* Voice controls belong to the chat, so they appear only there -
+                and in the top bar, where the composer has room for typing. */}
+            {activeView === "chatbot" && (
+              <>
+                <button
+                  className="storefront-icon-button storefront-topbar__language"
+                  type="button"
+                  onClick={() =>
+                    setVoiceLanguage((current) => {
+                      const next = nextVoiceLanguage(current);
+                      setChatLanguage(VOICE_TO_CHAT_LANGUAGE[next] || "en");
+                      return next;
+                    })
+                  }
+                  aria-label="Change voice language"
+                  title="Change voice language"
+                >
+                  {VOICE_LANGUAGE_LABELS[voiceLanguage] ?? "EN"}
+                </button>
+                <button
+                  className="storefront-icon-button"
+                  type="button"
+                  onClick={() => {
+                    if (speechEnabled) window.speechSynthesis?.cancel();
+                    setSpeechEnabled((current) => !current);
+                  }}
+                  aria-label={
+                    speechEnabled
+                      ? "Turn spoken replies off"
+                      : "Turn spoken replies on"
+                  }
+                  aria-pressed={speechEnabled}
+                  title={speechEnabled ? "Spoken replies on" : "Spoken replies off"}
+                >
+                  {speechEnabled ? <Volume2 size={20} /> : <VolumeX size={20} />}
+                </button>
+              </>
+            )}
             <button
               className="storefront-icon-button"
               type="button"
@@ -1220,23 +1258,10 @@ function StorefrontPage({ linkType }) {
             isListening={isListening}
             isHoldingVoiceButton={isHoldingVoiceButton}
             voiceTranscript={voiceTranscript}
-            speechEnabled={speechEnabled}
-            voiceLanguage={voiceLanguage}
             onToggleListening={isListening ? stopVoiceInput : startVoiceInput}
             onStartHeldVoiceCommand={startHeldVoiceCommand}
             onFinishHeldVoiceCommand={finishHeldVoiceCommand}
             onCancelHeldVoiceCommand={cancelHeldVoiceCommand}
-            onToggleSpeech={() => {
-              if (speechEnabled) window.speechSynthesis?.cancel();
-              setSpeechEnabled((current) => !current);
-            }}
-            onToggleVoiceLanguage={() =>
-              setVoiceLanguage((current) => {
-                const next = nextVoiceLanguage(current);
-                setChatLanguage(VOICE_TO_CHAT_LANGUAGE[next] || "en");
-                return next;
-              })
-            }
             onQuickMessage={requestChatMessage}
             onSendImage={sendChatImage}
             onAddFromChat={addFromChat}
@@ -2176,8 +2201,6 @@ function ChatbotView({
   isListening,
   isHoldingVoiceButton,
   voiceTranscript,
-  speechEnabled,
-  voiceLanguage,
   messagesEndRef,
   onMessageTextChange,
   onSendMessage,
@@ -2185,8 +2208,6 @@ function ChatbotView({
   onStartHeldVoiceCommand,
   onFinishHeldVoiceCommand,
   onCancelHeldVoiceCommand,
-  onToggleSpeech,
-  onToggleVoiceLanguage,
   onQuickMessage,
   onSendImage,
   onAddFromChat,
@@ -2554,26 +2575,6 @@ function ChatbotView({
             disabled={isSending}
             autoComplete="off"
           />
-          <div className="storefront-chat-input__voice-tools">
-            <button
-              className="storefront-chat-input__language"
-              type="button"
-              onClick={onToggleVoiceLanguage}
-              aria-label="Change voice language"
-              title="Change voice language"
-            >
-              {VOICE_LANGUAGE_LABELS[voiceLanguage] ?? "EN"}
-            </button>
-            <button
-              type="button"
-              onClick={onToggleSpeech}
-              aria-label={speechEnabled ? "Turn spoken replies off" : "Turn spoken replies on"}
-              aria-pressed={speechEnabled}
-              title={speechEnabled ? "Spoken replies on" : "Spoken replies off"}
-            >
-              {speechEnabled ? <Volume2 size={17} /> : <VolumeX size={17} />}
-            </button>
-          </div>
           <button
             className="storefront-chat-input__send"
             type="submit"

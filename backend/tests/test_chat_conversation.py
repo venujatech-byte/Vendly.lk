@@ -1659,3 +1659,72 @@ def test_the_alternatives_are_still_offered_when_the_feature_is_missing(
     # "We do not have it" with nothing beside it ends the conversation, and
     # the customer came here to buy something.
     assert len(reply["products"]) > 0
+
+
+def power_banks():
+    def bank(identifier, name, description, price):
+        return {
+            "id": identifier, "name": name, "categoryName": "PowerBanks",
+            "description": description, "sellingPriceMinor": price,
+            "weightGrams": 300, "availableStock": 20, "media": [],
+            "variants": [{"id": f"v-{identifier}", "size": "",
+                          "availableStock": 20, "sellingPriceMinor": price,
+                          "weightGrams": 300}],
+        }
+
+    return [
+        bank("wiwu", "WIWU Essen Power Bank", "10000mAh, 18W fast charging.", 399000),
+        bank("xiaomi", "Xiaomi Power Bank", "20000mAh, 18W fast charge, dual USB.", 699000),
+        bank("aspor", "ASPOR A337 Power Bank", "20000mAh with built-in cables.", 550000),
+    ]
+
+
+def test_a_feature_survives_an_order_intent(chat, monkeypatch):
+    monkeypatch.setattr(
+        public_chat_service,
+        "session_catalog",
+        lambda *a: {"business": {"name": "VS Tech", "storefrontFaq": ""},
+                    "products": power_banks()},
+    )
+
+    reply = chat.say("send me 20000mah power banks", intent="start_order",
+                     categoryQuery="PowerBanks")
+
+    # The ordering branch asked "which PowerBanks would you like to order?"
+    # and listed all three, ignoring the capacity entirely. A feature is a
+    # filter whatever the customer intends to do with the result.
+    assert [item["id"] for item in reply["products"]] == ["xiaomi", "aspor"]
+
+
+def test_a_feature_survives_a_plain_listing_request(chat, monkeypatch):
+    monkeypatch.setattr(
+        public_chat_service,
+        "session_catalog",
+        lambda *a: {"business": {"name": "VS Tech", "storefrontFaq": ""},
+                    "products": power_banks()},
+    )
+
+    reply = chat.say("show me 10000mah power banks", intent="show_category",
+                     categoryQuery="PowerBanks")
+
+    assert [item["id"] for item in reply["products"]] == ["wiwu"]
+
+
+def test_a_question_about_one_product_is_not_treated_as_a_filter(chat, monkeypatch):
+    monkeypatch.setattr(
+        public_chat_service,
+        "session_catalog",
+        lambda *a: {"business": {"name": "VS Tech", "storefrontFaq": ""},
+                    "products": power_banks()},
+    )
+    monkeypatch.setattr(
+        public_chat_service,
+        "generate_product_answer",
+        lambda *a, **k: "The Xiaomi Power Bank is 20000mAh. [ANSWERED]",
+    )
+
+    reply = chat.say("is the Xiaomi Power Bank 20000mah?",
+                     intent="product_question", productQuery="Xiaomi Power Bank")
+
+    # Naming one product is a question about it, not a filter over a group.
+    assert reply["action"] in {"show-product", "product-answer"}

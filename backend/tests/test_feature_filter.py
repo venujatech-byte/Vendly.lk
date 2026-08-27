@@ -129,3 +129,18 @@ def test_sinhala_request_words_are_not_read_as_features():
         "sim",
     ]
     assert feature_terms("amoled ewa thiyenawada", "Smart watch") == ["amoled"]
+
+
+def test_a_compound_category_typed_as_two_words_is_recognised():
+    # The seller writes "PowerBanks", the customer types "power banks". Word
+    # matching alone left both halves behind as features nothing could satisfy,
+    # so every filtered request silently returned the whole category.
+    assert feature_terms("send me 20000mah power banks", "PowerBanks") == ["20000mah"]
+    assert feature_terms("send me power banks", "PowerBanks") == []
+
+
+def test_a_capacity_is_never_absorbed_into_the_category_name():
+    # The compound rule matches on substrings, which must never swallow a
+    # number - that number is the whole request.
+    assert "20000mah" in feature_terms("20000mah powerbank", "PowerBanks")
+    assert "10000mah" in feature_terms("10000mah power bank", "PowerBanks")
