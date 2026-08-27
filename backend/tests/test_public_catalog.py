@@ -627,3 +627,103 @@ def test_a_remembered_greeting_language_is_accepted():
     assert resolve_greeting_language({"language": "si"}) == "si"
     assert resolve_greeting_language({"language": " TA "}) == "ta"
     assert resolve_greeting_language({"language": "en"}) == "en"
+
+
+def test_order_numbers_are_recognised_in_a_sentence():
+    from app.services.public_chat_service import order_number_in_message
+
+    assert order_number_in_message("VD-000012 kohomada?") == "VD-000012"
+    assert order_number_in_message("where is vd 000012") == "VD-000012"
+    assert order_number_in_message("check VWB-4471 please") == "VWB-4471"
+    # A bare number is a quantity or a catalogue choice, not an order.
+    assert order_number_in_message("2") == ""
+    assert order_number_in_message("I want 3 of the GM2 pro") == ""
+
+
+class OrderQuery:
+    """Minimal stand-in for the orders collection query chain."""
+
+    def __init__(self, orders):
+        self.orders = orders
+
+    def where(self, filter=None):  # noqa: A002 - matches the Firestore keyword
+        wanted = filter.value if hasattr(filter, "value") else filter
+        self.orders = [o for o in self.orders if o[1].get("orderNumber") == wanted]
+        return self
+
+    def limit(self, _count):
+        return self
+
+    def stream(self):
+        return [FakeOrderSnapshot(i, d) for i, d in self.orders]
+
+
+class FakeOrderSnapshot:
+    def __init__(self, snapshot_id, data):
+        self.id = snapshot_id
+        self._data = data
+
+    def to_dict(self):
+        return self._data
+
+
+class OrderDatabase:
+    def __init__(self, orders):
+        self.orders = orders
+
+    def collection(self, _name):
+        return self
+
+    def document(self, _name):
+        return self
+
+    def stream(self):
+        return OrderQuery(self.orders).stream()
+
+    def where(self, filter=None):  # noqa: A002
+        return OrderQuery(self.orders).where(filter=filter)
+
+
+def order_database():
+    return OrderDatabase([
+        ("o1", {
+            "orderNumber": "VD-000012",
+            "fulfilmentStatus": "packed",
+            # The stored form is what normalize_sri_lankan_phone produces.
+            "customerSnapshot": {"normalizedPhone": "94771234567"},
+        }),
+    ])
+
+
+def test_an_order_is_returned_only_for_the_phone_that_placed_it():
+    from app.services.public_chat_service import find_order_by_number
+
+    found = find_order_by_number(order_database(), "biz", "VD-000012", "0771234567")
+    assert found["id"] == "o1"
+
+
+def test_a_wrong_phone_never_returns_the_order():
+    from app.services.public_chat_service import find_order_by_number
+
+    # The order number alone is guessable, so this comparison is the only thing
+    # protecting a stranger's delivery address and order history.
+    assert find_order_by_number(order_database(), "biz", "VD-000012", "0770000000") is None
+
+
+def test_an_unknown_order_number_returns_nothing():
+    from app.services.public_chat_service import find_order_by_number
+
+    assert find_order_by_number(order_database(), "biz", "VD-999999", "0771234567") is None
+
+
+def test_an_unparseable_phone_is_rejected_before_any_lookup():
+    from app.services.public_chat_service import find_order_by_number
+
+    def fail(*_a, **_k):
+        raise AssertionError("must not query orders for an invalid phone")
+
+    class Guard:
+        collection = fail
+
+    assert find_order_by_number(Guard(), "biz", "VD-000012", "not a phone") is None
+    assert find_order_by_number(Guard(), "biz", "VD-000012", "") is None

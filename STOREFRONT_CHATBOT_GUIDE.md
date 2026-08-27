@@ -346,6 +346,11 @@ awaiting-confirmation ──confirm───────────────
 awaiting-confirmation ──change────────────────────> collecting-name (draft cleared)
 completed ──status question───────────────────────> completed (order info)
 completed ──"another order"───────────────────────> browsing (history kept, new draft)
+
+browsing ──names an order number, no order linked─> verifying-order
+verifying-order ──phone matches the order────────> completed (order linked + shown)
+verifying-order ──wrong phone, under 5 attempts──> verifying-order (same generic reply)
+verifying-order ──5th wrong phone────────────────> browsing (told to contact the seller)
 ```
 
 `collecting-address` **skips `collecting-district`** when a district was already captured during a delivery quote. Do not remove that: asking again for something the customer just told you is the fastest way to lose them.
@@ -394,6 +399,20 @@ globalFraudCustomers/{customerKey}
 ```
 
 Use a transaction when creating an order: re-read each product/variant, reject insufficient stock, decrement stock, allocate order number/waybill, write order and order items, then write a chat event. Security rules must deny clients direct writes to stock, totals, fraud records and orders; only trusted backend code writes them.
+
+### Tracking an order with no session link
+
+A guest who ordered, closed the tab and came back later has neither `orderId` on the session nor a `customerUid`, so `latest_order_for_session` finds nothing and they have to phone the seller. Naming the number — `VD-000012 kohomada?` — starts a phone check instead.
+
+Three properties hold this together, and all three have tests that fail when removed:
+
+1. **The phone on the order must match.** An order number is short and sequential, so it is guessable; `find_order_by_number` compares against `customerSnapshot.normalizedPhone`, the same check `review_service` makes. This one line is all that stands between a guessed number and a stranger's delivery address.
+2. **One reply covers both failures.** "No such order" and "wrong phone" return identical wording, so the bot cannot be used to discover which order numbers exist.
+3. **Guessing is capped** at `MAX_ORDER_VERIFICATION_ATTEMPTS` per session.
+
+An invalid phone is rejected before any query runs, so a malformed reply cannot even cause a read.
+
+Note that a **named order number is a status enquiry on its own**. `ORDER_ENQUIRY_WORDS` contains none of "VD-000001 kohomada?", so requiring a keyword as well sent that message to the generic fallback.
 
 ## 14a. The AI layer
 
@@ -454,7 +473,13 @@ The response carries `language`, and the storefront syncs the mic and text-to-sp
 
 **The interface follows too.** The bot used to answer in Sinhala while the quick-reply chips underneath still read "Show products" and "I want to order". `frontend/src/data/storefrontText.js` holds those fixed labels in all three languages, keyed off the same `language` the reply carries. It is a static table on purpose: the bot's replies are generated text and need the model, but this chrome is a closed set of short strings, so a table is cheaper, instant, and still correct when the provider is down. `storefrontText()` merges over English, so a missing key renders English rather than blank.
 
-It covers the whole customer surface, not just the chat bubbles: quick-reply chips, the input placeholder, product action buttons, the voice overlay, the live order draft, the cart drawer, **the checkout form** and the order receipt. The checkout form matters most — it is where an order is won or abandoned, and a Sinhala conversation that ends at an English form is where a customer gives up and phones the seller instead.
+It covers the **entire** customer surface: the catalogue page and its search, the chat panel, product action buttons, the voice overlay, the live order draft, the cart drawer, the checkout form and its placeholders, the order receipt, the contact page, and the review pages. A grep over `StorefrontPage.jsx` for hardcoded English in JSX text and placeholder positions comes back clean; run it again after adding UI:
+
+```bash
+grep -nE 'placeholder="[A-Z]|<h[123]>[A-Z][a-z]|<p>[A-Z][a-z]|<span>[A-Z][a-z]|<small>[A-Z][a-z]' frontend/src/pages/StorefrontPage.jsx | grep -v 'storefrontText\|{text\.'
+```
+
+**The failure mode to watch:** a component that calls `storefrontText(chatLanguage)` without receiving `chatLanguage` as a prop gets `undefined`, falls back to English, and renders perfectly — no error, no warning. `CatalogView` did exactly that. When adding a localised component, check the prop is threaded all the way from `StorefrontPage`. The checkout form matters most — it is where an order is won or abandoned, and a Sinhala conversation that ends at an English form is where a customer gives up and phones the seller instead.
 
 The chip **labels** are localised but the message each chip sends stays English, so the deterministic keyword ladder matches it even with no AI. The remembered language rides on the existing `vendly-storefront-voice-language` key, so a returning customer does not get English labels back until their next reply arrives.
 

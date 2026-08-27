@@ -6,6 +6,7 @@ import unicodedata
 from datetime import datetime, timedelta, timezone
 
 from firebase_admin import firestore
+from google.cloud.firestore_v1.base_query import FieldFilter
 
 from app.core.errors import ApiError
 from app.core.serialization import serialize_snapshot
@@ -245,6 +246,59 @@ def latest_order_for_session(database, session):
     if not orders:
         return None
     return max(orders, key=lambda item: str(item.get("createdAt", "")))
+
+
+ORDER_NUMBER_PATTERN = re.compile(r"\b((?:vd|vwb)[- ]?\d+)\b", re.IGNORECASE)
+
+# A guessed order number plus repeated phone guesses is the only way in, so the
+# attempts are capped per session.
+MAX_ORDER_VERIFICATION_ATTEMPTS = 5
+
+
+def order_number_in_message(message):
+    """Return an order or waybill number the customer typed, normalised."""
+    match = ORDER_NUMBER_PATTERN.search(str(message))
+
+    if not match:
+        return ""
+
+    return match.group(1).replace(" ", "-").upper()
+
+
+def find_order_by_number(database, business_id, order_number, phone_number):
+    """Look up one order for a customer who has no session link to it.
+
+    A guest who ordered, closed the tab and came back has neither `orderId` on
+    the session nor a `customerUid`, so `latest_order_for_session` finds
+    nothing and they have to phone the seller - the exact outcome the storefront
+    exists to avoid.
+
+    The order number alone is guessable, so the phone on the order must match
+    too. This mirrors the check `review_service` already makes.
+    """
+    try:
+        normalized_phone = normalize_sri_lankan_phone(phone_number)
+    except ValueError:
+        return None
+
+    snapshots = list(
+        database.collection("businesses")
+        .document(business_id)
+        .collection("orders")
+        .where(filter=FieldFilter("orderNumber", "==", order_number))
+        .limit(1)
+        .stream(),
+    )
+
+    if not snapshots:
+        return None
+
+    order = snapshots[0].to_dict()
+
+    if (order.get("customerSnapshot") or {}).get("normalizedPhone") != normalized_phone:
+        return None
+
+    return {"id": snapshots[0].id, **order}
 
 
 def order_information_message(order):
@@ -1440,16 +1494,101 @@ def answer_public_message(database, session_id, provided_token, payload):
     # order. Do not treat "ok", "thanks" or a status question as a brand-new
     # shopping session. A new catalogue is shown only when the customer clearly
     # asks to place another order.
+    # A guest who ordered and came back later has no session link to that order.
+    # Naming its number starts a phone check, which is the only thing standing
+    # between a guessed order number and someone else's delivery address.
+    named_order_number = order_number_in_message(message)
+
+    if current_state == "verifying-order":
+        pending_order_number = session.get("pendingOrderNumber", "")
+        attempts = int(session.get("orderVerificationAttempts", 0)) + 1
+
+        if named_order_number and named_order_number != pending_order_number:
+            # They corrected the number rather than answering with a phone.
+            pending_order_number = named_order_number
+            attempts = 0
+
+        verified_order = find_order_by_number(
+            database,
+            session["businessId"],
+            pending_order_number,
+            message,
+        )
+
+        if verified_order:
+            session_snapshot.reference.set(
+                {
+                    "orderId": verified_order["id"],
+                    "pendingOrderNumber": "",
+                    "orderVerificationAttempts": 0,
+                    "updatedAt": firestore.SERVER_TIMESTAMP,
+                },
+                merge=True,
+            )
+            return respond(
+                order_information_message(verified_order),
+                "show-order-info",
+                next_state="completed",
+            )
+
+        if attempts >= MAX_ORDER_VERIFICATION_ATTEMPTS:
+            session_snapshot.reference.set(
+                {"pendingOrderNumber": "", "orderVerificationAttempts": 0},
+                merge=True,
+            )
+            return respond(
+                "I could not verify that order. Please contact the seller "
+                "directly so they can check it for you.",
+                "show-order-info",
+                next_state="browsing",
+            )
+
+        session_snapshot.reference.set(
+            {
+                "pendingOrderNumber": pending_order_number,
+                "orderVerificationAttempts": attempts,
+            },
+            merge=True,
+        )
+        # One message for "no such order" and for "wrong phone", so the reply
+        # cannot be used to discover which order numbers exist.
+        return respond(
+            f"I could not match that to order {pending_order_number}. Please "
+            "send the mobile number used to place it, for example 077 123 4567.",
+            "collect-order-phone",
+            next_state="verifying-order",
+        )
+
+    if named_order_number and not session.get("orderId"):
+        session_snapshot.reference.set(
+            {
+                "pendingOrderNumber": named_order_number,
+                "orderVerificationAttempts": 0,
+            },
+            merge=True,
+        )
+        return respond(
+            f"I can check order {named_order_number} for you. Which mobile "
+            "number was used to place it?",
+            "collect-order-phone",
+            next_state="verifying-order",
+        )
+
     # The keyword list matches broad words like "deliver" and "shipping", so on
     # its own it hijacks browsing questions ("how long is delivery?") into an
     # order-status reply whenever the customer has any past order. It is trusted
     # only once an order exists in this conversation, or when the customer names
     # an order number. The classifier's verdict is trusted anywhere.
-    keyword_status_enquiry = is_order_enquiry(lowered_message) and (
-        current_state == "completed"
-        or session.get("status") == "completed"
-        or session.get("orderId")
-        or re.search(r"\b(?:vd|vwb)[- ]?\d+", lowered_message)
+    # Naming an order number is a status enquiry on its own - "VD-000001
+    # kohomada?" carries no keyword from the list. Anything vaguer is trusted
+    # only once this conversation actually has an order attached to it.
+    keyword_status_enquiry = bool(named_order_number) or (
+        is_order_enquiry(lowered_message)
+        and (
+            current_state == "completed"
+            or session.get("status") == "completed"
+            or session.get("orderId")
+        )
     )
 
     latest_order = None

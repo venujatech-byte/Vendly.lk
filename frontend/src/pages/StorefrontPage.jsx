@@ -1116,6 +1116,7 @@ function StorefrontPage({ linkType }) {
         {activeView === "catalog" && (
           <CatalogView
             business={business}
+            chatLanguage={chatLanguage}
             products={visibleProducts}
             categories={categories}
             activeCategory={activeCategory}
@@ -1183,6 +1184,7 @@ function StorefrontPage({ linkType }) {
 
         {activeView === "reviews" && (
           <StorefrontReviewCenter
+            chatLanguage={chatLanguage}
             orders={customerOrders}
             draft={storefrontReviewDraft}
             message={storefrontReviewMessage}
@@ -1207,6 +1209,7 @@ function StorefrontPage({ linkType }) {
 
         {activeView === "contact" && (
           <ContactView
+            chatLanguage={chatLanguage}
             business={business}
             copiedField={copiedField}
             onCopyContact={copyContact}
@@ -1266,6 +1269,7 @@ function StorefrontPage({ linkType }) {
 
 function CatalogView({
   business,
+  chatLanguage,
   products,
   categories,
   activeCategory,
@@ -1282,13 +1286,15 @@ function CatalogView({
   onReviewFormChange,
   onSubmitReview,
 }) {
+  const text = storefrontText(chatLanguage);
+
   return (
     <div className="storefront-page storefront-catalog-page">
       <section className="storefront-catalog-hero">
         <h1>
           Welcome to <span>{business.name}</span>
         </h1>
-        <p>Discover products, check live availability, and order securely.</p>
+        <p>{text.storeTagline}</p>
       </section>
 
       <div className="storefront-search">
@@ -1296,7 +1302,7 @@ function CatalogView({
         <input
           value={searchText}
           onChange={(event) => onSearchChange(event.target.value)}
-          placeholder="Search products, brands or categories…"
+          placeholder={text.searchPlaceholder}
           aria-label="Search products"
         />
       </div>
@@ -1326,8 +1332,8 @@ function CatalogView({
         {products.length === 0 && (
           <div className="storefront-empty-state">
             <Search size={34} />
-            <h2>No matching products</h2>
-            <p>Try a different search or category.</p>
+            <h2>{text.noMatchingProducts}</h2>
+            <p>{text.tryDifferentSearch}</p>
           </div>
         )}
       </section>
@@ -1338,6 +1344,7 @@ function CatalogView({
           reviewForm={reviewForm}
           reviewMessage={reviewMessage}
           isSending={isSending}
+          chatLanguage={chatLanguage}
           onReviewFormChange={onReviewFormChange}
           onSubmitReview={onSubmitReview}
         />
@@ -1613,6 +1620,7 @@ function ChatProductDetails({ product, reviews = [], summary, chatLanguage }) {
 }
 
 function ChatReviewCollection({
+  chatLanguage,
   product,
   reviews,
   summary,
@@ -1647,7 +1655,7 @@ function ChatReviewCollection({
           {reviewInitials(sellerRating?.businessName || "Seller")}
         </span>
         <div>
-          <small>Seller rating</small>
+          <small>{storefrontText(chatLanguage).sellerRating}</small>
           <strong>{sellerRating?.businessName || "Seller"}</strong>
           <span className="chat-reviews__rating-line">
             <ReviewStars rating={sellerRating?.averageRating} size={13} />
@@ -1655,9 +1663,9 @@ function ChatReviewCollection({
             <small>{sellerRating?.reviewCount || 0} ratings</small>
           </span>
           <div className="chat-reviews__tags">
-            <span>Verified seller</span>
-            <span>Good service</span>
-            <span>Reliable orders</span>
+            <span>{storefrontText(chatLanguage).verifiedSeller}</span>
+            <span>{storefrontText(chatLanguage).goodService}</span>
+            <span>{storefrontText(chatLanguage).reliableOrders}</span>
           </div>
         </div>
       </article>
@@ -1813,6 +1821,7 @@ function ChatbotView({
                 {message.role === "assistant" &&
                   message.action === "show-reviews" && (
                     <ChatReviewCollection
+                      chatLanguage={chatLanguage}
                       product={message.product}
                       reviews={message.reviews || []}
                       summary={message.reviewSummary}
@@ -2013,7 +2022,7 @@ function ChatbotView({
                 </button>
               </article>
             ))}
-            {cart.length === 0 && <p>No products selected yet.</p>}
+            {cart.length === 0 && <p>{text.noProductsSelected}</p>}
           </div>
         </section>
 
@@ -2062,7 +2071,7 @@ function ChatbotView({
           >
             Continue to checkout <Check size={17} />
           </button>
-          <small>Ordering from {business.name}</small>
+          <small>{text.orderingFrom} {business.name}</small>
         </div>
       </aside>
     </div>
@@ -2080,9 +2089,10 @@ function DraftField({ label, value }) {
   );
 }
 
-function ContactView({ business, copiedField, onCopyContact }) {
-  const phone = business.phone || "Not provided by this seller";
-  const email = business.email || "Not provided by this seller";
+function ContactView({ business, chatLanguage, copiedField, onCopyContact }) {
+  const text = storefrontText(chatLanguage);
+  const phone = business.phone || text.notProvided;
+  const email = business.email || text.notProvided;
 
   return (
     <div className="storefront-page storefront-contact-page">
@@ -2090,7 +2100,7 @@ function ContactView({ business, copiedField, onCopyContact }) {
         <h1>
           Welcome to <span>{business.name}</span>
         </h1>
-        <p>We are here to help. Reach out through any of the channels below.</p>
+        <p>{text.contactHelp}</p>
       </section>
 
       <div className="storefront-contact-grid">
@@ -2118,7 +2128,7 @@ function ContactView({ business, copiedField, onCopyContact }) {
         <Building2 size={22} />
         <div>
           <strong>{business.name}</strong>
-          <span>Powered by Vendly.lk secure ordering</span>
+          <span>{text.poweredBy}</span>
         </div>
       </section>
     </div>
@@ -2303,7 +2313,7 @@ function CheckoutModal({
                 name="name"
                 value={customer.name}
                 onChange={onCustomerChange}
-                placeholder="Your full name"
+                placeholder={text.yourFullNamePlaceholder}
                 required
               />
             </div>
@@ -2341,7 +2351,7 @@ function CheckoutModal({
                 name="address.line1"
                 value={customer.address.line1}
                 onChange={onCustomerChange}
-                placeholder="No. 123, Main Street"
+                placeholder={text.streetAddressPlaceholder}
                 required
               />
             </div>
@@ -2409,7 +2419,7 @@ function CheckoutModal({
                 name="deliveryNote"
                 value={customer.deliveryNote}
                 onChange={onCustomerChange}
-                placeholder="Call before dispatch or other courier instructions"
+                placeholder={text.deliveryNotePlaceholder}
                 rows="2"
               />
             </div>
@@ -2522,6 +2532,7 @@ function OrderSuccess({ business, order, onClose, closeLabel, chatLanguage }) {
 }
 
 function StorefrontReviewCenter({
+  chatLanguage,
   orders,
   draft,
   message,
@@ -2538,11 +2549,11 @@ function StorefrontReviewCenter({
   return (
     <div className="storefront-page storefront-review-center">
       <section className="storefront-review-center__hero">
-        <h1>Reviews</h1>
-        <p>Share your experience with the products and seller.</p>
+        <h1>{storefrontText(chatLanguage).reviewsTitle}</h1>
+        <p>{storefrontText(chatLanguage).reviewsSubtitle}</p>
       </section>
       <form className="storefront-review-center__form" onSubmit={onSubmit}>
-        <h2>Review a delivered order</h2>
+        <h2>{storefrontText(chatLanguage).reviewAnOrder}</h2>
         <label>
           Order
           <select
@@ -2620,7 +2631,7 @@ function StorefrontReviewCenter({
               ...current,
               reviewText: event.target.value,
             }))}
-            placeholder="Tell us about your experience"
+            placeholder={storefrontText(chatLanguage).experiencePlaceholder}
             rows={5}
             required
           />
@@ -2633,7 +2644,7 @@ function StorefrontReviewCenter({
             multiple
             onChange={onFilesChange}
           />
-          <small>Select up to 4 images. They will be sent with your review.</small>
+          <small>{storefrontText(chatLanguage).reviewImagesHint}</small>
         </label>
         <button type="submit" disabled={isSending || orders.length === 0}>
           {isSending ? "Submitting..." : "Submit review"}
@@ -2654,13 +2665,16 @@ function ProductReviews({
   reviewForm,
   reviewMessage,
   isSending,
+  chatLanguage,
   onReviewFormChange,
   onSubmitReview,
 }) {
+  const text = storefrontText(chatLanguage);
+
   return (
     <section className="storefront-reviews">
       <div>
-        <h2>Verified customer reviews</h2>
+        <h2>{text.verifiedReviews}</h2>
         <div className="storefront-reviews__list">
           {reviews.map((review) => (
             <article key={review.id}>
@@ -2671,14 +2685,14 @@ function ProductReviews({
                 </span>
               </header>
               <p>{review.reviewText}</p>
-              <small>Verified purchase</small>
+              <small>{text.verifiedPurchase}</small>
             </article>
           ))}
-          {reviews.length === 0 && <p>No approved reviews yet.</p>}
+          {reviews.length === 0 && <p>{text.noApprovedReviews}</p>}
         </div>
       </div>
       <form onSubmit={onSubmitReview}>
-        <h3>Review a delivered order</h3>
+        <h3>{text.reviewAnOrder}</h3>
         <input
           value={reviewForm.orderNumber}
           onChange={(event) =>
@@ -2687,7 +2701,7 @@ function ProductReviews({
               orderNumber: event.target.value,
             }))
           }
-          placeholder="Order number (VD-000001)"
+          placeholder={text.orderNumberPlaceholder}
           required
         />
         <input
@@ -2698,7 +2712,7 @@ function ProductReviews({
               phoneNumber: event.target.value,
             }))
           }
-          placeholder="Order phone number"
+          placeholder={text.orderPhonePlaceholder}
           required
         />
         <select
@@ -2710,11 +2724,11 @@ function ProductReviews({
             }))
           }
         >
-          <option value="5">5 - Excellent</option>
-          <option value="4">4 - Good</option>
-          <option value="3">3 - Average</option>
-          <option value="2">2 - Poor</option>
-          <option value="1">1 - Very poor</option>
+          <option value="5">{text.rating5}</option>
+          <option value="4">{text.rating4}</option>
+          <option value="3">{text.rating3}</option>
+          <option value="2">{text.rating2}</option>
+          <option value="1">{text.rating1}</option>
         </select>
         <textarea
           value={reviewForm.reviewText}
@@ -2724,12 +2738,12 @@ function ProductReviews({
               reviewText: event.target.value,
             }))
           }
-          placeholder="Write your review"
+          placeholder={text.writeYourReview}
           rows="4"
           required
         />
         <button type="submit" disabled={isSending}>
-          Submit verified review
+          {text.submitReview}
         </button>
         {reviewMessage && (
           <p className="storefront-reviews__success">{reviewMessage}</p>

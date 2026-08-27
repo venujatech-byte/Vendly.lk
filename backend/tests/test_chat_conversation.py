@@ -305,3 +305,93 @@ def test_a_paused_ai_hands_over_without_answering(chat):
 
     assert reply["action"] == "waiting-for-seller"
     assert reply["message"] == ""
+
+
+def test_a_returning_guest_must_prove_the_phone_before_seeing_an_order(chat, monkeypatch):
+    lookups = []
+
+    def fake_lookup(_db, _business, order_number, phone):
+        lookups.append((order_number, phone))
+        return (
+            {"id": "o1", "orderNumber": "VD-000012", "fulfilmentStatus": "packed",
+             "totalAmountMinor": 945000}
+            if phone.strip() == "0771234567"
+            else None
+        )
+
+    monkeypatch.setattr(public_chat_service, "find_order_by_number", fake_lookup)
+
+    reply = chat.say("VD-000012 kohomada?")
+    # The number alone reveals nothing about the order.
+    assert chat.state == "verifying-order"
+    assert "VD-000012" in reply["message"]
+    assert "mobile number" in reply["message"]
+    assert lookups == []
+
+    reply = chat.say("0771234567")
+    assert chat.state == "completed"
+    assert "VD-000012" in reply["message"]
+    assert "packed" in reply["message"]
+
+
+def test_a_wrong_phone_reveals_nothing_and_does_not_link_the_order(chat, monkeypatch):
+    monkeypatch.setattr(public_chat_service, "find_order_by_number", lambda *a: None)
+
+    chat.say("where is VD-000012")
+    reply = chat.say("0770000000")
+
+    assert chat.state == "verifying-order"
+    assert chat.session.get("orderId") in (None, "")
+    # The same wording must cover "wrong phone" and "no such order", or the
+    # reply becomes a way to discover which order numbers exist.
+    assert "could not match" in reply["message"]
+
+
+def test_a_missing_order_gives_the_same_answer_as_a_wrong_phone(chat, monkeypatch):
+    monkeypatch.setattr(public_chat_service, "find_order_by_number", lambda *a: None)
+
+    chat.say("VD-999999 status?")
+    missing = chat.say("0771234567")["message"]
+
+    chat.session["state"] = "browsing"
+    chat.session["pendingOrderNumber"] = ""
+    chat.session["orderVerificationAttempts"] = 0
+    chat.say("VD-000012 status?")
+    wrong_phone = chat.say("0770000000")["message"]
+
+    assert missing.replace("VD-999999", "X") == wrong_phone.replace("VD-000012", "X")
+
+
+def test_phone_guessing_is_capped(chat, monkeypatch):
+    monkeypatch.setattr(public_chat_service, "find_order_by_number", lambda *a: None)
+
+    chat.say("VD-000012 status?")
+    for _attempt in range(4):
+        reply = chat.say("0770000000")
+        assert chat.state == "verifying-order"
+
+    reply = chat.say("0770000000")
+
+    # Five wrong phones ends it rather than allowing an endless guessing loop.
+    assert chat.state == "browsing"
+    assert "contact the seller" in reply["message"]
+    assert chat.session["orderVerificationAttempts"] == 0
+
+
+def test_an_order_number_does_not_hijack_a_session_that_owns_an_order(chat, monkeypatch):
+    def fail(*_a):
+        raise AssertionError("must not re-verify an order already linked")
+
+    monkeypatch.setattr(public_chat_service, "find_order_by_number", fail)
+    monkeypatch.setattr(
+        public_chat_service,
+        "latest_order_for_session",
+        lambda *a: {"id": "o-existing", "orderNumber": "VD-000001",
+                    "fulfilmentStatus": "shipped", "totalAmountMinor": 100000},
+    )
+    chat.session["orderId"] = "o-existing"
+
+    reply = chat.say("VD-000001 kohomada?")
+
+    assert "VD-000001" in reply["message"]
+    assert chat.state == "completed"
