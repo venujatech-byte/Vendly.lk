@@ -33,7 +33,13 @@ def language_instruction(language):
     return (
         f"The customer is writing in {name}. Reply only in {name}, and keep "
         "using it for the whole conversation. Do not add an English translation "
-        f"unless {name} is English."
+        f"unless {name} is English. "
+        "Write the way Sri Lankan shoppers actually text: keep common "
+        "English product, tech and commerce words in English rather than "
+        "translating them - items, delivery, order, battery, warranty, "
+        "Bluetooth, charging, stock, size. A heavily formal translation "
+        "reads as machine output and is harder to follow than the mixed "
+        "wording people use themselves."
     )
 
 
@@ -213,6 +219,12 @@ def catalogue_prompt(question, products, language="en", store_policies=""):
         "about a feature. If none of them has it, say so plainly and do not "
         "list products that do not match - naming products under a question "
         "they fail to answer reads as though they qualify.\n"
+        "When the customer asks which of several products is better, "
+        "compare their specifications and name one, with a short reason "
+        "drawn from those specifications. If the descriptions do not "
+        "separate them, do not pick arbitrarily - lay the differences out "
+        "as a short markdown table, one row per specification, and let the "
+        "customer choose.\n"
         "Name the specific products that answer the question, with their "
         "prices. Compare using priceLkr, but always write prices back to the "
         "customer exactly as they appear in priceText, never as a bare "

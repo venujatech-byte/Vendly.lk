@@ -1141,3 +1141,12 @@ def test_ordinary_messages_carry_no_price_constraint():
     for message in ("show me smart watches", "more info", "I want 2 of them",
                     "how long does it take to charge"):
         assert has_price_constraint(message) is False, message
+
+
+def test_a_question_about_the_products_on_screen_is_recognised():
+    from app.services.public_chat_service import refers_to_shown_products
+
+    assert refers_to_shown_products("what is best among these two") is True
+    assert refers_to_shown_products("which of both is better") is True
+    assert refers_to_shown_products("මේවා අතරින් හොඳම එක") is True
+    assert refers_to_shown_products("show me smart watches") is False

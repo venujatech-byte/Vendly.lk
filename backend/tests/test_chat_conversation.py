@@ -1050,3 +1050,35 @@ def test_a_budget_with_no_category_in_view_does_not_ask(chat, monkeypatch):
     # Nothing to disambiguate against, so answering directly is right.
     assert chat.state == "browsing"
     assert "Just to be sure" not in reply["message"]
+
+
+def test_comparing_the_products_on_screen_uses_only_those(chat, monkeypatch):
+    scopes = []
+    monkeypatch.setattr(
+        public_chat_service,
+        "generate_catalogue_answer",
+        lambda question, scope, *a: scopes.append([p["id"] for p in scope])
+        or "The Runner Shoes wins on build quality.",
+    )
+    # Two products were just listed.
+    chat.session["lastShownProductIds"] = ["shoes"]
+    chat.session["lastCategoryShown"] = "Shoes"
+
+    chat.say("what is best among these two", intent="product_question")
+
+    # Scoped to what is on screen, not the whole catalogue or the category.
+    assert scopes and scopes[0] == ["shoes"]
+
+
+def test_an_english_question_switches_a_sinhala_chat_back(chat):
+    chat.session["language"] = "si"
+
+    reply = chat.say(
+        "what is best among these two I meant technically",
+        intent="product_question",
+        language="en",
+    )
+
+    # A settled language used to short-circuit before the detected language was
+    # consulted, so Sinhala was a one-way trap.
+    assert reply["language"] == "en"

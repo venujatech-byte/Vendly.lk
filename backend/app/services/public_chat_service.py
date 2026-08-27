@@ -401,9 +401,6 @@ def conversation_language(message, current_language, detected_language=None):
     if TAMIL_SCRIPT.search(str(message)):
         return "ta"
 
-    if language != "en":
-        return language
-
     # A short Latin-script reply is nearly always an answer rather than a
     # sentence: a district, a name, a phone number, "yes". There is no language
     # in it to detect, and the model will guess - "Gampaha" was read as Sinhala
@@ -412,9 +409,15 @@ def conversation_language(message, current_language, detected_language=None):
         return language
 
     # The intent classifier already read this message and reported its
-    # language, so reuse that instead of paying for a second call.
+    # language, so reuse that instead of paying for a second call. This runs
+    # in both directions: the old order returned the settled language before
+    # ever reaching here, so a Sinhala conversation could never switch back to
+    # English however plainly the customer wrote in it.
     if detected_language in {"en", "si", "ta"}:
         return detected_language
+
+    if language != "en":
+        return language
 
     return detect_chat_language(message) or language
 
@@ -1031,6 +1034,24 @@ def has_price_constraint(message):
     instead of the products that actually fit the budget.
     """
     return bool(PRICE_CONSTRAINT_PATTERN.search(str(message)))
+
+
+REFERS_TO_SHOWN_PHRASES = (
+    "these", "those", "both", "among them", "of them", "any of these",
+    "meken", "මේවා", "මේකෙන්", "දෙකම", "இவை", "இரண்டும்",
+)
+
+
+def refers_to_shown_products(message):
+    """True when the question is about the products currently on screen."""
+    return any(
+        phrase in str(message).casefold() for phrase in REFERS_TO_SHOWN_PHRASES
+    )
+
+
+def products_by_ids(products, ids):
+    wanted = list(ids or [])
+    return [product for product in products if product.get("id") in wanted]
 
 
 def find_matching_products(message, products):
@@ -1922,6 +1943,14 @@ def answer_public_message(database, session_id, provided_token, payload):
         )
         if shown_category:
             changes["lastCategoryShown"] = shown_category
+
+        # "Which of these two is better?" refers to what is on screen. Only
+        # the category was remembered, so the question reached the generic
+        # fallback and the customer was asked what they were looking for.
+        if response_products:
+            changes["lastShownProductIds"] = [
+                item["id"] for item in response_products if item.get("id")
+            ][:8]
         elif product and product.get("categoryName"):
             changes["lastCategoryShown"] = product["categoryName"]
 
@@ -3449,6 +3478,11 @@ def answer_public_message(database, session_id, provided_token, payload):
         scoped_products = (
             category_products(products, recent_category) if recent_category else []
         )
+
+        if refers_to_shown_products(message):
+            on_screen = products_by_ids(products, session.get("lastShownProductIds"))
+            if on_screen:
+                scoped_products = on_screen
         catalogue_answer = generate_catalogue_answer(
             message,
             scoped_products or products,

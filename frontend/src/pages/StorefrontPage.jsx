@@ -38,6 +38,7 @@ import {
 import { useParams } from "react-router-dom";
 import vendlyLogo from "../assets/vendly-logo.png";
 import { SRI_LANKA_DISTRICTS } from "../data/districts";
+import { splitMessageBlocks } from "../data/messageBlocks";
 import { CHAT_SUGGESTIONS, storefrontText } from "../data/storefrontText";
 import {
   createPublicChatOrder,
@@ -1468,6 +1469,52 @@ function ProductCard({ product, onAddToCart, onOpenChat }) {
   );
 }
 
+// The model answers a "which is better" question with a markdown pipe table.
+// Rendering it as text shows raw pipes, so it is parsed into real rows here
+// rather than pulling in a markdown library for one shape.
+function MessageBody({ text }) {
+  const blocks = splitMessageBlocks(text);
+
+  if (!blocks.some((block) => block.type === "table")) {
+    return <p>{text}</p>;
+  }
+
+  return (
+    <>
+      {blocks.map((block, index) =>
+        block.type === "text" ? (
+          <p key={index}>{block.text}</p>
+        ) : (
+          <div className="storefront-chat-table" key={index}>
+            <table>
+              <thead>
+                <tr>
+                  {block.head.map((cell, cellIndex) => (
+                    <th key={cellIndex}>{cell}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {block.rows.map((row, rowIndex) => (
+                  <tr key={rowIndex}>
+                    {row.map((cell, cellIndex) =>
+                      cellIndex === 0 ? (
+                        <th scope="row" key={cellIndex}>{cell}</th>
+                      ) : (
+                        <td key={cellIndex}>{cell === "-" ? "—" : cell}</td>
+                      ),
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ),
+      )}
+    </>
+  );
+}
+
 function ChatCatalogCard({ product, isOrderMode, chatLanguage, cart, onQuickMessage, onAddFromChat, onDecreaseItem, onIncreaseItem }) {
   const text = storefrontText(chatLanguage);
   const variant = product.variants?.[0];
@@ -1795,7 +1842,7 @@ function ChatbotView({
                     <img src={message.imageUrl} alt={text.sentImage} />
                   </a>
                 )}
-                {message.text && <p>{message.text}</p>}
+                {message.text && <MessageBody text={message.text} />}
 
                 {/* Only under the newest reply: older chips would stack up and
                     keep offering actions that no longer make sense. */}

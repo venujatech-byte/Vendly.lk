@@ -647,7 +647,21 @@ Use `min-width: 0` on grid/flex children, `aspect-ratio` for images, and `object
 
 ## 19. Test plan
 
-Automated: `cd backend && .venv/Scripts/python.exe -m pytest -q` (153 tests), `cd frontend && npm run build`, and `node frontend/src/data/storefrontText.test.mjs`.
+Automated, all three must pass:
+
+```bash
+cd backend && .venv/Scripts/python.exe -m pytest -q
+```
+
+```bash
+cd frontend && npm run build
+```
+
+```bash
+node frontend/src/data/storefrontText.test.mjs && node frontend/src/data/messageBlocks.test.mjs
+```
+
+252 backend tests at the time of writing.
 
 `tests/test_chat_conversation.py` is the one that matters most when changing the chat. Every other test covers an extracted pure helper; that file drives real conversations through `answer_public_message`, so it catches the failures unit tests cannot see — a branch that stops being reachable, an early return that shadows a later one, a `respond()` that persists the wrong state. Only the real boundaries are faked (Firestore, the AI provider, the other services); the step ordering under test is production code.
 
@@ -908,7 +922,18 @@ The in-memory failure state is process-local on purpose — a dead model fails o
 
 ---
 
-## 23. Open bugs — reported from real use, not yet fixed
+## 23. Issues found in real use
+
+**All 24 below are fixed.** They are kept rather than deleted because several were caused by the fix before them, and the causes are what stop them being reintroduced.
+
+**Start here in a new session.** Run the three commands in §19 first — everything should be green. Then read §22 for the remaining roadmap and the note at the end of this section for what is still unverified.
+
+Four themes run through these, and they are the ones to check any new change against:
+
+1. **Memory must never override the current message.** `selectedProductId`, `lastCategoryShown` and `lastShownProductIds` all exist for continuity, and each one caused a bug by winning against something the customer had just said. See 23.3, 23.16, 23.17, 23.21.
+2. **Token overlap is evidence, not proof.** Product names contain ordinary words — charge, power, fast, pro. Any matcher built on them needs a floor. See 23.16.
+3. **What is rendered must agree with what was said.** Cards attached by default contradicted the reply above them. See 23.10.
+4. **A state waiting for an answer must read that answer first.** Otherwise a one-word reply gets claimed by product or category resolution. See 23.20, and the `collecting-*` rule in §12.
 
 Found by the seller testing a full catalogue (power banks, smart watches, earbuds, routers, laptops). Ordered by impact. Each says what was seen, the likely cause, and where to look.
 
@@ -1092,6 +1117,38 @@ When the model answered in the customer's language the handoff is translated sep
 **Placement matters:** the handler runs **before** product and category resolution. Left later, a one-word reply like "shoes" resolved as a *product* and returned that product's card instead of answering the budget question. This is the same rule as the `collecting-*` states — when a state is waiting for a specific answer, that answer must be read before anything else tries to interpret it.
 
 This is the pattern to reuse for any future ambiguity: ask, park the original question, resolve on the next turn.
+
+### 23.21 Sinhala was a one-way trap — FIXED
+
+**Seen:** a conversation that had switched to Sinhala kept replying in Sinhala to plainly English questions.
+
+**Cause:** `conversation_language` returned the settled language *before* it ever looked at the classifier's verdict. English could become Sinhala, but never the reverse.
+
+**Fixed as:** the detected language is consulted first, in both directions. The word-count floor and the script check still apply, so short answers and Sinhala script behave as before.
+
+### 23.22 Sinhala replies read as machine output — FIXED
+
+**The customer's point:** a Sinhala reply that translates *items* to `අයිතම` is harder to read than the mixed wording Sri Lankans actually text.
+
+**Fixed as:** `language_instruction` now tells the model to keep common product, tech and commerce words in English — items, delivery, order, battery, warranty, Bluetooth, charging, stock, size — and warns that heavy translation reads as machine output.
+
+### 23.23 "Which of these two is better?" was not understood — FIXED
+
+**Seen:** two products listed, then "what is best among these two I meant technically" → *"I don't understand which product you meant. What kind of item are you looking for?"*
+
+**Cause:** only `lastCategoryShown` was remembered, never which products were actually on screen, so a question about "these" had nothing to resolve against.
+
+**Fixed as:** `respond()` records `lastShownProductIds`, and `refers_to_shown_products` ("these", "those", "both", `මේවා`) scopes the answer to exactly those items. The catalogue prompt was also told how to answer a comparison: compare the specifications and name one with a reason drawn from them, and **if the descriptions do not separate them, lay the differences out as a short markdown table rather than picking arbitrarily** and let the customer choose.
+
+### 23.24 Comparison tables rendered as raw pipes — FIXED
+
+**Seen:** a "which is better" reply came back as `| Spec | ASPOR A337 | ... |` with the `|---|---|` separator visible — the model's markdown table rendered as text.
+
+**Fixed as:** `frontend/src/data/messageBlocks.js` parses a reply into text and table blocks, and `MessageBody` renders the tables as real `<table>` elements. No markdown library: this is the only markdown shape the bot emits, and a parser for it is smaller than a dependency.
+
+The table scrolls sideways with the **spec column pinned**, so on a phone the row labels stay visible while the values move. First column of each row is a `<th scope="row">`, a lone `-` becomes an em dash, and the header row is sticky.
+
+`messageBlocks.test.mjs` (plain `node`) checks that the separator row never becomes a data row, that plain replies stay plain, and that a stray pipe in prose is not mistaken for a table.
 
 ### Note on ordering
 

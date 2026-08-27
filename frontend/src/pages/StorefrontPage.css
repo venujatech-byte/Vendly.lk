@@ -3320,3 +3320,65 @@ body:has(.storefront-chat-page) {
   padding: 4px 6px;
   font-size: .64rem;
 }
+
+/* Spec comparison tables. The model returns a markdown pipe table for "which
+   of these is better"; MessageBody parses it into real rows so it reads as a
+   table rather than a wall of pipes. */
+.storefront-chat-table {
+  margin: 4px 0 2px;
+  overflow-x: auto;
+  border: 1px solid var(--sf-border);
+  border-radius: 12px;
+  background: var(--sf-surface);
+}
+
+.storefront-chat-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .74rem;
+}
+
+.storefront-chat-table th,
+.storefront-chat-table td {
+  padding: 8px 10px;
+  text-align: left;
+  white-space: nowrap;
+  border-bottom: 1px solid color-mix(in srgb, var(--sf-border) 70%, transparent);
+}
+
+.storefront-chat-table thead th {
+  position: sticky;
+  top: 0;
+  color: var(--sf-primary);
+  font-weight: 650;
+  background: color-mix(in srgb, var(--sf-primary) 8%, var(--sf-surface));
+}
+
+/* The spec name stays visible while the values scroll sideways. */
+.storefront-chat-table tbody th {
+  position: sticky;
+  left: 0;
+  color: var(--sf-text);
+  font-weight: 600;
+  background: var(--sf-surface);
+  box-shadow: 1px 0 0 color-mix(in srgb, var(--sf-border) 70%, transparent);
+}
+
+.storefront-chat-table tbody tr:last-child th,
+.storefront-chat-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.storefront-chat-table tbody tr:nth-child(even) td {
+  background: color-mix(in srgb, var(--sf-primary) 3%, transparent);
+}
+
+.storefront-chat-table td {
+  color: var(--sf-muted);
+}
+
+@media (max-width: 640px) {
+  .storefront-chat-table table { font-size: .7rem; }
+  .storefront-chat-table th,
+  .storefront-chat-table td { padding: 6px 8px; }
+}
