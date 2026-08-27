@@ -1866,3 +1866,50 @@ while the chips fit and packs from the left once they do not, with a plain
 
 Mobile also gets slightly smaller chips so more of the row is visible before
 scrolling.
+
+### 23.53 Dark-mode composer, and four rules that never applied — FIXED
+
+**Seen:** the message field was a light grey box in dark mode.
+
+**Cause:** the field is painted translucent white by **two** hardcoded rules to
+give it a frosted-glass look over the message list, and dark mode answered
+neither. White at 55% over a dark panel is that grey box. Both now have dark
+counterparts, and the placeholder - which was `#000000`, black on dark - uses
+`--sf-muted`.
+
+**Found while fixing it:** ten leftover selector fragments from the CSS regex
+accident recorded earlier in this section. Lines like
+
+```
+.storefront--dark .storefront-chat-composer
+.storefront--dark .storefront-chat-composer
+.storefront--dark .storefront-chat-composer {
+```
+
+have no commas, so they are **one descendant chain** that matches nothing. Four
+whole rules were dead: the dark composer theme, the composer's padding, its
+mobile grid layout, and the chat category chip styling. They were removed and
+all four rules now apply.
+
+That is worth remembering about CSS: a broken selector is silent. No console
+error, no build failure - the rule simply never matches, and the styling looks
+like it was never written.
+
+### 23.54 "Add first size" picked for the customer — FIXED
+
+**Seen:** a product with options showed **Add first size**, which put a colour
+in the cart that the customer never chose.
+
+**Fix:** the button is **Add to Cart** on every card. With options to choose
+from it opens the details popup, which asks; with a single option it adds
+directly. Choosing for the customer is the one thing an order flow must not do.
+
+**Wording:** the field is `size`, but sellers store colours in it, so "Size
+Black" read wrongly on most products. Variant chips and cart lines now show the
+seller's own label alone - "Black", "Orange", "XL".
+
+**Confirmation:** every surface that adds to the cart now says **Added to
+cart** with the quantity - catalogue cards, the popup, and the chat cards
+(whose confirmation was hardcoded English and is now localised). Before this
+the only feedback was the cart badge in the top bar, which on a phone is far
+from the button just pressed.

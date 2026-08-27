@@ -1247,6 +1247,7 @@ function StorefrontPage({ linkType }) {
           <CatalogView
             business={business}
             chatLanguage={chatLanguage}
+            cart={cart}
             products={visibleProducts}
             categories={categories}
             activeCategory={activeCategory}
@@ -1356,6 +1357,7 @@ function StorefrontPage({ linkType }) {
           reviews={detailReviews}
           isLoadingReviews={isLoadingDetailReviews}
           chatLanguage={chatLanguage}
+          cart={cart}
           onAddToCart={addToCart}
           onOpenChat={() => {
             setDetailProduct(null);
@@ -1405,6 +1407,7 @@ function StorefrontPage({ linkType }) {
 function CatalogView({
   business,
   chatLanguage,
+  cart,
   products,
   categories,
   activeCategory,
@@ -1461,6 +1464,8 @@ function CatalogView({
           <ProductCard
             product={product}
             key={product.id}
+            cart={cart}
+            chatLanguage={chatLanguage}
             onAddToCart={onAddToCart}
             onOpenChat={onOpenChat}
             onOpenDetails={onOpenDetails}
@@ -1495,6 +1500,7 @@ function ProductDetailModal({
   reviews,
   isLoadingReviews,
   chatLanguage,
+  cart,
   onAddToCart,
   onOpenChat,
   onClose,
@@ -1504,6 +1510,11 @@ function ProductDetailModal({
   const [activeImage, setActiveImage] = useState(mediaUrls[0] || "");
   const firstVariant = product.variants?.[0];
   const hasVariantPhotos = (product.variants || []).some(variantImageUrl);
+  const cartQuantity = (cart || [])
+    .filter((item) =>
+      (product.variants || []).some((variant) => variant.id === item.variantId),
+    )
+    .reduce((total, item) => total + item.quantity, 0);
 
   // The catalogue carries a review count but no average, and the reviews are
   // already here - averaging them beats a second round trip.
@@ -1643,6 +1654,12 @@ function ProductDetailModal({
             )
           )}
 
+          {cartQuantity > 0 && (
+            <span className="storefront-product-modal__added">
+              <Check size={15} /> {text.addedToCart} ({cartQuantity})
+            </span>
+          )}
+
           <div className="storefront-product-modal__actions">
             <button
               type="button"
@@ -1672,9 +1689,21 @@ function ProductDetailModal({
   );
 }
 
-function ProductCard({ product, onAddToCart, onOpenChat, onOpenDetails }) {
+function ProductCard({
+  product,
+  cart,
+  chatLanguage,
+  onAddToCart,
+  onOpenChat,
+  onOpenDetails,
+}) {
+  const text = storefrontText(chatLanguage);
   const firstVariant = product.variants?.[0];
   const hasMultipleVariants = product.variants?.length > 1;
+  const inCart = (cart || []).filter((item) =>
+    (product.variants || []).some((variant) => variant.id === item.variantId),
+  );
+  const cartQuantity = inCart.reduce((total, item) => total + item.quantity, 0);
   const productImage =
     variantImageUrl(firstVariant) ||
     publicMediaUrl(product.media?.[0]);
@@ -1712,6 +1741,12 @@ function ProductCard({ product, onAddToCart, onOpenChat, onOpenDetails }) {
             product.aiDescription ||
             "Ask our chatbot for more information."}
         </p>
+        {cartQuantity > 0 && (
+          <span className="storefront-product-card__added">
+            <Check size={14} /> {text.addedToCart} ({cartQuantity})
+          </span>
+        )}
+
         <div className="storefront-product-card__stock">
           <CheckCircle2 size={15} /> {product.availableStock} available
           {product.approvedReviewCount > 0 && (
@@ -1729,9 +1764,9 @@ function ProductCard({ product, onAddToCart, onOpenChat, onOpenDetails }) {
                 type="button"
                 key={variant.id}
                 onClick={() => onAddToCart(product, variant)}
-                title={`Add ${variant.size || variant.sku} to cart`}
+                title={`${text.addToCart}: ${variant.size || variant.sku}`}
               >
-                {variant.size ? `Size ${variant.size}` : variant.sku}
+                {variant.size || variant.sku}
               </button>
             ))}
           </div>
@@ -1741,10 +1776,16 @@ function ProductCard({ product, onAddToCart, onOpenChat, onOpenDetails }) {
           <button
             type="button"
             disabled={!firstVariant}
-            onClick={() => onAddToCart(product, firstVariant)}
+            onClick={() =>
+              // With options to choose from, adding "the first" picks for the
+              // customer - the popup asks instead.
+              hasMultipleVariants
+                ? onOpenDetails(product)
+                : onAddToCart(product, firstVariant)
+            }
           >
             <ShoppingCart size={17} />
-            {hasMultipleVariants ? "Add first size" : "Add to Cart"}
+            {text.addToCart}
           </button>
           <button
             type="button"
@@ -1884,7 +1925,7 @@ function ChatCatalogCard({ product, isOrderMode, chatLanguage, cart, onQuickMess
       {quantity ? (
         <>
           <span className="storefront-chat-catalog-card__added">
-            <Check size={13} /> Added to cart
+            <Check size={13} /> {text.addedToCart}
           </span>
           <div className="storefront-chat-catalog-card__quantity" aria-label={`Quantity for ${product.name}`}>
             <button type="button" aria-label={`Remove one ${product.name}`} onClick={() => onDecreaseItem(variant.id)}>-</button>
@@ -2691,7 +2732,7 @@ function ChatbotView({
                   <strong>{item.productName}</strong>
                   <span>
                     Qty: {item.quantity}
-                    {item.size ? ` · Size ${item.size}` : ""}
+                    {item.size ? ` · ${item.size}` : ""}
                   </span>
                   <small>{money(item.sellingPriceMinor * item.quantity)}</small>
                 </div>
@@ -2890,7 +2931,7 @@ function CartDrawer({
               <div className="storefront-cart__details">
                 <strong>{item.productName}</strong>
                 <span>
-                  {item.size ? `Size ${item.size} · ` : ""}
+                  {item.size ? `${item.size} · ` : ""}
                   {money(item.sellingPriceMinor)}
                 </span>
                 <div>
