@@ -1977,3 +1977,79 @@ colour.
 Two products differing only by option stay as separate rows on purpose - they
 are picked, packed and cancelled separately, and merging them would hide that
 the customer ordered a Black *and* an Orange.
+
+### 23.58 Catalogue refine control
+
+One icon button beside the search box, no label. Sorting and filtering are the
+same act - narrowing what is on screen - and two labelled buttons crowded the
+search field on a phone for no gain.
+
+**Sort:** featured (catalogue order), price low to high, price high to low,
+name A-Z, most available. Sorting works on a **copy** - sorting the filtered
+array in place would reorder the array the filter had just produced, and with
+it the memo's own cached result.
+
+**Filter:** in stock only, brand (built from the catalogue, so a shop with no
+brands recorded never sees the control), and a maximum price. An empty price
+box means no limit rather than nothing under zero.
+
+Both live in one panel: sort as pills, filters as fields, Clear and Done in a
+footer. The badge counts filters **and** a non-default sort - with a single
+button standing for both, a sort change with no visible trace would look like
+nothing happened.
+
+Category stays as its own chip row rather than becoming a fourth filter - it is
+the one people use most, and burying it behind a button would be a downgrade.
+
+### 23.59 The notification bell now reports something
+
+It was decorative markup with an `aria-label` and no behaviour. It now carries
+a badge and opens a panel listing the two things that happen while a customer
+is looking elsewhere:
+
+- **Seller replies**, from the existing five-second poller, and only when the
+  customer is *not* on the chat view - announcing a message already on screen
+  is noise. The poller reads the view through a ref, not a closed-over value
+  that was current when the timer started.
+- **Order status changes.** Orders were fetched once at startup, so a status
+  the seller changed minutes later never reached the customer. They are polled
+  every 30 seconds - a status moves at human speed, and reusing the 5s chat
+  timer would mean a request per customer per five seconds for information that
+  rarely changes. The **first** poll records statuses without announcing them,
+  or every order would arrive as news.
+
+Opening the panel marks them read: a badge that clears itself leaves the
+customer wondering what they missed. Clicking an entry goes to the chat or to
+their orders.
+
+The bell is also no longer hidden on phones. It was hidden while it did
+nothing; now it is the surface that tells a customer their order moved.
+
+### 23.60 Where the mobile composer's padding comes from
+
+Three knobs, in the order they matter:
+
+1. `.storefront-chat-composer .storefront-chat-input { padding }` - the gap
+   between the frame and the controls. 5px to **3px**.
+2. the same rule's `gap` - the space between the controls. 5px to **4px**.
+3. `.storefront-chat-composer { right/left/bottom }` - the distance from the
+   screen edge. Now 6px sides, 8px above the safe-area inset.
+
+Tightening all three still widens the typing field, because the controls
+themselves stay at 45px: 195px of field on a 360px screen, up from 192px.
+
+### 23.61 Search row width and alignment
+
+**Width.** Making the search field a flex child with `flex: 1 1 auto` let it
+run the full page width, which reads as a page-wide banner rather than a
+control. The row is capped at 640px and centred, with the field itself at most
+520px.
+
+**Alignment.** The refine button was 50px of search bar against 44px of button
+- different heights on a centred row, so they sat on different baselines and
+read as unrelated controls. Both are now 50px on desktop and 46px on mobile,
+and the button is a circle to match the field's pill.
+
+Two stale mobile rules from the two-control version were removed - one set the
+search to `flex: 1 1 100%` and the next line immediately overrode it, which is
+what dead CSS from an earlier layout looks like.

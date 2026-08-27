@@ -2811,13 +2811,10 @@
     white-space: nowrap;
   }
 
-  /* Hide by what the button IS, not by where it sits. Positional selectors
-     hid whichever button happened to be first, so adding the voice controls
-     silently hid the language toggle on every phone. */
-
-
-  /* Six icons at desktop spacing overflow a phone top bar, and the ones that
-     fall off the end are the cart and the account. */
+  /* Nothing is hidden here any more. This block used to drop whichever button
+     happened to be first, which silently removed the language toggle when the
+     voice controls moved in; and the bell, now that it reports seller replies
+     and order updates, matters most on a phone. They are made to fit instead. */
   .storefront-topbar__actions {
     gap: 1px;
   }
@@ -3224,24 +3221,25 @@ body:has(.storefront-chat-page) {
   }
 
   .storefront-chat-composer {
-    right: 4px;
-    bottom: calc(10px + env(safe-area-inset-bottom));
-    left: 4px;
-    border-radius: 25px;
+    right: 6px;
+    bottom: calc(8px + env(safe-area-inset-bottom));
+    left: 6px;
+    border-radius: 26px;
   }
 
   .storefront-chat-composer .storefront-chat-input {
-    /* Equal padding both sides. The right side used to carry the leftover
-       voice-tools column as well, so the send button sat inset from the edge
-       while the mic hugged the left. */
-    padding: 5px;
+    /* The three knobs that set how tight this bar looks, in the order they
+       matter: this padding is the gap between the frame and the controls, the
+       gap is the space between them, and the composer's own inset below is
+       the distance from the screen edge. */
+    padding: 3px;
     grid-template-columns: 45px 45px minmax(0, 1fr) 45px;
-    gap: 5px;
+    gap: 4px;
   }
 
   .storefront-chat-composer .storefront-chat-input input {
-    height: 45px;
-    min-height: 45px;
+    height: 40px;
+    min-height: 40px;
     padding: 0 12px;
   }
 
@@ -3249,13 +3247,13 @@ body:has(.storefront-chat-page) {
      taller neighbour. */
   .storefront-chat-composer .storefront-chat-input > button,
   .storefront-chat-composer .storefront-chat-input > label {
-    width: 45px;
-    height: 45px;
+    width: 40px;
+    height: 40px;
   }
 
   .storefront-chat-composer .storefront-chat-input .storefront-chat-input__send {
-    width: 45px;
-    height: 45px;
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
   }
 
@@ -4254,4 +4252,303 @@ body:has(.storefront-chat-page) {
 
 .storefront-chat-cart li:has(.storefront-chat-cart__remove) {
   grid-template-columns: 46px minmax(0, 1fr) auto auto auto;
+}
+
+/* Search, sort and filter share a row: they are three ways of narrowing the
+   same list, so separating them would read as unrelated controls. */
+.storefront-search-row {
+  display: flex;
+  /* Capped and centred. Letting the row run the full page width stretched the
+     search field across a desktop, which reads as a page-wide banner rather
+     than a control. */
+  width: min(640px, 100%);
+  margin: 26px auto 14px;
+  gap: 9px;
+  align-items: center;
+  justify-content: center;
+}
+
+.storefront-search-row .storefront-search {
+  flex: 1 1 auto;
+  max-width: 520px;
+  margin: 0;
+}
+
+.storefront-refine-button {
+  display: inline-grid;
+  position: relative;
+  flex: 0 0 auto;
+  /* The same height and shape as the search field beside it. At 44px against
+     its 50px the two sat on different baselines and read as unrelated. */
+  width: 50px;
+  height: 50px;
+  place-items: center;
+  border: 1px solid var(--sf-border);
+  border-radius: 999px;
+  color: var(--sf-text);
+  background: var(--sf-surface);
+  cursor: pointer;
+}
+
+.storefront-refine-button.is-active {
+  border-color: var(--sf-primary);
+  color: var(--sf-primary);
+}
+
+.storefront-refine-button span {
+  display: grid;
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 18px;
+  height: 18px;
+  place-items: center;
+  border-radius: 999px;
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 800;
+  background: var(--sf-primary);
+}
+
+.storefront-refine {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 16px;
+  padding: 15px;
+  border: 1px solid var(--sf-border);
+  border-radius: 15px;
+  background: var(--sf-surface);
+  box-shadow: 0 10px 30px rgba(9, 32, 56, 0.07);
+}
+
+.storefront-refine__group {
+  display: grid;
+  gap: 7px;
+}
+
+.storefront-refine__group > small {
+  color: var(--sf-muted);
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.storefront-refine__options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.storefront-refine__options button {
+  padding: 7px 13px;
+  border: 1px solid var(--sf-border);
+  border-radius: 999px;
+  color: var(--sf-text);
+  font-size: 0.78rem;
+  font-weight: 600;
+  background: transparent;
+  cursor: pointer;
+}
+
+.storefront-refine__options button.is-selected {
+  border-color: var(--sf-primary);
+  color: #fff;
+  background: var(--sf-primary);
+}
+
+.storefront-refine__fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: end;
+}
+
+.storefront-refine__fields label {
+  display: grid;
+  gap: 4px;
+  font-size: 0.78rem;
+}
+
+.storefront-refine__fields span {
+  color: var(--sf-muted);
+  font-size: 0.66rem;
+  font-weight: 700;
+}
+
+.storefront-refine__toggle {
+  display: inline-flex !important;
+  gap: 7px;
+  align-items: center;
+  height: 36px;
+  font-weight: 600;
+}
+
+.storefront-refine__toggle input {
+  width: 17px;
+  height: 17px;
+  accent-color: var(--sf-primary);
+}
+
+.storefront-refine select,
+.storefront-refine input[type="number"] {
+  height: 36px;
+  min-width: 138px;
+  padding: 0 10px;
+  border: 1px solid var(--sf-border);
+  border-radius: 9px;
+  color: var(--sf-text);
+  background: var(--sf-bg);
+}
+
+.storefront-refine footer {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding-top: 12px;
+  border-top: 1px solid var(--sf-border);
+}
+
+.storefront-refine footer button {
+  height: 36px;
+  padding: 0 16px;
+  border: 1px solid var(--sf-border);
+  border-radius: 9px;
+  color: var(--sf-muted);
+  font-weight: 600;
+  background: transparent;
+  cursor: pointer;
+}
+
+.storefront-refine__done {
+  border-color: var(--sf-primary) !important;
+  color: #fff !important;
+  background: var(--sf-primary) !important;
+}
+
+@media (max-width: 640px) {
+  .storefront-search-row {
+    margin-top: 16px;
+  }
+
+  .storefront-search-row .storefront-search {
+    flex: 1 1 auto;
+    max-width: none;
+  }
+
+  .storefront-refine-button {
+    width: 46px;
+    height: 46px;
+  }
+
+  .storefront-search-row .storefront-search {
+    height: 46px;
+  }
+
+  .storefront-refine select,
+  .storefront-refine input[type="number"] {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .storefront-refine__fields label {
+    flex: 1 1 130px;
+  }
+}
+
+/* Notifications. The bell was decorative; it now reports seller replies and
+   order status changes, which are the two things that happen to a customer
+   while they are looking somewhere else. */
+.storefront-notifications {
+  position: relative;
+}
+
+.storefront-notifications__badge {
+  display: grid;
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  place-items: center;
+  border-radius: 999px;
+  color: #fff;
+  font-size: 0.58rem;
+  font-weight: 800;
+  background: var(--sf-danger);
+}
+
+.storefront-notifications__panel {
+  display: grid;
+  position: absolute;
+  z-index: 60;
+  top: calc(100% + 8px);
+  right: 0;
+  width: min(300px, calc(100vw - 24px));
+  max-height: 340px;
+  gap: 2px;
+  padding: 8px;
+  overflow-y: auto;
+  border: 1px solid var(--sf-border);
+  border-radius: 14px;
+  background: var(--sf-surface);
+  box-shadow: 0 18px 44px rgba(9, 32, 56, 0.22);
+}
+
+.storefront-notifications__panel header {
+  padding: 4px 6px 8px;
+  color: var(--sf-muted);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.storefront-notifications__panel p {
+  margin: 0;
+  padding: 10px 6px;
+  color: var(--sf-muted);
+  font-size: 0.78rem;
+}
+
+.storefront-notifications__panel > button {
+  display: grid;
+  gap: 9px;
+  padding: 8px;
+  grid-template-columns: 26px minmax(0, 1fr);
+  align-items: start;
+  border: 0;
+  border-radius: 10px;
+  text-align: left;
+  background: transparent;
+  cursor: pointer;
+}
+
+.storefront-notifications__panel > button:hover {
+  background: var(--sf-soft);
+}
+
+.storefront-notifications__icon {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  border-radius: 8px;
+  color: var(--sf-primary);
+  background: color-mix(in srgb, var(--sf-primary) 12%, transparent);
+}
+
+.storefront-notifications__panel strong {
+  display: block;
+  font-size: 0.78rem;
+}
+
+.storefront-notifications__panel small {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--sf-muted);
+  font-size: 0.7rem;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }

@@ -26,6 +26,7 @@ import {
   ShieldCheck,
   ShoppingBag,
   ShoppingCart,
+  SlidersHorizontal,
   Star,
   Store,
   Sun,
@@ -225,6 +226,10 @@ function StorefrontPage({ linkType }) {
   // The language the backend decided this conversation is in. Chat replies are
   // translated by the model; these fixed labels come from a table.
   const [chatLanguage, setChatLanguage] = useState(() => savedChatLanguage() || "en");
+  // Every sub-component declares its own; the top bar sits in this component
+  // and had none, so the notification panel referenced an undefined `text` and
+  // took the whole page down the moment it opened.
+  const text = storefrontText(chatLanguage);
   const [cart, setCart] = useState([]);
   const [customer, setCustomer] = useState(EMPTY_CUSTOMER);
   const [activeView, setActiveView] = useState(getInitialView);
@@ -240,10 +245,24 @@ function StorefrontPage({ linkType }) {
   const [confirmedOrder, setConfirmedOrder] = useState(null);
   const [copiedField, setCopiedField] = useState("");
   const [reviews, setReviews] = useState([]);
+  const [catalogSort, setCatalogSort] = useState("featured");
+  const [catalogFilters, setCatalogFilters] = useState({
+    inStockOnly: false,
+    brand: "",
+    maxPrice: "",
+  });
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [detailProduct, setDetailProduct] = useState(null);
   const [detailReviews, setDetailReviews] = useState([]);
   const [isLoadingDetailReviews, setIsLoadingDetailReviews] = useState(false);
   const [customerOrders, setCustomerOrders] = useState([]);
+  const [notifications, setNotifications] = useState([]);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [readNotificationCount, setReadNotificationCount] = useState(0);
+  const orderStatusRef = useRef(new Map());
+  // The poller runs on its own timer, so it reads the view through a ref
+  // rather than closing over a value that was current when it started.
+  const viewRef = useRef("catalog");
   const [storefrontReviewDraft, setStorefrontReviewDraft] = useState({
     orderNumber: "",
     phoneNumber: "",
@@ -440,6 +459,19 @@ function StorefrontPage({ linkType }) {
             text: message.message,
           })),
         ]);
+        // Only when they are somewhere else. Notifying about a message that is
+        // already on screen is noise.
+        if (viewRef.current !== "chatbot") {
+          setNotifications((current) => [
+            ...unseen.map((message) => ({
+              id: message.id,
+              kind: "seller",
+              title: business?.name || "The seller",
+              body: message.message,
+            })),
+            ...current,
+          ].slice(0, 20));
+        }
       } catch {
         // The normal send flow reports errors. Silent polling should not cover
         // the storefront with an error if the network briefly disconnects.
@@ -454,6 +486,62 @@ function StorefrontPage({ linkType }) {
     };
   }, [business?.shortCode, session?.sessionId, session?.sessionToken]);
 
+
+  // Orders are loaded once at startup, so a status the seller changes minutes
+  // later never reaches the customer. Polled separately from seller replies:
+  // a status moves at human speed, and asking every five seconds would be a
+  // request per customer per five seconds for information that rarely changes.
+  useEffect(() => {
+    if (!business?.shortCode) return undefined;
+
+    let isCurrent = true;
+
+    async function pollOrders() {
+      try {
+        const response = await getCustomerOrders(business.shortCode);
+
+        if (!isCurrent) return;
+
+        const orders = response.orders || [];
+        const changes = orders.filter((order) => {
+          const previous = orderStatusRef.current.get(order.id);
+          return previous && previous !== order.fulfilmentStatus;
+        });
+        const isFirstLoad = orderStatusRef.current.size === 0;
+
+        orders.forEach((order) =>
+          orderStatusRef.current.set(order.id, order.fulfilmentStatus),
+        );
+        setCustomerOrders(orders);
+
+        // On the first poll every order looks new. Recording the statuses
+        // without announcing them avoids a burst of notifications for things
+        // the customer already knows.
+        if (isFirstLoad || changes.length === 0) return;
+
+        setNotifications((current) => [
+          ...changes.map((order) => ({
+            id: `${order.id}-${order.fulfilmentStatus}`,
+            kind: "order",
+            title: order.orderNumber || "Your order",
+            body: `Status: ${String(order.fulfilmentStatus || "").replace(/-/g, " ")}`,
+          })),
+          ...current,
+        ].slice(0, 20));
+      } catch {
+        // Silent: the customer has not asked for this, and a failed poll must
+        // not cover the storefront in errors.
+      }
+    }
+
+    pollOrders();
+    const timer = window.setInterval(pollOrders, 30000);
+
+    return () => {
+      isCurrent = false;
+      window.clearInterval(timer);
+    };
+  }, [business?.shortCode]);
   useEffect(() => {
     localStorage.setItem("vendly-storefront-theme", theme);
   }, [theme]);
@@ -535,8 +623,9 @@ function StorefrontPage({ linkType }) {
 
   const visibleProducts = useMemo(() => {
     const query = searchText.trim().toLowerCase();
+    const maxPriceMinor = Number(catalogFilters.maxPrice) * 100;
 
-    return products.filter((product) => {
+    const matching = products.filter((product) => {
       const matchesCategory =
         activeCategory === "All" || product.categoryName === activeCategory;
       const matchesSearch =
@@ -545,9 +634,57 @@ function StorefrontPage({ linkType }) {
           .join(" ")
           .toLowerCase()
           .includes(query);
-      return matchesCategory && matchesSearch;
+      const matchesStock =
+        !catalogFilters.inStockOnly || product.availableStock > 0;
+      const matchesBrand =
+        !catalogFilters.brand || product.brand === catalogFilters.brand;
+      // An empty box means "no limit", not "nothing under zero".
+      const matchesPrice =
+        !maxPriceMinor || product.sellingPriceMinor <= maxPriceMinor;
+
+      return (
+        matchesCategory &&
+        matchesSearch &&
+        matchesStock &&
+        matchesBrand &&
+        matchesPrice
+      );
     });
-  }, [activeCategory, products, searchText]);
+
+    const byPrice = (first, second) =>
+      first.sellingPriceMinor - second.sellingPriceMinor;
+
+    // Sorted copies only. Sorting `matching` in place would reorder the array
+    // the filter just produced and, through it, the memo's own result.
+    if (catalogSort === "price-asc") return [...matching].sort(byPrice);
+    if (catalogSort === "price-desc") return [...matching].sort((a, b) => byPrice(b, a));
+    if (catalogSort === "name")
+      return [...matching].sort((first, second) =>
+        first.name.localeCompare(second.name),
+      );
+    if (catalogSort === "stock")
+      return [...matching].sort(
+        (first, second) => second.availableStock - first.availableStock,
+      );
+
+    return matching;
+  }, [activeCategory, catalogFilters, catalogSort, products, searchText]);
+
+  const catalogBrands = useMemo(
+    () =>
+      [...new Set(products.map((product) => product.brand).filter(Boolean))]
+        .sort(),
+    [products],
+  );
+
+  useEffect(() => {
+    viewRef.current = activeView;
+  }, [activeView]);
+
+  const unreadNotifications = Math.max(
+    0,
+    notifications.length - readNotificationCount,
+  );
 
   const cartQuantity = useMemo(
     () => cart.reduce((total, item) => total + item.quantity, 0),
@@ -1189,13 +1326,59 @@ function StorefrontPage({ linkType }) {
                 </button>
               </>
             )}
-            <button
-              className="storefront-icon-button storefront-topbar__notifications"
-              type="button"
-              aria-label="Notifications"
-            >
-              <Bell size={20} />
-            </button>
+            <div className="storefront-notifications">
+              <button
+                className="storefront-icon-button storefront-topbar__notifications"
+                type="button"
+                aria-label={`Notifications${unreadNotifications ? ` (${unreadNotifications} unread)` : ""}`}
+                aria-expanded={isNotificationsOpen}
+                onClick={() => {
+                  setIsNotificationsOpen((open) => !open);
+                  // Opening is what marks them read - a badge that clears on
+                  // its own leaves the customer wondering what they missed.
+                  setReadNotificationCount(notifications.length);
+                }}
+              >
+                <Bell size={20} />
+                {unreadNotifications > 0 && (
+                  <span className="storefront-notifications__badge">
+                    {unreadNotifications}
+                  </span>
+                )}
+              </button>
+
+              {isNotificationsOpen && (
+                <div className="storefront-notifications__panel">
+                  <header>{text.notifications}</header>
+                  {notifications.length === 0 ? (
+                    <p>{text.noNotifications}</p>
+                  ) : (
+                    notifications.map((note) => (
+                      <button
+                        type="button"
+                        key={note.id}
+                        onClick={() => {
+                          setIsNotificationsOpen(false);
+                          changeView(note.kind === "order" ? "reviews" : "chatbot");
+                        }}
+                      >
+                        <span className="storefront-notifications__icon">
+                          {note.kind === "order" ? (
+                            <Package size={15} />
+                          ) : (
+                            <Headset size={15} />
+                          )}
+                        </span>
+                        <span>
+                          <strong>{note.title}</strong>
+                          <small>{note.body}</small>
+                        </span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
             <button
               className="storefront-icon-button"
               type="button"
@@ -1252,6 +1435,24 @@ function StorefrontPage({ linkType }) {
             categories={categories}
             activeCategory={activeCategory}
             searchText={searchText}
+            sort={catalogSort}
+            filters={catalogFilters}
+            brands={catalogBrands}
+            isFilterOpen={isFilterOpen}
+            activeFilterCount={
+              (catalogFilters.inStockOnly ? 1 : 0) +
+              (catalogFilters.brand ? 1 : 0) +
+              (catalogFilters.maxPrice ? 1 : 0) +
+              // One button now stands for both, so a non-default sort has to
+              // show on the badge or it is a change with no visible trace.
+              (catalogSort === "featured" ? 0 : 1)
+            }
+            onSortChange={setCatalogSort}
+            onFiltersChange={setCatalogFilters}
+            onToggleFilters={() => setIsFilterOpen((open) => !open)}
+            onClearFilters={() =>
+              setCatalogFilters({ inStockOnly: false, brand: "", maxPrice: "" })
+            }
             linkType={linkType}
             reviews={reviews}
             reviewForm={reviewForm}
@@ -1417,7 +1618,16 @@ function CatalogView({
   reviewForm,
   reviewMessage,
   isSending,
+  sort,
+  filters,
+  brands,
+  isFilterOpen,
+  activeFilterCount,
   onSearchChange,
+  onSortChange,
+  onFiltersChange,
+  onToggleFilters,
+  onClearFilters,
   onCategoryChange,
   onAddToCart,
   onOpenChat,
@@ -1436,15 +1646,124 @@ function CatalogView({
         <p>{text.storeTagline}</p>
       </section>
 
-      <div className="storefront-search">
-        <Search size={21} />
-        <input
-          value={searchText}
-          onChange={(event) => onSearchChange(event.target.value)}
-          placeholder={text.searchPlaceholder}
-          aria-label="Search products"
-        />
+      <div className="storefront-search-row">
+        <div className="storefront-search">
+          <Search size={21} />
+          <input
+            value={searchText}
+            onChange={(event) => onSearchChange(event.target.value)}
+            placeholder={text.searchPlaceholder}
+            aria-label="Search products"
+          />
+        </div>
+
+        {/* One control. Sorting and filtering are the same act - narrowing
+            what is on screen - and two labelled buttons crowded the search
+            box on a phone for no gain. */}
+        <button
+          type="button"
+          className={`storefront-refine-button ${activeFilterCount ? "is-active" : ""}`}
+          onClick={onToggleFilters}
+          aria-label={text.filters}
+          title={text.filters}
+          aria-expanded={isFilterOpen}
+        >
+          <SlidersHorizontal size={18} />
+          {activeFilterCount > 0 && <span>{activeFilterCount}</span>}
+        </button>
       </div>
+
+      {isFilterOpen && (
+        <div className="storefront-refine">
+          <div className="storefront-refine__group">
+            <small>{text.sortBy}</small>
+            <div className="storefront-refine__options">
+              {[
+                ["featured", text.sortFeatured],
+                ["price-asc", text.sortPriceLow],
+                ["price-desc", text.sortPriceHigh],
+                ["name", text.sortName],
+                ["stock", text.sortStock],
+              ].map(([value, label]) => (
+                <button
+                  type="button"
+                  key={value}
+                  className={sort === value ? "is-selected" : ""}
+                  aria-pressed={sort === value}
+                  onClick={() => onSortChange(value)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="storefront-refine__group">
+            <small>{text.filters}</small>
+            <div className="storefront-refine__fields">
+              <label className="storefront-refine__toggle">
+                <input
+                  type="checkbox"
+                  checked={filters.inStockOnly}
+                  onChange={(event) =>
+                    onFiltersChange({
+                      ...filters,
+                      inStockOnly: event.target.checked,
+                    })
+                  }
+                />
+                {text.inStockOnly}
+              </label>
+
+              {brands.length > 0 && (
+                <label>
+                  <span>{text.specBrand}</span>
+                  <select
+                    value={filters.brand}
+                    onChange={(event) =>
+                      onFiltersChange({ ...filters, brand: event.target.value })
+                    }
+                  >
+                    <option value="">{text.allBrands}</option>
+                    {brands.map((brand) => (
+                      <option key={brand} value={brand}>
+                        {brand}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+
+              <label>
+                <span>{text.maxPrice}</span>
+                <input
+                  type="number"
+                  min="0"
+                  inputMode="numeric"
+                  value={filters.maxPrice}
+                  placeholder={text.anyPrice}
+                  onChange={(event) =>
+                    onFiltersChange({ ...filters, maxPrice: event.target.value })
+                  }
+                />
+              </label>
+            </div>
+          </div>
+
+          <footer>
+            <button type="button" onClick={onClearFilters}>
+              {text.clearFilters}
+            </button>
+            <button
+              type="button"
+              className="storefront-refine__done"
+              onClick={onToggleFilters}
+            >
+              {text.done}
+            </button>
+          </footer>
+        </div>
+      )}
 
       <div className="storefront-categories" aria-label="Product categories">
         {categories.map((category) => (
