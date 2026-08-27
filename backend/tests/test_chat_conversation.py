@@ -1082,3 +1082,40 @@ def test_an_english_question_switches_a_sinhala_chat_back(chat):
     # A settled language used to short-circuit before the detected language was
     # consulted, so Sinhala was a one-way trap.
     assert reply["language"] == "en"
+
+
+def test_best_among_them_compares_the_products_on_screen(chat, monkeypatch):
+    scopes = []
+    monkeypatch.setattr(
+        public_chat_service,
+        "generate_catalogue_answer",
+        lambda question, scope, *a: scopes.append([p["id"] for p in scope])
+        or "The Runner Shoes wins on build quality.",
+    )
+    # Two products listed, and an unrelated product remembered from earlier.
+    chat.session["lastShownProductIds"] = ["buds", "shoes"]
+    chat.session["selectedProductId"] = "buds"
+
+    reply = chat.say("what is best among them", intent="product_question")
+
+    # The remembered single product used to claim this and answer about one
+    # item instead of comparing the two that were listed.
+    assert scopes and scopes[0] == ["buds", "shoes"]
+    assert "wins on build quality" in reply["message"]
+
+
+def test_a_comparison_needs_more_than_one_product_on_screen(chat, monkeypatch):
+    scopes = []
+    monkeypatch.setattr(
+        public_chat_service,
+        "generate_catalogue_answer",
+        lambda question, scope, *a: scopes.append([p["id"] for p in scope]) or "Only one option.",
+    )
+    chat.session["lastShownProductIds"] = ["buds"]
+    chat.session["lastCategoryShown"] = "Earbuds"
+
+    chat.say("what is best among them", intent="product_question")
+
+    # One product is not a comparison, so it falls through to the ordinary
+    # answer path scoped to the category rather than to a list of one.
+    assert scopes and scopes[0] == ["buds"]

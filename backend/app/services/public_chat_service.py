@@ -2984,6 +2984,35 @@ def answer_public_message(database, session_id, provided_token, payload):
             next_state="browsing",
         )
 
+    # A comparison of what is on screen must be answered before the remembered
+    # single product claims the message - "what is best among them" was being
+    # answered about one item instead of comparing the two that were listed.
+    if refers_to_shown_products(message) and wants_a_recommendation(message):
+        on_screen = products_by_ids(products, session.get("lastShownProductIds"))
+
+        if len(on_screen) > 1:
+            comparison = generate_catalogue_answer(
+                message,
+                on_screen,
+                language,
+                catalog["business"].get("storefrontFaq", ""),
+            )
+
+            if comparison:
+                for marker in (MISSING_FACT_MARKER, ANSWERED_MARKER):
+                    comparison = comparison.replace(marker, "")
+                named = products_named_in(comparison, on_screen)
+                return respond(
+                    comparison.strip(),
+                    "show-category",
+                    next_state="browsing",
+                    response_products=(named or on_screen)[:4],
+                    selected_product_id=(
+                        named[0]["id"] if len(named) == 1 else "unchanged"
+                    ),
+                    is_translated=True,
+                )
+
     # A stated quantity is an order however terse the rest is. message_tokens
     # drops one- and two-character words, so "2 GM2 Pro" looked like a bare
     # product name until the quantity was checked separately.

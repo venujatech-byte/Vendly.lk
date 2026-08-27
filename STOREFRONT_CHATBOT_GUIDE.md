@@ -1150,6 +1150,16 @@ The table scrolls sideways with the **spec column pinned**, so on a phone the ro
 
 `messageBlocks.test.mjs` (plain `node`) checks that the separator row never becomes a data row, that plain replies stay plain, and that a stray pipe in prose is not mistaken for a table.
 
+### 23.25 "What is best among them" answered about one product — FIXED
+
+**Seen:** two routers listed, then "what is best among them" — answered about a single product instead of comparing the two.
+
+**Cause:** 23.23 added the on-screen scoping, but only inside the catalogue-answer fallthrough near the end of the sequence. A remembered `selectedProductId` claimed the message long before that and routed it to the single-product path.
+
+**Fixed as:** an explicit branch — when the message refers to what is on screen *and* asks for a recommendation, and more than one product is listed, the comparison is answered against exactly those products, **before** single-product resolution runs. When the answer names one winner it becomes the selected product, so "more info" follows on correctly.
+
+This is the fourth time a memory field claimed a message meant for something else (see the themes at the top of this section). When adding a branch that needs the current message, check where in `answer_public_message` it actually runs — placing it after product resolution is usually too late.
+
 ### Note on ordering
 
 23.1, 23.3 and 23.4 are the same underlying gap — **the conversation has no memory of what the customer was just looking at**, so every question is answered against the whole catalogue. Fixing that once addresses all three; the rest are presentation.
