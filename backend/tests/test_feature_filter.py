@@ -84,3 +84,48 @@ def test_the_request_words_are_not_features():
     assert feature_terms("send me the products with amoled", "Smart watch") == [
         "amoled",
     ]
+
+
+def test_a_denied_feature_does_not_count_as_having_it():
+    # "No SIM slot" contains the word "sim". Reading that as support is the
+    # worst kind of wrong answer: the customer buys the wrong product on the
+    # strength of it. This is what sent two watches back to someone asking in
+    # Sinhala which ones take a SIM.
+    assert product_mentions_feature(
+        {"description": "Bluetooth calling, IP67. No SIM slot."}, "sim",
+    ) is False
+    assert product_mentions_feature(
+        {"description": "Supports SIM card, 4G calling."}, "sim",
+    ) is True
+
+
+def test_other_denial_wordings_are_recognised():
+    for description in (
+        "AMOLED display, without ANC.",
+        "Not waterproof.",
+        "Does not have wireless charging.",
+    ):
+        term = (
+            "anc" if "ANC" in description
+            else "waterproof" if "waterproof" in description
+            else "wireless"
+        )
+        assert product_mentions_feature({"description": description}, term) is False
+
+
+def test_a_denial_elsewhere_does_not_hide_a_real_mention():
+    # Two sentences: one denies a feature, the other confirms the one asked
+    # about. Only the mention being looked at matters.
+    product = {"description": "No SIM slot. Waterproof to IP68."}
+
+    assert product_mentions_feature(product, "sim") is False
+    assert product_mentions_feature(product, "waterproof") is True
+
+
+def test_sinhala_request_words_are_not_read_as_features():
+    # "sim danna puluwan" filtered on "danna" and "puluwan" as though they were
+    # features, so no product could ever match a Sinhala question.
+    assert feature_terms("sim danna puluwan smart watch nadda", "Smart watch") == [
+        "sim",
+    ]
+    assert feature_terms("amoled ewa thiyenawada", "Smart watch") == ["amoled"]

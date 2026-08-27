@@ -1526,7 +1526,10 @@ def test_a_feature_nobody_has_is_said_plainly(chat, monkeypatch):
                      intent="show_category", categoryQuery="Smart watch")
 
     # The AI is stubbed to None here, standing in for a rate limited provider.
-    assert "None of our" in reply["message"]
+    # A plain "we do not have it" plus alternatives beats both a wrong yes and
+    # a dead end.
+    assert "do not have any" in reply["message"]
+    assert reply["products"], "an outright no with nothing beside it ends the chat"
 
 
 def test_the_ai_is_consulted_before_denying_a_feature(chat, monkeypatch):
@@ -1603,3 +1606,56 @@ def test_the_compare_chip_sends_a_message_the_bot_acts_on(chat, monkeypatch):
     reply = chat.say("compare these", intent="product_question")
 
     assert "| Spec |" in reply["message"]
+
+
+def sim_watches():
+    return [
+        {"id": "t800", "name": "T800 Ultra Smart Watch", "categoryName": "Smart watch",
+         "description": "Bluetooth calling, IP67 water resistant. No SIM slot.",
+         "sellingPriceMinor": 130000, "weightGrams": 100, "availableStock": 48,
+         "media": [], "variants": [{"id": "v-t800", "size": "", "availableStock": 48,
+                                    "sellingPriceMinor": 130000, "weightGrams": 100}]},
+        {"id": "zeblace", "name": "Zeblace Gts 3 Smart Watch", "categoryName": "Smart watch",
+         "description": "AMOLED display, 30 days battery.",
+         "sellingPriceMinor": 500000, "weightGrams": 100, "availableStock": 40,
+         "media": [], "variants": [{"id": "v-zeb", "size": "", "availableStock": 40,
+                                    "sellingPriceMinor": 500000, "weightGrams": 100}]},
+    ]
+
+
+def test_a_sinhala_feature_question_is_not_answered_with_products_lacking_it(
+    chat, monkeypatch,
+):
+    monkeypatch.setattr(
+        public_chat_service,
+        "session_catalog",
+        lambda *a: {"business": {"name": "VS Tech", "storefrontFaq": ""},
+                    "products": sim_watches()},
+    )
+
+    reply = chat.say("sim danna puluwan smart watch nadda",
+                     intent="product_question", productQuery="smart watch")
+
+    # Both watches matched on "smart watch" and the bot asked which one was
+    # meant - about two products that neither take a SIM. The Sinhala request
+    # words were also being read as features, so nothing could ever match.
+    assert "do not have any" in reply["message"]
+    assert "which one" not in reply["message"].lower()
+
+
+def test_the_alternatives_are_still_offered_when_the_feature_is_missing(
+    chat, monkeypatch,
+):
+    monkeypatch.setattr(
+        public_chat_service,
+        "session_catalog",
+        lambda *a: {"business": {"name": "VS Tech", "storefrontFaq": ""},
+                    "products": sim_watches()},
+    )
+
+    reply = chat.say("sim danna puluwan ewa evanna", intent="product_question",
+                     productQuery="smart watch")
+
+    # "We do not have it" with nothing beside it ends the conversation, and
+    # the customer came here to buy something.
+    assert len(reply["products"]) > 0

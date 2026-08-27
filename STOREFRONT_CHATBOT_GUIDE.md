@@ -1635,3 +1635,37 @@ product keeps its own chips - a one-column table is not a comparison.
 A test asserts the chip's own message reaches the comparison branch. A chip
 whose wording no branch matches is worse than no chip: it looks like a
 supported action and answers with the fallback.
+
+### 23.43 "sim danna puluwan" returned watches with no SIM — FIXED
+
+**Seen:** asked in Sinhala for smart watches that take a SIM, the bot replied
+"I found more than one product matching that. Which one would you like to know
+about?" and showed two watches, neither of which supports SIM.
+
+Three separate faults, each enough on its own:
+
+**1. The Sinhala request words became features.** `feature_terms` stripped
+English request words only, so "sim danna puluwan smart watch nadda" filtered
+on `sim`, `danna`, `puluwan` and `nadda` together. No product could ever match
+all four, so the filter silently never applied. The stop-word list now covers
+the Sinhala and Tamil a customer types in Latin letters and in script.
+
+**2. The filter was not on this branch.** Both watches matched "smart watch",
+so the *ambiguous products* branch answered first, and it had no filter. It now
+routes through the same `category_response` helper when the message names a
+feature. That is the fourth branch this rule needed to reach - see §23.41.
+
+**3. "No SIM slot" counted as SIM support.** The T800's description denies the
+feature in the words that name it. Substring matching read the word and
+answered yes - the worst kind of wrong answer, because the customer buys on the
+strength of it. `product_mentions_feature` now checks the text just before each
+mention for a denial ("no", "not", "without", "does not", "lacks") and only
+counts an occurrence that is not denied. A denial elsewhere in the description
+does not hide a genuine mention of a different feature.
+
+**When nothing matches** the customer is told plainly - "we do not have any
+smart watch with sim" - and given the closest products, **labelled as
+alternatives** rather than listed under the feature. An outright no with
+nothing beside it ends a conversation the customer started in order to buy
+something. The model is still consulted first, in case the seller described
+the feature in words the synonym table does not know.

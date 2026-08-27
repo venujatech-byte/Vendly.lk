@@ -1325,7 +1325,18 @@ FEATURE_STOP_WORDS = {
     "please", "product", "products", "item", "items", "one", "ones", "thing",
     "get", "find", "see", "list", "under", "in", "on", "at", "to", "can",
     "there", "it", "this", "these", "those", "only", "also", "like", "good",
-    "ekak", "ona", "thiyenawada", "thiyenawa", "mata", "oni",
+    # Sinhala and Tamil carry the request in words the customer types in Latin
+    # letters. Left in, "sim danna puluwan" filtered on "danna" and "puluwan"
+    # as though they were features, so nothing could ever match.
+    "ekak", "ona", "oni", "one", "mata", "mage", "api", "oyage",
+    "thiyenawada", "thiyenawa", "thiyenne", "tiyenawada", "nadda", "natha",
+    "nathi", "naha", "danna", "denna", "puluwan", "puluwanda", "ewa", "eka",
+    "ewanna", "evanna", "pennanna", "balanna", "hoyanna", "karanna", "tikak",
+    "wage", "saha", "harida", "kiyanna", "monawada", "mokakda", "kohomada",
+    "irukka", "irukku", "anuppu", "venum", "kaattu", "enna",
+    "තියෙනවද", "තියෙනවා", "නැද්ද", "නැහැ", "දාන්න", "දෙන්න", "පුළුවන්",
+    "එවන්න", "පෙන්නන්න", "බලන්න", "ඕන", "ඕනේ", "මට", "එකක්", "මොනවද",
+    "இருக்கா", "அனுப்பு", "காட்டு", "வேண்டும்", "எனக்கு",
 }
 
 # A customer says "waterproof"; the seller writes "IP68" or "water resistant".
@@ -1371,6 +1382,21 @@ def feature_terms(message, category_name):
     ]
 
 
+# A description that says "No SIM slot" contains the word "sim". Reading that
+# as support is the worst kind of wrong answer - the customer buys the wrong
+# product on the strength of it.
+FEATURE_NEGATIONS = (
+    "no ", "not ", "non ", "without ", "lacks ", "does not ", "doesn't ",
+    "unsupported", "unavailable",
+)
+
+
+def mention_is_negated(haystack, position):
+    """True when the text just before a mention denies it."""
+    window = haystack[max(0, position - 24):position]
+    return any(negation in window for negation in FEATURE_NEGATIONS)
+
+
 def product_mentions_feature(product, term):
     """True when this product's own text describes the feature asked for."""
     haystack = " ".join(
@@ -1379,10 +1405,25 @@ def product_mentions_feature(product, term):
     ).casefold()
 
     for candidate in FEATURE_SYNONYMS.get(term, (term,)):
-        if candidate in haystack:
-            return True
+        position = haystack.find(candidate)
+
+        while position != -1:
+            if not mention_is_negated(haystack, position):
+                return True
+
+            position = haystack.find(candidate, position + 1)
 
     return False
+
+
+def shared_category_name(products):
+    """The category these products have in common, if they share one."""
+    names = {
+        product.get("categoryName", "")
+        for product in products
+        if product.get("categoryName")
+    }
+    return names.pop() if len(names) == 1 else ""
 
 
 def products_with_features(products, terms):
@@ -3946,15 +3987,20 @@ def answer_public_message(database, session_id, provided_token, payload):
                     is_translated=True,
                 )
 
-        # Said plainly. Listing the category unfiltered under a feature request
-        # reads as though all of them have it.
+        # Said plainly, then alternatives - the customer came for something
+        # and an outright "no" with nothing beside it ends the conversation.
+        # The alternatives are labelled as alternatives, because listing them
+        # under the feature reads as though they have it.
+        alternatives = matches or products
         return respond(
-            f"None of our {category_name} mentions {feature_text} in its "
-            f"description. Here is everything we have in {category_name} - "
-            "tell me what matters most and I will help you choose.",
+            f"We do not have any {category_name} with {feature_text} - none of "
+            "their descriptions mentions it, and I will not guess on something "
+            "you are paying for. The closest we have are below. Tell me what "
+            "matters most to you and I will help you choose, or ask me and one "
+            "of our agents can check for you.",
             "show-category",
             next_state="browsing",
-            response_products=matches,
+            response_products=alternatives[:4],
         )
 
     if category_request:
@@ -4172,6 +4218,18 @@ def answer_public_message(database, session_id, provided_token, payload):
     # real answer; falling through to the generic prompt is a dead end that
     # also pages the seller for a question the catalogue can settle.
     if len(matching_products) > 1:
+        # A feature named alongside the products is a filter, not noise. "sim
+        # danna puluwan smart watch nadda" matched both watches on "smart
+        # watch" and asked which one they meant - about two products that
+        # neither support SIM.
+        if feature_terms(message, shared_category_name(matching_products)):
+            return category_response(
+                shared_category_name(matching_products) or "products",
+                matching_products,
+                "I found more than one product matching that. Which one would "
+                "you like to know about?",
+            )
+
         return respond(
             "I found more than one product matching that. Which one would you "
             "like to know about?",
