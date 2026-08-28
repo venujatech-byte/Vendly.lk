@@ -260,7 +260,7 @@ function AddOrderModal({ isOpen, businessId, business, onClose, onCreated }) {
             ? "deposit"
             : paymentMethod,
         paymentPending: paymentMethod === "pending",
-        depositAmount: paidAmount > 0 && paidAmount < total ? paidAmount / 100 : 0,
+        depositAmount: paidAmount > 0 && paidAmount < total ? paidAmount : 0,
         receiptImage: receiptDataUrl,
         source,
         discountAmount,
@@ -280,8 +280,12 @@ function AddOrderModal({ isOpen, businessId, business, onClose, onCreated }) {
   // "Paid" means an amount the seller types, not the whole total: a customer
   // who transferred half is paid, and the difference is what the courier
   // collects. Nothing is assumed on their behalf.
+  // Rupees throughout this component - `total` is built from a delivery fee
+  // already divided by 100, and `money()` formats rupees. Reading the typed
+  // amount as minor units made every part payment clamp to the total, so a
+  // half payment was recorded as paid in full with nothing left to collect.
   const paidAmount = paymentMethod === "paid"
-    ? Math.min(Math.max(0, Math.round(Number(depositAmount || 0) * 100)), total)
+    ? Math.min(Math.max(0, Number(depositAmount || 0)), total)
     : 0;
   const balanceDue = Math.max(0, total - paidAmount);
 
@@ -451,11 +455,16 @@ function AddOrderModal({ isOpen, businessId, business, onClose, onCreated }) {
               by the seller and one placed by a customer behave identically
               from here on - one set of rules, one row colour, one way to
               record the money when it lands. */}
-          <fieldset className="order-summary__payment"><legend>Payment method</legend>
+          {/* A div, not a fieldset. A fieldset laid out as a grid inside a
+              grid paints taller than the track it is given, so the panel below
+              was drawn over its own radio cards - measured at 73px painted
+              against a 33px track. */}
+          <div className="order-summary__payment" role="radiogroup" aria-label="Payment method">
+            <span className="order-summary__payment-legend">Payment method</span>
             <label><input type="radio" name="payment" checked={paymentMethod === "cod"} onChange={() => setPaymentMethod("cod")} /><CreditCard size={16} /><span><strong>Cash on delivery</strong><small>The courier collects the whole total</small></span></label>
             <label><input type="radio" name="payment" checked={paymentMethod === "pending"} onChange={() => setPaymentMethod("pending")} /><Clock size={16} /><span><strong>To be paid</strong><small>Waiting on a transfer - record it when it lands</small></span></label>
             <label><input type="radio" name="payment" checked={paymentMethod === "paid"} onChange={() => setPaymentMethod("paid")} /><CheckCircle2 size={16} /><span><strong>Paid</strong><small>Money already received - enter how much</small></span></label>
-          </fieldset>
+          </div>
 
           {paymentMethod === "pending" && (
             <p className="order-summary__pending-note">
@@ -474,13 +483,13 @@ function AddOrderModal({ isOpen, businessId, business, onClose, onCreated }) {
                 <input
                   type="number"
                   min="0"
-                  max={total / 100}
+                  max={total}
                   step="0.01"
                   value={depositAmount}
                   onChange={(event) => setDepositAmount(event.target.value)}
                 />
               </label>
-              <button type="button" onClick={() => setDepositAmount((total / 100).toFixed(2))}>
+              <button type="button" onClick={() => setDepositAmount(total.toFixed(2))}>
                 Paid in full
               </button>
               <label className="order-summary__receipt">

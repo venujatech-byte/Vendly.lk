@@ -2434,7 +2434,7 @@ The receipt is uploaded after the order exists, through the same
 `payment-receipts` path the popup uses, so a payment entered at creation and
 one entered later leave identical records for the seller to find.
 
-### 23.78 Review order: what the browser actually said
+### 23.78 Review order: the grid was crushing its own rows
 
 Two UI faults were reported: item rows missing, and the Paid panel overlapping
 the payment cards. **Neither reproduced.** Rendering the exact markup against
@@ -2453,7 +2453,31 @@ scrolls on a short window, so a screenshot taken mid-scroll shows the item
 header and the totals while the rows themselves sit above the visible area -
 which is exactly what "not all items shown" looks like.
 
-So the fix is the layout, not the rules: on a window with room for it, the
-review is 820px wide in two columns, items beside totals, with the recap,
-payment choice and paid fields spanning the full width. Nothing to scroll,
-nothing to be caught halfway through.
+**The real cause, found by measuring the grid tracks.** The review body is a
+grid inside a height-constrained modal, and on a short window it compressed its
+own rows rather than scrolling. Measured track sizes:
+`133px 2px 45px 22px 186px 56px` - the item list was given **2px** and the
+payment cards **22px**. Their content then spilled out of those tracks, and
+whatever came next was painted over it.
+
+Both reports were this one fault. "Not all items shown" was a 2px track;
+"the panel overlaps the payment cards" was a 22px one.
+
+`align-content: start` with `grid-auto-rows: min-content` sizes each row to its
+content and lets the body scroll. Tracks now measure
+`133px 108px 45px 94px 186px 56px`, both item rows render at 67 and 68px, and
+the paid panel sits 11px below the payment group instead of 61px above it.
+
+The layout work still stands - on a window with room, the review is 820px wide
+in two columns so there is nothing to scroll at all. But the crushing was the
+bug.
+
+**Two dead ends worth recording**, because both looked convincing:
+
+- The payment control was a `fieldset`, which does size oddly as a grid item.
+  Replacing it with a `div` and an explicit label changed its painted height
+  and nothing else - the overlap stayed at -61px. Kept anyway: a div is the
+  honest element here and one less thing behaving specially.
+- Reading rules found nothing, twice. The answer came from asking the browser
+  for `gridTemplateRows`. **When a layout does something the rules say it
+  cannot, measure the used values rather than re-reading the source.**

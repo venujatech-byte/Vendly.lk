@@ -1437,3 +1437,37 @@
     height: 38px;
   }
 }
+
+/* A fieldset laid out as a grid, inside a grid, with `min-height: 0` can be
+   sized SHORTER than the cards it contains - they then overflow it and
+   whatever follows is drawn over them. Measured: a 35px fieldset holding 38px
+   labels, with the panel below starting 2px above their bottom edge. */
+.order-summary .order-summary__payment {
+  min-height: min-content;
+  align-self: start;
+}
+
+/* The payment group is a div now, so it needs the label the legend used to
+   draw, and the grid can size it normally. */
+.order-summary__payment-legend {
+  grid-column: 1 / -1;
+  color: #526982;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+[data-theme="dark"] .order-summary__payment-legend {
+  color: #9db4cd;
+}
+
+/* Rows sized by their content, and the body scrolls when there is more than
+   fits. Without this the grid compressed its own tracks on a short window -
+   measured at 133/2/45/22/186/56px, so the item list got a 2px track and the
+   payment cards a 22px one. Their content then spilled out and whatever came
+   next was painted over it. Both reported "UI bugs" were this. */
+.order-summary__body {
+  align-content: start;
+  grid-auto-rows: min-content;
+}
