@@ -218,3 +218,35 @@ def test_without_a_fast_model_everything_uses_the_main_one(monkeypatch):
     )
 
     assert used == ["primary-model"]
+
+
+def test_a_full_completions_url_in_the_base_setting_still_works(monkeypatch):
+    captured = {}
+
+    def fake_post(url, headers=None, json=None, timeout=None):
+        captured["url"] = url
+
+        class Response:
+            def raise_for_status(self):
+                return None
+
+            def json(self):
+                return {"choices": [{"message": {"content": "ok"}}]}
+
+        return Response()
+
+    monkeypatch.setattr(ai_service.httpx, "post", fake_post)
+    app = app_with(**{
+        "AI_FALLBACK_API_KEY": "second-key",
+        "AI_FALLBACK_MODEL": "second-model",
+        # What a provider's documentation shows, and therefore what gets
+        # pasted in. Appending the path to it produced a doubled URL and a 404
+        # that surfaced only as "fallback failed".
+        "AI_FALLBACK_API_BASE_URL": "https://openrouter.ai/api/v1/chat/completions",
+    })
+
+    with app.app_context():
+        assert ai_service.fallback_ai_text("hello", 100) == "ok"
+
+    assert captured["url"] == "https://openrouter.ai/api/v1/chat/completions"
+    assert "chat/completions/chat/completions" not in captured["url"]

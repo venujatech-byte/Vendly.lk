@@ -297,7 +297,7 @@ def test_intent_is_classified_while_browsing(monkeypatch):
 
     captured = {}
 
-    def fake_intent(message, product_names, category_names, state):
+    def fake_intent(message, product_names, category_names, state, history=None):
         captured["names"] = product_names
         captured["categories"] = category_names
         return {"intent": "start_order", "productQuery": "black bag", "language": "si"}

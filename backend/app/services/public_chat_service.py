@@ -589,7 +589,7 @@ INTENT_CLASSIFIED_STATES = {
 }
 
 
-def storefront_intent(message, products, state):
+def storefront_intent(message, products, state, history=None):
     """Classify a code-mixed message, or return an empty result on failure."""
     if state not in INTENT_CLASSIFIED_STATES:
         return {}
@@ -606,6 +606,7 @@ def storefront_intent(message, products, state):
         [product.get("name", "") for product in products][:60],
         category_names,
         state,
+        history,
     )
     return result or {}
 
@@ -1390,6 +1391,16 @@ def has_price_constraint(message):
 REFERS_TO_SHOWN_PHRASES = (
     "these", "those", "both", "among them", "of them", "any of these",
     "meken", "මේවා", "මේකෙන්", "දෙකම", "இவை", "இரண்டும்",
+    # Sinhala points at a list by counting it: "me hatharen" is "out of these
+    # four", "me deken" is "out of these two". Without these the question was
+    # scoped by whatever category happened to be remembered instead of by what
+    # the customer was actually looking at.
+    "me hatharen", "mehatharen", "hatharen", "me deken", "medeken", "deken",
+    "me tunen", "tunen", "me paheN", "pahen", "meyin", "meva", "mewa",
+    "mekenma", "me okkoma", "okkoma",
+    "මේ හතරෙන්", "හතරෙන්", "මේ දෙකෙන්", "දෙකෙන්", "තුනෙන්", "මේයින්",
+    "ඔක්කොම", "මේ ඔක්කොම",
+    "இவற்றில்", "ivatril", "ivarril", "இதில்",
 )
 
 
@@ -1414,6 +1425,13 @@ FEATURE_STOP_WORDS = {
     "any", "some", "all", "of", "and", "or", "is", "are", "do", "you", "your",
     "please", "product", "products", "item", "items", "one", "ones", "thing",
     "get", "find", "see", "list", "under", "in", "on", "at", "to", "can",
+    # Words that frame a question rather than describe a product. "I meant are
+    # there watches with sim support" filtered on "meant" and "support" as
+    # though they were features, so the reply read "Smart watch with meant sim
+    # support" and matched nothing.
+    "meant", "mean", "means", "actually", "sorry", "want", "wanted", "need",
+    "needed", "asking", "ask", "tell", "know", "support", "supports",
+    "supported", "feature", "features", "facility", "wondering", "maybe",
     "there", "it", "this", "these", "those", "only", "also", "like", "good",
     # Sinhala and Tamil carry the request in words the customer types in Latin
     # letters. Left in, "sim danna puluwan" filtered on "danna" and "puluwan"
@@ -1742,6 +1760,13 @@ def find_category_request(message, products, require_cue=True):
             category_aliases & phrase_aliases
         ) or (
             bool(category_words) and category_words.issubset(message_words)
+        ) or (
+            # A distinctive word is enough when it points at one category and
+            # one only. Requiring every word meant "routers" could not reach
+            # "Routers and modems" and "watches" could not reach "Smart watch"
+            # - the customer has to type the seller's exact wording or get
+            # nothing. Uniqueness is what keeps this from guessing.
+            category == unique_category_for(message, products)
         )
         has_category_cue = bool(category_cues & message_words)
 
@@ -1752,6 +1777,77 @@ def find_category_request(message, products, require_cue=True):
             return category
 
     return None
+
+
+# Words that appear in so many category names they identify nothing on their
+# own. "smart" matches Smart watch and a smart bulb; "power" matches PowerBanks
+# and a power cable.
+WEAK_CATEGORY_WORDS = {"smart", "power", "wireless", "mini", "pro", "new", "and"}
+
+
+def unique_category_for(message, products):
+    """The single category a distinctive word in the message points at.
+
+    Shared by the matcher and the "did you mean" fallback, so a word that is
+    good enough to ask about is good enough to act on when nothing else
+    matched.
+    """
+    message_words = message_word_alias_set(message)
+    candidates = set()
+
+    for product in products:
+        category = product.get("categoryName", "").strip()
+
+        if not category:
+            continue
+
+        distinctive = {
+            word
+            for word in message_word_alias_set(category)
+            if word not in WEAK_CATEGORY_WORDS and len(word) > 2
+        }
+
+        if distinctive & message_words:
+            candidates.add(category)
+
+    return candidates.pop() if len(candidates) == 1 else None
+
+
+def closest_category(message, products):
+    """The one category a half-named request is probably reaching for.
+
+    "watches" does not match "Smart watch": the matcher needs every word of the
+    category, and rightly so - a partial match is a guess. But a guess offered
+    as a question costs nothing, while "I did not catch which product you
+    meant" ends the conversation.
+
+    Returns a category only when exactly one is a candidate. Two candidates
+    means the guess would be a coin flip, and the customer is better served by
+    the category list.
+    """
+    return unique_category_for(message, products)
+
+
+def closest_product(message, products):
+    """The one product a half-remembered name is probably reaching for.
+
+    Model codes carry the identity - "aspor a337", "gm2" - so a message sharing
+    one with exactly one product is almost certainly about it, even when the
+    rest of the name is wrong or missing.
+    """
+    message_words = message_word_alias_set(message)
+    candidates = [
+        product
+        for product in products
+        if any(
+            any(letter.isdigit() for letter in word)
+            and any(letter.isalpha() for letter in word)
+            and word in message_words
+            for word in message_word_alias_set(product.get("name", ""))
+        )
+    ]
+
+    return candidates[0] if len(candidates) == 1 else None
 
 
 def category_products(products, category_name, excluded_product_id=None):
@@ -2076,9 +2172,31 @@ def delivery_quote(database, business_id, district, weight_grams):
     }
 
 
-def delivery_quote_message(quote):
-    """Explain the district price and the extra-kilogram rate that built it."""
+def delivery_quote_message(quote, asked_about_time=False):
+    """Explain the district price and the extra-kilogram rate that built it.
+
+    `asked_about_time` puts the days first. The customer who asked how long it
+    takes should not have to read a price breakdown to reach their answer.
+    """
     courier_text = f" with {quote['courierName']}" if quote.get("courierName") else ""
+    days = quote.get("averageDeliveryDays") or 0
+
+    if asked_about_time:
+        lead = (
+            f"{quote['courierName'] or 'The courier'} usually delivers to "
+            f"{quote['district']} in about {days} working "
+            f"{'day' if days == 1 else 'days'}."
+            if days
+            else f"The seller has not recorded a delivery time for "
+            f"{quote['district']} yet, so I do not want to guess at one."
+        )
+        price = (
+            f"Delivery there is LKR {quote['firstKgPriceMinor'] / 100:,.2f} for "
+            f"the first 1 kg, plus LKR {quote['extraKgPriceMinor'] / 100:,.2f} "
+            "for each extra 1 kg."
+        )
+        return f"{lead} {price}"
+
     parts = [
         f"Delivery to {quote['district']}{courier_text} is LKR "
         f"{quote['firstKgPriceMinor'] / 100:,.2f} for the first 1 kg, plus LKR "
@@ -2097,7 +2215,6 @@ def delivery_quote_message(quote):
         )
 
     # "When will it come?" is the question that follows "how much?" every time.
-    days = quote.get("averageDeliveryDays") or 0
     if days:
         parts.append(
             f"{quote['courierName'] or 'The courier'} usually delivers to "
@@ -2310,7 +2427,21 @@ def get_public_chat_messages(database, session_id, provided_token):
     return sorted(messages, key=lambda item: item.get("createdAt") or "")
 
 
-def save_chat_message(session_reference, role, message, metadata=None):
+# How many turns of the conversation the model is shown. Six covers a question
+# and its follow-ups without letting an old topic outweigh the current one.
+CONVERSATION_MEMORY_TURNS = 6
+
+# Long enough for a question or a short answer; a full product answer would
+# crowd out the turns around it and cost more than it explains.
+CONVERSATION_MEMORY_CHARS = 220
+
+
+def remembered_turns(session):
+    """The recent conversation, oldest first, for the model to read."""
+    return list(session.get("recentTurns") or [])[-CONVERSATION_MEMORY_TURNS:]
+
+
+def save_chat_message(session_reference, role, message, metadata=None, session=None):
     session_reference.collection("messages").document().set(
         {
             "role": role,
@@ -2326,6 +2457,22 @@ def save_chat_message(session_reference, role, message, metadata=None):
         "lastMessageRole": role,
         "updatedAt": firestore.SERVER_TIMESTAMP,
     }
+
+    # A rolling window of the conversation, kept on the session so a follow-up
+    # can be answered without reading the whole message subcollection back on
+    # every turn. Written as a whole list rather than appended: ArrayUnion
+    # deduplicates, and a conversation is full of repeated turns - "skip",
+    # "2", "yes" - which would silently vanish from the history.
+    if session is not None:
+        turns = list(session.get("recentTurns") or [])
+        turns.append(
+            {"role": role, "text": str(message or "")[:CONVERSATION_MEMORY_CHARS]},
+        )
+        turns = turns[-CONVERSATION_MEMORY_TURNS:]
+        # The in-memory session is read again later in the same request, so it
+        # has to agree with what was just written.
+        session["recentTurns"] = turns
+        session_changes["recentTurns"] = turns
     if role == "customer":
         session_changes["unreadBySeller"] = firestore.Increment(1)
     session_reference.set(session_changes, merge=True)
@@ -2410,7 +2557,16 @@ def answer_public_message(database, session_id, provided_token, payload):
     except ValueError as error:
         raise ApiError("validation_error", str(error), 422) from error
 
-    save_chat_message(session_snapshot.reference, "customer", message)
+    # Captured before this message joins the window: the model is given the
+    # turns BEFORE the one it is answering, and the current message separately.
+    # Including it twice makes the prompt read as though it was asked twice.
+    conversation_history = remembered_turns(session)
+    save_chat_message(
+        session_snapshot.reference,
+        "customer",
+        message,
+        session=session,
+    )
 
     if session.get("aiPaused", False):
         notify_seller_attention(
@@ -2443,7 +2599,12 @@ def answer_public_message(database, session_id, provided_token, payload):
     # code-mixed message like "මට black bag එකක් order කරන්න ඕන" is understood
     # even though no phrase list contains that combination. The keyword ladder
     # below stays as the fallback for when the provider is unavailable.
-    ai_intent = storefront_intent(message, products, current_state)
+    ai_intent = storefront_intent(
+        message,
+        products,
+        current_state,
+        conversation_history,
+    )
     # The seller finds out here. This is the only place that knows both that a
     # provider call was just attempted and which business it was for.
     sync_ai_failure_notification(database, session["businessId"], ai_status())
@@ -2490,6 +2651,7 @@ def answer_public_message(database, session_id, provided_token, payload):
                 "state": state,
                 "language": language,
             },
+            session=session,
         )
         changes = {
             "updatedAt": firestore.SERVER_TIMESTAMP,
@@ -2607,6 +2769,7 @@ def answer_public_message(database, session_id, provided_token, payload):
             scope or products,
             language,
             catalog["business"].get("storefrontFaq", ""),
+            conversation_history,
         )
         session_snapshot.reference.set({"pendingBudgetQuestion": ""}, merge=True)
 
@@ -2649,10 +2812,26 @@ def answer_public_message(database, session_id, provided_token, payload):
         draft_address = customer_draft.get("address") or {}
         district = named_district or draft_address.get("district", "")
 
+        # Which of the two they actually asked, remembered across the district
+        # question. Answering "how long does delivery take" with a price, twice
+        # in a row, reads as not listening - the question was never registered.
+        if is_delivery_time_question(message) and not is_delivery_fee_question(
+            message,
+        ):
+            customer_draft["deliveryQuestion"] = "time"
+        elif is_delivery_fee_question(message) or intent_is("delivery_quote"):
+            customer_draft.setdefault("deliveryQuestion", "fee")
+
+        asked_about_time = customer_draft.get("deliveryQuestion") == "time"
+
         if not district:
             return respond(
-                "Which district should we deliver to? I will check the exact "
-                "delivery fee for that district.",
+                "Which district should we deliver to? I will check "
+                + (
+                    "how long delivery takes to that district."
+                    if asked_about_time
+                    else "the exact delivery fee for that district."
+                ),
                 "collect-quote-district",
                 next_state="quoting-district",
             )
@@ -2682,7 +2861,7 @@ def answer_public_message(database, session_id, provided_token, payload):
             "district": quote["district"],
         }
         return respond(
-            delivery_quote_message(quote),
+            delivery_quote_message(quote, asked_about_time),
             "show-delivery-quote",
             next_state="browsing",
         )
@@ -3945,6 +4124,7 @@ def answer_public_message(database, session_id, provided_token, payload):
             matches,
             language,
             catalog["business"].get("storefrontFaq", ""),
+            conversation_history,
         )
 
         if feature_answer and MISSING_FACT_MARKER not in feature_answer:
@@ -4157,6 +4337,7 @@ def answer_public_message(database, session_id, provided_token, payload):
             scoped or products,
             language,
             catalog["business"].get("storefrontFaq", ""),
+            conversation_history,
         )
 
         if recommendation and MISSING_FACT_MARKER not in recommendation:
@@ -4334,6 +4515,7 @@ def answer_public_message(database, session_id, provided_token, payload):
                 selected_product,
                 language,
                 related_products(products, selected_product, limit=6),
+                conversation_history,
             )
             # The model answers in the customer's language, so an English
             # phrase list can no longer tell whether it knew the answer. It
@@ -4453,6 +4635,7 @@ def answer_public_message(database, session_id, provided_token, payload):
             budget_scope or products,
             language,
             catalog["business"].get("storefrontFaq", ""),
+            conversation_history,
         )
 
         if budget_answer:
@@ -4497,6 +4680,7 @@ def answer_public_message(database, session_id, provided_token, payload):
             scoped_products or products,
             language,
             catalog["business"].get("storefrontFaq", ""),
+            conversation_history,
         )
 
         if catalogue_answer and MISSING_FACT_MARKER not in catalogue_answer:
@@ -4524,6 +4708,35 @@ def answer_public_message(database, session_id, provided_token, payload):
         )
 
     fallback_categories = catalogue_categories(products)
+
+    # Before giving up: a half-named request usually reaches for one obvious
+    # thing. "watches" is not "Smart watch" to the matcher, which is right -
+    # a partial match is a guess - but a guess offered as a question costs
+    # nothing, and "I did not catch which product you meant" ends the
+    # conversation for a customer who was one word away.
+    suggested_product = closest_product(message, products)
+
+    if suggested_product:
+        return respond(
+            f"Did you mean the {suggested_product['name']}? Tell me yes and I "
+            "will pull up its details, or say what you are looking for.",
+            "show-catalog",
+            next_state="browsing",
+            response_products=[suggested_product],
+        )
+
+    suggested_category = closest_category(message, products)
+
+    if suggested_category:
+        return respond(
+            f"Did you mean {suggested_category}? I can show you what we have "
+            "there, or tell me more about what you are looking for.",
+            "show-categories",
+            next_state="browsing",
+            response_categories=[suggested_category] + [
+                name for name in fallback_categories if name != suggested_category
+            ],
+        )
 
     # Nothing matched. Offering the categories is a smaller ask than scrolling
     # a whole catalogue to work out what the shop even sells.

@@ -2551,3 +2551,166 @@ the trade being made.
 through the `credentials` override, so the fallback test's "no credentials
 means primary" discriminator broke. It keys off the API key now, which is the
 honest difference between the two.
+
+### 23.81 The model had no memory of the conversation — FIXED
+
+**Reported:** a follow-up question could not be answered.
+
+**Confirmed by reading the prompts: not one of them carried a single previous
+turn.** `product_prompt`, `catalogue_prompt` and the intent prompt all took the
+current message and nothing else. Every AI call was stateless.
+
+What existed was *entity* memory - `selectedProductId`, `lastCategoryShown`,
+`lastShownProductIds` - which is why some follow-ups worked and others did not.
+"Is it waterproof?" resolved because a product id was stored; "and the
+warranty?" or "the second one" had nothing to attach to, because the model was
+never told what had been said.
+
+**Fix:** a rolling `recentTurns` window on the session - six turns, 220
+characters each - written on both the customer's message and the reply. Every
+turn was already being saved to the `messages` subcollection; keeping a small
+copy on the session means no extra read per message.
+
+It is passed to three prompts: the **intent classifier** (which decides what
+the customer meant, so this is the largest win), the product answer, and every
+catalogue answer.
+
+**Details that matter:**
+
+- **The history is captured before the current message joins the window.** The
+  model gets the turns *before* the question, plus the question separately -
+  including it twice reads as though it was asked twice, and a test asserts it
+  is absent from the history.
+- **Written as a whole list, never appended with `ArrayUnion`.** That
+  deduplicates, and a checkout is full of repeated turns - "skip", "2", "yes" -
+  which would silently vanish, leaving a history that never happened.
+- **The prompt subordinates history to the current message**, in those words.
+  Memory outranking the live message is the single most repeated failure in
+  this section, four times over for the stored product and category. A test
+  pins the wording.
+- **Six turns, 220 characters.** Long enough for a question and its follow-ups,
+  short enough that an old topic cannot outweigh the current one - and it caps
+  what history costs on every call at roughly 100 tokens.
+
+Twelve tests cover it, including the window accumulating both sides, repeats
+surviving, the cap holding at six, and a first message adding no empty heading
+that would invite the model to invent context.
+
+### 23.82 A CORS error that was really a 500 — FIXED
+
+**Seen:** `No 'Access-Control-Allow-Origin' header` on POST /messages.
+
+**CORS was never the problem.** A preflight returned 200, and a handled 401
+came back carrying the header. What the browser reports as CORS is what an
+**unhandled 500** looks like from the outside: the error response never reaches
+the extension that adds the headers.
+
+**The 500:** `generate_storefront_intent() takes 4 positional arguments but 5
+were given`. §23.81 added `history` to the caller but the signature edit was
+lost - a heredoc whose assertion failed exited before writing, and the later
+line-based insert silently matched nothing while still printing "inserted".
+
+**Why the suite did not catch it.** Every test stubs
+`generate_storefront_intent` or its wrapper, including the one written to prove
+history reaches the model - it asserted against a five-argument *stub*. A test
+that replaces the thing it is testing cannot fail.
+
+That is §23.26's rule again, unlearned: *when a fix cannot be shown to fail
+without it, the diagnosis is still a guess.* There is now a test that calls the
+real function with only the HTTP boundary faked, and it has been checked
+against the broken signature: it raises the same TypeError.
+
+**Two method notes:**
+
+- **A CORS error on a request that used to work is almost never CORS.** One
+  `curl` distinguished them in seconds: preflight 200, handled error carrying
+  the header, so the failure had to be an unhandled exception.
+- **Verify a script's edit, never its output.** Both lost edits printed a
+  success line. Only `grep` on the file afterwards would have shown the truth.
+
+### 23.83 `AI_FAST_MODEL` was set to a model that does not exist
+
+Fixing the 500 revealed `AI DISABLED - provider 'groq' rejected model
+'llama-3.1-8b-instant' ... model_not_found` on every classification call. The
+model name in §23.80's suggestion is not on this account.
+
+Querying `/models` with the shop's own key lists what is actually available.
+The right fast model here is **`openai/gpt-oss-20b`** - the same family as the
+configured `openai/gpt-oss-120b`, six times smaller, so prompt behaviour stays
+consistent.
+
+The `AI DISABLED` logging from §23 did exactly its job: one line naming the
+provider, the model and the reason, instead of a stack trace. **Ask the
+provider what it has rather than recalling a model name** - they are renamed
+and retired constantly.
+
+### 23.84 A category needed its exact name — FIXED
+
+**Seen:** a shop with a category called "Routers and modems" returned nothing
+for "routers". The same fault gave "watches" nothing against "Smart watch".
+
+**Cause:** `find_category_request` matched a category only when the message
+contained **every** word of its name. That is right as a rule - a partial match
+is a guess - but it makes the customer type the seller's exact wording or get
+nothing at all.
+
+**Fix:** a distinctive word is enough **when it points at one category and one
+only**. `unique_category_for` ignores words that identify nothing on their own
+("smart", "power", "pro") and returns a category only when exactly one is a
+candidate. Two candidates is a coin flip, so it stays silent and the customer
+sees the category list.
+
+Verified against the shop's real categories: "routers", "modems", "watches",
+"earbuds" and "speaker" all resolve; "delivery fee kiyada", "hello" and "show
+me products" still resolve to nothing.
+
+### 23.85 "Did you mean...?" instead of a dead end
+
+When nothing resolves at all, the reply was "I did not catch which product you
+meant" plus a category list - which abandons a customer who was one word away.
+
+Now, before that: a message carrying a model code that matches exactly one
+product offers that product by name; a word pointing at one category offers
+that category. Only when there is nothing to guess at does the category list
+appear, because inventing a suggestion is worse than asking.
+
+### 23.86 Question words read as product features — FIXED
+
+**Seen:** "I meant are there watches with sim support" answered "We do not have
+any Smart watch with **meant sim** support".
+
+`feature_terms` strips the words that frame a request, but not the ones that
+frame a *correction* or a *question*: "meant", "actually", "sorry", "want",
+"asking", "support", "feature". Every one of them was being matched against
+product descriptions as though it were a specification.
+
+### 23.87 A delivery-time question answered with a price — FIXED
+
+**Seen:** "delivery time eka kohomada" answered "I will check the exact
+delivery **fee** for that district" - twice, including after the customer said
+"no I meant delivery time".
+
+The branch handled both questions but had one reply written into it. It now
+records which of the two was asked, keeps that across the district question,
+and **leads the answer with the days** when time was asked. Being told a price
+after asking how long something takes, twice, reads as not listening.
+
+### 23.88 The OpenRouter fallback was never reachable — FIXED
+
+Two faults, both silent:
+
+- The configured model, `meta-llama/llama-3.3-70b-instruct:free`, is **no
+  longer free**. OpenRouter's own 404 says so and names the paid slug.
+  `nvidia/nemotron-3-super-120b-a12b:free` works and is verified.
+- `AI_FALLBACK_API_BASE_URL` was set to the **full completions URL**, which the
+  code appends `/chat/completions` to - producing
+  `.../chat/completions/chat/completions` and a 404.
+
+The second is an easy mistake: a provider's docs show the full URL, so that is
+what gets pasted in. The code now strips a trailing `/chat/completions` before
+appending, and the failure log names the reason and both settings to check
+instead of only saying "could not answer either".
+
+**A swallowed exception with no detail cost the most time here.** Catching
+broadly is right - a failing fallback must not replace one provider's problem
+with another's - but the log has to say what happened.

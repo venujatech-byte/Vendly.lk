@@ -18,6 +18,9 @@ from app.services.public_chat_service import answer_public_message
 # The state gate lives inside storefront_intent, so testing it needs the real
 # implementation with only the AI boundary underneath faked.
 REAL_STOREFRONT_INTENT = public_chat_service.storefront_intent
+# The fixture stubs message saving out; the conversation-window tests need the
+# real one, which writes through the fake Firestore reference.
+REAL_SAVE_CHAT_MESSAGE = public_chat_service.save_chat_message
 
 
 class FakeReference:
@@ -1757,3 +1760,156 @@ def test_a_product_overview_does_not_repeat_what_the_card_shows(chat):
     assert "Black wireless earbuds" not in reply["message"]
     # The card needs the facts it is now responsible for showing.
     assert reply["product"]["sellingPriceMinor"] == 450000
+
+
+def test_the_conversation_window_accumulates_both_sides(chat, monkeypatch):
+    monkeypatch.setattr(
+        public_chat_service, "save_chat_message", REAL_SAVE_CHAT_MESSAGE,
+    )
+    chat.say("hello", intent="greeting")
+    chat.say("show me earbuds", intent="show_category", categoryQuery="Earbuds")
+
+    turns = chat.session["recentTurns"]
+    roles = [turn["role"] for turn in turns]
+
+    # Both halves, oldest first. Without the assistant's turns the model cannot
+    # tell what "the second one" refers to.
+    assert "customer" in roles and "assistant" in roles
+    assert turns[0]["text"] == "hello"
+
+
+def test_repeated_answers_are_not_collapsed(chat, monkeypatch):
+    monkeypatch.setattr(
+        public_chat_service, "save_chat_message", REAL_SAVE_CHAT_MESSAGE,
+    )
+    # "skip", "2" and "yes" repeat constantly in a checkout. An append that
+    # deduplicates would quietly drop them and leave a history that never
+    # happened.
+    for _ in range(3):
+        chat.say("skip")
+
+    texts = [turn["text"] for turn in chat.session["recentTurns"]]
+
+    assert texts.count("skip") == 3
+
+
+def test_the_window_stays_small(chat, monkeypatch):
+    monkeypatch.setattr(
+        public_chat_service, "save_chat_message", REAL_SAVE_CHAT_MESSAGE,
+    )
+    for index in range(12):
+        chat.say(f"message {index}")
+
+    # Long enough for a question and its follow-ups, short enough that an old
+    # topic cannot outweigh the current one - and it caps the tokens spent on
+    # history for every single call.
+    assert len(chat.session["recentTurns"]) <= 6
+
+
+def test_the_model_is_given_the_turns_before_the_current_message(chat, monkeypatch):
+    monkeypatch.setattr(
+        public_chat_service, "save_chat_message", REAL_SAVE_CHAT_MESSAGE,
+    )
+    # The real wrapper, so the spy below is actually reached.
+    monkeypatch.setattr(
+        public_chat_service, "storefront_intent", REAL_STOREFRONT_INTENT,
+    )
+    seen = {}
+    monkeypatch.setattr(
+        public_chat_service,
+        "generate_storefront_intent",
+        lambda message, names, categories, state, history=None: seen.update(
+            {"message": message, "history": list(history or [])},
+        ) or {"intent": "product_question", "language": "en"},
+    )
+
+    chat.say("show me earbuds", intent="show_category", categoryQuery="Earbuds")
+    chat.say("is the second one waterproof?")
+
+    # The current message is passed separately; including it in the history too
+    # would read as though the customer asked it twice.
+    assert seen["message"] == "is the second one waterproof?"
+    assert all(turn["text"] != seen["message"] for turn in seen["history"])
+    assert any("earbuds" in turn["text"] for turn in seen["history"])
+
+
+def test_a_partly_named_category_resolves_without_asking(chat, monkeypatch):
+    monkeypatch.setattr(
+        public_chat_service,
+        "session_catalog",
+        lambda *a: {"business": {"name": "VS Tech", "storefrontFaq": ""},
+                    "products": [
+                        {**item, "categoryName": "Routers and modems"}
+                        for item in big_catalogue()[:4]
+                    ]},
+    )
+
+    reply = chat.say("do you have routers", intent="unknown")
+
+    # A seller writes "Routers and modems"; a customer types "routers".
+    # Requiring every word meant the customer had to guess the seller's exact
+    # wording or get nothing at all.
+    assert reply["products"], reply["message"]
+    assert "did not catch" not in reply["message"]
+
+
+def test_a_model_code_alone_offers_that_product(chat):
+    reply = chat.say("do you have the gm2", intent="unknown")
+
+    # A code mixing letters and digits identifies one product even when the
+    # rest of the name is wrong or missing.
+    assert "Did you mean" in reply["message"]
+    assert "GM2" in reply["message"]
+
+
+def test_an_ambiguous_word_still_offers_the_category_list(chat, monkeypatch):
+    monkeypatch.setattr(
+        public_chat_service,
+        "session_catalog",
+        lambda *a: {"business": {"name": "VS Tech", "storefrontFaq": ""},
+                    "products": big_catalogue()},
+    )
+
+    reply = chat.say("qwertyuiop", intent="unknown")
+
+    # Nothing to guess at. Inventing a suggestion would be worse than asking.
+    assert "Did you mean" not in reply["message"]
+    assert reply["categories"]
+
+
+def test_a_delivery_time_question_is_not_answered_with_a_price(chat, monkeypatch):
+    monkeypatch.setattr(
+        public_chat_service,
+        "recommend_couriers",
+        lambda _db, _biz, weight, _district: [
+            {
+                "courier": {"id": "c1", "name": "Royal Express",
+                            "averageDeliveryDays": 3, "extraKgPriceMinor": 10000,
+                            "districtFirstKgPricesMinor": {"gampaha": 45000}},
+                "deliveryFeeMinor": 45000,
+                "score": 90.0,
+            },
+        ],
+    )
+    reply = chat.say("delivery time eka kohomada", intent="delivery_quote")
+
+    # Asking "how long does it take" and being told "I will check the fee",
+    # twice, reads as not listening - the question was never registered.
+    assert "how long delivery takes" in reply["message"]
+    assert "delivery fee for that district" not in reply["message"]
+
+    reply = chat.say("Gampaha")
+
+    # And the answer leads with the days rather than burying them under a
+    # price breakdown the customer did not ask for.
+    assert reply["message"].index("days") < reply["message"].index("LKR")
+
+
+def test_a_delivery_fee_question_still_leads_with_the_price(chat):
+    reply = chat.say("delivery fee kiyada", intent="delivery_quote")
+
+    assert "delivery fee for that district" in reply["message"]
+
+    reply = chat.say("Gampaha")
+
+    assert reply["message"].startswith("Delivery to Gampaha")

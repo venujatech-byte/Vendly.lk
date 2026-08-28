@@ -107,7 +107,39 @@ def catalogue_entry(product):
     }
 
 
-def product_prompt(question, product, language="en", other_products=None):
+def conversation_block(history):
+    """The recent turns, for resolving what a follow-up refers to.
+
+    Every prompt was stateless, so "and the warranty?" or "is that one
+    waterproof?" arrived with nothing to attach to. The model now sees what was
+    just said.
+
+    The instruction matters as much as the text: the history is for resolving
+    references only. Letting it compete with the current message is how a bot
+    answers the question before last - the failure §23 records four times over
+    for the stored product and category.
+    """
+    turns = [
+        f"{'Customer' if turn.get('role') == 'customer' else 'You'}: "
+        f"{str(turn.get('text', '')).strip()}"
+        for turn in (history or [])
+        if str(turn.get("text", "")).strip()
+    ]
+
+    if not turns:
+        return ""
+
+    return (
+        "CONVERSATION SO FAR, oldest first. Use it only to work out what the "
+        "customer's latest message refers to - words like 'it', 'that one', "
+        "'the second', 'and the price?'. The latest message is the question "
+        "you must answer; never answer an earlier one instead.\n"
+        + "\n".join(turns)
+        + "\n\n"
+    )
+
+
+def product_prompt(question, product, language="en", other_products=None, history=None):
     context = product_facts(product)
     # Questions like "which is cheaper", "what is the difference between these
     # two" and "anything under 3000" cannot be answered from a single product.
@@ -143,6 +175,7 @@ def product_prompt(question, product, language="en", other_products=None):
         "that delivery is calculated from district and total order weight when relevant.\n\n"
         f"PRODUCT FACTS:\n{json.dumps(context, ensure_ascii=False)}\n\n"
         f"{catalogue_block}"
+        f"{conversation_block(history)}"
         f"CUSTOMER QUESTION:\n{question}"
     )
 
@@ -171,8 +204,19 @@ def generate_openai_compatible_answer(
     if not base_url:
         return None
 
+    # A provider's docs show the full completions URL, so that is what gets
+    # pasted into the base-URL setting. Appending the path to it produced
+    # ".../chat/completions/chat/completions" and a 404 that surfaced only as
+    # "fallback failed" - an easy mistake to make and a hard one to see.
+    base_url = base_url.rstrip("/")
+
+    for suffix in ("/chat/completions", "/completions"):
+        if base_url.endswith(suffix):
+            base_url = base_url[: -len(suffix)]
+            break
+
     response = httpx.post(
-        f"{base_url.rstrip('/')}/chat/completions",
+        f"{base_url}/chat/completions",
         headers={
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
@@ -204,14 +248,20 @@ def generate_gemini_answer(prompt, settings):
     return interaction.output_text.strip()
 
 
-def generate_product_answer(question, product, language="en", other_products=None):
+def generate_product_answer(
+    question,
+    product,
+    language="en",
+    other_products=None,
+    history=None,
+):
     """Return an optional AI answer; failures safely fall back to deterministic chat."""
     return request_ai_text(
-        product_prompt(question, product, language, other_products),
+        product_prompt(question, product, language, other_products, history),
     )
 
 
-def catalogue_prompt(question, products, language="en", store_policies=""):
+def catalogue_prompt(question, products, language="en", store_policies="", history=None):
     catalogue = [catalogue_entry(product) for product in products]
     # The seller's own policy text. Without it the model has nothing to answer
     # "do you accept cash on delivery" from, and inventing a returns policy on
@@ -253,11 +303,18 @@ def catalogue_prompt(question, products, language="en", store_policies=""):
         "Choose one; never both and never neither.\n\n"
         f"CATALOGUE:\n{json.dumps(catalogue, ensure_ascii=False)}\n\n"
         f"{policy_block}"
+        f"{conversation_block(history)}"
         f"CUSTOMER QUESTION:\n{question}"
     )
 
 
-def generate_catalogue_answer(question, products, language="en", store_policies=""):
+def generate_catalogue_answer(
+    question,
+    products,
+    language="en",
+    store_policies="",
+    history=None,
+):
     """Answer a question that spans the catalogue, or asks how the shop works.
 
     "What is your cheapest earbud", "anything under 3000", "do you accept cash
@@ -268,7 +325,7 @@ def generate_catalogue_answer(question, products, language="en", store_policies=
         return None
 
     return request_ai_text(
-        catalogue_prompt(question, products, language, store_policies),
+        catalogue_prompt(question, products, language, store_policies, history),
     )
 
 
@@ -384,15 +441,20 @@ def fallback_ai_text(prompt, max_tokens):
                 "base_url": settings.get("AI_FALLBACK_API_BASE_URL"),
             },
         )
-    except Exception:
+    except Exception as error:
         # The fallback failing is not news: the customer is already getting the
         # deterministic reply, and the rate limit that caused this is logged by
         # the caller. Raising here would replace one provider's problem with
         # another's.
         current_app.logger.warning(
-            "AI FALLBACK FAILED - provider %r model %r could not answer either.",
+            "AI FALLBACK FAILED - provider %r model %r could not answer "
+            "either: %s. Check AI_FALLBACK_MODEL is still offered free and "
+            "that AI_FALLBACK_API_BASE_URL is the base, not the full "
+            "completions URL.",
             provider,
             model,
+            error,
+            exc_info=False,
         )
         return None
 
@@ -603,7 +665,13 @@ STOREFRONT_INTENTS = {
 }
 
 
-def generate_storefront_intent(message, product_names, category_names, state):
+def generate_storefront_intent(
+    message,
+    product_names,
+    category_names,
+    state,
+    history=None,
+):
     """Classify one storefront message and identify its language in one call.
 
     Sri Lankan customers mix languages inside a single sentence: Sinhala
@@ -675,6 +743,9 @@ def generate_storefront_intent(message, product_names, category_names, state):
         'Example shape: {"intent":"start_order","productQuery":"black bag",'
         '"categoryQuery":"","sizeQuery":"XL","quantity":2,'
         '"quantityMode":"total","district":"","language":"si"}\n\n'
+        # A follow-up cannot be classified on its own: "the cheapest one",
+        # "yes that", "and in black?" carry their meaning in the turn before.
+        f"{conversation_block(history)}"
         f"CUSTOMER MESSAGE:\n{message}"
     )
     result = parse_json_object(
