@@ -273,6 +273,82 @@ def wants_separate_order(message):
     return any(phrase in lowered for phrase in SEPARATE_ORDER_PHRASES)
 
 
+PAYMENT_CHOICE_PHRASES = (
+    ("bank-half", (
+        "half bank", "half transfer", "half payment", "part payment",
+        "partial", "advance", "deposit", "half deposit",
+        "aduma", "baagayak", "බාගයක්", "අඩක්", "පාதி",
+    )),
+    ("bank-full", (
+        "full bank", "full transfer", "full payment", "bank transfer",
+        "transfer full", "pay full", "full amount", "online payment",
+        "sampurna", "සම්පූර්ණ", "முழு",
+    )),
+    ("cod", (
+        "cash on delivery", "cod", "cash", "on delivery", "pay on delivery",
+        "courier ekata", "බඩුව ලැබෙන විට", "මුදලින්", "delivery ekata",
+    )),
+)
+
+
+def chat_payment_method(customer_draft):
+    """Map the chat's payment answer onto the order's payment method."""
+    choice = customer_draft.get("paymentChoice")
+
+    if choice == "bank-full":
+        return "paid"
+
+    if choice == "bank-half":
+        return "deposit"
+
+    if choice == "cod":
+        return "cod"
+
+    # No explicit answer - an older draft, or a route that skipped the
+    # question. Fall back to whatever the conversation inferred.
+    return customer_draft.get("paymentMethod", "cod")
+
+
+def payment_summary_text(choice):
+    """One line for the confirmation summary, so the terms are on screen."""
+    if choice == "bank-full":
+        return (
+            "Payment: full bank transfer - I will send our bank details once "
+            "you confirm, and the seller holds the order until it arrives. "
+        )
+
+    if choice == "bank-half":
+        return (
+            "Payment: part bank transfer - I will send our bank details once "
+            "you confirm, and the courier collects the balance on delivery. "
+        )
+
+    return "Payment: cash on delivery. "
+
+
+def payment_choice_from_message(message, ai_intent=None):
+    """Read the payment method from a reply, longest-meaning phrases first.
+
+    "half bank transfer" contains "bank transfer", so the half phrases are
+    checked before the full ones - otherwise every half payment would be
+    recorded as a promise to send the whole amount.
+    """
+    lowered = str(message or "").casefold()
+
+    for choice, phrases in PAYMENT_CHOICE_PHRASES:
+        if any(phrase in lowered for phrase in phrases):
+            return choice
+
+    # The classifier already reads "I will send part only" as a deposit
+    # question, so its answer stands in when the wording is unusual.
+    intent = (ai_intent or {}).get("intent")
+
+    if intent == "payment_question":
+        return "bank-full"
+
+    return None
+
+
 def is_explicit_new_order_request(message):
     """Only an unmistakable request may reset a completed order chat."""
     clean_message = str(message).strip().casefold()
@@ -489,6 +565,7 @@ def conversation_language(message, current_language, detected_language=None):
 # States where the customer is part-way through building or checking out an
 # order that has not been placed yet.
 DRAFT_IN_PROGRESS_STATES = {
+    "choosing-payment",
     "choosing-order-merge",
     "awaiting-variant",
     "awaiting-item-quantity",
@@ -886,6 +963,9 @@ def chat_suggestions(action, state, has_items, has_order, shown_count=0):
     """
     if state == "awaiting-item-quantity":
         return ["qty-1", "qty-2", "qty-3"]
+
+    if state == "choosing-payment":
+        return ["pay-cod", "pay-bank-full", "pay-bank-half"]
 
     if state == "choosing-order-merge":
         return ["merge-order", "separate-order"]
@@ -2751,6 +2831,244 @@ def answer_public_message(database, session_id, provided_token, payload):
             next_state="completed",
         )
 
+    # A customer who wants out must not be trapped by the question. Cancelling
+    # falls through to the handler below rather than being re-asked how they
+    # would like to pay for an order they are trying to abandon.
+    wants_to_cancel = is_cancel_order_request(message) or intent_is("cancel_order")
+
+    # "Cancel my order" while a draft is open means "do not place this one".
+    # `orderId` stays set forever after a customer's first order, so keying off
+    # it alone offered to cancel a delivered order while they were still
+    # choosing items - the opposite of what was asked.
+    has_open_draft = bool(cart_summary) or current_state in DRAFT_IN_PROGRESS_STATES
+
+    if wants_to_cancel and has_open_draft:
+        cart = []
+        cart_summary = []
+        customer_draft = {}
+        placed_order_hint = (
+            " Your earlier order is not affected - tell me its number if you "
+            "want to change that one."
+            if session.get("orderId")
+            else ""
+        )
+        return respond(
+            "I have cleared the items you were choosing, so nothing has been "
+            f"ordered.{placed_order_hint} Would you like to start again?",
+            "start-order",
+            next_state="browsing",
+            response_products=products[:4],
+        )
+
+    # Above the collecting-* states as well as product resolution. Those states
+    # read the message literally - it is meant to BE the name or the phone
+    # number - so "show my cart" was being saved as the customer's name. It is
+    # matched by phrase because no intent is classified there.
+    if any(phrase in lowered_message for phrase in CART_PHRASES) or intent_is(
+        "show_cart",
+    ):
+        # Reading the cart back is not a step in the conversation, so the state
+        # is left exactly where it was.
+        return respond(
+            cart_contents_message(cart_summary),
+            "show-cart",
+            next_state=current_state,
+        )
+
+    if current_state == "choosing-payment" and not is_cancel_order_request(message):
+        chosen = payment_choice_from_message(message, ai_intent)
+
+        if not chosen:
+            return respond(
+                "Sorry, I did not catch that. Reply 'cash on delivery', 'full "
+                "bank transfer', or 'half bank transfer'.",
+                "choose-payment",
+                next_state="choosing-payment",
+            )
+
+        customer_draft["paymentChoice"] = chosen
+
+        item_text = ", ".join(
+            f"{item['quantity']} × {item['productName']}"
+            + (f" ({item["size"]})" if item["size"] else "")
+            for item in cart_summary
+        )
+        address = customer_draft["address"]
+        subtotal_minor = sum(item["lineTotalMinor"] for item in cart_summary)
+        # Quote the same courier the order will use, so the customer confirms
+        # the total they were shown instead of an unknown delivery fee.
+        quote = delivery_quote(
+            database,
+            session["businessId"],
+            address["district"],
+            cart_weight_grams(cart_summary),
+        )
+
+        if quote:
+            totals_text = (
+                f"Items: LKR {subtotal_minor / 100:,.2f}. Delivery to "
+                f"{quote['district']} ({quote['weightGrams'] / 1000:,.2f} kg) by "
+                f"{quote['courierName']}: LKR {quote['deliveryFeeMinor'] / 100:,.2f}. "
+                f"Total: LKR "
+                f"{(subtotal_minor + quote['deliveryFeeMinor']) / 100:,.2f}. "
+            )
+        else:
+            totals_text = (
+                f"Items: LKR {subtotal_minor / 100:,.2f}. The delivery fee will "
+                "be confirmed by the seller. "
+            )
+
+        response_message = (
+            f"Please confirm your order: {item_text}. Customer: "
+            f"{customer_draft['name']}, {customer_draft['phoneNumber']}"
+            + (f" / {customer_draft['secondaryPhoneNumber']}" if customer_draft.get("secondaryPhoneNumber") else "")
+            + ". Delivery: "
+            f"{address['line1']}, {address['city']}, {address['district']}. "
+            + (f"Note: {customer_draft['deliveryNote']}. " if customer_draft.get("deliveryNote") else "")
+            + totals_text
+            + payment_summary_text(customer_draft.get("paymentChoice", "cod"))
+            + "Reply 'confirm order' to submit, or 'change order' to edit the details."
+        )
+        return respond(
+            response_message,
+            "confirm-order",
+            next_state="awaiting-confirmation",
+        )
+
+
+    if current_state == "collecting-name":
+        try:
+            customer_draft["name"] = parse_customer_name(message)
+        except ValueError as error:
+            return respond(str(error), "collect-name", next_state="collecting-name")
+
+        return respond(
+            f"Thanks, {customer_draft['name']}. What is your Sri Lankan mobile "
+            "number? Example: 077 123 4567.",
+            "collect-phone",
+            next_state="collecting-phone",
+        )
+
+    if current_state == "collecting-phone":
+        try:
+            normalize_sri_lankan_phone(message)
+        except ValueError as error:
+            return respond(str(error), "collect-phone", next_state="collecting-phone")
+
+        customer_draft["phoneNumber"] = message.strip()
+        return respond(
+            "Do you have a second phone number? Send it, or type 'skip' if you "
+            "only have one number.",
+            "collect-secondary-phone",
+            next_state="collecting-secondary-phone",
+        )
+
+    if current_state == "collecting-secondary-phone":
+        if is_optional_phone_skip(message):
+            customer_draft["secondaryPhoneNumber"] = ""
+        else:
+            try:
+                normalize_sri_lankan_phone(message)
+            except ValueError as error:
+                return respond(
+                    f"{error} Send a valid second number, or type 'skip' to "
+                    "continue with one number.",
+                    "collect-secondary-phone",
+                    next_state="collecting-secondary-phone",
+                )
+            customer_draft["secondaryPhoneNumber"] = message.strip()
+
+        return respond(
+            "Please send your street address (for example: No. 45 Park Road).",
+            "collect-address",
+            next_state="collecting-address",
+        )
+
+    if current_state == "collecting-address":
+        try:
+            address_line = required_text(message.strip(), "Street address", 200)
+        except ValueError as error:
+            return respond(
+                str(error),
+                "collect-address",
+                next_state="collecting-address",
+            )
+
+        # A district captured during a delivery quote is not asked for again.
+        quoted_district = (customer_draft.get("address") or {}).get("district", "")
+        customer_draft["address"] = {
+            "line1": address_line,
+            "line2": "",
+            "city": "",
+            "district": quoted_district,
+            "postalCode": "",
+        }
+
+        if quoted_district:
+            return respond(
+                f"Thanks. I already have {quoted_district} as your delivery "
+                "district. What is the nearest city?",
+                "collect-nearest-city",
+                next_state="collecting-nearest-city",
+            )
+
+        return respond(
+            "Which district should we deliver to?",
+            "collect-district",
+            next_state="collecting-district",
+        )
+
+    if current_state == "collecting-district":
+        # Only a recognised district can be accepted. An unknown spelling would
+        # silently fall back to the courier's common price and misquote the fee.
+        if not is_known_district(message):
+            return respond(
+                "I could not recognise that district. Please send one of Sri "
+                "Lanka's 25 districts, for example Colombo, Gampaha or Jaffna.",
+                "collect-district",
+                next_state="collecting-district",
+            )
+
+        customer_draft["address"]["district"] = district_display_name(message)
+        return respond(
+            "What is the nearest city?",
+            "collect-nearest-city",
+            next_state="collecting-nearest-city",
+        )
+
+    if current_state == "collecting-nearest-city":
+        try:
+            customer_draft["address"]["city"] = parse_required_location(
+                message, "nearest city"
+            )
+        except ValueError as error:
+            return respond(
+                str(error),
+                "collect-nearest-city",
+                next_state="collecting-nearest-city",
+            )
+
+        return respond(
+            "Do you have any extra delivery note? Type it, or type 'skip' if "
+            "there is no note.",
+            "collect-delivery-note",
+            next_state="collecting-delivery-note",
+        )
+
+    if current_state == "collecting-delivery-note":
+        customer_draft["deliveryNote"] = "" if is_optional_phone_skip(message) else message.strip()
+
+        # Payment is settled before the summary, so the order the customer
+        # approves states how they intend to pay. Asked after it, they would be
+        # confirming terms that were not yet decided.
+        return respond(
+            "Last thing - how would you like to pay? Reply 'cash on delivery', "
+            "'full bank transfer' to send the whole amount now, or 'half bank "
+            "transfer' to send part now and pay the rest to the courier.",
+            "choose-payment",
+            next_state="choosing-payment",
+        )
+
     if (
         customer_draft.get("paymentMethod") == "deposit"
         and not customer_draft.get("depositChoice")
@@ -2802,32 +3120,6 @@ def answer_public_message(database, session_id, provided_token, payload):
             "pay in advance. You pay the courier when your order arrives.",
             "show-order-info",
             next_state=current_state,
-        )
-
-    wants_to_cancel = is_cancel_order_request(message) or intent_is("cancel_order")
-
-    # "Cancel my order" while a draft is open means "do not place this one".
-    # `orderId` stays set forever after a customer's first order, so keying off
-    # it alone offered to cancel a delivered order while they were still
-    # choosing items - the opposite of what was asked.
-    has_open_draft = bool(cart_summary) or current_state in DRAFT_IN_PROGRESS_STATES
-
-    if wants_to_cancel and has_open_draft:
-        cart = []
-        cart_summary = []
-        customer_draft = {}
-        placed_order_hint = (
-            " Your earlier order is not affected - tell me its number if you "
-            "want to change that one."
-            if session.get("orderId")
-            else ""
-        )
-        return respond(
-            "I have cleared the items you were choosing, so nothing has been "
-            f"ordered.{placed_order_hint} Would you like to start again?",
-            "start-order",
-            next_state="browsing",
-            response_products=products[:4],
         )
 
     if wants_to_cancel and session.get("orderId"):
@@ -3213,190 +3505,7 @@ def answer_public_message(database, session_id, provided_token, payload):
             next_state="choosing-order-merge",
         )
 
-    # Above the collecting-* states as well as product resolution. Those states
-    # read the message literally - it is meant to BE the name or the phone
-    # number - so "show my cart" was being saved as the customer's name. It is
-    # matched by phrase because no intent is classified there.
-    if any(phrase in lowered_message for phrase in CART_PHRASES) or intent_is(
-        "show_cart",
-    ):
-        # Reading the cart back is not a step in the conversation, so the state
-        # is left exactly where it was.
-        return respond(
-            cart_contents_message(cart_summary),
-            "show-cart",
-            next_state=current_state,
-        )
-
     # Contact collection is deterministic so invalid details never reach orders.
-    if current_state == "collecting-name":
-        try:
-            customer_draft["name"] = parse_customer_name(message)
-        except ValueError as error:
-            return respond(str(error), "collect-name", next_state="collecting-name")
-
-        return respond(
-            f"Thanks, {customer_draft['name']}. What is your Sri Lankan mobile "
-            "number? Example: 077 123 4567.",
-            "collect-phone",
-            next_state="collecting-phone",
-        )
-
-    if current_state == "collecting-phone":
-        try:
-            normalize_sri_lankan_phone(message)
-        except ValueError as error:
-            return respond(str(error), "collect-phone", next_state="collecting-phone")
-
-        customer_draft["phoneNumber"] = message.strip()
-        return respond(
-            "Do you have a second phone number? Send it, or type 'skip' if you "
-            "only have one number.",
-            "collect-secondary-phone",
-            next_state="collecting-secondary-phone",
-        )
-
-    if current_state == "collecting-secondary-phone":
-        if is_optional_phone_skip(message):
-            customer_draft["secondaryPhoneNumber"] = ""
-        else:
-            try:
-                normalize_sri_lankan_phone(message)
-            except ValueError as error:
-                return respond(
-                    f"{error} Send a valid second number, or type 'skip' to "
-                    "continue with one number.",
-                    "collect-secondary-phone",
-                    next_state="collecting-secondary-phone",
-                )
-            customer_draft["secondaryPhoneNumber"] = message.strip()
-
-        return respond(
-            "Please send your street address (for example: No. 45 Park Road).",
-            "collect-address",
-            next_state="collecting-address",
-        )
-
-    if current_state == "collecting-address":
-        try:
-            address_line = required_text(message.strip(), "Street address", 200)
-        except ValueError as error:
-            return respond(
-                str(error),
-                "collect-address",
-                next_state="collecting-address",
-            )
-
-        # A district captured during a delivery quote is not asked for again.
-        quoted_district = (customer_draft.get("address") or {}).get("district", "")
-        customer_draft["address"] = {
-            "line1": address_line,
-            "line2": "",
-            "city": "",
-            "district": quoted_district,
-            "postalCode": "",
-        }
-
-        if quoted_district:
-            return respond(
-                f"Thanks. I already have {quoted_district} as your delivery "
-                "district. What is the nearest city?",
-                "collect-nearest-city",
-                next_state="collecting-nearest-city",
-            )
-
-        return respond(
-            "Which district should we deliver to?",
-            "collect-district",
-            next_state="collecting-district",
-        )
-
-    if current_state == "collecting-district":
-        # Only a recognised district can be accepted. An unknown spelling would
-        # silently fall back to the courier's common price and misquote the fee.
-        if not is_known_district(message):
-            return respond(
-                "I could not recognise that district. Please send one of Sri "
-                "Lanka's 25 districts, for example Colombo, Gampaha or Jaffna.",
-                "collect-district",
-                next_state="collecting-district",
-            )
-
-        customer_draft["address"]["district"] = district_display_name(message)
-        return respond(
-            "What is the nearest city?",
-            "collect-nearest-city",
-            next_state="collecting-nearest-city",
-        )
-
-    if current_state == "collecting-nearest-city":
-        try:
-            customer_draft["address"]["city"] = parse_required_location(
-                message, "nearest city"
-            )
-        except ValueError as error:
-            return respond(
-                str(error),
-                "collect-nearest-city",
-                next_state="collecting-nearest-city",
-            )
-
-        return respond(
-            "Do you have any extra delivery note? Type it, or type 'skip' if "
-            "there is no note.",
-            "collect-delivery-note",
-            next_state="collecting-delivery-note",
-        )
-
-    if current_state == "collecting-delivery-note":
-        customer_draft["deliveryNote"] = "" if is_optional_phone_skip(message) else message.strip()
-
-        item_text = ", ".join(
-            f"{item['quantity']} × {item['productName']}"
-            + (f" ({item["size"]})" if item["size"] else "")
-            for item in cart_summary
-        )
-        address = customer_draft["address"]
-        subtotal_minor = sum(item["lineTotalMinor"] for item in cart_summary)
-        # Quote the same courier the order will use, so the customer confirms
-        # the total they were shown instead of an unknown delivery fee.
-        quote = delivery_quote(
-            database,
-            session["businessId"],
-            address["district"],
-            cart_weight_grams(cart_summary),
-        )
-
-        if quote:
-            totals_text = (
-                f"Items: LKR {subtotal_minor / 100:,.2f}. Delivery to "
-                f"{quote['district']} ({quote['weightGrams'] / 1000:,.2f} kg) by "
-                f"{quote['courierName']}: LKR {quote['deliveryFeeMinor'] / 100:,.2f}. "
-                f"Total: LKR "
-                f"{(subtotal_minor + quote['deliveryFeeMinor']) / 100:,.2f}. "
-            )
-        else:
-            totals_text = (
-                f"Items: LKR {subtotal_minor / 100:,.2f}. The delivery fee will "
-                "be confirmed by the seller. "
-            )
-
-        response_message = (
-            f"Please confirm your order: {item_text}. Customer: "
-            f"{customer_draft['name']}, {customer_draft['phoneNumber']}"
-            + (f" / {customer_draft['secondaryPhoneNumber']}" if customer_draft.get("secondaryPhoneNumber") else "")
-            + ". Delivery: "
-            f"{address['line1']}, {address['city']}, {address['district']}. "
-            + (f"Note: {customer_draft['deliveryNote']}. " if customer_draft.get("deliveryNote") else "")
-            + totals_text
-            + "Reply 'confirm order' to submit, or 'change order' to edit the details."
-        )
-        return respond(
-            response_message,
-            "confirm-order",
-            next_state="awaiting-confirmation",
-        )
-
     if current_state == "awaiting-confirmation":
         confirms_order = (
             lowered_message in CONFIRMATION_PHRASES
@@ -3426,7 +3535,13 @@ def answer_public_message(database, session_id, provided_token, payload):
                         },
                         "items": cart,
                         "deliveryNote": customer_draft.get("deliveryNote", ""),
-                        "paymentMethod": customer_draft.get("paymentMethod", "cod"),
+                        # The answer to "how would you like to pay?" outranks
+                        # anything inferred earlier from a question about bank
+                        # transfers - it is the one the customer was asked
+                        # directly and saw in the summary they confirmed.
+                        "paymentMethod": chat_payment_method(customer_draft),
+                        "paymentPending": customer_draft.get("paymentChoice", "cod")
+                        != "cod",
                         "depositChoice": customer_draft.get("depositChoice", ""),
                     },
                 )

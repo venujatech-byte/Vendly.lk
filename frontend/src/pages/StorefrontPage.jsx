@@ -3811,7 +3811,10 @@ function CheckoutModal({
 
         <footer>
           <span>
-            <ShieldCheck size={16} /> {text.secureCod}
+            <ShieldCheck size={16} />{" "}
+            {/* The reassurance has to match the choice, or it reads as a
+                promise about a payment method the customer did not pick. */}
+            {paymentChoice === "cod" ? text.secureCod : text.securePrepaid}
           </span>
           <div>
             <button type="button" onClick={onClose}>

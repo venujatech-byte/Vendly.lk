@@ -2294,3 +2294,59 @@ it.
 guards and the arithmetic are covered by nine tests, but the Cloudinary upload
 and the Firestore writes have only been read. **Record one real payment and
 check the row colour, the balance to collect, and that the receipt opens.**
+
+### 23.73 Payment in the chat, and the checkout that fits
+
+**The chat never asked.** Only the cart checkout offered the three methods, so
+an order placed through conversation was always cash on delivery. There is now
+a `choosing-payment` step between the delivery note and the summary - asked
+*before* the summary, so the order the customer approves states how they are
+paying. Chips offer the three answers; the summary reads the choice back.
+
+**Two ordering problems, both the same shape as §23.41 and §23.45:**
+
+1. "half bank transfer" was being answered by the **bank-details** branch,
+   which reads payment wording out of any message. An explicit state has to be
+   checked before any branch that guesses from wording, so the payment step
+   moved above it.
+2. Moving code past the `collecting-*` states left the **cart guard and the
+   cancel handler below them**, so "show my cart" was saved as a customer name
+   and "cancel my order" cleared nothing. Both are back above, where §23.36
+   put them.
+
+Two tests caught the second one - a reminder that moving a block in a 3,700
+line function is a reordering, not a relocation.
+
+**The direct answer outranks inference.** A customer who earlier asked "can I
+do a bank transfer?" and then answers the payment question is bound by the
+answer, not by the earlier question. `chat_payment_method` reads the explicit
+choice first and falls back to the inferred method only when no answer exists.
+
+**Cancelling escapes the question.** The payment branch skips itself for a
+cancel request, so a customer who wants out is not asked how they would like
+to pay for the order they are abandoning.
+
+**The checkout fits on one screen.** On desktop the form is three columns wide
+with the payment cards spanning the full row. A checkout that scrolls hides
+either the payment options or the Place Order button, and both matter at the
+moment of deciding.
+
+### 23.74 `businessId is not defined` — FIXED, and the check that should have caught it
+
+The payment modal called `recordOrderPayment(businessId, ...)`. On that page
+the value is `business.id`; the bare name existed only as a *parameter of
+another component's callback* further down the file, so it read as plausible
+and was undefined at runtime.
+
+**This is the third undefined-identifier bug in this session** (§23.62 blank
+page, §23.67 caught by lint, this one). `oxlint` supports `no-undef`, but
+without a config it has no browser globals, so `window` and `document` flood
+the output and the rule is effectively off.
+
+`frontend/.oxlintrc.json` now declares the browser environment and turns
+`no-undef` on. Verified by planting a deliberately undefined identifier: the
+rule fires on it and stays silent on `window`.
+
+**A linter that reports a thousand false positives is a linter nobody reads.**
+Configuring the environment is what turns the rule from noise into the check
+that catches this class of bug before it reaches a screen.

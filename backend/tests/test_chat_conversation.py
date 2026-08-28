@@ -367,7 +367,11 @@ def test_a_full_order_reaches_confirmation_with_a_real_total(chat, monkeypatch):
     chat.say("No. 45 Park Road")
     chat.say("Colombo")
     chat.say("Nugegoda")
-    reply = chat.say("skip")
+    chat.say("skip")
+
+    assert chat.state == "choosing-payment"
+
+    reply = chat.say("cash on delivery")
 
     assert chat.state == "awaiting-confirmation"
     # Items 2 x 4,500 = 9,000, delivery 450, total 9,450. A summary that says
@@ -845,6 +849,10 @@ def test_the_recorded_payment_method_reaches_the_order(chat, monkeypatch):
     chat.say("Colombo")
     chat.say("Nugegoda")
     chat.say("skip")
+    # The direct answer is what counts now: the customer is asked outright
+    # before the summary, and that answer outranks anything inferred from an
+    # earlier question about bank transfers.
+    chat.say("half bank transfer")
     chat.say("confirm order")
 
     assert created and created[0]["paymentMethod"] == "deposit"
@@ -870,6 +878,7 @@ def test_a_plain_order_is_still_cash_on_delivery(chat, monkeypatch):
     chat.say("Colombo")
     chat.say("Nugegoda")
     chat.say("skip")
+    chat.say("cash on delivery")
     chat.say("confirm order")
 
     assert created and created[0]["paymentMethod"] == "cod"
@@ -895,7 +904,8 @@ def test_the_stated_deposit_amount_is_captured_and_sent_to_the_order(chat, monke
     assert "balance on delivery" in reply["message"]
 
     for line in ["that's all", "Nimal", "0771234567", "skip", "No. 45 Park Road",
-                 "Colombo", "Nugegoda", "skip", "confirm order"]:
+                 "Colombo", "Nugegoda", "skip", "half bank transfer",
+                 "confirm order"]:
         chat.say(line, intent="finished_selecting" if line == "that's all" else None)
 
     assert created[0]["depositChoice"] == "part"
@@ -962,6 +972,11 @@ def test_the_confirmation_step_offers_both_ways_out(chat):
                  "No. 45 Park Road", "Colombo", "Nugegoda"]:
         chat.say(line, intent="finished_selecting" if line == "that's all" else None)
     reply = chat.say("skip")
+
+    # Payment is asked between the delivery note and the summary.
+    assert reply["suggestions"] == ["pay-cod", "pay-bank-full", "pay-bank-half"]
+
+    reply = chat.say("cash on delivery")
 
     assert reply["suggestions"] == ["confirm-order", "change-order"]
 

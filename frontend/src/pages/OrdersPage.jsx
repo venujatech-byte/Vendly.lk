@@ -661,7 +661,7 @@ function OrdersPage() {
           onClose={() => setPaymentTarget(null)}
           onSubmit={async (payment) => {
             const updated = await recordOrderPayment(
-              businessId,
+              business.id,
               paymentTarget.id,
               payment,
             );
