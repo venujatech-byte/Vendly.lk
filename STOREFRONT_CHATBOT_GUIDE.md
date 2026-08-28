@@ -2399,3 +2399,37 @@ payment of nothing - a detail worth checking whenever a shared message builder
 gains a new caller.
 
 Six tests cover the conversion, the block, and the wording.
+
+### 23.77 Review order: the missing items, and one payment model
+
+**Only the first item showed.** `.order-summary__body > div` set
+`display: flex` on *every* direct div of the body, including the item list -
+so the rows laid out horizontally and items two and three overflowed off the
+side. The badge said 3 and the subtotal counted 3; only the rendering
+disagreed. The rule now excludes the containers that stack their own children.
+
+A broad descendant rule written for one shape of child is a trap for every
+later child of a different shape.
+
+**Three methods, matching the storefront exactly** - no second algorithm:
+
+| method | recorded as | behaviour |
+|---|---|---|
+| Cash on delivery | `cod` | courier collects the total |
+| To be paid | `paymentPending` | **yellow row, cannot be confirmed** until recorded |
+| Paid | amount entered | short of the total becomes a `deposit`; the rest is collected on delivery |
+
+"To be paid" reuses `paymentPending` - the same field the storefront sets for
+a promised transfer - so the row colour, the confirmation guard and the Record
+payment popup all work on it without a line of new logic. That was the ask,
+and it is also what stops the two routes drifting apart.
+
+**Paid takes an amount, not an assumption.** It used to mean "the whole
+total"; a customer who transferred half was either recorded as fully paid or
+forced through the deposit field. Now the seller types what arrived, exactly as
+in the Record payment popup, with the same **Paid in full** shortcut and the
+same receipt attachment.
+
+The receipt is uploaded after the order exists, through the same
+`payment-receipts` path the popup uses, so a payment entered at creation and
+one entered later leave identical records for the seller to find.

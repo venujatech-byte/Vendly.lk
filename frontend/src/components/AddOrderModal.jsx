@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  Clock,
+  Upload,
   ChevronDown,
   CheckCircle2,
   CreditCard,
@@ -25,6 +27,15 @@ import "./AddOrderModal.css";
 const emptyAddress = { line1: "", line2: "", city: "", district: "", postalCode: "" };
 const emptyCustomer = { name: "", phoneNumber: "", secondaryPhoneNumber: "", email: "", address: { ...emptyAddress } };
 
+function readAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error("That image could not be read."));
+    reader.readAsDataURL(file);
+  });
+}
+
 function money(amount) {
   return `LKR ${Number(amount || 0).toLocaleString("en-LK", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
@@ -49,6 +60,7 @@ function AddOrderModal({ isOpen, businessId, business, onClose, onCreated }) {
   const [discountAmount, setDiscountAmount] = useState("0");
   const [paymentMethod, setPaymentMethod] = useState("cod");
   const [depositAmount, setDepositAmount] = useState("0");
+  const [receiptFile, setReceiptFile] = useState(null);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -230,14 +242,26 @@ function AddOrderModal({ isOpen, businessId, business, onClose, onCreated }) {
         const created = await createCustomer(businessId, customer);
         finalCustomerId = created.id;
       }
+      // Read here rather than uploaded separately, so a failed receipt fails
+      // the whole order instead of leaving a payment recorded with no proof.
+      const receiptDataUrl = receiptFile ? await readAsDataUrl(receiptFile) : "";
       const order = await createOrder(businessId, {
         customerId: finalCustomerId,
         secondaryPhoneNumber: customer.secondaryPhoneNumber,
         items: items.map((item) => ({ variantId: item.variantId, quantity: item.quantity })),
         deliveryAddress: customer.address,
         courierId,
-        paymentMethod,
-        depositAmount: paymentMethod === "deposit" ? depositAmount : 0,
+        // Mapped onto the order's own vocabulary, the same one the storefront
+        // fills in: "paid" with a partial amount is a deposit, and "pending"
+        // is a promise with nothing received.
+        paymentMethod: paymentMethod === "pending"
+          ? "paid"
+          : paidAmount > 0 && paidAmount < total
+            ? "deposit"
+            : paymentMethod,
+        paymentPending: paymentMethod === "pending",
+        depositAmount: paidAmount > 0 && paidAmount < total ? paidAmount / 100 : 0,
+        receiptImage: receiptDataUrl,
         source,
         discountAmount,
         privateNote,
@@ -253,7 +277,12 @@ function AddOrderModal({ isOpen, businessId, business, onClose, onCreated }) {
 
   const deliveryFee = (selectedQuote?.deliveryFeeMinor ?? 0) / 100;
   const total = Math.max(0, subtotal - discount + deliveryFee);
-  const paidAmount = paymentMethod === "paid" ? total : paymentMethod === "deposit" ? Math.min(Math.max(0, Number(depositAmount) || 0), total) : 0;
+  // "Paid" means an amount the seller types, not the whole total: a customer
+  // who transferred half is paid, and the difference is what the courier
+  // collects. Nothing is assumed on their behalf.
+  const paidAmount = paymentMethod === "paid"
+    ? Math.min(Math.max(0, Math.round(Number(depositAmount || 0) * 100)), total)
+    : 0;
   const balanceDue = Math.max(0, total - paidAmount);
 
   return <>
@@ -418,12 +447,56 @@ function AddOrderModal({ isOpen, businessId, business, onClose, onCreated }) {
             <div className="order-summary__total"><strong>Order total</strong><strong>{money(total)}</strong></div>
           </div>
 
+          {/* The same three states the storefront uses, so an order typed in
+              by the seller and one placed by a customer behave identically
+              from here on - one set of rules, one row colour, one way to
+              record the money when it lands. */}
           <fieldset className="order-summary__payment"><legend>Payment method</legend>
-            <label><input type="radio" name="payment" checked={paymentMethod === "cod"} onChange={() => setPaymentMethod("cod")} /><CreditCard size={16} /><span><strong>Cash on delivery</strong><small>Collect the total when delivered</small></span></label>
-            <label><input type="radio" name="payment" checked={paymentMethod === "deposit"} onChange={() => setPaymentMethod("deposit")} /><CreditCard size={16} /><span><strong>Deposit paid</strong><small>Record an advance payment</small></span></label>
-            {paymentMethod === "deposit" && <label className="order-summary__deposit">Deposit amount<input type="number" min="0" max={total} value={depositAmount} onChange={(event) => setDepositAmount(event.target.value)} /></label>}
-            <label><input type="radio" name="payment" checked={paymentMethod === "paid"} onChange={() => setPaymentMethod("paid")} /><CheckCircle2 size={16} /><span><strong>Fully paid</strong><small>No payment due on delivery</small></span></label>
+            <label><input type="radio" name="payment" checked={paymentMethod === "cod"} onChange={() => setPaymentMethod("cod")} /><CreditCard size={16} /><span><strong>Cash on delivery</strong><small>The courier collects the whole total</small></span></label>
+            <label><input type="radio" name="payment" checked={paymentMethod === "pending"} onChange={() => setPaymentMethod("pending")} /><Clock size={16} /><span><strong>To be paid</strong><small>Waiting on a transfer - record it when it lands</small></span></label>
+            <label><input type="radio" name="payment" checked={paymentMethod === "paid"} onChange={() => setPaymentMethod("paid")} /><CheckCircle2 size={16} /><span><strong>Paid</strong><small>Money already received - enter how much</small></span></label>
           </fieldset>
+
+          {paymentMethod === "pending" && (
+            <p className="order-summary__pending-note">
+              This order will show in yellow until the payment is recorded, and
+              cannot be confirmed before then.
+            </p>
+          )}
+
+          {/* Exactly the fields of the Record payment popup, because it is the
+              same act: what arrived, and the proof of it. Anything short of the
+              total becomes the amount the courier collects. */}
+          {paymentMethod === "paid" && (
+            <div className="order-summary__paid">
+              <label>
+                <span>Amount received (LKR)</span>
+                <input
+                  type="number"
+                  min="0"
+                  max={total / 100}
+                  step="0.01"
+                  value={depositAmount}
+                  onChange={(event) => setDepositAmount(event.target.value)}
+                />
+              </label>
+              <button type="button" onClick={() => setDepositAmount((total / 100).toFixed(2))}>
+                Paid in full
+              </button>
+              <label className="order-summary__receipt">
+                <span>Payment receipt</span>
+                <div>
+                  <Upload size={15} />
+                  {receiptFile ? receiptFile.name : "Attach the slip or screenshot"}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(event) => setReceiptFile(event.target.files?.[0] || null)}
+                  />
+                </div>
+              </label>
+            </div>
+          )}
 
           {paidAmount > 0 && (
             <div className="order-summary__balance">

@@ -312,3 +312,25 @@ def test_the_customer_is_told_about_the_change_not_a_zero_payment(monkeypatch):
     # Zero paid, everything outstanding - the message builder reads this as a
     # change of method rather than announcing a payment of nothing.
     assert sent == [(0, 180000)]
+
+
+def test_a_seller_typed_order_uses_the_same_pending_state():
+    # The seller's "to be paid" and the storefront's bank-transfer choice are
+    # the same state, so one row colour, one confirm guard and one way to
+    # record the money serve both.
+    request = validate_order_request(
+        base_request(paymentMethod="paid", paymentPending=True),
+    )
+
+    assert request["paymentPending"] is True
+
+
+def test_a_seller_typed_part_payment_is_a_deposit():
+    # "Paid" with less than the total is a deposit order: the courier collects
+    # the difference, exactly as it does for a half bank transfer.
+    request = validate_order_request(
+        base_request(paymentMethod="deposit", depositAmount=450),
+    )
+
+    assert request["paymentMethod"] == "deposit"
+    assert request["depositMinor"] == 45000

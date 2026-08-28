@@ -1680,3 +1680,45 @@ def convert_order_to_cash_on_delivery(database, business_id, order_id, uid):
         total_minor,
     )
     return get_order(database, business_id, order_id)
+
+
+def attach_order_payment_receipt(
+    database,
+    business_id,
+    order_id,
+    uid,
+    receipt_url,
+    paid_amount_minor,
+):
+    """Store a receipt against an order whose payment is already recorded.
+
+    Used when the seller enters the payment while creating the order: the
+    amount is set by `create_order`, so this only files the proof of it. The
+    same list the Record payment popup writes to, so both routes leave the
+    seller looking in one place.
+    """
+    order_reference = (
+        database.collection("businesses").document(business_id)
+        .collection("orders").document(order_id)
+    )
+    snapshot = order_reference.get()
+
+    if not snapshot.exists:
+        raise ApiError("order_not_found", "Order not found.", 404)
+
+    receipts = list((snapshot.to_dict() or {}).get("paymentReceipts") or [])
+    receipts.append(
+        {
+            "url": receipt_url,
+            "amountMinor": paid_amount_minor,
+            "recordedBy": uid,
+            "recordedAt": datetime.now(timezone.utc),
+        },
+    )
+    order_reference.update(
+        {
+            "paymentReceipts": receipts,
+            "updatedAt": firestore.SERVER_TIMESTAMP,
+        },
+    )
+    return get_order(database, business_id, order_id)

@@ -622,7 +622,11 @@
 .order-summary h2 { margin: 0; font-size: 1.12rem; }
 .order-summary header button { border: 0; color: #94a3b8; background: transparent; cursor: pointer; }
 .order-summary__body { display: grid; gap: 12px; min-height: 0; padding: 16px 20px; overflow-y: auto; overscroll-behavior: contain; }
-.order-summary__body > div,
+/* Every direct div of the body is a label/value row - except the containers,
+   which stack their own children. Without the exclusions this rule turned the
+   item list into a horizontal flex row, so only the first item was visible and
+   the rest overflowed off the side. */
+.order-summary__body > div:not(.order-summary__items):not(.order-summary__totals):not(.order-summary__paid),
 .order-summary__body > label:not(.order-summary__courier) { display: flex; align-items: center; justify-content: space-between; }
 .order-summary__discount { display: grid; grid-template-columns: 20px 90px; align-items: center; }
 .order-summary__discount input { width: 90px; height: 38px; border: 1px solid #d5dee9; border-radius: 6px; text-align: right; }
@@ -1306,4 +1310,90 @@
   .order-dialog--fit .order-dialog__footer-total { min-width: 0; }
   .order-dialog--fit .order-dialog__footer-actions button { padding: 0 11px; }
   .order-summary__body > .order-summary__recap { grid-template-columns: 1fr; }
+}
+
+/* Recording money at creation. The same fields as the Record payment popup,
+   because it is the same act - what arrived, and the proof of it. */
+.order-summary__paid {
+  display: grid !important;
+  gap: 9px;
+  padding: 12px;
+  border: 1px solid #d7e3f0;
+  border-radius: 11px;
+  background: #fff;
+}
+
+.order-summary__paid > label {
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.order-summary__paid > label > span {
+  color: #65758b;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.order-summary__paid input[type="number"] {
+  height: 38px;
+  padding: 0 10px;
+  border: 1px solid #d5dee9;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.order-summary__paid > button {
+  justify-self: start;
+  padding: 5px 12px;
+  border: 1px solid #d5dee9;
+  border-radius: 999px;
+  color: #0872d9;
+  font-size: 12px;
+  font-weight: 700;
+  background: transparent;
+  cursor: pointer;
+}
+
+.order-summary__receipt > div {
+  display: flex;
+  position: relative;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 11px;
+  border: 1px dashed #d5dee9;
+  border-radius: 9px;
+  color: #65758b;
+  cursor: pointer;
+}
+
+.order-summary__receipt input[type="file"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+/* Why this order will sit in yellow and refuse to be confirmed. */
+.order-summary__pending-note {
+  margin: 0;
+  padding: 9px 11px;
+  border: 1px solid rgba(217, 160, 14, 0.4);
+  border-radius: 9px;
+  color: #8a6100;
+  font-size: 12px;
+  line-height: 1.45;
+  background: rgba(217, 160, 14, 0.1);
+}
+
+[data-theme="dark"] .order-summary__paid {
+  border-color: #23374d;
+  background: #0d1927;
+}
+
+[data-theme="dark"] .order-summary__paid input[type="number"] {
+  border-color: #23374d;
+  color: #eef6ff;
+  background: #122131;
 }

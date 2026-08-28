@@ -9,6 +9,7 @@ from app.services.order_service import (
     create_order,
     get_order,
     list_orders,
+    attach_order_payment_receipt,
     record_order_payment,
     update_order_status,
     update_order,
@@ -38,12 +39,39 @@ def get_orders(business_id):
 @require_firebase_user
 @require_business_member("owner", "admin", "order_manager", permission="orders:manage")
 def add_order(business_id):
+    payload = dict(get_json_object())
+    receipt = payload.pop("receiptImage", "")
     order = create_order(
         get_firestore_client(),
         business_id,
         g.current_user["uid"],
-        get_json_object(),
+        payload,
     )
+
+    # Uploaded after the order exists, because the receipt is stored against
+    # it. The same path the Record payment popup uses, so a payment entered at
+    # creation and one entered later leave identical records.
+    if receipt:
+        uploaded = upload_review_data_url(
+            receipt,
+            business_id,
+            order["id"],
+            {
+                "cloud_name": current_app.config.get("CLOUDINARY_CLOUD_NAME"),
+                "api_key": current_app.config.get("CLOUDINARY_API_KEY"),
+                "api_secret": current_app.config.get("CLOUDINARY_API_SECRET"),
+            },
+            folder="payment-receipts",
+        )
+        order = attach_order_payment_receipt(
+            get_firestore_client(),
+            business_id,
+            order["id"],
+            g.current_user["uid"],
+            uploaded["url"],
+            order.get("paidAmountMinor", 0),
+        )
+
     return jsonify({"order": order}), 201
 
 
