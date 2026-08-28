@@ -9,6 +9,7 @@ from flask import current_app
 OPENAI_COMPATIBLE_BASE_URLS = {
     "groq": "https://api.groq.com/openai/v1",
     "cerebras": "https://api.cerebras.ai/v1",
+    "openrouter": "https://openrouter.ai/api/v1",
 }
 
 
@@ -146,9 +147,25 @@ def product_prompt(question, product, language="en", other_products=None):
     )
 
 
-def generate_openai_compatible_answer(prompt, provider, settings, max_tokens=1200):
-    base_url = settings.get("AI_API_BASE_URL") or OPENAI_COMPATIBLE_BASE_URLS.get(
-        provider,
+def generate_openai_compatible_answer(
+    prompt,
+    provider,
+    settings,
+    max_tokens=1200,
+    credentials=None,
+):
+    """Call any OpenAI-compatible chat endpoint.
+
+    `credentials` lets a second provider reuse this exact code path: the
+    fallback differs only in its key, model and base URL, and giving it its own
+    copy of the request would be two places to fix the day a header changes.
+    """
+    api_key = (credentials or {}).get("api_key") or settings.get("AI_API_KEY")
+    model = (credentials or {}).get("model") or settings.get("AI_MODEL")
+    base_url = (
+        (credentials or {}).get("base_url")
+        or settings.get("AI_API_BASE_URL")
+        or OPENAI_COMPATIBLE_BASE_URLS.get(provider)
     )
 
     if not base_url:
@@ -157,11 +174,11 @@ def generate_openai_compatible_answer(prompt, provider, settings, max_tokens=120
     response = httpx.post(
         f"{base_url.rstrip('/')}/chat/completions",
         headers={
-            "Authorization": f"Bearer {settings['AI_API_KEY']}",
+            "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
         },
         json={
-            "model": settings["AI_MODEL"],
+            "model": model,
             "messages": [
                 {"role": "system", "content": "Follow the supplied product facts exactly."},
                 {"role": "user", "content": prompt},
@@ -337,6 +354,59 @@ def ai_status():
     }
 
 
+def fallback_ai_text(prompt, max_tokens):
+    """Ask the second provider, when the first one is rate limited.
+
+    Only for 429. A wrong model name or a revoked key is a fault to fix, and
+    quietly answering from somewhere else would hide it - the first provider
+    would stay broken and nobody would know why the bill moved.
+
+    Returns None when no fallback is configured, so a shop that has not set one
+    behaves exactly as before.
+    """
+    settings = current_app.config
+    provider = settings.get("AI_FALLBACK_PROVIDER", "none")
+    api_key = settings.get("AI_FALLBACK_API_KEY")
+    model = settings.get("AI_FALLBACK_MODEL")
+
+    if provider in {"none", "", None} or not api_key or not model:
+        return None
+
+    try:
+        answer = generate_openai_compatible_answer(
+            prompt,
+            provider,
+            settings,
+            max_tokens=max_tokens,
+            credentials={
+                "api_key": api_key,
+                "model": model,
+                "base_url": settings.get("AI_FALLBACK_API_BASE_URL"),
+            },
+        )
+    except Exception:
+        # The fallback failing is not news: the customer is already getting the
+        # deterministic reply, and the rate limit that caused this is logged by
+        # the caller. Raising here would replace one provider's problem with
+        # another's.
+        current_app.logger.warning(
+            "AI FALLBACK FAILED - provider %r model %r could not answer either.",
+            provider,
+            model,
+        )
+        return None
+
+    if answer:
+        current_app.logger.info(
+            "AI FALLBACK USED - the primary provider was rate limited, so %r "
+            "answered with %r.",
+            provider,
+            model,
+        )
+
+    return answer
+
+
 def request_ai_text(prompt, max_tokens=1200):
     """Send one prompt to the configured provider, or None when unavailable."""
     settings = current_app.config
@@ -365,6 +435,13 @@ def request_ai_text(prompt, max_tokens=1200):
         # reported as a broken configuration - that sends someone editing a
         # model name that was never wrong.
         if error.response.status_code == 429:
+            # Try the second provider before giving up. A rate limit is the one
+            # failure another provider can actually answer through.
+            answer = fallback_ai_text(prompt, max_tokens)
+
+            if answer:
+                return answer
+
             record_ai_failure("rate_limit", provider, model)
             current_app.logger.warning(
                 "AI RATE LIMITED - provider %r throttled model %r. This reply "

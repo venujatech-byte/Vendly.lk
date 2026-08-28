@@ -34,6 +34,12 @@ class Settings:
     ai_api_key: str | None
     ai_model: str | None
     ai_api_base_url: str | None
+    # A second provider, tried only when the first is rate limited. Left unset
+    # the chatbot behaves exactly as before.
+    ai_fallback_provider: str
+    ai_fallback_api_key: str | None
+    ai_fallback_model: str | None
+    ai_fallback_api_base_url: str | None
     ai_timeout_seconds: float
     rate_limit_storage_uri: str
     payhere_sandbox: bool
@@ -67,6 +73,13 @@ class Settings:
             ai_api_key=os.getenv("AI_API_KEY") or None,
             ai_model=os.getenv("AI_MODEL") or None,
             ai_api_base_url=os.getenv("AI_API_BASE_URL") or None,
+            ai_fallback_provider=os.getenv(
+                "AI_FALLBACK_PROVIDER",
+                "openrouter",
+            ).strip().lower(),
+            ai_fallback_api_key=os.getenv("AI_FALLBACK_API_KEY") or None,
+            ai_fallback_model=os.getenv("AI_FALLBACK_MODEL") or None,
+            ai_fallback_api_base_url=os.getenv("AI_FALLBACK_API_BASE_URL") or None,
             ai_timeout_seconds=parse_positive_float(
                 os.getenv("AI_TIMEOUT_SECONDS"),
                 15.0,

@@ -2481,3 +2481,36 @@ bug.
 - Reading rules found nothing, twice. The answer came from asking the browser
   for `gridTemplateRows`. **When a layout does something the rules say it
   cannot, measure the used values rather than re-reading the source.**
+
+### 23.79 OpenRouter as a rate-limit fallback — NEW
+
+The free Groq tier runs out of tokens per minute several times a day. Every AI
+path degrades to a deterministic English reply when it does, which is a worse
+answer than the model would have given - so a second provider is asked before
+settling for it.
+
+**Only on 429.** A wrong model name or a revoked key is a fault to fix, and
+quietly answering from elsewhere would leave the primary broken with nobody the
+wiser and the bill moving. A 4xx that is not 429 still logs `AI DISABLED` and
+returns nothing, and a test asserts the fallback is never even attempted for it.
+
+**One request path, two sets of credentials.**
+`generate_openai_compatible_answer` takes an optional `credentials` override
+rather than gaining a second copy for the fallback - the two differ only in
+key, model and base URL, and a duplicate would be two places to fix the day a
+header changes.
+
+**A failing fallback changes nothing.** Its exceptions are swallowed and
+logged: the customer is already getting the deterministic reply, and replacing
+one provider's problem with another's helps nobody.
+
+**Configuration** is `AI_FALLBACK_PROVIDER` (defaults to `openrouter`),
+`AI_FALLBACK_API_KEY` and `AI_FALLBACK_MODEL`. With no key set the chatbot
+behaves exactly as before, which is what the second test asserts.
+
+Six tests: the fallback answering, no fallback configured, a configuration
+error not being papered over, a failing fallback, the base URL being known, and
+the fallback sending **its own** key and model rather than the primary's.
+
+Log lines to watch: `AI FALLBACK USED` (working as intended),
+`AI FALLBACK FAILED` (both providers unavailable).
