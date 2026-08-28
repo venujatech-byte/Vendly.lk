@@ -2433,3 +2433,27 @@ same receipt attachment.
 The receipt is uploaded after the order exists, through the same
 `payment-receipts` path the popup uses, so a payment entered at creation and
 one entered later leave identical records for the seller to find.
+
+### 23.78 Review order: what the browser actually said
+
+Two UI faults were reported: item rows missing, and the Paid panel overlapping
+the payment cards. **Neither reproduced.** Rendering the exact markup against
+the current stylesheet at the reported viewport (1120x594) measured two rows,
+`display: flex`, 532x67 and 532x68, with the Paid panel starting 11px *below*
+the fieldset - no overlap.
+
+The stylesheet had been edited while that page was open, so the browser was
+showing the previous CSS. Worth remembering before chasing a layout bug that
+the code says cannot happen: **check what the running page is actually using.**
+Fifteen minutes of reading rules would not have told me what one measurement
+did.
+
+**What was real** was the scrolling underneath both reports. The review body
+scrolls on a short window, so a screenshot taken mid-scroll shows the item
+header and the totals while the rows themselves sit above the visible area -
+which is exactly what "not all items shown" looks like.
+
+So the fix is the layout, not the rules: on a window with room for it, the
+review is 820px wide in two columns, items beside totals, with the recap,
+payment choice and paid fields spanning the full width. Nothing to scroll,
+nothing to be caught halfway through.
