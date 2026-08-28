@@ -256,6 +256,7 @@ function StorefrontPage({ linkType }) {
   });
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isDraftOpen, setIsDraftOpen] = useState(false);
+  const [paymentChoice, setPaymentChoice] = useState("cod");
   const [detailProduct, setDetailProduct] = useState(null);
   const [detailReviews, setDetailReviews] = useState([]);
   const [isLoadingDetailReviews, setIsLoadingDetailReviews] = useState(false);
@@ -1103,6 +1104,16 @@ function StorefrontPage({ linkType }) {
             address: customer.address,
           },
           deliveryNote: customer.deliveryNote,
+          // "paid" and "deposit" record what the customer intends to transfer;
+          // paymentPending says the money has not arrived. The seller records
+          // it when it does - nothing here may mark an order as paid.
+          paymentMethod:
+            paymentChoice === "cod"
+              ? "cod"
+              : paymentChoice === "bank-full"
+                ? "paid"
+                : "deposit",
+          paymentPending: paymentChoice !== "cod",
           items: cart.map((item) => ({
             variantId: item.variantId,
             quantity: item.quantity,
@@ -1630,6 +1641,9 @@ function StorefrontPage({ linkType }) {
           isSending={isSending}
           onClose={() => setIsCheckoutOpen(false)}
           onCustomerChange={updateCustomer}
+          bankDetails={business?.bankDetails}
+          paymentChoice={paymentChoice}
+          onPaymentChoiceChange={setPaymentChoice}
           onSubmit={checkout}
         />
       )}
@@ -3595,6 +3609,8 @@ function CheckoutModal({
   customer,
   subtotal,
   isSending,
+  paymentChoice,
+  onPaymentChoiceChange,
   onClose,
   onCustomerChange,
   onSubmit,
@@ -3743,6 +3759,42 @@ function CheckoutModal({
               />
             </div>
           </label>
+        </div>
+
+        <div className="storefront-checkout-payment">
+          <strong>{text.paymentMethod}</strong>
+          <div>
+            {[
+              ["cod", text.payCod, text.payCodHint],
+              ["bank-full", text.payBankFull, text.payBankFullHint],
+              ["bank-half", text.payBankHalf, text.payBankHalfHint],
+            ].map(([value, label, hint]) => (
+              <label
+                key={value}
+                className={paymentChoice === value ? "is-selected" : ""}
+              >
+                <input
+                  type="radio"
+                  name="storefront-payment"
+                  value={value}
+                  checked={paymentChoice === value}
+                  onChange={() => onPaymentChoiceChange(value)}
+                />
+                <span>
+                  <strong>{label}</strong>
+                  <small>{hint}</small>
+                </span>
+              </label>
+            ))}
+          </div>
+          {paymentChoice !== "cod" && (
+            // Said before the order is placed, not after. The bank details
+            // themselves arrive with the confirmation, since publishing them
+            // on the storefront would expose them to anyone who loads it.
+            <p className="storefront-checkout-payment__notice">
+              {text.bankDetailsAfterOrder}
+            </p>
+          )}
         </div>
 
         <div className="storefront-checkout-summary">

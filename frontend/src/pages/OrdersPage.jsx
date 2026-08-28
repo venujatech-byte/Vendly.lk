@@ -28,12 +28,14 @@ import StatCard2 from "../components/StatCard2";
 import StatCard from "../components/StatCard";
 import OrderFilters from "../components/OrderFilters";
 import OrderTable from "../components/OrderTable";
+import RecordPaymentModal from "../components/RecordPaymentModal";
 import { useAuth } from "../context/authContextValue";
 import {
   getOrders,
   removeOrder,
   updateOrder,
   updateOrderStatus,
+  recordOrderPayment,
 } from "../services/orderService";
 import AddOrderModal from "../components/AddOrderModal";
 import EditOrderModal from "../components/EditOrderModal";
@@ -84,6 +86,7 @@ function OrdersPage() {
   const [statusFilter, setStatusFilter] = useState("");
   const [editingOrder, setEditingOrder] = useState(null);
   const [removalTarget, setRemovalTarget] = useState(null);
+  const [paymentTarget, setPaymentTarget] = useState(null);
   const [isRemoving, setIsRemoving] = useState(false);
   const [shopSales, setShopSales] = useState([]);
   const [shopFilters, setShopFilters] = useState({});
@@ -635,6 +638,7 @@ function OrdersPage() {
             onStatusChange={handleStatusChange}
             onGenerateWaybill={handleGenerateWaybill}
             onFraudReport={handleFraudReport}
+            onRecordPayment={setPaymentTarget}
             onCourierIssue={handleCourierIssue}
             onEditOrder={setEditingOrder}
             onRemoveOrder={setRemovalTarget}
@@ -650,6 +654,28 @@ function OrdersPage() {
 
 
 
+
+      {paymentTarget && (
+        <RecordPaymentModal
+          order={paymentTarget}
+          onClose={() => setPaymentTarget(null)}
+          onSubmit={async (payment) => {
+            const updated = await recordOrderPayment(
+              businessId,
+              paymentTarget.id,
+              payment,
+            );
+            // Replaced in place: the row's colour and the balance the courier
+            // collects both come from this order, so a stale copy would show
+            // the seller a payment they have just recorded as still missing.
+            setOrders((current) =>
+              current.map((order) =>
+                order.id === updated.id ? updated : order,
+              ),
+            );
+          }}
+        />
+      )}
 
       {activeTab === "shopOrders" && (
         <>

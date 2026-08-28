@@ -508,3 +508,25 @@ html[data-theme="dark"] .orders-table__status--shipped {
 .orders-table__row--deposit .orders-table__order-number {
   color: #a4700a;
 }
+
+/* Part paid: the transfer arrived but not in full, so the courier still has
+   an amount to collect. Distinct from both the yellow "do not pack yet" and
+   the green "nothing owing". */
+.orders-table__row--part-paid {
+  background-color: rgba(56, 132, 255, 0.10);
+  box-shadow: inset 4px 0 0 #3884ff;
+}
+
+.orders-table__row--part-paid:hover {
+  background-color: rgba(56, 132, 255, 0.16);
+}
+
+/* Paid in full. Nothing for the courier to collect. */
+.orders-table__row--paid {
+  background-color: rgba(15, 172, 131, 0.10);
+  box-shadow: inset 4px 0 0 #0fac83;
+}
+
+.orders-table__row--paid:hover {
+  background-color: rgba(15, 172, 131, 0.16);
+}

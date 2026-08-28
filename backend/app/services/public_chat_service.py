@@ -4548,6 +4548,9 @@ def create_public_chat_order(database, session_id, provided_token, payload):
         # and marking money as paid before it arrives is a far worse error than
         # a seller having to confirm it.
         "paymentMethod": payload.get("paymentMethod") or "cod",
+        # A transfer the customer has promised but not sent. Recorded as an
+        # intention so the seller knows to expect it, never as money received.
+        "paymentPending": payload.get("paymentPending") is True,
         "source": "chatbot",
         "discountAmount": 0,
         "privateNote": private_note,
@@ -4606,4 +4609,23 @@ def create_public_chat_order(database, session_id, provided_token, payload):
             "updatedAt": firestore.SERVER_TIMESTAMP,
         },
     )
-    return public_order_confirmation(order)
+    confirmation = public_order_confirmation(order)
+
+    # Bank details travel with the order that needs them, never with the
+    # catalogue: published there they would be readable by anyone who loads the
+    # storefront. This customer has just placed the order they apply to.
+    if order_payload.get("paymentPending"):
+        business_snapshot = (
+            database.collection("businesses")
+            .document(session["businessId"])
+            .get()
+        )
+        bank_details = (
+            (business_snapshot.to_dict() or {}).get("bankDetails") or {}
+            if business_snapshot.exists
+            else {}
+        )
+        confirmation["bankDetails"] = bank_details
+        confirmation["paymentPending"] = True
+
+    return confirmation

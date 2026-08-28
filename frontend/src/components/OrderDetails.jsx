@@ -1,5 +1,6 @@
 // Icons used in the customer information and order action areas.
 import {
+  Receipt,
   ChevronDown,
   CircleAlert,
   Flag,
@@ -33,6 +34,7 @@ function OrderDetails({
   onStatusChange,
   onGenerateWaybill,
   onFraudReport,
+  onRecordPayment,
   onCourierIssue,
   onWaybillSave,
   onWarrantyClaim,
@@ -171,7 +173,7 @@ function OrderDetails({
       </section>
 
       {/* Products included in this order. */}
-      <section className="order-details__section">
+      <section className="order-details__section order-details__items-section">
         <h3>Items in this order</h3>
 
         <div className="order-details__items">
@@ -199,7 +201,7 @@ function OrderDetails({
       </section>
 
       {/* Customer contact information and delivery address. */}
-      <section className="order-details__section">
+      <section className="order-details__section order-details__address">
         <h3>Delivery Address</h3>
 
         <div className="order-details__information">
@@ -251,7 +253,14 @@ function OrderDetails({
         {order.totalWeightGrams > 0 && (
           <div>
             <span>Total Weight</span>
-            <strong>{order.totalWeight}</strong>
+            {/* Formatted here from the raw grams. Depending on a second
+                pre-formatted field meant the label could render with nothing
+                beside it if that field was ever missing. */}
+            <strong>
+              {order.totalWeightGrams >= 1000
+                ? `${(order.totalWeightGrams / 1000).toFixed(2)} kg`
+                : `${order.totalWeightGrams} g`}
+            </strong>
           </div>
         )}
 
@@ -295,6 +304,29 @@ function OrderDetails({
           </div>
         </div>
       </section>
+
+      {/* Proof of payment, kept on the order so the seller can check it long
+          after the conversation has scrolled away. */}
+      {order.paymentReceipts?.length > 0 && (
+        <section className="order-details__section order-details__receipts">
+          <h3>Payment receipts</h3>
+          <div>
+            {order.paymentReceipts.map((receipt) => (
+              <a
+                key={receipt.url}
+                href={receipt.url}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <img src={receipt.url} alt="Payment receipt" loading="lazy" />
+                <small>
+                  LKR {((receipt.amountMinor ?? 0) / 100).toLocaleString("en-LK")}
+                </small>
+              </a>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Seller actions for status, waybill printing, and fraud reporting. */}
       <section className="order-details__section order-details__actions">
@@ -352,6 +384,21 @@ function OrderDetails({
           Warranty Claim
         </button>}
 
+        {/* Money the seller has received. Offered while anything is still
+            outstanding, and on any order - a cash-on-delivery customer who
+            transfers early is not a different kind of order. */}
+        {order.balanceMinor > 0 && (
+          <button
+            className="order-details__payment-button"
+            type="button"
+            onClick={() => onRecordPayment?.(order)}
+            disabled={isWorking}
+          >
+            <Receipt size={17} />
+            {order.paymentPending ? "Record payment" : "Mark as paid"}
+          </button>
+        )}
+
         <button
           className="order-details__fraud-button"
           type="button"
@@ -369,12 +416,17 @@ function OrderDetails({
       {/* The customer's own instruction for this delivery - a landmark, a time
           to call, gift wrapping. Given its own block rather than a line in the
           address, because it is the one thing here nobody can guess. */}
-      {order.customerNote && (
-        <section className="order-details__section order-details__customer-note">
-          <h3>Customer note</h3>
-          <p>{order.customerNote}</p>
-        </section>
-      )}
+      {/* Always rendered, even when empty. Showing it only for orders that
+          have one made those orders lay out differently from the rest, and a
+          seller scanning a list of orders reads the shape before the words. */}
+      <section
+        className={`order-details__section order-details__customer-note ${
+          order.customerNote ? "" : "is-empty"
+        }`}
+      >
+        <h3>Customer note</h3>
+        <p>{order.customerNote || "No note from the customer for this order."}</p>
+      </section>
 
     </div>
   );

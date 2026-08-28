@@ -72,6 +72,10 @@ def validate_order_request(payload):
         customer_note = optional_text(payload.get("customerNote"), 500)
         source = optional_text(payload.get("source"), 40) or "dashboard"
         payment_method = optional_text(payload.get("paymentMethod"), 40) or "cod"
+        # The customer chose a bank transfer and has not sent it yet. Recorded
+        # as an intention, never as money: an order marked paid on a promise is
+        # a parcel shipped for free if the transfer never arrives.
+        payment_pending = payload.get("paymentPending") is True
         discount_minor = money_to_minor_units(
             payload.get("discountAmount", 0),
             "Discount",
@@ -144,6 +148,7 @@ def validate_order_request(payload):
         "depositMinor": deposit_minor,
         "secondaryPhoneNumber": secondary_phone,
         "paymentMethod": payment_method,
+        "paymentPending": payment_pending,
         "source": source,
         "privateNote": private_note,
         "customerNote": customer_note,
@@ -559,14 +564,20 @@ def create_order(database, business_id, uid, payload):
             raise ApiError("invalid_deposit", "Deposit cannot exceed the order total.", 422)
 
         paid_amount_minor = (
-            total_minor
+            0
+            if request_data["paymentPending"]
+            else total_minor
             if request_data["paymentMethod"] == "paid"
             else request_data["depositMinor"]
             if request_data["paymentMethod"] == "deposit"
             else 0
         )
         payment_status = (
-            "paid" if paid_amount_minor == total_minor
+            # Distinct from "unpaid", which is a cash-on-delivery order behaving
+            # normally. This one is waiting on a transfer and must not ship.
+            "pending-payment"
+            if request_data["paymentPending"]
+            else "paid" if paid_amount_minor == total_minor
             else "partially-paid" if paid_amount_minor > 0
             else "unpaid"
         )
@@ -769,6 +780,22 @@ def update_order_status(database, business_id, order_id, uid, payload):
                 f"Order cannot move from {current_status} to {new_status}.",
                 409,
                 {"allowedStatuses": sorted(allowed_next_statuses)},
+            )
+
+        # A bank transfer that has not arrived yet. Confirming starts the shop
+        # picking and packing against money nobody has received, which is the
+        # whole risk the customer chose bank transfer to avoid for the seller.
+        # Cancelling stays available - an order that never gets paid has to be
+        # closable.
+        if (
+            new_status == "confirmed"
+            and order.get("paymentStatus") == "pending-payment"
+        ):
+            raise ApiError(
+                "payment_not_received",
+                "This order is waiting on a bank transfer. Record the payment "
+                "before confirming it.",
+                409,
             )
 
         stock_action = None
@@ -1471,4 +1498,98 @@ def add_items_to_order(database, business_id, order_id, uid, items):
         )
 
     apply(database.transaction())
+    return get_order(database, business_id, order_id)
+
+
+def record_order_payment(database, business_id, order_id, uid, payload):
+    """Record money the seller has actually received against an order.
+
+    The seller enters what landed in their account and attaches the receipt.
+    Anything still outstanding becomes the cash-on-delivery amount, so a half
+    transfer and a full transfer are the same operation with different numbers
+    rather than two code paths that can disagree.
+    """
+    try:
+        paid_amount_minor = int(payload.get("paidAmountMinor") or 0)
+    except (TypeError, ValueError) as error:
+        raise ApiError(
+            "validation_error",
+            "Paid amount must be a number.",
+            422,
+        ) from error
+
+    if paid_amount_minor <= 0:
+        raise ApiError(
+            "validation_error",
+            "Enter the amount you received.",
+            422,
+        )
+
+    receipt_url = optional_text(payload.get("receiptUrl"), 2000)
+    note = optional_text(payload.get("note"), 500)
+    order_reference = (
+        database.collection("businesses").document(business_id)
+        .collection("orders").document(order_id)
+    )
+    snapshot = order_reference.get()
+
+    if not snapshot.exists:
+        raise ApiError("order_not_found", "Order not found.", 404)
+
+    order = snapshot.to_dict()
+    total_minor = order.get("totalAmountMinor", 0)
+
+    # Overpayment is a data-entry slip, and silently accepting it would show a
+    # negative balance to collect on the courier's sheet.
+    if paid_amount_minor > total_minor:
+        raise ApiError(
+            "invalid_payment",
+            "The amount received cannot be more than the order total.",
+            422,
+        )
+
+    balance_minor = total_minor - paid_amount_minor
+    payment_status = "paid" if balance_minor == 0 else "partially-paid"
+    receipts = list(order.get("paymentReceipts") or [])
+
+    if receipt_url:
+        receipts.append(
+            {
+                "url": receipt_url,
+                "amountMinor": paid_amount_minor,
+                "recordedBy": uid,
+                "recordedAt": datetime.now(timezone.utc),
+            },
+        )
+
+    order_reference.update(
+        {
+            "paidAmountMinor": paid_amount_minor,
+            "balanceAmountMinor": balance_minor,
+            "paymentStatus": payment_status,
+            # Settled either way: the rest is collected on delivery, so nothing
+            # is still waiting on a transfer.
+            "paymentPending": False,
+            "paymentReceipts": receipts,
+            "paymentVerifiedBy": uid,
+            "paymentVerifiedAt": firestore.SERVER_TIMESTAMP,
+            "updatedAt": firestore.SERVER_TIMESTAMP,
+        },
+    )
+    order_reference.collection("events").document().set(
+        {
+            "status": order.get("fulfilmentStatus", "needs-confirmation"),
+            "message": (
+                f"Payment of {paid_amount_minor / 100:,.2f} recorded."
+                + (
+                    f" Balance {balance_minor / 100:,.2f} to collect on delivery."
+                    if balance_minor
+                    else " Order fully paid."
+                )
+                + (f" {note}" if note else "")
+            ),
+            "performedBy": uid,
+            "createdAt": firestore.SERVER_TIMESTAMP,
+        },
+    )
     return get_order(database, business_id, order_id)

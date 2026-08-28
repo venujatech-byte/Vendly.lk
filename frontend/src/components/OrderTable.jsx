@@ -68,6 +68,7 @@ function OrderTable({
   onStatusChange,
   onGenerateWaybill,
   onFraudReport,
+  onRecordPayment,
   onCourierIssue,
   onEditOrder,
   onRemoveOrder,
@@ -251,10 +252,16 @@ function OrderTable({
               const isExpanded = expandedOrderId === order.id;
               const isSelected = selectedOrderIds.includes(order.id);
               const hasWarning = Boolean(order.fraudWarning?.matched ?? order.fraudWarning);
-              // The customer said they would transfer rather than pay the
-              // courier, so the seller has to watch for the money before
-              // dispatching. Fraud stays red; this is a caution, not a danger.
-              const awaitsDeposit = order.paymentMethod === "deposit";
+              // Colour by where the money is, which is what the seller scans
+              // this table for. Fraud stays red and outranks all of it - that
+              // is a danger, the rest are states of a normal order.
+              //   yellow  waiting on a transfer, do not pack
+              //   blue    part paid, courier collects the rest
+              //   green   paid in full, nothing to collect
+              const paymentStatus = order.paymentStatus || "unpaid";
+              const awaitsTransfer = paymentStatus === "pending-payment";
+              const isPartlyPaid = paymentStatus === "partially-paid";
+              const isFullyPaid = paymentStatus === "paid";
               const currentStatus = order.fulfilmentStatus || order.status || "pending";
               const availableStatuses = nextStatuses[currentStatus] ?? [];
 
@@ -264,7 +271,9 @@ function OrderTable({
                className={[
                  isSelected ? "orders-table__row--selected" : "",
                  hasWarning ? "orders-table__row--warning" : "",
-                 !hasWarning && awaitsDeposit ? "orders-table__row--deposit" : "",
+                 !hasWarning && awaitsTransfer ? "orders-table__row--deposit" : "",
+                 !hasWarning && isPartlyPaid ? "orders-table__row--part-paid" : "",
+                 !hasWarning && isFullyPaid ? "orders-table__row--paid" : "",
                ].filter(Boolean).join(" ")}
               >
                   <td>
@@ -415,6 +424,7 @@ function OrderTable({
                     onStatusChange={onStatusChange}
                     onGenerateWaybill={onGenerateWaybill}
                     onFraudReport={onFraudReport}
+                    onRecordPayment={onRecordPayment}
                     onCourierIssue={onCourierIssue}
                     onWaybillSave={onWaybillSave}
                     onWarrantyClaim={onWarrantyClaim}

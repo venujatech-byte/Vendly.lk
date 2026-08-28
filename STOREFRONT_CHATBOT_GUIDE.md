@@ -2211,3 +2211,86 @@ information, no extra height.
 kilograms above. Couriers price by the kilo, and the seller has to check the
 parcel against that figure on the courier's scale - a mismatch is a surcharge
 they pay. Shown only when the order has a weight recorded.
+
+### 23.72 Orders without a note laid out differently — FIXED
+
+**Seen:** Order Actions jumped to the first column on orders that had no
+customer note, and Total Weight showed its label with nothing beside it.
+
+**Cause 1 - conditional section, shifting layout.** The note rendered only when
+present, so the grid held five items on some orders and four on others. Worse,
+the fix for the note's position had forced `grid-row` on the actions section
+alone, and forcing a row on one item **disturbs auto-placement for the rest** -
+which is how Order Actions ended up in column one.
+
+**Fix:** the note is always rendered, with quieter styling and "No note from
+the customer for this order." when empty, so every order reads the same shape.
+Every section now names its own cell explicitly rather than relying on document
+order, and the explicit placement is **released below 1100px**, where the grid
+has fewer columns than the placement names - a hardcoded `grid-column: 4` in a
+two-column grid creates a phantom fourth column.
+
+**Cause 2 - the weight row depended on a second field.** It tested
+`totalWeightGrams` but printed `totalWeight`, so a missing formatted field left
+the label with an empty value. It now formats from the raw grams it already
+tested, which cannot disagree with itself.
+
+### 23.72 Bank transfers: promised, received, and collected — NEW
+
+**The rule underneath all of it: a promise is not money.** An order marked paid
+before the transfer lands is a parcel shipped for free if it never arrives.
+
+**At checkout** (cart and chat) the customer chooses cash on delivery, full
+bank transfer, or half bank transfer. A transfer choice records
+`paymentPending` and `paymentStatus: "pending-payment"` with
+`paidAmountMinor: 0` - the method says what was promised, the status says
+nothing has been received.
+
+`pending-payment` is deliberately distinct from `unpaid`. Unpaid is a
+cash-on-delivery order behaving normally; pending is an order that must not
+ship yet.
+
+**Bank details travel with the order, not the catalogue.** Publishing them in
+the storefront payload would expose them to anyone who loads the page,
+scrapers included - the existing code says so and it is right. They are
+returned with the order the customer has just placed, the same session-scoped
+disclosure the chatbot already makes.
+
+**Confirming is blocked** while payment is pending: confirming starts the shop
+picking and packing against money nobody has received. Cancelling stays
+available, because an order that never gets paid has to be closable.
+
+**Recording payment** is one action for both halves of the feature. The seller
+enters what actually landed and attaches the slip; whatever is left becomes
+the cash-on-delivery amount. Full and half are the same operation with
+different numbers rather than two paths that can disagree. The modal shows the
+resulting collect-on-delivery figure **before** confirming, since that is the
+number that ends up on the waybill.
+
+Guards, each tested: more than the total is refused (a slipped digit would
+show the courier a negative amount to collect), zero is refused, and every
+receipt is kept - a customer who pays in two transfers leaves two slips and
+the seller may need either later.
+
+**Row colour follows where the money is**, which is what the seller scans the
+table for:
+
+| colour | meaning |
+|---|---|
+| red | fraud warning - outranks everything below |
+| yellow | waiting on a transfer, do not pack |
+| light blue | part paid, courier collects the rest |
+| green | paid in full, nothing to collect |
+
+**The receipt is on the order**, not only in the chat, so it can be checked
+long after the conversation has scrolled away.
+
+The receipt upload reuses the chatbot's data-URL path rather than adding a
+second route to the same bucket, and the image is sent together with the
+amount so a failure leaves neither recorded - never a payment with no proof of
+it.
+
+**Not yet verified against live Firestore.** The status computation, the
+guards and the arithmetic are covered by nine tests, but the Cloudinary upload
+and the Firestore writes have only been read. **Record one real payment and
+check the row colour, the balance to collect, and that the receipt opens.**
