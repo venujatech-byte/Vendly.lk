@@ -5,6 +5,7 @@ export function splitMessageBlocks(text) {
   const blocks = [];
   let paragraph = [];
   let table = null;
+  let list = null;
 
   const flushParagraph = () => {
     if (paragraph.length) blocks.push({ type: "text", text: paragraph.join("\n") });
@@ -13,6 +14,10 @@ export function splitMessageBlocks(text) {
   const flushTable = () => {
     if (table && table.rows.length) blocks.push({ type: "table", ...table });
     table = null;
+  };
+  const flushList = () => {
+    if (list && list.items.length) blocks.push(list);
+    list = null;
   };
   // A separator row is the |---|---| line under the header.
   const isSeparator = (cells) =>
@@ -33,11 +38,30 @@ export function splitMessageBlocks(text) {
       return;
     }
     flushTable();
+
+    // "1. Name - price" or "- Name". The model is asked to name products one
+    // per line; collapsing them into a paragraph is what made a two-product
+    // answer read as one long sentence.
+    const item = line.match(/^\s*(?:\d+[.)]|[-*•])\s+(.*)$/);
+
+    if (item && item[1].trim()) {
+      if (list) {
+        list.items.push(item[1].trim());
+      } else {
+        flushParagraph();
+        list = { type: "list", ordered: /^\s*\d/.test(line), items: [item[1].trim()] };
+      }
+      return;
+    }
+
+    flushList();
+
     if (line.trim()) paragraph.push(line);
     else flushParagraph();
   });
 
   flushTable();
+  flushList();
   flushParagraph();
   return blocks;
 }

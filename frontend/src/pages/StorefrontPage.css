@@ -4944,3 +4944,22 @@ body:has(.storefront-chat-page) {
 .storefront-checkout-payment label small {
   font-size: 0.7rem;
 }
+
+/* Products named one per line. A two-product answer collapsed into a paragraph
+   reads as one long sentence, which is exactly what it looked like. */
+.storefront-chat-list {
+  margin: 6px 0 2px;
+  padding-left: 20px;
+  display: grid;
+  gap: 4px;
+}
+
+.storefront-chat-list li {
+  padding-left: 2px;
+  line-height: 1.5;
+}
+
+.storefront-chat-list li::marker {
+  color: var(--sf-muted);
+  font-weight: 700;
+}

@@ -1,0 +1,523 @@
+<title>Vendly Chatbot Pipeline</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+
+<style>
+  :root {
+    --paper: #f6f8fb;
+    --card: #ffffff;
+    --ink: #0e1c2b;
+    --muted: #5b6f85;
+    --rule: #d8e2ec;
+    --code: #0872d9;
+    --code-soft: #e8f2fd;
+    --ai: #a86f0c;
+    --ai-soft: #fbf1dd;
+    --good: #0d9271;
+    --good-soft: #e2f5ee;
+    --stop: #c4384a;
+    --stop-soft: #fbe9eb;
+    --shadow: 0 1px 2px rgba(14, 28, 43, .05), 0 12px 32px rgba(14, 28, 43, .06);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #0b1421;
+      --card: #111e2e;
+      --ink: #e6eef8;
+      --muted: #93a8bf;
+      --rule: #22364c;
+      --code: #55a6ff;
+      --code-soft: #12283f;
+      --ai: #e3ac48;
+      --ai-soft: #2e2413;
+      --good: #34c398;
+      --good-soft: #102f27;
+      --stop: #f2707f;
+      --stop-soft: #33161c;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 12px 32px rgba(0, 0, 0, .35);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper: #0b1421;
+    --card: #111e2e;
+    --ink: #e6eef8;
+    --muted: #93a8bf;
+    --rule: #22364c;
+    --code: #55a6ff;
+    --code-soft: #12283f;
+    --ai: #e3ac48;
+    --ai-soft: #2e2413;
+    --good: #34c398;
+    --good-soft: #102f27;
+    --stop: #f2707f;
+    --stop-soft: #33161c;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 12px 32px rgba(0, 0, 0, .35);
+  }
+
+  body {
+    margin: 0;
+    padding: 0 20px 88px;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 860px; margin: 0 auto; }
+  .prose { max-width: 65ch; }
+
+  header.masthead {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 56px 0 30px;
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: 38px;
+  }
+
+  .eyebrow {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 11.5px;
+    font-weight: 500;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  h1 {
+    margin: 0;
+    font-size: clamp(30px, 4.6vw, 43px);
+    font-weight: 600;
+    letter-spacing: -.021em;
+    line-height: 1.12;
+    text-wrap: balance;
+  }
+
+  .standfirst { margin: 4px 0 0; max-width: 62ch; color: var(--muted); font-size: 17px; }
+
+  h2 {
+    margin: 54px 0 6px;
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: -.012em;
+    text-wrap: balance;
+  }
+
+  h3 { margin: 30px 0 4px; font-size: 15.5px; font-weight: 600; }
+  p { margin: 12px 0; }
+  strong { font-weight: 600; }
+  code {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: .87em;
+    background: var(--code-soft);
+    color: var(--code);
+    padding: 1.5px 5px;
+    border-radius: 4px;
+  }
+
+  figure {
+    margin: 30px 0;
+    padding: 22px 20px 16px;
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    overflow-x: auto;
+  }
+
+  figure svg { display: block; max-width: 100%; height: auto; margin: 0 auto; color: var(--ink); }
+
+  figcaption {
+    margin-top: 16px;
+    padding-top: 13px;
+    border-top: 1px solid var(--rule);
+    color: var(--muted);
+    font-size: 13.5px;
+    line-height: 1.5;
+  }
+
+  .key { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 20px 0 4px; }
+  .key span {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .key i { width: 11px; height: 11px; border-radius: 3px; display: block; }
+
+  table { width: 100%; border-collapse: collapse; margin: 22px 0; font-size: 14.5px; }
+  th, td { text-align: left; padding: 10px 12px 10px 0; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  th {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 11.5px;
+    font-weight: 500;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  td.mono, th.mono { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 13px; }
+  td .tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+  .tag.fast { background: var(--ai-soft); color: var(--ai); }
+  .tag.full { background: var(--code-soft); color: var(--code); }
+  .table-scroll { overflow-x: auto; }
+
+  .callout {
+    margin: 26px 0;
+    padding: 16px 18px;
+    border-left: 3px solid var(--code);
+    background: var(--card);
+    border-radius: 0 10px 10px 0;
+  }
+  .callout p { margin: 0; }
+  .callout p + p { margin-top: 9px; }
+  .callout.warn { border-left-color: var(--stop); }
+
+  ul { margin: 12px 0; padding-left: 20px; }
+  li { margin: 6px 0; }
+
+  footer {
+    margin-top: 58px;
+    padding-top: 20px;
+    border-top: 1px solid var(--rule);
+    color: var(--muted);
+    font-size: 13px;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    a { transition: color .15s ease; }
+  }
+</style>
+
+<div class="wrap">
+  <header class="masthead">
+    <span class="eyebrow">Vendly storefront · architecture</span>
+    <h1>How the chatbot answers a message</h1>
+    <p class="standfirst">
+      Where a customer's message travels, which of it the code answers on its own,
+      and the four places the AI is actually called.
+    </p>
+  </header>
+
+  <div class="prose">
+    <p>
+      The bot is not a wrapper around a model. It is a pipeline of ordered branches
+      that answer from the seller's own data wherever they can, and call the model only
+      where reading a sentence is genuinely required. That ordering is the design: it is
+      what keeps prices, stock and delivery fees exact, and what keeps the token bill
+      survivable on a free tier.
+    </p>
+  </div>
+
+  <div class="key">
+    <span><i style="background: var(--code)"></i> answered from seller data</span>
+    <span><i style="background: var(--ai)"></i> AI call</span>
+    <span><i style="background: var(--good)"></i> reply to customer</span>
+    <span><i style="background: var(--stop)"></i> provider failure</span>
+  </div>
+
+  <figure>
+    <svg viewBox="0 0 720 610" role="img" aria-label="One customer message travels from the storefront through intent classification, then through seventeen ordered deterministic branches; most messages are answered from seller data, and only the ones that need reading reach the AI answer call before translation and reply.">
+      <defs>
+        <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M0 0 L10 5 L0 10 z" fill="currentColor"/>
+        </marker>
+        <marker id="aAi" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M0 0 L10 5 L0 10 z" fill="#a86f0c"/>
+        </marker>
+        <marker id="aGood" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M0 0 L10 5 L0 10 z" fill="#0d9271"/>
+        </marker>
+      </defs>
+
+      <g font-family="IBM Plex Mono, monospace" font-size="11.5" fill="currentColor">
+        <rect x="228" y="14" width="264" height="40" rx="8" fill="none" stroke="currentColor" stroke-width="1.4"/>
+        <text x="360" y="32" text-anchor="middle" font-size="12.5">Customer message</text>
+        <text x="360" y="46" text-anchor="middle" font-size="10.5" opacity=".62">storefront chat · Sinhala, Tamil or English</text>
+
+        <line x1="360" y1="54" x2="360" y2="80" stroke="currentColor" stroke-width="1.4" marker-end="url(#a)"/>
+        <text x="370" y="72" font-size="10" opacity=".62">POST /public/chat/sessions/:id/messages</text>
+
+        <rect x="228" y="82" width="264" height="34" rx="8" fill="none" stroke="currentColor" stroke-width="1.4"/>
+        <text x="360" y="103" text-anchor="middle">save turn · load catalogue · load memory</text>
+
+        <line x1="360" y1="116" x2="360" y2="140" stroke="#a86f0c" stroke-width="1.6" marker-end="url(#aAi)"/>
+
+        <rect x="212" y="142" width="296" height="44" rx="8" fill="#fbf1dd" stroke="#a86f0c" stroke-width="1.5"/>
+        <text x="360" y="162" text-anchor="middle" fill="#a86f0c" font-size="12.5">1 · classify intent + language</text>
+        <text x="360" y="177" text-anchor="middle" fill="#a86f0c" font-size="10.5" opacity=".85">fast model · every message · 20 intents</text>
+
+        <line x1="360" y1="186" x2="360" y2="210" stroke="currentColor" stroke-width="1.4" marker-end="url(#a)"/>
+
+        <rect x="150" y="212" width="420" height="150" rx="10" fill="none" stroke="#0872d9" stroke-width="1.6"/>
+        <text x="360" y="234" text-anchor="middle" fill="#0872d9" font-size="12.5">17 ordered branches · seller data only</text>
+        <line x1="168" y1="244" x2="552" y2="244" stroke="#0872d9" stroke-width=".8" opacity=".4"/>
+        <text x="170" y="262" fill="#0872d9" font-size="10.5">checkout states — name, phone, address, district, payment</text>
+        <text x="170" y="280" fill="#0872d9" font-size="10.5">cart · cancel · variant · quantity · order merge</text>
+        <text x="170" y="298" fill="#0872d9" font-size="10.5">delivery fee and time · order status · bank details</text>
+        <text x="170" y="316" fill="#0872d9" font-size="10.5">category · brand · feature filter · comparison table</text>
+        <text x="170" y="334" fill="#0872d9" font-size="10.5">product resolution by name, code or catalogue number</text>
+        <text x="170" y="352" fill="#0872d9" font-size="10" opacity=".72">stock, prices and fees come from Firestore, never the model</text>
+
+        <line x1="255" y1="362" x2="255" y2="470" stroke="#0872d9" stroke-width="1.6" marker-end="url(#a)"/>
+        <text x="140" y="404" fill="#0872d9" font-size="10.5">a branch answered</text>
+        <text x="140" y="418" fill="#0872d9" font-size="10.5" opacity=".7">most messages</text>
+
+        <line x1="465" y1="362" x2="465" y2="392" stroke="#a86f0c" stroke-width="1.6" marker-end="url(#aAi)"/>
+        <text x="478" y="380" fill="#a86f0c" font-size="10.5">nothing matched</text>
+
+        <rect x="330" y="394" width="270" height="46" rx="8" fill="#fbf1dd" stroke="#a86f0c" stroke-width="1.5"/>
+        <text x="465" y="414" text-anchor="middle" fill="#a86f0c" font-size="12.5">2 · answer from the catalogue</text>
+        <text x="465" y="429" text-anchor="middle" fill="#a86f0c" font-size="10.5" opacity=".85">full model · product, comparison, policy</text>
+
+        <line x1="465" y1="440" x2="465" y2="470" stroke="#a86f0c" stroke-width="1.6" marker-end="url(#aAi)"/>
+
+        <rect x="212" y="472" width="296" height="44" rx="8" fill="#fbf1dd" stroke="#a86f0c" stroke-width="1.5"/>
+        <text x="360" y="492" text-anchor="middle" fill="#a86f0c" font-size="12.5">3 · translate the reply</text>
+        <text x="360" y="507" text-anchor="middle" fill="#a86f0c" font-size="10.5" opacity=".85">fast model · only when not English</text>
+
+        <line x1="360" y1="516" x2="360" y2="546" stroke="#0d9271" stroke-width="1.8" marker-end="url(#aGood)"/>
+
+        <rect x="228" y="548" width="264" height="44" rx="8" fill="#e2f5ee" stroke="#0d9271" stroke-width="1.6"/>
+        <text x="360" y="568" text-anchor="middle" fill="#0d9271" font-size="12.5">Reply · cards · suggested next steps</text>
+        <text x="360" y="583" text-anchor="middle" fill="#0d9271" font-size="10.5" opacity=".85">turn saved back into memory</text>
+      </g>
+    </svg>
+    <figcaption>
+      The model is consulted three times at most, and only the middle one depends on
+      understanding the catalogue. A message answered by a branch — a district, a
+      quantity, a phone number, "that is everything" — never reaches step 2 at all.
+    </figcaption>
+  </figure>
+
+  <div class="prose">
+    <h2>The four AI calls</h2>
+    <p>
+      Two models are configured. Classification is mechanical and runs constantly, so it
+      goes to the small one; answering questions about a catalogue is why a capable model
+      is configured at all.
+    </p>
+  </div>
+
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th class="mono">call</th>
+          <th class="mono">runs</th>
+          <th class="mono">model</th>
+          <th class="mono">what it does</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="mono">storefront_intent</td>
+          <td>every message</td>
+          <td><span class="tag fast">fast</span></td>
+          <td>reads a sentence into one of 20 intents, plus the language</td>
+        </tr>
+        <tr>
+          <td class="mono">detect_chat_language</td>
+          <td>every message</td>
+          <td><span class="tag fast">fast</span></td>
+          <td>names the language when the script alone is ambiguous</td>
+        </tr>
+        <tr>
+          <td class="mono">translate_chat_message</td>
+          <td>most replies</td>
+          <td><span class="tag fast">fast</span></td>
+          <td>turns a reply the code wrote in English into the customer's language</td>
+        </tr>
+        <tr>
+          <td class="mono">generate_*_answer</td>
+          <td>when nothing matched</td>
+          <td><span class="tag full">full</span></td>
+          <td>product questions, catalogue questions, comparisons</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="prose">
+    <p>
+      Across one complete order — browsing, a feature question, a comparison, then seven
+      checkout answers — <strong>28 of 30 model calls go to the small model</strong>. The two
+      that do not are the feature answer and the comparison.
+    </p>
+  </div>
+
+  <figure>
+    <svg viewBox="0 0 720 330" role="img" aria-label="Every AI call passes through one function which picks the fast or full model by task, sends it to Groq, and on a rate limit retries the same prompt at OpenRouter; any other four-hundred error disables AI and the bot answers deterministically in English.">
+      <defs>
+        <marker id="b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M0 0 L10 5 L0 10 z" fill="currentColor"/>
+        </marker>
+        <marker id="bStop" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M0 0 L10 5 L0 10 z" fill="#c4384a"/>
+        </marker>
+        <marker id="bAi" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M0 0 L10 5 L0 10 z" fill="#a86f0c"/>
+        </marker>
+      </defs>
+
+      <g font-family="IBM Plex Mono, monospace" font-size="11.5" fill="currentColor">
+        <rect x="24" y="120" width="150" height="44" rx="8" fill="none" stroke="currentColor" stroke-width="1.4"/>
+        <text x="99" y="140" text-anchor="middle" font-size="12">request_ai_text</text>
+        <text x="99" y="155" text-anchor="middle" font-size="10" opacity=".62">one call path</text>
+
+        <line x1="174" y1="132" x2="238" y2="86" stroke="#a86f0c" stroke-width="1.5" marker-end="url(#bAi)"/>
+        <text x="182" y="98" font-size="10" fill="#a86f0c">task=classify</text>
+
+        <line x1="174" y1="152" x2="238" y2="198" stroke="#0872d9" stroke-width="1.5" marker-end="url(#b)"/>
+        <text x="182" y="192" font-size="10" fill="#0872d9">task=answer</text>
+
+        <rect x="240" y="58" width="196" height="46" rx="8" fill="#fbf1dd" stroke="#a86f0c" stroke-width="1.5"/>
+        <text x="338" y="78" text-anchor="middle" fill="#a86f0c" font-size="12">AI_FAST_MODEL</text>
+        <text x="338" y="93" text-anchor="middle" fill="#a86f0c" font-size="10.5" opacity=".85">gpt-oss-20b</text>
+
+        <rect x="240" y="176" width="196" height="46" rx="8" fill="#e8f2fd" stroke="#0872d9" stroke-width="1.5"/>
+        <text x="338" y="196" text-anchor="middle" fill="#0872d9" font-size="12">AI_MODEL</text>
+        <text x="338" y="211" text-anchor="middle" fill="#0872d9" font-size="10.5" opacity=".85">gpt-oss-120b</text>
+
+        <line x1="436" y1="81" x2="512" y2="122" stroke="currentColor" stroke-width="1.4" marker-end="url(#b)"/>
+        <line x1="436" y1="199" x2="512" y2="158" stroke="currentColor" stroke-width="1.4" marker-end="url(#b)"/>
+
+        <rect x="514" y="118" width="182" height="48" rx="8" fill="none" stroke="currentColor" stroke-width="1.6"/>
+        <text x="605" y="138" text-anchor="middle" font-size="12.5">Groq</text>
+        <text x="605" y="153" text-anchor="middle" font-size="10.5" opacity=".62">8,000 tokens per minute</text>
+
+        <line x1="605" y1="166" x2="605" y2="212" stroke="#c4384a" stroke-width="1.6" marker-end="url(#bStop)"/>
+        <text x="614" y="192" font-size="10.5" fill="#c4384a">429 rate limited</text>
+
+        <rect x="514" y="214" width="182" height="46" rx="8" fill="#e2f5ee" stroke="#0d9271" stroke-width="1.5"/>
+        <text x="605" y="234" text-anchor="middle" fill="#0d9271" font-size="12">OpenRouter</text>
+        <text x="605" y="249" text-anchor="middle" fill="#0d9271" font-size="10.5" opacity=".85">same prompt · free model</text>
+
+        <line x1="514" y1="142" x2="440" y2="286" stroke="#c4384a" stroke-width="1.4" stroke-dasharray="5 4" marker-end="url(#bStop)"/>
+        <text x="404" y="264" text-anchor="end" font-size="10.5" fill="#c4384a">any other 4xx</text>
+
+        <rect x="150" y="288" width="290" height="30" rx="7" fill="#fbe9eb" stroke="#c4384a" stroke-width="1.4"/>
+        <text x="295" y="308" text-anchor="middle" fill="#c4384a" font-size="11.5">AI DISABLED · deterministic English reply</text>
+      </g>
+    </svg>
+    <figcaption>
+      A rate limit is the one failure another provider can answer through, so only a 429
+      retries elsewhere. A wrong model name or a revoked key is a fault to fix — answering
+      it from a second provider would hide it while the bill moved.
+    </figcaption>
+  </figure>
+
+  <div class="prose">
+    <h2>How it remembers</h2>
+    <p>
+      The session document carries a rolling window of the last twelve turns. They are sent
+      as real chat messages — the same shape ChatGPT uses — not summarised into a paragraph
+      about the conversation.
+    </p>
+  </div>
+
+  <figure>
+    <svg viewBox="0 0 720 250" role="img" aria-label="The session document holds the last twelve turns, which are sent to the model as alternating user and assistant messages followed by a final message carrying the catalogue and the question.">
+      <defs>
+        <marker id="cAi" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M0 0 L10 5 L0 10 z" fill="#a86f0c"/>
+        </marker>
+      </defs>
+
+      <g font-family="IBM Plex Mono, monospace" font-size="11" fill="currentColor">
+        <rect x="20" y="46" width="228" height="158" rx="9" fill="none" stroke="currentColor" stroke-width="1.4"/>
+        <text x="134" y="70" text-anchor="middle" font-size="12">publicChatSessions/:id</text>
+        <line x1="38" y1="80" x2="230" y2="80" stroke="currentColor" stroke-width=".8" opacity=".35"/>
+        <text x="38" y="100" font-size="11" opacity=".85">recentTurns[12]</text>
+        <text x="38" y="120" font-size="10.5" opacity=".6">400 characters each</text>
+        <text x="38" y="146" font-size="11" opacity=".85">selectedProductId</text>
+        <text x="38" y="164" font-size="11" opacity=".85">lastShownProductIds</text>
+        <text x="38" y="182" font-size="11" opacity=".85">cart · customerDraft · state</text>
+
+        <line x1="248" y1="125" x2="316" y2="125" stroke="#a86f0c" stroke-width="1.6" marker-end="url(#cAi)"/>
+        <text x="282" y="116" text-anchor="middle" font-size="10" fill="#a86f0c">sent as turns</text>
+
+        <rect x="318" y="24" width="382" height="202" rx="9" fill="#fbf1dd" stroke="#a86f0c" stroke-width="1.5"/>
+        <text x="509" y="46" text-anchor="middle" fill="#a86f0c" font-size="12">messages sent to the model</text>
+
+        <rect x="336" y="58" width="346" height="24" rx="5" fill="none" stroke="#a86f0c" stroke-width="1" opacity=".55"/>
+        <text x="348" y="74" fill="#a86f0c" font-size="10.5">system · follow the supplied facts exactly</text>
+
+        <rect x="336" y="88" width="346" height="24" rx="5" fill="none" stroke="#a86f0c" stroke-width="1" opacity=".55"/>
+        <text x="348" y="104" fill="#a86f0c" font-size="10.5">user · show me smart watches</text>
+
+        <rect x="336" y="118" width="346" height="24" rx="5" fill="none" stroke="#a86f0c" stroke-width="1" opacity=".55"/>
+        <text x="348" y="134" fill="#a86f0c" font-size="10.5">assistant · here is what we have…</text>
+
+        <rect x="336" y="148" width="346" height="24" rx="5" fill="none" stroke="#a86f0c" stroke-width="1" opacity=".55"/>
+        <text x="348" y="164" fill="#a86f0c" font-size="10.5">user · tell me about the T800</text>
+
+        <rect x="336" y="178" width="346" height="34" rx="5" fill="#a86f0c" fill-opacity=".14" stroke="#a86f0c" stroke-width="1.3"/>
+        <text x="348" y="193" fill="#a86f0c" font-size="10.5">user · catalogue JSON + rules + "and the warranty?"</text>
+        <text x="348" y="206" fill="#a86f0c" font-size="9.5" opacity=".75">the working context and the live question</text>
+      </g>
+    </svg>
+    <figcaption>
+      Because the turns arrive as turns, "and the warranty?" resolves to whatever the
+      previous answer was about. Entity memory — the selected product, the last shown
+      ids — still scopes which products are sent, but it no longer has to carry meaning
+      the model could read for itself.
+    </figcaption>
+  </figure>
+
+  <div class="prose">
+    <h2>Why the pipeline comes first</h2>
+
+    <div class="callout">
+      <p>
+        <strong>A model must never be the source of a number.</strong> Prices, stock,
+        delivery fees, warranty months and order totals are read from Firestore and put
+        into the reply by code. The model is given those facts and told to quote them
+        exactly; it is never asked to recall them.
+      </p>
+    </div>
+
+    <p>
+      The same logic decides ordering. Adding to a cart, choosing a variant, setting a
+      quantity, taking an address and placing the order are all deterministic, because a
+      misread quantity is a wrong parcel and a misread district is a wrong delivery fee.
+      The model reads what the customer meant; the code decides what happens.
+    </p>
+
+    <div class="callout warn">
+      <p>
+        <strong>When the provider is down, the shop still works.</strong> Every AI path has
+        a deterministic answer behind it. Comparisons fall back to a spec table built from
+        stored fields, feature filters read the seller's descriptions directly, and replies
+        arrive in English rather than not at all.
+      </p>
+    </div>
+
+    <h2>Where the cost goes</h2>
+    <p>
+      Each product added to a prompt costs roughly 86 tokens. The full catalogue is sent on
+      catalogue questions, so the ceiling arrives at about 90 products — beyond that, a
+      single question can exceed the per-minute budget on its own. Two levers exist before
+      that becomes urgent: shortlisting the catalogue to the products a question could
+      plausibly concern, and raising the provider tier.
+    </p>
+  </div>
+
+  <footer>
+    Vendly storefront chatbot · pipeline reference
+  </footer>
+</div>

@@ -6,7 +6,7 @@ itself never saw a word of what had been said. So "and the warranty?" or "is
 that one waterproof?" arrived with nothing to attach to.
 """
 
-from app.services.ai_service import conversation_block, product_prompt
+from app.services.ai_service import conversation_block
 
 
 def turns():
@@ -49,29 +49,66 @@ def test_blank_turns_are_dropped():
     assert block.count("Customer:") == 1
 
 
-def test_the_history_reaches_the_product_prompt():
-    prompt = product_prompt(
-        "is it waterproof?",
-        {"name": "T800", "sellingPriceMinor": 130000},
-        "en",
-        None,
-        turns(),
-    )
+def test_the_history_becomes_real_chat_turns():
+    from app.services.ai_service import history_messages
 
-    assert "the 20000mah one" in prompt
-    # Still clearly separated from the question being answered.
-    assert "CUSTOMER QUESTION:" in prompt
-    assert prompt.index("CONVERSATION SO FAR") < prompt.index("CUSTOMER QUESTION:")
+    messages = history_messages(turns())
+
+    # Not a paragraph describing a conversation - the turns themselves, with
+    # the roles a chat model expects. This is the difference between telling a
+    # model about a conversation and letting it read one.
+    assert [m["role"] for m in messages] == ["user", "assistant", "user"]
+    assert messages[0]["content"] == "show me power banks"
+    assert messages[2]["content"] == "the 20000mah one"
 
 
-def test_a_prompt_without_history_is_unchanged():
-    prompt = product_prompt(
-        "is it waterproof?",
-        {"name": "T800", "sellingPriceMinor": 130000},
-        "en",
-    )
+def test_blank_and_missing_history_produce_no_turns():
+    from app.services.ai_service import history_messages
 
-    assert "CONVERSATION SO FAR" not in prompt
+    assert history_messages(None) == []
+    assert history_messages([]) == []
+    assert history_messages([{"role": "customer", "text": "  "}]) == []
+
+
+def test_the_turns_are_sent_before_the_question():
+    from flask import Flask
+
+    from app.services import ai_service
+
+    captured = {}
+
+    def fake_post(url, headers=None, json=None, timeout=None):
+        captured["messages"] = json["messages"]
+
+        class Response:
+            def raise_for_status(self):
+                return None
+
+            def json(self):
+                return {"choices": [{"message": {"content": "ok"}}]}
+
+        return Response()
+
+    monkeypatch_target = ai_service.httpx
+    original_post = monkeypatch_target.post
+    monkeypatch_target.post = fake_post
+    app = Flask(__name__)
+    app.config.update({
+        "AI_PROVIDER": "groq", "AI_API_KEY": "k", "AI_MODEL": "m",
+        "AI_API_BASE_URL": "", "AI_TIMEOUT_SECONDS": 5,
+    })
+
+    try:
+        with app.app_context():
+            ai_service.request_ai_text("What is the warranty?", history=turns())
+    finally:
+        monkeypatch_target.post = original_post
+
+    roles = [m["role"] for m in captured["messages"]]
+
+    # system, the conversation, then the working context and the question.
+    assert roles == ["system", "user", "assistant", "user", "user"]
+    assert captured["messages"][-1]["content"] == "What is the warranty?"
 
 
 def test_the_real_classifier_accepts_history_and_puts_it_in_the_prompt(monkeypatch):
@@ -91,8 +128,16 @@ def test_the_real_classifier_accepts_history_and_puts_it_in_the_prompt(monkeypat
 
     captured = {}
 
-    def fake_provider(prompt, provider, settings, max_tokens=1200, credentials=None):
+    def fake_provider(
+        prompt,
+        provider,
+        settings,
+        max_tokens=1200,
+        credentials=None,
+        history=None,
+    ):
         captured["prompt"] = prompt
+        captured["history"] = list(history or [])
         return '{"intent":"product_question","language":"en"}'
 
     monkeypatch.setattr(
@@ -118,7 +163,10 @@ def test_the_real_classifier_accepts_history_and_puts_it_in_the_prompt(monkeypat
         )
 
     assert result["intent"] == "product_question"
-    # The history has to reach the prompt, not just be accepted and dropped.
-    assert "CONVERSATION SO FAR" in captured["prompt"]
-    assert "show me power banks" in captured["prompt"]
+    # The turns have to reach the request, not just be accepted and dropped.
+    assert [turn["text"] for turn in captured["history"]] == [
+        "show me power banks",
+        "Here is what we have in PowerBanks.",
+        "the 20000mah one",
+    ]
     assert "CUSTOMER MESSAGE:\nand the warranty?" in captured["prompt"]

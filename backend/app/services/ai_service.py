@@ -6,11 +6,95 @@ import httpx
 from flask import current_app
 
 
-OPENAI_COMPATIBLE_BASE_URLS = {
-    "groq": "https://api.groq.com/openai/v1",
-    "cerebras": "https://api.cerebras.ai/v1",
-    "openrouter": "https://openrouter.ai/api/v1",
+# What each provider needs to be talked to correctly. Selecting one with
+# AI_PROVIDER is meant to be the whole change: the base URL, the quirks and a
+# sensible timeout come from here rather than from four more env lines the
+# reader has to know to set.
+#
+# Every provider here speaks the OpenAI chat-completions shape, Gemini through
+# its compatibility endpoint. One transport means one place where history,
+# retries and the fallback are implemented, instead of a second code path that
+# drifts.
+PROVIDER_PROFILES = {
+    "groq": {
+        "base_url": "https://api.groq.com/openai/v1",
+        # Fast and steady, but the free tier caps TOKENS PER MINUTE - so a
+        # cheap model for the constant classification calls earns its keep.
+        "suggested_model": "openai/gpt-oss-120b",
+        "suggested_fast_model": "openai/gpt-oss-20b",
+        "timeout_seconds": 15.0,
+        "exclude_reasoning": False,
+    },
+    "openrouter": {
+        "base_url": "https://openrouter.ai/api/v1",
+        # Free models are reasoning models, and reasoning is spent from the
+        # completion budget - without this the thinking comes back AS the
+        # reply. Free tiers cap REQUESTS PER DAY, so a second smaller model
+        # saves nothing and is one more slug that can be retired.
+        "suggested_model": "nvidia/nemotron-3-super-120b-a12b:free",
+        "suggested_fast_model": "",
+        "timeout_seconds": 40.0,
+        "exclude_reasoning": True,
+    },
+    "cerebras": {
+        "base_url": "https://api.cerebras.ai/v1",
+        "suggested_model": "",
+        "suggested_fast_model": "",
+        "timeout_seconds": 20.0,
+        "exclude_reasoning": False,
+    },
+    "gemini": {
+        # Google's OpenAI-compatible endpoint, so Gemini uses the same request
+        # path as the rest - including the conversation as real turns, which
+        # the native SDK call could not carry.
+        "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
+        "suggested_model": "",
+        "suggested_fast_model": "",
+        "timeout_seconds": 30.0,
+        "exclude_reasoning": False,
+    },
+    "openai-compatible": {
+        "base_url": "",
+        "suggested_model": "",
+        "suggested_fast_model": "",
+        "timeout_seconds": 30.0,
+        "exclude_reasoning": False,
+    },
 }
+
+
+def provider_profile(provider):
+    return PROVIDER_PROFILES.get(provider, PROVIDER_PROFILES["openai-compatible"])
+
+
+def provider_credentials(settings, task="answer", fallback=False):
+    """Everything needed to call one provider, with env values winning.
+
+    A suggested model is used only when none is configured. It is never a
+    silent substitution for a name the seller typed: a wrong model is a 404 on
+    every message, and guessing over the top of an explicit setting would hide
+    which of the two was wrong.
+    """
+    prefix = "AI_FALLBACK_" if fallback else "AI_"
+    provider = settings.get(f"{prefix}PROVIDER", "none")
+    profile = provider_profile(provider)
+    model = settings.get(f"{prefix}MODEL") or profile["suggested_model"]
+
+    if not fallback and task == "classify":
+        # Opt-in only, never suggested into place. A model the account does not
+        # have is a 404 on EVERY message, while a missing fast model only costs
+        # some tokens - so the default has to be the safe side of that. The
+        # suggestion is in .env.example where it can be read before it is used.
+        model = settings.get("AI_FAST_MODEL") or model
+
+    return {
+        "provider": provider,
+        "api_key": settings.get(f"{prefix}API_KEY"),
+        "model": model,
+        "base_url": settings.get(f"{prefix}API_BASE_URL") or profile["base_url"],
+        "exclude_reasoning": profile["exclude_reasoning"],
+        "timeout": settings.get("AI_TIMEOUT_SECONDS") or profile["timeout_seconds"],
+    }
 
 
 CHAT_LANGUAGES = {"en", "si", "ta"}
@@ -139,7 +223,7 @@ def conversation_block(history):
     )
 
 
-def product_prompt(question, product, language="en", other_products=None, history=None):
+def product_prompt(question, product, language="en", other_products=None):
     context = product_facts(product)
     # Questions like "which is cheaper", "what is the difference between these
     # two" and "anything under 3000" cannot be answered from a single product.
@@ -175,9 +259,26 @@ def product_prompt(question, product, language="en", other_products=None, histor
         "that delivery is calculated from district and total order weight when relevant.\n\n"
         f"PRODUCT FACTS:\n{json.dumps(context, ensure_ascii=False)}\n\n"
         f"{catalogue_block}"
-        f"{conversation_block(history)}"
         f"CUSTOMER QUESTION:\n{question}"
     )
+
+
+def history_messages(history):
+    """Past turns as real chat messages, the way a chat model expects them.
+
+    Flattening them into text inside one user message - which is what this did
+    before - tells the model *about* a conversation. Sending them as turns lets
+    it read one, which is the whole difference between a bot that answers
+    follow-ups and one that does not.
+    """
+    return [
+        {
+            "role": "assistant" if turn.get("role") == "assistant" else "user",
+            "content": str(turn.get("text", "")).strip(),
+        }
+        for turn in (history or [])
+        if str(turn.get("text", "")).strip()
+    ]
 
 
 def generate_openai_compatible_answer(
@@ -186,6 +287,7 @@ def generate_openai_compatible_answer(
     settings,
     max_tokens=1200,
     credentials=None,
+    history=None,
 ):
     """Call any OpenAI-compatible chat endpoint.
 
@@ -193,15 +295,12 @@ def generate_openai_compatible_answer(
     fallback differs only in its key, model and base URL, and giving it its own
     copy of the request would be two places to fix the day a header changes.
     """
-    api_key = (credentials or {}).get("api_key") or settings.get("AI_API_KEY")
-    model = (credentials or {}).get("model") or settings.get("AI_MODEL")
-    base_url = (
-        (credentials or {}).get("base_url")
-        or settings.get("AI_API_BASE_URL")
-        or OPENAI_COMPATIBLE_BASE_URLS.get(provider)
-    )
+    resolved = credentials or provider_credentials(settings)
+    api_key = resolved.get("api_key")
+    model = resolved.get("model")
+    base_url = resolved.get("base_url")
 
-    if not base_url:
+    if not base_url or not model:
         return None
 
     # A provider's docs show the full completions URL, so that is what gets
@@ -224,13 +323,30 @@ def generate_openai_compatible_answer(
         json={
             "model": model,
             "messages": [
-                {"role": "system", "content": "Follow the supplied product facts exactly."},
+                {
+                    "role": "system",
+                    "content": "Follow the supplied product facts exactly.",
+                },
+                # The conversation, then the working context and the question.
+                # The turns carry what "it", "that one" and "the second" refer
+                # to; the final message carries the catalogue and the rules.
+                *history_messages(history),
                 {"role": "user", "content": prompt},
             ],
             "temperature": 0.1,
             "max_tokens": max_tokens,
+            # Reasoning models think in the completion budget. On a long
+            # catalogue prompt that thinking ran past the budget and came back
+            # AS the reply - the customer read "We need to decide which is
+            # best..." instead of an answer. Excluding it also halved the
+            # latency, because the model stops narrating.
+            **(
+                {"reasoning": {"exclude": True}}
+                if resolved.get("exclude_reasoning")
+                else {}
+            ),
         },
-        timeout=settings["AI_TIMEOUT_SECONDS"],
+        timeout=resolved.get("timeout") or settings["AI_TIMEOUT_SECONDS"],
     )
     response.raise_for_status()
     data = response.json()
@@ -257,11 +373,12 @@ def generate_product_answer(
 ):
     """Return an optional AI answer; failures safely fall back to deterministic chat."""
     return request_ai_text(
-        product_prompt(question, product, language, other_products, history),
+        product_prompt(question, product, language, other_products),
+        history=history,
     )
 
 
-def catalogue_prompt(question, products, language="en", store_policies="", history=None):
+def catalogue_prompt(question, products, language="en", store_policies=""):
     catalogue = [catalogue_entry(product) for product in products]
     # The seller's own policy text. Without it the model has nothing to answer
     # "do you accept cash on delivery" from, and inventing a returns policy on
@@ -293,7 +410,11 @@ def catalogue_prompt(question, products, language="en", store_policies="", histo
         "as a short markdown table, one row per specification, and let the "
         "customer choose.\n"
         "Name the specific products that answer the question, with their "
-        "prices. Compare using priceLkr, but always write prices back to the "
+        "prices. When more than one product answers it, put each on its own "
+        "line as a numbered item - \"1. Full product name - LKR price\" - with "
+        "any lead-in sentence above the list. Two products run together in one "
+        "sentence read as a single long name, which is unreadable on a phone.\n"
+        "Compare using priceLkr, but always write prices back to the "
         "customer exactly as they appear in priceText, never as a bare "
         "decimal. For a cheapest, dearest or budget question, name the ones "
         "that actually match.\n"
@@ -303,7 +424,6 @@ def catalogue_prompt(question, products, language="en", store_policies="", histo
         "Choose one; never both and never neither.\n\n"
         f"CATALOGUE:\n{json.dumps(catalogue, ensure_ascii=False)}\n\n"
         f"{policy_block}"
-        f"{conversation_block(history)}"
         f"CUSTOMER QUESTION:\n{question}"
     )
 
@@ -325,7 +445,8 @@ def generate_catalogue_answer(
         return None
 
     return request_ai_text(
-        catalogue_prompt(question, products, language, store_policies, history),
+        catalogue_prompt(question, products, language, store_policies),
+        history=history,
     )
 
 
@@ -411,35 +532,36 @@ def ai_status():
     }
 
 
-def fallback_ai_text(prompt, max_tokens):
-    """Ask the second provider, when the first one is rate limited.
+def fallback_ai_text(prompt, max_tokens, history=None):
+    """Ask the second provider when the first one cannot answer.
 
-    Only for 429. A wrong model name or a revoked key is a fault to fix, and
-    quietly answering from somewhere else would hide it - the first provider
-    would stay broken and nobody would know why the bill moved.
+    Covers the failures another provider can genuinely answer through: a rate
+    limit, a 5xx, a timeout, a dropped connection. NOT a 4xx other than 429 - a
+    wrong model name or a revoked key is a fault to fix, and quietly answering
+    from somewhere else would hide it while the bill moved.
 
     Returns None when no fallback is configured, so a shop that has not set one
     behaves exactly as before.
     """
     settings = current_app.config
-    provider = settings.get("AI_FALLBACK_PROVIDER", "none")
-    api_key = settings.get("AI_FALLBACK_API_KEY")
-    model = settings.get("AI_FALLBACK_MODEL")
+    resolved = provider_credentials(settings, fallback=True)
+    provider = resolved["provider"]
+    model = resolved["model"]
 
-    if provider in {"none", "", None} or not api_key or not model:
+    if provider in {"none", "", None} or not resolved["api_key"] or not model:
         return None
 
     try:
+        # The same resolution as the primary, so the fallback gets the same
+        # base URL, timeout and provider quirks - a fallback that needed its
+        # own handling would be a second thing to keep in step.
         answer = generate_openai_compatible_answer(
             prompt,
             provider,
             settings,
             max_tokens=max_tokens,
-            credentials={
-                "api_key": api_key,
-                "model": model,
-                "base_url": settings.get("AI_FALLBACK_API_BASE_URL"),
-            },
+            credentials=resolved,
+            history=history,
         )
     except Exception as error:
         # The fallback failing is not news: the customer is already getting the
@@ -460,7 +582,7 @@ def fallback_ai_text(prompt, max_tokens):
 
     if answer:
         current_app.logger.info(
-            "AI FALLBACK USED - the primary provider was rate limited, so %r "
+            "AI FALLBACK USED - the primary provider could not answer, so %r "
             "answered with %r.",
             provider,
             model,
@@ -469,7 +591,7 @@ def fallback_ai_text(prompt, max_tokens):
     return answer
 
 
-def request_ai_text(prompt, max_tokens=1200, task="answer"):
+def request_ai_text(prompt, max_tokens=1200, task="answer", history=None):
     """Send one prompt to the configured provider, or None when unavailable.
 
     `task="classify"` marks the mechanical work - reading an intent, naming a
@@ -479,27 +601,33 @@ def request_ai_text(prompt, max_tokens=1200, task="answer"):
     the bulk of the traffic, so this is most of the token bill.
     """
     settings = current_app.config
-    provider = settings.get("AI_PROVIDER", "none")
-    fast_model = settings.get("AI_FAST_MODEL")
-    model = fast_model if task == "classify" and fast_model else settings.get("AI_MODEL")
+    resolved = provider_credentials(settings, task=task)
+    provider = resolved["provider"]
+    model = resolved["model"]
 
-    if provider == "none" or not settings.get("AI_API_KEY") or not settings.get("AI_MODEL"):
+    if provider == "none" or not resolved["api_key"] or not model:
+        return None
+
+    if provider not in PROVIDER_PROFILES:
+        current_app.logger.warning(
+            "Unsupported AI_PROVIDER value: %r. Supported: %s.",
+            provider,
+            ", ".join(sorted(PROVIDER_PROFILES)),
+        )
         return None
 
     try:
-        if provider == "gemini":
-            answer = generate_gemini_answer(prompt, settings)
-        elif provider in {"groq", "cerebras", "openai-compatible"}:
-            answer = generate_openai_compatible_answer(
-                prompt,
-                provider,
-                settings,
-                max_tokens=max_tokens,
-                credentials={"model": model},
-            )
-        else:
-            current_app.logger.warning("Unsupported AI_PROVIDER value: %s", provider)
-            return None
+        # Every provider takes the same path. Gemini included, through its
+        # OpenAI-compatible endpoint - a second transport would be a second
+        # place to implement history, timeouts and the fallback.
+        answer = generate_openai_compatible_answer(
+            prompt,
+            provider,
+            settings,
+            max_tokens=max_tokens,
+            credentials=resolved,
+            history=history,
+        )
     except httpx.HTTPStatusError as error:
         # 429 is a quota or rate limit. It clears on its own, so it must not be
         # reported as a broken configuration - that sends someone editing a
@@ -507,7 +635,7 @@ def request_ai_text(prompt, max_tokens=1200, task="answer"):
         if error.response.status_code == 429:
             # Try the second provider before giving up. A rate limit is the one
             # failure another provider can actually answer through.
-            answer = fallback_ai_text(prompt, max_tokens)
+            answer = fallback_ai_text(prompt, max_tokens, history)
 
             if answer:
                 return answer
@@ -541,10 +669,25 @@ def request_ai_text(prompt, max_tokens=1200, task="answer"):
             )
             return None
 
+        # 5xx is the provider having a bad minute, not a fault in this
+        # configuration. Free tiers return them often enough that not trying
+        # the other provider would mean answering in English for no reason.
+        answer = fallback_ai_text(prompt, max_tokens, history)
+
+        if answer:
+            return answer
+
         record_ai_failure("unavailable", provider, model)
         current_app.logger.exception("The configured AI provider request failed.")
         return None
     except Exception:  # External SDKs use provider-specific exception classes.
+        # A timeout or a dropped connection, which the other provider may not
+        # be having. Same reasoning as a 5xx.
+        answer = fallback_ai_text(prompt, max_tokens, history)
+
+        if answer:
+            return answer
+
         record_ai_failure("unavailable", provider, settings.get("AI_MODEL"))
         current_app.logger.exception("The configured AI provider request failed.")
         return None
@@ -745,11 +888,10 @@ def generate_storefront_intent(
         '"quantityMode":"total","district":"","language":"si"}\n\n'
         # A follow-up cannot be classified on its own: "the cheapest one",
         # "yes that", "and in black?" carry their meaning in the turn before.
-        f"{conversation_block(history)}"
         f"CUSTOMER MESSAGE:\n{message}"
     )
     result = parse_json_object(
-        request_ai_text(prompt, max_tokens=1200, task="classify"),
+        request_ai_text(prompt, max_tokens=1200, task="classify", history=history),
     )
 
     if not result or result.get("intent") not in STOREFRONT_INTENTS:

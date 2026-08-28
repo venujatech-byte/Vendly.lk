@@ -2335,7 +2335,7 @@ function ProductCard({
 function MessageBody({ text }) {
   const blocks = splitMessageBlocks(text);
 
-  if (!blocks.some((block) => block.type === "table")) {
+  if (!blocks.some((block) => block.type === "table" || block.type === "list")) {
     return <p>{text}</p>;
   }
 
@@ -2344,6 +2344,22 @@ function MessageBody({ text }) {
       {blocks.map((block, index) =>
         block.type === "text" ? (
           <p key={index}>{block.text}</p>
+        ) : block.type === "list" ? (
+          // Named products, one per line. Read as a run-on sentence when the
+          // lines were collapsed into a paragraph.
+          block.ordered ? (
+            <ol className="storefront-chat-list" key={index}>
+              {block.items.map((item, itemIndex) => (
+                <li key={itemIndex}>{item}</li>
+              ))}
+            </ol>
+          ) : (
+            <ul className="storefront-chat-list" key={index}>
+              {block.items.map((item, itemIndex) => (
+                <li key={itemIndex}>{item}</li>
+              ))}
+            </ul>
+          )
         ) : (
           <div className="storefront-chat-table" key={index}>
             <table>

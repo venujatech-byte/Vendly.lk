@@ -1800,10 +1800,10 @@ def test_the_window_stays_small(chat, monkeypatch):
     for index in range(12):
         chat.say(f"message {index}")
 
-    # Long enough for a question and its follow-ups, short enough that an old
-    # topic cannot outweigh the current one - and it caps the tokens spent on
-    # history for every single call.
-    assert len(chat.session["recentTurns"]) <= 6
+    # Long enough for a browse, a few questions and a follow-up; short enough
+    # that an old topic cannot outweigh the current one, and it caps the tokens
+    # spent on history for every single call.
+    assert len(chat.session["recentTurns"]) <= 12
 
 
 def test_the_model_is_given_the_turns_before_the_current_message(chat, monkeypatch):

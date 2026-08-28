@@ -1143,6 +1143,19 @@ def products_named_in(answer, products):
 NAME_FILLER_WORDS = {"the", "a", "an", "and", "with", "for", "of", "in", "new"}
 
 
+def squashed(value):
+    """Letters and digits only, lowercased - punctuation and spacing removed.
+
+    Long enough to be safe: an eight-character run of a product's own name is
+    not going to appear inside an unrelated answer by chance.
+    """
+    return "".join(
+        character
+        for character in str(value or "").casefold()
+        if character.isalnum()
+    )
+
+
 def name_appears_in(name, text, answer_words):
     """True when an answer names this product, allowing for natural phrasing.
 
@@ -1152,6 +1165,15 @@ def name_appears_in(name, text, answer_words):
     only needs a majority, which absorbs a dropped trailing word like
     "Earbuds" or a "The" the seller typed and the model did not.
     """
+    # Punctuation-blind first. A model writes "P-08B" with a non-breaking
+    # hyphen and "10000mAh" as "10,000 mAh", so no token of the catalogue name
+    # survives intact - the whole name is there, spelled the way a person
+    # would. Squashing both sides to letters and digits sees it.
+    squashed_name = squashed(name)
+
+    if len(squashed_name) > 7 and squashed_name in squashed(text):
+        return True
+
     words = [
         word
         for word in word_characters(str(name)).casefold().split()
@@ -1161,8 +1183,10 @@ def name_appears_in(name, text, answer_words):
     if not words:
         return False
 
-    # The exact name still counts, however it is worded around.
-    if " ".join(words) in text:
+    # The exact name still counts, however it is worded around. Padded so the
+    # comparison lands on whole words: as a bare substring test, a product
+    # called "Pro" matched inside "professional".
+    if f" {' '.join(words)} " in f" {text} ":
         return True
 
     # A model code mixes letters and digits - "R60i", "EZ10", "A337",
@@ -2427,13 +2451,17 @@ def get_public_chat_messages(database, session_id, provided_token):
     return sorted(messages, key=lambda item: item.get("createdAt") or "")
 
 
-# How many turns of the conversation the model is shown. Six covers a question
-# and its follow-ups without letting an old topic outweigh the current one.
-CONVERSATION_MEMORY_TURNS = 6
+# How much of the conversation the model is shown. Sent as real chat turns, so
+# this is the same thing ChatGPT does - twelve covers a browse, a couple of
+# questions and a follow-up without the oldest topic outweighing the current
+# one. Roughly 700 tokens at the cap, which the small classification model
+# absorbs cheaply.
+CONVERSATION_MEMORY_TURNS = 12
 
-# Long enough for a question or a short answer; a full product answer would
-# crowd out the turns around it and cost more than it explains.
-CONVERSATION_MEMORY_CHARS = 220
+# Long enough for a real question or a short answer. A full product answer is
+# truncated rather than dropped: what it referred to survives, which is all the
+# next turn needs.
+CONVERSATION_MEMORY_CHARS = 400
 
 
 def remembered_turns(session):

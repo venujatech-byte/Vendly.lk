@@ -83,3 +83,32 @@ def test_a_sibling_model_is_not_matched():
 def test_an_empty_answer_names_nothing():
     assert products_named_in("", catalogue()) == []
     assert products_named_in(None, catalogue()) == []
+
+
+def test_a_model_rewriting_the_punctuation_still_matches():
+    # The model writes "P-08B" with a non-breaking hyphen and "10000mAh" as
+    # "10,000 mAh", so not one token of the catalogue name survives intact.
+    # The answer named two products and the cards showed neither.
+    answer = (
+        "The cheapest options are the WIWU Essen P‑08B 10,000 mAh 4‑Cable "
+        "Power Bank and the WIWU Essen Wi‑P078 10,000 mAh powerbank, each "
+        "priced at LKR 3,990.00."
+    )
+    products = [
+        {"id": "p08b", "name": "WIWU Essen P-08B 10000mAh 4-Cable Power Bank"},
+        {"id": "wip078", "name": "WIWU Essen Wi-P078 10000mAh Power Bank"},
+        {"id": "xiaomi", "name": "Xiaomi 20000mAh Power Bank"},
+    ]
+
+    assert [item["id"] for item in products_named_in(answer, products)] == [
+        "p08b",
+        "wip078",
+    ]
+
+
+def test_the_punctuation_blind_match_needs_a_long_name():
+    # Squashing removes word boundaries, so a short name could appear inside an
+    # unrelated word. Only names long enough to be unmistakable qualify.
+    products = [{"id": "x", "name": "Pro"}]
+
+    assert products_named_in("This is a professional grade cable.", products) == []

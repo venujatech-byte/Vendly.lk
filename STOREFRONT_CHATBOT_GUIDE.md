@@ -2714,3 +2714,206 @@ instead of only saying "could not answer either".
 **A swallowed exception with no detail cost the most time here.** Catching
 broadly is right - a failing fallback must not replace one provider's problem
 with another's - but the log has to say what happened.
+
+### 23.89 Conversation sent as real turns, the way ChatGPT does — FIXED
+
+**"Can we use AI caching?"** Prompt caching is a *cost* optimisation - it makes
+a repeated prompt prefix cheaper to send. It gives the model no memory
+whatsoever. Worth stating plainly, because the two get conflated and only one
+of them is the problem here.
+
+**What ChatGPT actually does** is send the whole conversation as a `messages`
+array of alternating roles on every turn. §23.81 added history but flattened it
+into a paragraph inside a single user message - which tells the model *about* a
+conversation rather than letting it read one. The request carried exactly two
+messages: a system line and one large user turn.
+
+**Now:** `history_messages` turns the stored window into real
+`{"role": "user"|"assistant"}` messages, sent between the system line and the
+final message that carries the catalogue and the question. The prompts no
+longer embed a flattened copy - one representation, in the place the model
+expects it.
+
+The window grew with it: **twelve turns, 400 characters each**, roughly 700
+tokens. That is affordable now that classification runs on the small model.
+
+**Verified as a conversation, not as assertions.** Six turns against the live
+model:
+
+| turn | reply |
+|---|---|
+| show me smart watches | lists the category |
+| tell me about the T800 | details for the T800 |
+| is it waterproof? | "Yes, IP67 water-resistant" |
+| and the warranty? | "6-month warranty" - still the T800 |
+| how about the other one | switches to the Zeblace, with its specs |
+| which of those two has better battery | "30 days vs 7 days on the T800" |
+
+Four of those six carry no product name at all. Every one resolved.
+
+### 23.90 The right answer, the wrong cards, again — FIXED
+
+**Seen:** "cheapest powerbank" named two WIWU power banks correctly and showed
+cards for neither.
+
+**Cause:** the model writes names the way a person would - `P‑08B` with a
+non-breaking hyphen, `10000mAh` as `10,000 mAh`. Not one token of the catalogue
+name survives that, so §23.35's word matching found nothing and the branch fell
+back to the whole category.
+
+**Fix:** compare a punctuation-blind form first - both sides reduced to letters
+and digits, so `wiwuessenp08b10000mah4cablepowerbank` matches however it was
+spelled. Only names longer than seven squashed characters qualify, because
+squashing removes word boundaries.
+
+**A pre-existing bug fell out of the test written for it.** The exact-name check
+was a bare substring test, so a product called "Pro" matched inside
+"professional". It compares padded whole words now. The test that caught it was
+written to prove the *new* rule was safe.
+
+### 23.91 Two products in one sentence — FIXED
+
+The same answer read as one run-on line, so two product names looked like one
+very long one. The catalogue prompt now asks for a numbered item per product,
+and `splitMessageBlocks` - the parser already used for tables - recognises
+numbered and bulleted lines and renders them as a real list.
+
+Verified against the live model end to end:
+
+```
+The cheapest power banks are:
+1. WIWU Essen P-08B 10000mAh 4-Cable Power Bank - LKR 3,990.00
+2. WIWU Essen Wi-P078 10000mAh Power Bank - LKR 3,990.00
+```
+
+with the cards showing exactly those two products.
+
+### 23.92 OpenRouter promoted to primary, Groq to fallback
+
+**Measured before switching**, because the two providers fail differently:
+
+| | Groq | OpenRouter free |
+|---|---|---|
+| limits | 8,000 tokens per minute | requests per day |
+| resets | every minute | daily |
+| latency, 20-product prompt | under a second | **3-5 seconds** |
+| reliability | steady | a free model returned **502** during testing |
+
+**Two code changes were required, not just config.**
+
+`request_ai_text` checked a hardcoded set of provider names -
+`{"groq", "cerebras", "openai-compatible"}` - that never included openrouter.
+It had only ever been reachable as the *fallback*, which bypasses that check.
+Making it primary logged one warning line and turned the AI off entirely. The
+allowlist now derives from the base-URL map, so a provider that has a URL is a
+provider that can be used.
+
+**The fallback had to cover more than 429.** Groq is fast and steady, so
+timeouts were rare and a rate limit was the only failure worth retrying. A free
+tier returns 502s and takes seconds per call, so the fallback now also fires on
+**5xx, timeouts and dropped connections**. Other 4xx still disables AI and says
+so - a wrong model name is a fault to fix, not a reason to spend the other
+provider's quota.
+
+`AI_TIMEOUT_SECONDS` went from 15 to 40: a free model needed 3-5 seconds on a
+20-product prompt, and a larger one would have timed out silently.
+
+**`AI_FAST_MODEL` is now blank.** The split existed to save tokens per minute,
+which is a Groq limit. OpenRouter counts requests, so a smaller model saves
+nothing - and a second free slug is a second thing that can be retired without
+warning, which is exactly how §23.83 happened.
+
+Verified live in both directions: the primary answered in 5.4s, and with the
+primary forced to fail, Groq answered in 4.8s.
+
+### 23.93 The model's thinking arrived as the answer — FIXED
+
+**Seen:** customers reading "We need to decide which is best... According to
+spec... We must end with exactly one status marker", paragraph after paragraph,
+with no answer at the end.
+
+**Cause:** the OpenRouter model is a reasoning model, and reasoning is spent
+from the **completion budget**. On a short prompt it finishes thinking and
+answers. On a real catalogue prompt - two products with full seller
+descriptions - the thinking ran past `max_tokens`, so what came back in
+`content` was the thinking itself.
+
+§23 recorded this shape once before, for `gpt-oss` on Groq, and the fix then was
+to raise the budget. That does not work here: raising it buys more visible
+thinking, not an earlier answer.
+
+**Fix:** OpenRouter accepts `reasoning: {"exclude": true}`. Measured on the
+failing prompt:
+
+| | reasoning tokens | latency | content |
+|---|---|---|---|
+| as configured | 259 | 8.9s | thinking, truncated |
+| excluded | 126 | **3.8s** | the answer |
+
+Faster as well as correct, because the model stops narrating. Sent **only** to
+OpenRouter - it is that provider's parameter, and an unknown field risks a 400
+on every call elsewhere. A test asserts both halves of that.
+
+Verified through the full pipeline on the question that failed:
+
+```
+The T900 Ultra Smart Watch offers wireless charging and a slightly larger
+display (2.0-2.09 inch) compared to the T800.
+1. T900 Ultra Smart Watch - LKR 1,300.00
+```
+
+**A free model is not a drop-in for a paid one.** This is the third thing that
+had to change to make the swap work - the provider allowlist, the fallback
+triggers, and now the reasoning field - and none of them were visible until a
+real message went through.
+
+### 23.94 One line switches the provider — NEW
+
+`AI_PROVIDER` is now the whole switch. `PROVIDER_PROFILES` holds what each one
+needs - base URL, timeout, and its quirks - so selecting a provider brings its
+configuration with it instead of requiring four more settings the reader has to
+know about.
+
+| provider | endpoint | timeout | quirk |
+|---|---|---|---|
+| groq | api.groq.com | 15s | - |
+| openrouter | openrouter.ai | 40s | reasoning excluded |
+| gemini | generativelanguage.googleapis.com | 30s | - |
+| cerebras | api.cerebras.ai | 20s | - |
+
+**Gemini moved onto its OpenAI-compatible endpoint.** The native SDK call was a
+second transport that could not carry the conversation as turns, so it would
+have been the one provider without memory. One path means history, timeouts and
+the fallback are implemented once.
+
+**Either provider can hold either role.** The fallback resolves through the same
+function as the primary, so Groq behind OpenRouter and OpenRouter behind Groq
+both work with no special handling.
+
+**Explicit settings always win, and models are never guessed into place.** A
+suggested model fills in only when none is configured, and only for providers
+whose model was actually verified. Cerebras and Gemini have none: inventing a
+name for a catalogue that changes weekly is how every message becomes a 404
+(§23.83). `AI_FAST_MODEL` stays opt-in for the same reason - a missing fast
+model costs some tokens, a wrong one breaks every message.
+
+### 23.95 Measuring the four instead of arguing about them
+
+`scripts/compare_ai_providers.py` asks every provider with a key the same three
+storefront questions - a comparison, a recommendation, and one in Sinhala - and
+prints the answers, the latency and the script each replied in.
+
+First run, on this shop's own catalogue:
+
+| | comparison | recommendation | Sinhala |
+|---|---|---|---|
+| **Groq** gpt-oss-120b | 2.4s ✓ | 2.3s ✓ | 3.0s ✓ **answered in Sinhala** |
+| **OpenRouter** nemotron free | 3.7s ✓ | 12.4s ✓ | 7.9s ✗ **`[NO_DATA]`** |
+
+The Sinhala row is the finding. OpenRouter's free model refused a question Groq
+answered from the same catalogue with the same prompt - and a storefront whose
+whole purpose is serving customers in their own language cannot treat that as a
+detail. Groq was also three to five times faster.
+
+**A benchmark is cheap and an opinion is not.** This took one script and two
+minutes, and it settled a choice that reading provider documentation could not.
