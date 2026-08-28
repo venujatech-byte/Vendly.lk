@@ -141,16 +141,25 @@ def send_payment_recorded_chat_message(
     the loop they started, and tells them what the courier will still collect.
     """
     order_number = order.get("orderNumber", "your order")
-    message = (
-        f"Payment received for order {order_number}: LKR "
-        f"{paid_amount_minor / 100:,.2f}."
-    )
-    message += (
-        f" The courier will collect the remaining LKR {balance_minor / 100:,.2f} "
-        "on delivery."
-        if balance_minor
-        else " Your order is paid in full and nothing is due on delivery."
-    )
+
+    # Nothing was banked: the order moved to cash on delivery. Announcing a
+    # payment of zero would read as a mistake, or worse as a refund.
+    if not paid_amount_minor:
+        message = (
+            f"Order {order_number} has been changed to cash on delivery. "
+            f"Please have LKR {balance_minor / 100:,.2f} ready for the courier."
+        )
+    else:
+        message = (
+            f"Payment received for order {order_number}: LKR "
+            f"{paid_amount_minor / 100:,.2f}."
+        )
+        message += (
+            f" The courier will collect the remaining LKR "
+            f"{balance_minor / 100:,.2f} on delivery."
+            if balance_minor
+            else " Your order is paid in full and nothing is due on delivery."
+        )
     send_chat_message_to_order_sessions(
         database,
         business_id,

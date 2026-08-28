@@ -241,3 +241,74 @@ def test_the_customer_is_told_their_payment_arrived(monkeypatch):
     # loop they started, and the balance tells them what to have ready for the
     # courier.
     assert sent == [(90000, 90000)]
+
+
+def test_changing_to_cash_on_delivery_frees_the_order(monkeypatch):
+    order = {
+        "totalAmountMinor": 180000,
+        "orderNumber": "VD-000019",
+        "paymentMethod": "paid",
+        "paymentStatus": "pending-payment",
+        "paymentPending": True,
+        "paidAmountMinor": 0,
+        "fulfilmentStatus": "needs-confirmation",
+    }
+    database, reference = make_database(order)
+    monkeypatch.setattr(order_service, "get_order", lambda *a: reference.order)
+    monkeypatch.setattr(
+        order_service, "send_payment_recorded_chat_message", lambda *a: None,
+    )
+
+    result = record_order_payment(
+        database, "biz", "order-1", "seller-1",
+        {"convertToCashOnDelivery": True},
+    )
+
+    # The transfer never came. Without this the order is stuck: it cannot be
+    # confirmed while payment is pending, and cancelling one the customer still
+    # wants is the wrong remedy.
+    assert result["paymentMethod"] == "cod"
+    assert result["paymentStatus"] == "unpaid"
+    assert result["paymentPending"] is False
+    assert result["balanceAmountMinor"] == 180000
+
+
+def test_money_already_banked_cannot_be_moved_to_cash_on_delivery(monkeypatch):
+    order = {
+        "totalAmountMinor": 180000,
+        "paidAmountMinor": 90000,
+        "fulfilmentStatus": "needs-confirmation",
+    }
+    database, _reference = make_database(order)
+
+    # Half is already in the seller's account. Telling the courier to collect
+    # the whole total would charge the customer twice for that half.
+    with pytest.raises(ApiError, match="already paid"):
+        record_order_payment(
+            database, "biz", "order-1", "seller-1",
+            {"convertToCashOnDelivery": True},
+        )
+
+
+def test_the_customer_is_told_about_the_change_not_a_zero_payment(monkeypatch):
+    sent = []
+    order = {
+        "totalAmountMinor": 180000,
+        "orderNumber": "VD-000019",
+        "fulfilmentStatus": "needs-confirmation",
+    }
+    database, reference = make_database(order)
+    monkeypatch.setattr(order_service, "get_order", lambda *a: reference.order)
+    monkeypatch.setattr(
+        order_service,
+        "send_payment_recorded_chat_message",
+        lambda _db, _biz, _oid, _order, paid, balance: sent.append((paid, balance)),
+    )
+
+    record_order_payment(
+        database, "biz", "order-1", "seller-1", {"convertToCashOnDelivery": True},
+    )
+
+    # Zero paid, everything outstanding - the message builder reads this as a
+    # change of method rather than announcing a payment of nothing.
+    assert sent == [(0, 180000)]

@@ -1512,6 +1512,17 @@ def record_order_payment(database, business_id, order_id, uid, payload):
     transfer and a full transfer are the same operation with different numbers
     rather than two code paths that can disagree.
     """
+    # The transfer never came, or the customer changed their mind at the door.
+    # Rather than leaving the order stuck as unconfirmable, the seller moves the
+    # whole amount to cash on delivery and carries on.
+    if payload.get("convertToCashOnDelivery") is True:
+        return convert_order_to_cash_on_delivery(
+            database,
+            business_id,
+            order_id,
+            uid,
+        )
+
     try:
         paid_amount_minor = int(payload.get("paidAmountMinor") or 0)
     except (TypeError, ValueError) as error:
@@ -1604,5 +1615,68 @@ def record_order_payment(database, business_id, order_id, uid, payload):
             "performedBy": uid,
             "createdAt": firestore.SERVER_TIMESTAMP,
         },
+    )
+    return get_order(database, business_id, order_id)
+
+
+def convert_order_to_cash_on_delivery(database, business_id, order_id, uid):
+    """Drop a promised transfer and collect the whole amount on delivery.
+
+    A pending transfer blocks confirmation, which is right while the money is
+    still expected and wrong once it is not. This is the way out that does not
+    involve cancelling an order the customer still wants.
+    """
+    order_reference = (
+        database.collection("businesses").document(business_id)
+        .collection("orders").document(order_id)
+    )
+    snapshot = order_reference.get()
+
+    if not snapshot.exists:
+        raise ApiError("order_not_found", "Order not found.", 404)
+
+    order = snapshot.to_dict()
+    total_minor = order.get("totalAmountMinor", 0)
+    already_paid = order.get("paidAmountMinor", 0)
+
+    # Money already banked cannot be turned into cash the courier collects.
+    if already_paid:
+        raise ApiError(
+            "payment_already_recorded",
+            "Part of this order is already paid, so it cannot be moved to cash "
+            "on delivery. Record the rest of the payment instead.",
+            409,
+        )
+
+    order_reference.update(
+        {
+            "paymentMethod": "cod",
+            "paymentPending": False,
+            "paymentStatus": "unpaid",
+            "paidAmountMinor": 0,
+            "depositAmountMinor": 0,
+            "balanceAmountMinor": total_minor,
+            "updatedAt": firestore.SERVER_TIMESTAMP,
+            "updatedBy": uid,
+        },
+    )
+    order_reference.collection("events").document().set(
+        {
+            "status": order.get("fulfilmentStatus", "needs-confirmation"),
+            "message": (
+                "Changed to cash on delivery. The courier collects "
+                f"{total_minor / 100:,.2f} in full."
+            ),
+            "performedBy": uid,
+            "createdAt": firestore.SERVER_TIMESTAMP,
+        },
+    )
+    send_payment_recorded_chat_message(
+        database,
+        business_id,
+        order_id,
+        order,
+        0,
+        total_minor,
     )
     return get_order(database, business_id, order_id)

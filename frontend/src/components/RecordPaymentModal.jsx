@@ -139,6 +139,32 @@ function RecordPaymentModal({ order, onClose, onSubmit }) {
           </p>
         )}
 
+        {/* The way out when the transfer never arrives. Without it the order
+            is stuck: it cannot be confirmed while payment is pending, and
+            cancelling an order the customer still wants is the wrong remedy. */}
+        {order.paymentPending && (
+          <button
+            type="button"
+            className="record-payment__cod"
+            disabled={isWorking}
+            onClick={async () => {
+              setIsWorking(true);
+              setError("");
+
+              try {
+                await onSubmit({ convertToCashOnDelivery: true });
+                onClose();
+              } catch (conversionError) {
+                setError(conversionError.message);
+              } finally {
+                setIsWorking(false);
+              }
+            }}
+          >
+            Change to cash on delivery ({money(totalMinor)} collected by the courier)
+          </button>
+        )}
+
         <footer>
           <button type="button" onClick={onClose}>Cancel</button>
           <button type="submit" disabled={isWorking || paidMinor <= 0 || isOverpaid}>

@@ -2374,3 +2374,28 @@ a rule living in two places; this is the same mistake, declined.
 
 Also: the payment cards in the catalogue checkout are inset from the modal
 edge, so they read as a group rather than running into the wall.
+
+### 23.76 The way out of a transfer that never arrives
+
+**Confirming stays blocked** while payment is pending - that guard was already
+in place. What was missing was making it visible: the seller now sees
+"Confirmed - payment not received" disabled in the status list, with a line
+saying what to do instead. A disabled control with no reason beside it reads
+as a bug.
+
+**Change to cash on delivery.** Without it the order is stuck: it cannot be
+confirmed while a transfer is expected, and cancelling one the customer still
+wants is the wrong remedy. The whole total moves to the courier, the order
+becomes confirmable, and the customer is told in the chat what to have ready.
+
+**Money already banked blocks the conversion.** If half has arrived, telling
+the courier to collect the full total would charge the customer twice for that
+half. The seller is directed to record the rest instead.
+
+**The chat message reads the zero.** `send_payment_recorded_chat_message` was
+about to announce "Payment received: LKR 0.00", which reads as a mistake or a
+refund. Nothing banked now means a change-of-method message rather than a
+payment of nothing - a detail worth checking whenever a shared message builder
+gains a new caller.
+
+Six tests cover the conversion, the block, and the wording.

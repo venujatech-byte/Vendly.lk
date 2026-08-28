@@ -495,3 +495,15 @@ html[data-theme="dark"] .orders-table__details-cell {
   font-size: 0.66rem;
   text-align: center;
 }
+
+/* Why the confirm option is unavailable. A disabled control with no reason
+   beside it reads as a bug. */
+.order-details__payment-hold {
+  margin: 0;
+  padding: 9px 11px;
+  border: 1px solid color-mix(in srgb, var(--warning, #f19b16) 40%, transparent);
+  border-radius: 9px;
+  font-size: 0.74rem;
+  line-height: 1.45;
+  background: color-mix(in srgb, var(--warning, #f19b16) 10%, transparent);
+}

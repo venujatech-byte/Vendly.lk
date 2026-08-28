@@ -347,12 +347,30 @@ function OrderDetails({
             >
               <option value="">Choose next status</option>
               {(nextStatuses[order.fulfilmentStatus] ?? []).map((status) => (
-                <option key={status} value={status}>{readableStatus(status)}</option>
+                <option
+                  key={status}
+                  value={status}
+                  // The server refuses this too. Disabling it here means the
+                  // seller learns before choosing rather than after.
+                  disabled={status === "confirmed" && order.paymentPending}
+                >
+                  {readableStatus(status)}
+                  {status === "confirmed" && order.paymentPending
+                    ? " - payment not received"
+                    : ""}
+                </option>
               ))}
             </select>
             <ChevronDown size={17} aria-hidden="true" />
           </div>
         </label>
+
+        {order.paymentPending && (
+          <p className="order-details__payment-hold">
+            This order is waiting on a bank transfer. Record the payment, or
+            change it to cash on delivery, before confirming it.
+          </p>
+        )}
 
         <button
           className="order-details__print-button"
