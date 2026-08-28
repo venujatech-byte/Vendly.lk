@@ -170,6 +170,30 @@
   white-space: nowrap;
 }
 
+.orders-table__total strong {
+  font-weight: 650;
+}
+
+.orders-table__payment {
+  display: block;
+  margin-top: 2px;
+  font-size: 10px;
+  font-weight: 550;
+  line-height: 1.1;
+}
+
+.orders-table__payment--cod {
+  color: #64748b;
+}
+
+.orders-table__payment--fully-paid {
+  color: #14835a;
+}
+
+.orders-table__payment--half-paid {
+  color: #126ed1;
+}
+
 /* Shared status badge followed by status-specific colours. */
 .orders-table__status {
   display: inline-flex;

@@ -52,6 +52,15 @@ function hasActiveWarranty(order) {
   );
 }
 
+// Keep payment status compact and readable inside the Total column.
+function paymentLabel(order) {
+  const paid = Number(order.paidAmountMinor ?? order.paidAmount ?? 0);
+  const balance = Number(order.balanceAmountMinor ?? order.balanceMinor ?? 0);
+  if (order.paymentStatus === "paid" || (order.paymentMethod === "paid" && balance <= 0)) return "Fully paid";
+  if (order.paymentStatus === "partially-paid" || order.paymentMethod === "deposit" || paid > 0 && balance > 0) return "Half paid";
+  return "COD";
+}
+
 const orderSortAccessors = {
   order: (order) => order.orderNumber,
   customer: (order) => order.customerName,
@@ -341,7 +350,12 @@ function OrderTable({
                     </div>
                   </td>
 
-                  <td className="orders-table__total">{order.total}</td>
+                  <td className="orders-table__total">
+                    <strong>{order.total}</strong>
+                    <span className={`orders-table__payment orders-table__payment--${paymentLabel(order).toLowerCase().replace(/\s+/g, "-")}`}>
+                      {paymentLabel(order)}
+                    </span>
+                  </td>
 
                   <td>
                     <strong>{order.courierCode || order.courier || "Not assigned"}</strong>

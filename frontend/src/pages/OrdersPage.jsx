@@ -62,6 +62,14 @@ import {
 import { downloadReceiptPdf } from "../services/receiptService";
 
 import "./OrdersPage.css";
+
+function paymentCategory(order) {
+  const paid = Number(order.paidAmountMinor ?? order.paidAmount ?? 0);
+  const balance = Number(order.balanceAmountMinor ?? order.balanceMinor ?? 0);
+  if (order.paymentStatus === "paid" || (order.paymentMethod === "paid" && balance <= 0)) return "paid";
+  if (order.paymentStatus === "partially-paid" || order.paymentMethod === "deposit" || (paid > 0 && balance > 0)) return "partially-paid";
+  return "cod";
+}
 import "./Buttons.css";
 import "./InventoryPage.css";
 
@@ -240,9 +248,12 @@ function OrdersPage() {
   }, [business?.id]);
 
   const visibleOrders = useMemo(() => {
-    if (!statusFilter) return orders;
-    return orders.filter((order) => order.status === statusFilter);
-  }, [orders, statusFilter]);
+    return orders.filter((order) => {
+      if (statusFilter && order.status !== statusFilter) return false;
+      if (!filters.payment) return true;
+      return paymentCategory(order) === filters.payment;
+    });
+  }, [orders, statusFilter, filters.payment]);
 
   useEffect(() => {
     if (!business?.id) return;
