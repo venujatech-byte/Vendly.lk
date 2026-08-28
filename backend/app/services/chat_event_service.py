@@ -70,13 +70,20 @@ def notify_seller_attention(
     return create_in_transaction(transaction)
 
 
-def send_order_status_chat_message(database, business_id, order_id, order, status, note=""):
-    """Append an automated order update to its originating storefront chat."""
-    # Two queries, because a session holds a list of every order it produced
-    # AND a single `orderId` for its most recent one. The list is the correct
-    # source; the single field is how sessions written before the list exists
-    # are still reachable. Deduplicated by document id, since a recent order
-    # matches both.
+def send_chat_message_to_order_sessions(
+    database,
+    business_id,
+    order_id,
+    message,
+    metadata,
+):
+    """Write one automated message into every chat that produced this order.
+
+    Two queries, because a session holds a list of every order it produced AND
+    a single `orderId` for its most recent one. The list is the correct source;
+    the single field is how sessions written before the list existed are still
+    reachable. Deduplicated by document id, since a recent order matches both.
+    """
     session_collection = database.collection("publicChatSessions")
     snapshots = {}
 
@@ -90,17 +97,12 @@ def send_order_status_chat_message(database, business_id, order_id, order, statu
     ).stream():
         snapshots.setdefault(snapshot.id, snapshot)
 
-    sessions = list(snapshots.values())
-    label = ORDER_STATUS_LABELS.get(status, status.replace("-", " "))
-    order_number = order.get("orderNumber", "Your order")
-    message = f"Order {order_number} status update: {label}."
-    if note:
-        message = f"{message} Note: {note}"
-
-    for snapshot in sessions:
+    for snapshot in snapshots.values():
         session = snapshot.to_dict()
+
         if session.get("businessId") != business_id:
             continue
+
         # The customer reads this one, so it follows the language the rest of
         # the conversation settled on rather than always arriving in English.
         session_message = translate_chat_message(
@@ -111,14 +113,9 @@ def send_order_status_chat_message(database, business_id, order_id, order, statu
             {
                 "role": "seller",
                 "message": session_message,
-                "metadata": {
-                    "automated": True,
-                    "action": "order-status-update",
-                    "orderId": order_id,
-                    "status": status,
-                },
+                "metadata": {"automated": True, **metadata},
                 "createdAt": firestore.SERVER_TIMESTAMP,
-            }
+            },
         )
         snapshot.reference.set(
             {
@@ -128,4 +125,55 @@ def send_order_status_chat_message(database, business_id, order_id, order, statu
             },
             merge=True,
         )
+
+
+def send_payment_recorded_chat_message(
+    database,
+    business_id,
+    order_id,
+    order,
+    paid_amount_minor,
+    balance_minor,
+):
+    """Tell the customer their transfer was received, in their own chat.
+
+    The customer sent a receipt and then heard nothing. Confirming it closes
+    the loop they started, and tells them what the courier will still collect.
+    """
+    order_number = order.get("orderNumber", "your order")
+    message = (
+        f"Payment received for order {order_number}: LKR "
+        f"{paid_amount_minor / 100:,.2f}."
+    )
+    message += (
+        f" The courier will collect the remaining LKR {balance_minor / 100:,.2f} "
+        "on delivery."
+        if balance_minor
+        else " Your order is paid in full and nothing is due on delivery."
+    )
+    send_chat_message_to_order_sessions(
+        database,
+        business_id,
+        order_id,
+        message,
+        {"action": "payment-recorded", "orderId": order_id},
+    )
+
+
+def send_order_status_chat_message(database, business_id, order_id, order, status, note=""):
+    """Append an automated order update to its originating storefront chat."""
+    label = ORDER_STATUS_LABELS.get(status, status.replace("-", " "))
+    order_number = order.get("orderNumber", "Your order")
+    message = f"Order {order_number} status update: {label}."
+
+    if note:
+        message = f"{message} Note: {note}"
+
+    send_chat_message_to_order_sessions(
+        database,
+        business_id,
+        order_id,
+        message,
+        {"action": "order-status-update", "orderId": order_id, "status": status},
+    )
 

@@ -886,6 +886,16 @@ def is_deposit_request(message):
     return any(phrase in str(message).casefold() for phrase in DEPOSIT_REQUEST_PHRASES)
 
 
+def catalog_business_name(database, business_id):
+    """The shop's own name, for a message written outside a catalogue load."""
+    snapshot = database.collection("businesses").document(business_id).get()
+
+    if not snapshot.exists:
+        return "the seller"
+
+    return (snapshot.to_dict() or {}).get("name") or "the seller"
+
+
 def bank_details_message(bank, business_name):
     """Lay out the seller's account so a customer can actually transfer to it."""
     lines = [
@@ -4742,5 +4752,33 @@ def create_public_chat_order(database, session_id, provided_token, payload):
         )
         confirmation["bankDetails"] = bank_details
         confirmation["paymentPending"] = True
+
+        # Also written into the conversation. The confirmation page is closed
+        # once; the chat is where the customer goes back to find the account
+        # number when they are actually at their banking app.
+        details = bank_details_message(
+            bank_details,
+            catalog_business_name(database, session["businessId"]),
+        )
+
+        if details:
+            balance_line = (
+                f" Please transfer LKR {order.get('totalAmountMinor', 0) / 100:,.2f} "
+                f"for order {order.get('orderNumber', '')}, then send me a photo "
+                "of the receipt here."
+                if order_payload.get("paymentMethod") != "deposit"
+                else f" Please transfer the part you agreed for order "
+                f"{order.get('orderNumber', '')}, then send me a photo of the "
+                "receipt here. The courier collects the balance on delivery."
+            )
+            save_chat_message(
+                session_snapshot.reference,
+                "assistant",
+                translate_chat_message(
+                    details + balance_line,
+                    session.get("language", "en"),
+                ),
+                {"action": "show-bank-details", "orderId": order["id"]},
+            )
 
     return confirmation

@@ -4825,7 +4825,9 @@ body:has(.storefront-chat-page) {
 .storefront-checkout-payment {
   display: grid;
   gap: 9px;
-  margin: 4px 0 2px;
+  /* Inset from the form's edge so the cards do not run flush into the modal
+     wall - they are a group, and the gap is what says so. */
+  margin: 6px 4px 4px;
 }
 
 .storefront-checkout-payment > strong {

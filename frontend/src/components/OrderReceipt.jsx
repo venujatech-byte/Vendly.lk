@@ -36,6 +36,33 @@ export default function OrderReceipt({ business, order, onClose, closeLabel = "R
 
         <section className="receipt-details"><div><small>SHIPPING ADDRESS</small><strong>{customer.name || order.customerName || "Customer"}</strong><span>{[address.line1, address.line2, address.city, address.district, address.postalCode, address.country].filter(Boolean).join(", ")}</span></div><div><small>PAYMENT METHOD</small><strong>{payment}</strong><span>{order.paymentStatus === "partially-paid" ? `${money(order.balanceAmountMinor)} balance remaining` : "Payment details saved with this order."}</span></div></section>
 
+        {/* Where to send the transfer. Shown on the confirmation because this
+            is the moment the customer acts on it - the same details also go to
+            the chat, so they survive after this page is closed. */}
+        {order.paymentPending && order.bankDetails?.accountNumber && (
+          <section className="receipt-bank">
+            <h2>{text.bankTransferDetails}</h2>
+            <dl>
+              {[
+                [text.bankName, order.bankDetails.bankName],
+                [text.accountName, order.bankDetails.accountName],
+                [text.accountNumber, order.bankDetails.accountNumber],
+                [text.branch, order.bankDetails.branch],
+              ].filter(([, value]) => value).map(([label, value]) => (
+                <div key={label}>
+                  <dt>{label}</dt>
+                  <dd>{value}</dd>
+                </div>
+              ))}
+            </dl>
+            <p>
+              {order.paymentMethod === "deposit"
+                ? text.transferPartThenBalance
+                : text.transferFullAmount}
+            </p>
+          </section>
+        )}
+
         <section className="receipt-totals"><div><span>{text.subtotal}</span><strong>{money(order.subtotalMinor)}</strong></div>{order.discountTotalMinor > 0 && <div><span>{text.discount}</span><strong>- {money(order.discountTotalMinor)}</strong></div>}<div><span>{text.delivery}</span><strong>{money(order.deliveryFeeMinor)}</strong></div><div><span>{text.tax}</span><strong>{money(order.taxTotalMinor)}</strong></div><div className="receipt-total"><strong>{text.total}</strong><strong>{money(order.totalAmountMinor)}</strong></div></section>
       </article>
 

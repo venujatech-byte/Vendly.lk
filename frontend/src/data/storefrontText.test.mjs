@@ -21,6 +21,8 @@ const SHARED_ACROSS_LANGUAGES = new Set([
   "deliveryFee",
   "loginGuest",
   "payCod",
+  "bankName",
+  "branch",
 ]);
 
 for (const language of ["si", "ta"]) {

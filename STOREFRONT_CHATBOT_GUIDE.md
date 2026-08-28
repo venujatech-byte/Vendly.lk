@@ -2350,3 +2350,27 @@ rule fires on it and stays silent on `window`.
 **A linter that reports a thousand false positives is a linter nobody reads.**
 Configuring the environment is what turns the rule from noise into the check
 that catches this class of bug before it reaches a screen.
+
+### 23.75 The bank transfer loop, closed
+
+**On the confirmation page.** A bank-transfer order shows the account details
+in their own tinted block, with the number set in tabular figures and
+`user-select: all` - it gets copied by hand or read down a phone. The download
+button already there covers the receipt.
+
+**And in the chat.** The confirmation page is closed once; the chat is where
+the customer looks when they are actually in their banking app. The same
+details are written into the conversation with the amount and order number.
+
+**When the seller records the payment**, the customer is told in that chat:
+what arrived, and what the courier will still collect. They sent a receipt and
+then heard nothing - confirming it closes the loop they started.
+
+**One sender, not two.** Adding the payment message would have meant a second
+copy of the session lookup, including the two-query fallback from §23.64. It
+is extracted into `send_chat_message_to_order_sessions`, so a fix to how
+sessions are found reaches both messages. This session has four bugs caused by
+a rule living in two places; this is the same mistake, declined.
+
+Also: the payment cards in the catalogue checkout are inset from the modal
+edge, so they read as a group rather than running into the wall.

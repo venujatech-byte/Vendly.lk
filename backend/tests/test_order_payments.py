@@ -119,6 +119,9 @@ def test_recording_the_full_amount_leaves_nothing_to_collect(monkeypatch):
     }
     database, reference = make_database(order)
     monkeypatch.setattr(order_service, "get_order", lambda *a: reference.order)
+    monkeypatch.setattr(
+        order_service, "send_payment_recorded_chat_message", lambda *a: None,
+    )
 
     result = record_order_payment(
         database, "biz", "order-1", "seller-1",
@@ -139,6 +142,9 @@ def test_a_part_payment_leaves_the_rest_as_cash_on_delivery(monkeypatch):
     }
     database, reference = make_database(order)
     monkeypatch.setattr(order_service, "get_order", lambda *a: reference.order)
+    monkeypatch.setattr(
+        order_service, "send_payment_recorded_chat_message", lambda *a: None,
+    )
 
     result = record_order_payment(
         database, "biz", "order-1", "seller-1", {"paidAmountMinor": 45000},
@@ -176,6 +182,9 @@ def test_the_receipt_is_kept_for_later_viewing(monkeypatch):
     order = {"totalAmountMinor": 180000, "fulfilmentStatus": "needs-confirmation"}
     database, reference = make_database(order)
     monkeypatch.setattr(order_service, "get_order", lambda *a: reference.order)
+    monkeypatch.setattr(
+        order_service, "send_payment_recorded_chat_message", lambda *a: None,
+    )
 
     record_order_payment(
         database, "biz", "order-1", "seller-1",
@@ -207,3 +216,28 @@ def test_cancelling_stays_available_while_payment_is_pending():
     # An order that never gets paid has to be closable, or it sits in the
     # table forever.
     assert "cancelled" in STATUS_TRANSITIONS["needs-confirmation"]
+
+
+def test_the_customer_is_told_their_payment_arrived(monkeypatch):
+    sent = []
+    order = {
+        "totalAmountMinor": 180000,
+        "orderNumber": "VD-000018",
+        "fulfilmentStatus": "needs-confirmation",
+    }
+    database, reference = make_database(order)
+    monkeypatch.setattr(order_service, "get_order", lambda *a: reference.order)
+    monkeypatch.setattr(
+        order_service,
+        "send_payment_recorded_chat_message",
+        lambda _db, _biz, _oid, _order, paid, balance: sent.append((paid, balance)),
+    )
+
+    record_order_payment(
+        database, "biz", "order-1", "seller-1", {"paidAmountMinor": 90000},
+    )
+
+    # The customer sent a receipt and then heard nothing. Confirming closes the
+    # loop they started, and the balance tells them what to have ready for the
+    # courier.
+    assert sent == [(90000, 90000)]

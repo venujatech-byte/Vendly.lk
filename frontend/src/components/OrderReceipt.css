@@ -40,3 +40,47 @@
 .receipt-actions button { display: inline-flex; align-items: center; gap: 8px; min-height: 48px; padding: 0 22px; border: 1px solid #8d9bab; border-radius: 7px; color: #20262e; background: #fff; cursor: pointer; font-weight: 700; }
 .receipt-actions button:first-child { border-color: #087397; color: #fff; background: #087397; }
 @media (max-width: 600px) { .receipt-layer { padding: 18px 10px; } .receipt-details { grid-template-columns: 1fr; } .receipt-items > div { grid-template-columns: 58px 1fr auto; } .receipt-item__image { width: 58px; height: 58px; } .receipt-actions { flex-direction: column; } .receipt-actions button { justify-content: center; } }
+
+/* Where to send the transfer. Given its own tinted block: on a confirmation
+   page full of figures, this is the only part the customer has to act on. */
+.receipt-bank {
+  margin: 14px 0 0;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--color-primary, #0872d9) 30%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--color-primary, #0872d9) 7%, transparent);
+}
+
+.receipt-bank h2 {
+  margin: 0 0 9px;
+  font-size: 0.82rem;
+}
+
+.receipt-bank dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 9px;
+  margin: 0;
+}
+
+.receipt-bank dt {
+  color: var(--color-text-muted, #667386);
+  font-size: 0.64rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.receipt-bank dd {
+  margin: 2px 0 0;
+  font-size: 0.88rem;
+  font-weight: 700;
+  /* Account numbers get copied by hand or read aloud down a phone. */
+  font-variant-numeric: tabular-nums;
+  user-select: all;
+}
+
+.receipt-bank p {
+  margin: 11px 0 0;
+  font-size: 0.76rem;
+  line-height: 1.5;
+}

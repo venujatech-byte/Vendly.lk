@@ -19,7 +19,10 @@ from app.services.fraud_service import (
     global_fraud_summary,
     global_registry_increment,
 )
-from app.services.chat_event_service import send_order_status_chat_message
+from app.services.chat_event_service import (
+    send_order_status_chat_message,
+    send_payment_recorded_chat_message,
+)
 from app.services.numbers import money_to_minor_units, non_negative_integer
 from app.services.product_service import stock_status
 from app.services.text import optional_text, required_text
@@ -1575,6 +1578,16 @@ def record_order_payment(database, business_id, order_id, uid, payload):
             "paymentVerifiedAt": firestore.SERVER_TIMESTAMP,
             "updatedAt": firestore.SERVER_TIMESTAMP,
         },
+    )
+    # The customer sent a receipt and then heard nothing. Confirming it closes
+    # the loop they started, and says what the courier will still collect.
+    send_payment_recorded_chat_message(
+        database,
+        business_id,
+        order_id,
+        order,
+        paid_amount_minor,
+        balance_minor,
     )
     order_reference.collection("events").document().set(
         {
