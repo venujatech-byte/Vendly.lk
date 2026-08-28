@@ -2514,3 +2514,40 @@ the fallback sending **its own** key and model rather than the primary's.
 
 Log lines to watch: `AI FALLBACK USED` (working as intended),
 `AI FALLBACK FAILED` (both providers unavailable).
+
+### 23.80 Two models: cheap for reading, good for reasoning — NEW
+
+Every message was sent to the same large model, including the work that does
+no reasoning at all. `request_ai_text` now takes `task="classify"` and routes
+those calls to `AI_FAST_MODEL` when one is configured.
+
+**On the cheap model** - all of these run on nearly every message:
+
+- `generate_storefront_intent` - a sentence into a label
+- `detect_chat_language` - naming a script
+- `translate_chat_message` - a sentence the code already wrote
+- `generate_business_assistant_intent` - the seller-side equivalent
+
+**Staying on the good model** - these are why a good model is configured:
+
+- `generate_product_answer`, `generate_catalogue_answer`
+- `generate_comparison_answer`
+- `generate_product_description` - seller-facing copy
+
+Counted over one full order conversation - browse, ask a feature, compare,
+order, seven checkout answers, confirm - **28 of 30 calls move to the cheap
+model**. The two that stay are the feature answer and the comparison, which is
+exactly the split intended.
+
+A test asserts each side: classification, language and translation take the
+fast model; a catalogue answer keeps the full one. Sending the reasoning calls
+to a cheap model would save tokens by making the product worse, which is not
+the trade being made.
+
+**Unset, nothing changes.** `AI_FAST_MODEL` blank sends everything to
+`AI_MODEL`, and a test pins that too.
+
+**One bug caught by an existing test:** the primary now always passes a model
+through the `credentials` override, so the fallback test's "no credentials
+means primary" discriminator broke. It keys off the API key now, which is the
+honest difference between the two.

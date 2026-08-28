@@ -43,6 +43,7 @@ def create_app(test_config=None):
         AI_API_KEY=settings.ai_api_key,
         AI_MODEL=settings.ai_model,
         AI_API_BASE_URL=settings.ai_api_base_url,
+        AI_FAST_MODEL=settings.ai_fast_model,
         AI_FALLBACK_PROVIDER=settings.ai_fallback_provider,
         AI_FALLBACK_API_KEY=settings.ai_fallback_api_key,
         AI_FALLBACK_MODEL=settings.ai_fallback_model,

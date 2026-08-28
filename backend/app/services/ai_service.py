@@ -407,10 +407,19 @@ def fallback_ai_text(prompt, max_tokens):
     return answer
 
 
-def request_ai_text(prompt, max_tokens=1200):
-    """Send one prompt to the configured provider, or None when unavailable."""
+def request_ai_text(prompt, max_tokens=1200, task="answer"):
+    """Send one prompt to the configured provider, or None when unavailable.
+
+    `task="classify"` marks the mechanical work - reading an intent, naming a
+    language, translating a sentence the code already wrote. Those run on
+    every single message and do not need the model that reasons about a
+    catalogue, so they go to `AI_FAST_MODEL` when one is set. Classification is
+    the bulk of the traffic, so this is most of the token bill.
+    """
     settings = current_app.config
     provider = settings.get("AI_PROVIDER", "none")
+    fast_model = settings.get("AI_FAST_MODEL")
+    model = fast_model if task == "classify" and fast_model else settings.get("AI_MODEL")
 
     if provider == "none" or not settings.get("AI_API_KEY") or not settings.get("AI_MODEL"):
         return None
@@ -424,13 +433,12 @@ def request_ai_text(prompt, max_tokens=1200):
                 provider,
                 settings,
                 max_tokens=max_tokens,
+                credentials={"model": model},
             )
         else:
             current_app.logger.warning("Unsupported AI_PROVIDER value: %s", provider)
             return None
     except httpx.HTTPStatusError as error:
-        model = settings.get("AI_MODEL")
-
         # 429 is a quota or rate limit. It clears on its own, so it must not be
         # reported as a broken configuration - that sends someone editing a
         # model name that was never wrong.
@@ -505,7 +513,7 @@ def detect_chat_language(message):
         "carries no language signal, so answer en for it.\n\n"
         f"CUSTOMER MESSAGE:\n{message}"
     )
-    answer = request_ai_text(prompt, max_tokens=600)
+    answer = request_ai_text(prompt, max_tokens=600, task="classify")
 
     if not answer:
         return None
@@ -555,7 +563,7 @@ def translate_chat_message(text, language):
         "Keep the tone of a polite Sri Lankan shop assistant.\n\n"
         f"MESSAGE:\n{clean_text}"
     )
-    translation = request_ai_text(prompt, max_tokens=1500)
+    translation = request_ai_text(prompt, max_tokens=1500, task="classify")
 
     if not translation:
         # A provider failure must never blank the reply. English is degraded,
@@ -669,7 +677,9 @@ def generate_storefront_intent(message, product_names, category_names, state):
         '"quantityMode":"total","district":"","language":"si"}\n\n'
         f"CUSTOMER MESSAGE:\n{message}"
     )
-    result = parse_json_object(request_ai_text(prompt, max_tokens=1200))
+    result = parse_json_object(
+        request_ai_text(prompt, max_tokens=1200, task="classify"),
+    )
 
     if not result or result.get("intent") not in STOREFRONT_INTENTS:
         return None
@@ -840,7 +850,7 @@ def generate_business_assistant_intent(message):
         f"SELLER MESSAGE:\n{message}"
     )
 
-    result = parse_json_object(request_ai_text(prompt))
+    result = parse_json_object(request_ai_text(prompt, task="classify"))
     if not result or result.get("intent") not in BUSINESS_ASSISTANT_INTENTS:
         return None
 

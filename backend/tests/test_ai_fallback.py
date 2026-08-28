@@ -45,7 +45,9 @@ def test_a_rate_limit_is_answered_by_the_fallback(monkeypatch):
     def provider(prompt, name, settings, max_tokens=1200, credentials=None):
         calls.append((name, (credentials or {}).get("model")))
 
-        if not credentials:
+        # The fallback is the call carrying its own key; the primary passes
+        # only a model, chosen by task.
+        if not (credentials or {}).get("api_key"):
             raise_status(429)()
 
         return "answered by the fallback"
@@ -60,7 +62,7 @@ def test_a_rate_limit_is_answered_by_the_fallback(monkeypatch):
         assert ai_service.request_ai_text("hello") == "answered by the fallback"
 
     # The primary was tried first, then the fallback with its own model.
-    assert calls == [("groq", None), ("openrouter", "second-model")]
+    assert calls == [("groq", "primary-model"), ("openrouter", "second-model")]
 
 
 def test_without_a_fallback_configured_nothing_changes(monkeypatch):
@@ -98,7 +100,7 @@ def test_a_broken_configuration_is_not_papered_over(monkeypatch, caplog):
 
 def test_a_failing_fallback_does_not_replace_one_problem_with_another(monkeypatch):
     def provider(prompt, name, settings, max_tokens=1200, credentials=None):
-        if credentials:
+        if (credentials or {}).get("api_key"):
             raise httpx.ConnectError("the second provider is down")
 
         raise_status(429)()
@@ -152,3 +154,67 @@ def test_the_fallback_sends_its_own_key_and_model(monkeypatch):
     assert captured["auth"] == "Bearer second-key"
     assert captured["model"] == "second-model"
     assert "openrouter.ai" in captured["url"]
+
+
+def models_used(monkeypatch, call, **config):
+    """Record which model each AI call actually asks for."""
+    used = []
+
+    def provider(prompt, name, settings, max_tokens=1200, credentials=None):
+        used.append((credentials or {}).get("model"))
+        return '{"intent":"greeting","language":"en"}'
+
+    monkeypatch.setattr(ai_service, "generate_openai_compatible_answer", provider)
+
+    with app_with(**config).app_context():
+        call()
+
+    return used
+
+
+def test_classification_uses_the_cheap_model(monkeypatch):
+    # Intent runs on every single message. It reads a sentence into a label and
+    # needs none of the reasoning a catalogue answer does, so it is most of the
+    # token bill and the cheapest thing to move.
+    used = models_used(
+        monkeypatch,
+        lambda: ai_service.generate_storefront_intent("hello", [], [], "browsing"),
+        AI_FAST_MODEL="small-model",
+    )
+
+    assert used == ["small-model"]
+
+
+def test_language_detection_and_translation_use_the_cheap_model(monkeypatch):
+    for call in (
+        lambda: ai_service.detect_chat_language("mata ekak ona"),
+        lambda: ai_service.translate_chat_message("Your order is confirmed.", "si"),
+    ):
+        assert models_used(monkeypatch, call, AI_FAST_MODEL="small-model") == [
+            "small-model",
+        ]
+
+
+def test_a_catalogue_answer_keeps_the_full_model(monkeypatch):
+    # The reasoning calls are the reason a good model is configured at all.
+    # Sending these to the cheap one would save tokens by making the product
+    # worse, which is not the trade being made here.
+    used = models_used(
+        monkeypatch,
+        lambda: ai_service.generate_catalogue_answer(
+            "which is cheapest?", [{"name": "A", "sellingPriceMinor": 100}], "en",
+        ),
+        AI_FAST_MODEL="small-model",
+    )
+
+    assert used == ["primary-model"]
+
+
+def test_without_a_fast_model_everything_uses_the_main_one(monkeypatch):
+    # Unset, the behaviour is exactly what it was before the split.
+    used = models_used(
+        monkeypatch,
+        lambda: ai_service.generate_storefront_intent("hello", [], [], "browsing"),
+    )
+
+    assert used == ["primary-model"]
