@@ -360,13 +360,19 @@ def create_product(database, business_id, uid, payload):
             )
 
             if initial_stock > 0:
+                total_cost_minor = initial_stock * variant["costPriceMinor"]
                 current_transaction.set(
                     inventory_collection.document(),
                     {
                         "productId": product_reference.id,
                         "variantId": variant_reference.id,
+                        "productName": product["name"],
+                        "variantSku": variant["sku"],
                         "type": "receive",
                         "quantity": initial_stock,
+                        "unitCostMinor": variant["costPriceMinor"],
+                        "totalCostMinor": total_cost_minor,
+                        "ledgerImpact": "inventory-debit",
                         "stockBefore": 0,
                         "stockAfter": initial_stock,
                         "orderId": None,
@@ -801,8 +807,19 @@ def adjust_variant_stock(
             {
                 "productId": product_id,
                 "variantId": variant_id,
+                "productName": product.get("name", "Product"),
+                "variantSku": variant.get("sku", ""),
                 "type": "adjust",
                 "quantity": quantity_change,
+                "unitCostMinor": variant.get("costPriceMinor", 0),
+                "totalCostMinor": (
+                    quantity_change * variant.get("costPriceMinor", 0)
+                    if quantity_change > 0
+                    else 0
+                ),
+                "ledgerImpact": (
+                    "inventory-debit" if quantity_change > 0 else "none"
+                ),
                 "stockBefore": stock_before,
                 "stockAfter": stock_after,
                 "orderId": None,

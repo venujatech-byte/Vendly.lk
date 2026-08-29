@@ -311,13 +311,20 @@ def _latest_status_time(record, status):
     return record.get("updatedAt") or record.get("createdAt")
 
 
-def build_transaction_ledger(orders, shop_sales, warranty_claims):
+def build_transaction_ledger(
+    orders,
+    shop_sales,
+    warranty_claims,
+    inventory_transactions=None,
+):
     """Build a read-only sales ledger from the system's source documents.
 
     Every sale is recorded as a credit. A returned/cancelled online order or a
     voided shop sale receives a matching debit so its net effect is zero.
-    Warranty costs are debit adjustments. This keeps the ledger auditable while
-    leaving the order, sale and stock write paths as the single source of truth.
+    Warranty costs and purchased inventory are debit adjustments. Inventory
+    debits come only from positive stock-in audit records that carry their cost
+    at the time of receipt. This keeps the ledger auditable while leaving the
+    order, sale and stock write paths as the single source of truth.
     """
     entries = []
 
@@ -415,6 +422,40 @@ def build_transaction_ledger(orders, shop_sales, warranty_claims):
             createdAt=claim.get("createdAt"),
         )
 
+    for stock_entry in inventory_transactions or []:
+        quantity = int(stock_entry.get("quantity") or 0)
+        total_cost_minor = _minor_units(stock_entry.get("totalCostMinor"))
+        if (
+            quantity <= 0
+            or total_cost_minor <= 0
+            or stock_entry.get("ledgerImpact") != "inventory-debit"
+        ):
+            continue
+
+        product_name = stock_entry.get("productName") or "Inventory item"
+        sku = stock_entry.get("variantSku") or ""
+        reference = stock_entry.get("reference") or product_name
+        add_entry(
+            id=f"inventory:{stock_entry.get('id') or stock_entry.get('variantId', '')}",
+            sourceId=stock_entry.get("id", ""),
+            sourceType="inventory-transaction",
+            reference=reference,
+            customerName="Inventory",
+            description=(
+                f"{product_name} · {sku} · {quantity} unit(s)"
+                if sku
+                else f"{product_name} · {quantity} unit(s)"
+            ),
+            paymentMethod="inventory-purchase",
+            paymentStatus="recorded",
+            transactionType="inventory-purchase",
+            label="Inventory purchase",
+            direction="debit",
+            amountMinor=total_cost_minor,
+            status="received",
+            createdAt=stock_entry.get("createdAt"),
+        )
+
     entries.sort(
         key=lambda entry: as_datetime(entry.get("createdAt"))
         or datetime.min.replace(tzinfo=timezone.utc),
@@ -459,4 +500,15 @@ def get_business_ledger(database, business_id):
         serialize_snapshot(snapshot)
         for snapshot in business_reference.collection("warrantyClaims").limit(1000).stream()
     ]
-    return build_transaction_ledger(orders, shop_sales, warranty_claims)
+    inventory_transactions = [
+        serialize_snapshot(snapshot)
+        for snapshot in business_reference.collection("inventoryTransactions")
+        .limit(2000)
+        .stream()
+    ]
+    return build_transaction_ledger(
+        orders,
+        shop_sales,
+        warranty_claims,
+        inventory_transactions,
+    )

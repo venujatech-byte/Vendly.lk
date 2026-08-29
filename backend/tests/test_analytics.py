@@ -122,3 +122,44 @@ def test_transaction_ledger_combines_sales_reversals_and_warranty_adjustments():
     }
     assert ledger["entries"][0]["direction"] == "debit"
     assert ledger["entries"][-1]["balanceMinor"] in {250000, 350000}
+
+
+def test_transaction_ledger_debits_only_costed_positive_inventory_additions():
+    created = datetime(2026, 8, 19, 9, tzinfo=timezone.utc)
+    ledger = build_transaction_ledger(
+        [],
+        [],
+        [],
+        [
+            {
+                "id": "stock-in-1",
+                "productName": "Smart Watch",
+                "variantSku": "WATCH-BLK",
+                "quantity": 4,
+                "unitCostMinor": 120000,
+                "totalCostMinor": 480000,
+                "ledgerImpact": "inventory-debit",
+                "reference": "Supplier invoice INV-10",
+                "createdAt": created,
+            },
+            {
+                "id": "stock-out-1",
+                "productName": "Smart Watch",
+                "quantity": -1,
+                "totalCostMinor": 0,
+                "ledgerImpact": "none",
+                "createdAt": created,
+            },
+        ],
+    )
+
+    assert ledger["summary"] == {
+        "transactionCount": 1,
+        "creditMinor": 0,
+        "debitMinor": 480000,
+        "netMinor": -480000,
+    }
+    entry = ledger["entries"][0]
+    assert entry["transactionType"] == "inventory-purchase"
+    assert entry["direction"] == "debit"
+    assert entry["description"] == "Smart Watch · WATCH-BLK · 4 unit(s)"

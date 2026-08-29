@@ -27,6 +27,7 @@ const TRANSACTION_TYPES = [
   ["cancelled", "Order cancellations"],
   ["voided-sale", "Voided shop sales"],
   ["warranty-adjustment", "Warranty adjustments"],
+  ["inventory-purchase", "Inventory purchases"],
 ];
 
 
@@ -109,7 +110,7 @@ function AnalyticsLedger({ businessId, ledger, isLoading, error }) {
         <div>
           <span>Sales and adjustments</span>
           <h3 id="ledger-title">Transaction ledger</h3>
-          <p>Trace every online order, shop sale, reversal and warranty deduction in one place.</p>
+          <p>Trace sales, reversals, warranty deductions and inventory purchases in one place.</p>
         </div>
         <div className="analytics-ledger__intro-actions">
           <button type="button" onClick={exportLedger} disabled={!businessId || isExporting}>
@@ -192,7 +193,7 @@ function AnalyticsLedger({ businessId, ledger, isLoading, error }) {
         {!isLoading && <TablePagination pagination={pagination} label="transactions" />}
       </div>
 
-      <p className="analytics-ledger__note">This is a sales activity ledger derived from Vendly records. It is not a bank statement or a double-entry accounting report.</p>
+      <p className="analytics-ledger__note">This activity ledger is derived from Vendly sales, warranty and stock-in records. It is not a bank statement or a double-entry accounting report.</p>
     </section>
   );
 }
