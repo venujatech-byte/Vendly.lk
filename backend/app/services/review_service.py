@@ -97,6 +97,32 @@ def create_verified_review(
             "The order number and phone number could not be verified.",
             404,
         )
+    return write_order_review(
+        database,
+        business_id,
+        order_snapshot,
+        review,
+        cloudinary_config,
+    )
+
+
+def write_order_review(
+    database,
+    business_id,
+    order_snapshot,
+    review,
+    cloudinary_config=None,
+):
+    """Store one review for an order whose owner is already established.
+
+    The web form proves ownership with an order number plus a phone; a chat
+    session proves it by having placed the order. Everything after that check -
+    the delivered gate, the one-review-per-order rule, the media upload and the
+    document shape - is the same, so it lives here and neither path can drift.
+    """
+    business_reference = database.collection("businesses").document(business_id)
+    order = order_snapshot.to_dict()
+
     if order.get("fulfilmentStatus") != "delivered":
         raise ApiError(
             "review_order_not_delivered",
@@ -126,8 +152,12 @@ def create_verified_review(
             409,
         )
 
+    # A chat photo is already in Cloudinary - the chat uploader put it there
+    # when the customer sent it. Only the web form's base64 needs uploading.
     uploaded_media = [
-        upload_review_data_url(
+        item
+        if str(item["url"]).startswith("https://")
+        else upload_review_data_url(
             item["url"],
             business_id,
             review_id,

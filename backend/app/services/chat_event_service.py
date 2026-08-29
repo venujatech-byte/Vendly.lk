@@ -76,6 +76,7 @@ def send_chat_message_to_order_sessions(
     order_id,
     message,
     metadata,
+    session_changes=None,
 ):
     """Write one automated message into every chat that produced this order.
 
@@ -122,6 +123,7 @@ def send_chat_message_to_order_sessions(
                 "lastMessage": session_message,
                 "lastMessageRole": "seller",
                 "updatedAt": firestore.SERVER_TIMESTAMP,
+                **(session_changes or {}),
             },
             merge=True,
         )
@@ -178,11 +180,43 @@ def send_order_status_chat_message(database, business_id, order_id, order, statu
     if note:
         message = f"{message} Note: {note}"
 
+    # Delivery is the one moment a review can be asked for: the customer has
+    # the item in hand and the chat is already open. Asking here costs nothing
+    # and needs no email. The state parks the conversation in the review flow;
+    # "skip" leaves it at any step.
+    session_changes = None
+
+    if status == "delivered":
+        items = order.get("items", [])
+        message += (
+            " How would you rate it out of 5? Say skip if you would rather not."
+            if len(items) < 2
+            else " Which item would you like to review? "
+            + ", ".join(
+                f"{position}. {item.get('productName', 'item')}"
+                for position, item in enumerate(items, start=1)
+            )
+            + ". Say skip if you would rather not."
+        )
+        session_changes = {
+            "state": (
+                "collecting-review-rating"
+                if len(items) < 2
+                else "collecting-review-product"
+            ),
+            "reviewDraft": {
+                "orderId": order_id,
+                "productId": items[0].get("productId", "") if items else "",
+                "media": [],
+            },
+        }
+
     send_chat_message_to_order_sessions(
         database,
         business_id,
         order_id,
         message,
         {"action": "order-status-update", "orderId": order_id, "status": status},
+        session_changes,
     )
 

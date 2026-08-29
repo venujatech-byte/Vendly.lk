@@ -54,7 +54,53 @@ from app.services.text import optional_text, required_text
 from app.services.review_service import (
     list_public_product_reviews,
     list_public_seller_reviews,
+    write_order_review,
 )
+
+
+# The review flow. Named `collecting-*` on purpose: those states are excluded
+# from intent classification, and here too the message IS the data - a rating,
+# a sentence, a photo.
+REVIEW_STATES = {
+    "collecting-review-product",
+    "collecting-review-rating",
+    "collecting-review-text",
+    "collecting-review-photo",
+    "collecting-review-seller-rating",
+}
+
+MAX_REVIEW_PHOTOS = 4
+
+RATING_WORDS = {
+    "one": 1, "two": 2, "three": 3, "four": 4, "five": 5,
+    "terrible": 1, "bad": 2, "ok": 3, "okay": 3, "good": 4, "great": 5,
+    "excellent": 5, "perfect": 5,
+}
+
+SKIP_WORDS = {"skip", "no", "nope", "done", "finish", "nathi", "epa", "නැහැ", "එපා", "වෙන්න"}
+
+
+def parse_star_rating(message):
+    """Read 1-5 from "4", "4/5", "four stars", four star emoji, or "good"."""
+    text = str(message).strip().casefold()
+    stars = text.count("⭐") + text.count("★")
+
+    if 1 <= stars <= 5:
+        return stars
+
+    digits = re.search(r"\b([1-5])\b", text)
+    if digits:
+        return int(digits.group(1))
+
+    for word, value in RATING_WORDS.items():
+        if word in text.split():
+            return value
+
+    return None
+
+
+def wants_to_skip(message):
+    return bool(set(str(message).casefold().split()) & SKIP_WORDS)
 
 
 PRODUCT_STOP_WORDS = {
@@ -3099,6 +3145,16 @@ def answer_public_message(database, session_id, provided_token, payload):
         # the customer could only ever ask about their newest order.
         owned_order = session_order_by_number(database, session, named_order_number)
 
+        # Sessions written before `orderIds` existed carry only the single
+        # linked order, and it is not in the list to be found.
+        if not owned_order and session.get("orderId"):
+            linked_order = latest_order_for_session(database, session)
+
+            if linked_order and str(
+                linked_order.get("orderNumber", ""),
+            ).casefold() == named_order_number.casefold():
+                owned_order = linked_order
+
         if owned_order:
             return respond(
                 order_information_message(owned_order),
@@ -3295,6 +3351,178 @@ def answer_public_message(database, session_id, provided_token, payload):
             next_state="awaiting-confirmation",
         )
 
+
+    # ---- Review collection, after delivery -------------------------------
+    # The seller marking an order delivered invites the customer to review it
+    # (see `chat_event_service`). Ownership was proved by placing the order, so
+    # no phone check is repeated here - `write_order_review` still enforces the
+    # delivered gate and the one-review-per-order rule.
+    if current_state in REVIEW_STATES:
+        review_draft = dict(session.get("reviewDraft") or {})
+        order_reference = (
+            database.collection("businesses")
+            .document(session["businessId"])
+            .collection("orders")
+            .document(review_draft.get("orderId") or "__missing__")
+        )
+        order_snapshot = order_reference.get()
+
+        def end_review(text):
+            session_snapshot.reference.set(
+                {"reviewDraft": {}},
+                merge=True,
+            )
+            return respond(text, "prompt", next_state="completed")
+
+        def save_draft(changes, text, action, next_state):
+            review_draft.update(changes)
+            session_snapshot.reference.set(
+                {"reviewDraft": review_draft},
+                merge=True,
+            )
+            return respond(text, action, next_state=next_state)
+
+        def submit(product_id, rating, review_text):
+            """Write one review, and turn a rejection into a plain sentence."""
+            try:
+                write_order_review(
+                    database,
+                    session["businessId"],
+                    order_snapshot,
+                    {
+                        "orderNumber": order_snapshot.to_dict().get("orderNumber", ""),
+                        "normalizedPhone": order_snapshot.to_dict()
+                        .get("customerSnapshot", {})
+                        .get("normalizedPhone", ""),
+                        "productId": product_id,
+                        "reviewText": review_text,
+                        "rating": rating,
+                        "media": [
+                            {"type": "image", "url": url}
+                            for url in (review_draft.get("media") or [])
+                        ],
+                    },
+                    # Chat photos are already uploaded, so no Cloudinary
+                    # credentials are needed on this path.
+                    {},
+                )
+                return ""
+            except ApiError as error:
+                return error.message
+
+        if not order_snapshot.exists:
+            return end_review(
+                "I could not find that order any more, so I cannot record a "
+                "review for it. Is there anything else I can help with?",
+            )
+
+        order_items = order_snapshot.to_dict().get("items", [])
+
+        # "Skip" has to work at every step. A review nobody wants to write must
+        # not trap the customer in a loop of questions.
+        if wants_to_skip(message) and current_state != "collecting-review-photo":
+            return end_review(
+                "No problem, thank you for shopping with us. Tell me if you "
+                "need anything else.",
+            )
+
+        if current_state == "collecting-review-product":
+            chosen = next(
+                (
+                    item
+                    for item in order_items
+                    if str(item.get("productName", "")).casefold()
+                    in message.casefold()
+                ),
+                None,
+            )
+            index = re.search(r"\b([1-9])\b", message)
+
+            if not chosen and index and int(index.group(1)) <= len(order_items):
+                chosen = order_items[int(index.group(1)) - 1]
+
+            if not chosen:
+                return respond(
+                    "Which item shall I record the review for? "
+                    + ", ".join(
+                        f"{position}. {item.get('productName', 'item')}"
+                        for position, item in enumerate(order_items, start=1)
+                    ),
+                    "collect-review-product",
+                    next_state="collecting-review-product",
+                )
+
+            return save_draft(
+                {"productId": chosen.get("productId", "")},
+                f"How would you rate the {chosen.get('productName', 'item')} "
+                "out of 5?",
+                "collect-review-rating",
+                "collecting-review-rating",
+            )
+
+        if current_state == "collecting-review-rating":
+            rating = parse_star_rating(message)
+
+            if not rating:
+                return respond(
+                    "Please send a number from 1 to 5, where 5 is excellent.",
+                    "collect-review-rating",
+                    next_state="collecting-review-rating",
+                )
+
+            return save_draft(
+                {"rating": rating},
+                f"Thank you, {rating} out of 5. What did you think of it? "
+                "A sentence is plenty, or say skip.",
+                "collect-review-text",
+                "collecting-review-text",
+            )
+
+        if current_state == "collecting-review-text":
+            return save_draft(
+                {"reviewText": message.strip()[:2000]},
+                "Would you like to add a photo of it? Send the picture, or "
+                "say done.",
+                "collect-review-photo",
+                "collecting-review-photo",
+            )
+
+        if current_state == "collecting-review-photo":
+            # Photos arrive through the image endpoint, not as text. Any text
+            # here means the customer is finished adding them.
+            failure = submit(
+                review_draft.get("productId", ""),
+                review_draft.get("rating", 5),
+                review_draft.get("reviewText") or "No comment.",
+            )
+
+            if failure:
+                return end_review(failure)
+
+            return save_draft(
+                {"media": [], "reviewText": "", "productId": ""},
+                "Thank you, your review has been sent to the seller. One last "
+                "thing - how would you rate the service overall, out of 5?",
+                "collect-seller-rating",
+                "collecting-review-seller-rating",
+            )
+
+        if current_state == "collecting-review-seller-rating":
+            rating = parse_star_rating(message)
+
+            if not rating:
+                return respond(
+                    "Please send a number from 1 to 5 for the service.",
+                    "collect-seller-rating",
+                    next_state="collecting-review-seller-rating",
+                )
+
+            failure = submit("", rating, f"Rated {rating} out of 5 for service.")
+            return end_review(
+                failure
+                or "Thank you. Both reviews are with the seller and will "
+                "appear on the store once approved.",
+            )
 
     if current_state == "collecting-name":
         try:
@@ -5037,6 +5265,30 @@ def attach_public_chat_image(database, session_id, provided_token, payload):
         caption or "Sent an image.",
         {"imageUrl": uploaded["url"], "kind": "image"},
     )
+
+    # A photo sent while reviewing belongs to the review, not to the seller's
+    # attention queue - nothing needs acting on, and the review is submitted
+    # when the customer says they are done.
+    if session.get("state") == "collecting-review-photo":
+        review_draft = dict(session.get("reviewDraft") or {})
+        review_draft["media"] = (review_draft.get("media") or [])[
+            : MAX_REVIEW_PHOTOS - 1
+        ] + [uploaded["url"]]
+        session_snapshot.reference.set(
+            {"reviewDraft": review_draft, "updatedAt": firestore.SERVER_TIMESTAMP},
+            merge=True,
+        )
+        return {
+            "imageUrl": uploaded["url"],
+            "message": translate_chat_message(
+                "Added to your review. Send another photo, or say done."
+                if len(review_draft["media"]) < MAX_REVIEW_PHOTOS
+                else "That is the last photo I can attach. Say done to send "
+                "your review.",
+                session.get("language", "en"),
+            ),
+        }
+
     # A bank slip needs a human to look at it and confirm the money.
     notify_seller_attention(
         database,
