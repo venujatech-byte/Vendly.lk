@@ -1,11 +1,12 @@
 // React state and effect hooks manage the sidebar and colour theme.
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
-import { lazy, Suspense, useEffect, useState } from "react";
-import { Navigate, Route, Routes } from "react-router-dom";
+import { lazy, Suspense, useEffect, useLayoutEffect, useState } from "react";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 
 // Shared layout components and the individual dashboard pages.
 import "./App.css";
+import "./MotionPreferences.css";
 import BusinessAssistant from "./components/BusinessAssistant.jsx";
 import Header from "./components/Header.jsx";
 import Sidebar from "./components/Sidebar.jsx";
@@ -40,11 +41,75 @@ function getInitialTheme() {
   return "light";
 }
 
+// Motion is a device preference, just like the colour theme. Respect the
+// operating system on first use, then remember the seller's explicit choice.
+function getInitialAnimationPreference() {
+  const savedPreference = localStorage.getItem("vendly-animations-enabled");
+
+  if (savedPreference === "true") return true;
+  if (savedPreference === "false") return false;
+
+  return !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+function AppLoadingScreen({
+  message = "Preparing your workspace...",
+  errorMessage = "",
+  onRetry,
+}) {
+  return (
+    <main
+      className={`app-loading${errorMessage ? " app-loading--error" : ""}`}
+      aria-label={errorMessage ? "Vendly connection error" : "Loading Vendly"}
+      aria-live="polite"
+    >
+      <div className="app-loading__content">
+        <div className="app-loading__logo">
+          <span>V</span>
+        </div>
+
+        <h1>Vendly</h1>
+        <p>{errorMessage || message}</p>
+
+        {!errorMessage && (
+          <>
+            <div className="app-loading__progress">
+              <span />
+            </div>
+
+            <div className="app-loading__dots" aria-hidden="true">
+              <i />
+              <i />
+              <i />
+            </div>
+          </>
+        )}
+
+        {errorMessage && (
+          <button className="app-loading__retry" type="button" onClick={onRetry}>
+            Try again
+          </button>
+        )}
+      </div>
+    </main>
+  );
+}
+
 function App() {  
-  const { user } = useAuth();
+  const {
+    user,
+    isAuthLoading,
+    accountError,
+    authenticationError,
+    refreshSellerProfile,
+  } = useAuth();
+  const location = useLocation();
   // Application-wide UI state shared by the sidebar and header.
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [theme, setTheme] = useState(getInitialTheme);
+  const [animationsEnabled, setAnimationsEnabled] = useState(
+    getInitialAnimationPreference,
+  );
   const [isAssistantOpen, setIsAssistantOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [settingsSection, setSettingsSection] = useState("general");
@@ -60,6 +125,18 @@ function App() {
   document.documentElement.dataset.theme = theme;
   localStorage.setItem("vendly-theme", theme);
 }, [theme]);
+
+  // A document-level flag lets every dashboard page and shared component use
+  // one motion preference without duplicating React state in each page.
+  useLayoutEffect(() => {
+    document.documentElement.dataset.animations = animationsEnabled
+      ? "enabled"
+      : "disabled";
+    localStorage.setItem(
+      "vendly-animations-enabled",
+      String(animationsEnabled),
+    );
+  }, [animationsEnabled]);
 
   // PayHere redirects back without a trusted payment result. Reopen Billing so
   // the dashboard can display the status recorded by the signed backend callback.
@@ -114,30 +191,50 @@ function App() {
   });
 }
 
+  const isStorefrontRoute =
+    location.pathname.startsWith("/s/") ||
+    location.pathname.startsWith("/p/");
+  const startupError =
+    authenticationError ||
+    (
+      user &&
+      !isStorefrontRoute &&
+      location.pathname !== "/login" &&
+      accountError
+    );
+
+  if (isAuthLoading) {
+    return (
+      <AppLoadingScreen
+        message={
+          user
+            ? "Connecting to your Vendly workspace..."
+            : "Checking your secure session..."
+        }
+      />
+    );
+  }
+
+  if (startupError) {
+    return (
+      <AppLoadingScreen
+        errorMessage={
+          authenticationError
+            ? "Firebase authentication could not be reached."
+            : "The Vendly backend could not be reached."
+        }
+        onRetry={
+          authenticationError
+            ? () => window.location.reload()
+            : refreshSellerProfile
+        }
+      />
+    );
+  }
+
   return (
   <Suspense
-  fallback={
-    <main className="app-loading" aria-label="Loading Vendly">
-      <div className="app-loading__content">
-        <div className="app-loading__logo">
-          <span>V</span>
-        </div>
-
-        <h1>Vendly</h1>
-        <p>Preparing your workspace...</p>
-
-        <div className="app-loading__progress">
-          <span />
-        </div>
-
-        <div className="app-loading__dots" aria-hidden="true">
-          <i />
-          <i />
-          <i />
-        </div>
-      </div>
-    </main>
-  }
+  fallback={<AppLoadingScreen />}
 >
 
 
@@ -314,6 +411,10 @@ function App() {
               }}
               theme={theme}
               onToggleTheme={toggleTheme}
+              animationsEnabled={animationsEnabled}
+              onToggleAnimations={() =>
+                setAnimationsEnabled((currentValue) => !currentValue)
+              }
             />
           </div>
         </ProtectedRoute>

@@ -91,11 +91,6 @@ export async function apiRequest(
       requestHeaders.set("Authorization", `Bearer ${refreshedToken}`);
       ({ response, responseData } = await sendRequest());
     }
-       setTimeout(() => {
-    console.log("This runs after 2 seconds");
-    window.location.reload();
-  }, 1000);
-
   }
 
   if (!response.ok) {

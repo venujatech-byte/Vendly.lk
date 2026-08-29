@@ -27,6 +27,9 @@ function AuthProvider({ children }) {
   // A backend error does not destroy the Firebase login session.
   const [accountError, setAccountError] = useState(null);
 
+  // Firebase listener failures are separate from backend account failures.
+  const [authenticationError, setAuthenticationError] = useState(null);
+
   // Prevent pages from loading before Firebase checks the session.
   const [isAuthLoading, setIsAuthLoading] = useState(true);
 
@@ -92,6 +95,7 @@ function AuthProvider({ children }) {
       auth,
       async (currentUser) => {
         setIsAuthLoading(true);
+        setAuthenticationError(null);
         setUser(currentUser);
 
         try {
@@ -109,6 +113,15 @@ function AuthProvider({ children }) {
           setIsAuthLoading(false);
         }
       },
+      (error) => {
+        console.error("Firebase authentication could not be initialized:", error);
+        setUser(null);
+        setSellerProfile(null);
+        setAccount(null);
+        setAccountError(null);
+        setAuthenticationError(error);
+        setIsAuthLoading(false);
+      },
     );
 
     // Stop the Firebase listener when this component is removed.
@@ -117,13 +130,20 @@ function AuthProvider({ children }) {
 
   // Refresh profile data after the seller finishes business setup.
   async function refreshSellerProfile() {
+    setIsAuthLoading(true);
+
     if (!auth.currentUser) {
       setSellerProfile(null);
       setAccount(null);
+      setIsAuthLoading(false);
       return;
     }
 
-    await loadAccount(auth.currentUser);
+    try {
+      await loadAccount(auth.currentUser);
+    } finally {
+      setIsAuthLoading(false);
+    }
   }
 
   const authValue = {
@@ -133,6 +153,7 @@ function AuthProvider({ children }) {
     business: account?.business ?? null,
     membership: account?.membership ?? null,
     accountError,
+    authenticationError,
     refreshSellerProfile,
     isAuthLoading,
     isAuthenticated: Boolean(user),
