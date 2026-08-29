@@ -414,3 +414,106 @@ html[data-theme="dark"] .sidebar__link--active {
   from { opacity: 0; transform: translateY(7px) scale(.97); }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
+
+
+
+/* ========================================
+   SIDEBAR PAGE-LOAD ANIMATION
+   ======================================== */
+
+/* Whole sidebar slides in first */
+.sidebar {
+  animation: sidebarSlideIn
+    650ms cubic-bezier(0.22, 1, 0.36, 1)
+    both;
+}
+
+@keyframes sidebarSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-40px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+
+/* Logo + collapse button */
+.sidebar__top {
+  opacity: 0;
+  animation: sidebarItemIn
+    450ms cubic-bezier(0.22, 1, 0.36, 1)
+    350ms forwards;
+}
+
+
+/* Navigation links */
+.sidebar__link {
+  opacity: 0;
+  animation: sidebarItemIn
+    420ms cubic-bezier(0.22, 1, 0.36, 1)
+    forwards;
+}
+
+.sidebar__link:nth-child(1) {
+  animation-delay: 420ms;
+}
+
+.sidebar__link:nth-child(2) {
+  animation-delay: 480ms;
+}
+
+.sidebar__link:nth-child(3) {
+  animation-delay: 540ms;
+}
+
+.sidebar__link:nth-child(4) {
+  animation-delay: 600ms;
+}
+
+.sidebar__link:nth-child(5) {
+  animation-delay: 660ms;
+}
+
+.sidebar__link:nth-child(6) {
+  animation-delay: 720ms;
+}
+
+
+/* Bottom business/profile section */
+.sidebar__footer {
+  opacity: 0;
+  animation: sidebarItemIn
+    450ms cubic-bezier(0.22, 1, 0.36, 1)
+    800ms forwards;
+}
+
+
+/* Shared inner-item animation */
+@keyframes sidebarItemIn {
+  from {
+    opacity: 0;
+    transform: translateX(-18px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+
+/* Accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .sidebar,
+  .sidebar__top,
+  .sidebar__link,
+  .sidebar__footer {
+    opacity: 1;
+    animation: none;
+    transform: none;
+  }
+}
