@@ -65,6 +65,8 @@ function SettingsModal({
   onOpenProfile,
   theme,
   onToggleTheme,
+  animationsEnabled = true,
+  onToggleAnimations,
 }) {
   const {
     user,
@@ -582,6 +584,26 @@ Opening hours: Monday to Saturday, 9am to 6pm.`}
             <div><h3>Appearance</h3><p>Choose how the Vendly dashboard looks on this device.</p></div>
           </div>
           <button type="button" onClick={onToggleTheme}>Use {theme === "dark" ? "light" : "dark"} theme</button>
+        </section>
+        <section className="settings-modal__card settings-modal__preference settings-modal__preference-row">
+          <div className="settings-modal__section-heading">
+            <Sparkles size={20} />
+            <div>
+              <h3>Page animations</h3>
+              <p>Reveal dashboard sections smoothly from top to bottom.</p>
+            </div>
+          </div>
+          <button
+            className={`settings-modal__switch ${animationsEnabled ? "is-enabled" : ""}`}
+            type="button"
+            role="switch"
+            aria-checked={animationsEnabled}
+            aria-label="Toggle page animations"
+            onClick={onToggleAnimations}
+          >
+            <span aria-hidden="true" />
+            <strong>{animationsEnabled ? "On" : "Off"}</strong>
+          </button>
         </section>
         <section className="settings-modal__card settings-modal__preference">
           <div className="settings-modal__section-heading">

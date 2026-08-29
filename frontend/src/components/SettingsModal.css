@@ -147,6 +147,54 @@
   font-weight: 700;
 }
 
+.settings-modal__preference-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.settings-modal__preference-row > .settings-modal__section-heading {
+  flex: 1;
+  min-width: 0;
+}
+
+.settings-modal__preference-row > .settings-modal__switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 72px;
+  min-height: 36px;
+  margin: 0;
+  padding: 4px 9px 4px 5px;
+  border-color: var(--color-border);
+  color: var(--color-text-muted);
+  background: var(--color-control);
+}
+
+.settings-modal__switch > span {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--color-text-muted);
+  box-shadow: 0 2px 6px rgba(4, 31, 59, 0.18);
+}
+
+.settings-modal__switch > strong {
+  font-size: 11px;
+}
+
+.settings-modal__preference-row > .settings-modal__switch.is-enabled {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 10%, var(--color-surface));
+}
+
+.settings-modal__switch.is-enabled > span {
+  background: var(--color-accent);
+}
+
 .settings-modal__details-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -352,6 +400,7 @@ html[data-theme="dark"] .settings-modal__payment-status .settings-modal__payment
   .settings-modal__current-plan { align-items: flex-start; flex-direction: column; }
   .settings-modal__contact-footer { align-items: stretch; flex-direction: column; }
   .settings-modal__contact-footer button { width: 100%; }
+  .settings-modal__preference-row { align-items: flex-start; }
 }
 
 /* Store policies the chatbot answers from. Free text, so the seller can cover

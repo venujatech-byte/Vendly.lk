@@ -1,0 +1,98 @@
+/*
+ * Shared motion language for Vendly.
+ *
+ * Page sections enter in document order, moving from slightly above into
+ * place. The short stagger makes the eye travel naturally from top to bottom
+ * without making lower content wait several seconds.
+ */
+:root {
+  --vendly-motion-duration: 440ms;
+  --vendly-motion-easing: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+html[data-animations="enabled"]
+  .dashboard:not(.overview-page):not(.analytics-page):not(.couriers-page)
+  > * {
+  opacity: 0;
+  animation: vendly-section-reveal var(--vendly-motion-duration)
+    var(--vendly-motion-easing) both;
+}
+
+html[data-animations="enabled"] .dashboard:not(.overview-page):not(.analytics-page):not(.couriers-page) > *:nth-child(1) { animation-delay: 35ms; }
+html[data-animations="enabled"] .dashboard:not(.overview-page):not(.analytics-page):not(.couriers-page) > *:nth-child(2) { animation-delay: 90ms; }
+html[data-animations="enabled"] .dashboard:not(.overview-page):not(.analytics-page):not(.couriers-page) > *:nth-child(3) { animation-delay: 145ms; }
+html[data-animations="enabled"] .dashboard:not(.overview-page):not(.analytics-page):not(.couriers-page) > *:nth-child(4) { animation-delay: 200ms; }
+html[data-animations="enabled"] .dashboard:not(.overview-page):not(.analytics-page):not(.couriers-page) > *:nth-child(5) { animation-delay: 255ms; }
+html[data-animations="enabled"] .dashboard:not(.overview-page):not(.analytics-page):not(.couriers-page) > *:nth-child(6) { animation-delay: 310ms; }
+html[data-animations="enabled"] .dashboard:not(.overview-page):not(.analytics-page):not(.couriers-page) > *:nth-child(7) { animation-delay: 365ms; }
+html[data-animations="enabled"] .dashboard:not(.overview-page):not(.analytics-page):not(.couriers-page) > *:nth-child(8) { animation-delay: 420ms; }
+html[data-animations="enabled"] .dashboard:not(.overview-page):not(.analytics-page):not(.couriers-page) > *:nth-child(n + 9) { animation-delay: 475ms; }
+
+/* Keep data-heavy lists quick and subtle when their records arrive. */
+html[data-animations="enabled"]
+  .dashboard:not(.overview-page):not(.analytics-page):not(.couriers-page)
+  :where(.stat-card, .stat-card2),
+html[data-animations="enabled"]
+  .orders-table tbody > tr:not(.orders-table__details-row) {
+  animation-name: vendly-detail-reveal;
+  animation-duration: 360ms;
+  animation-timing-function: var(--vendly-motion-easing);
+  animation-fill-mode: both;
+}
+
+@keyframes vendly-section-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(-16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes vendly-detail-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(-9px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* The preference intentionally disables decorative motion everywhere while
+ * preserving the final visible state of elements that started at opacity 0. */
+html[data-animations="disabled"] *,
+html[data-animations="disabled"] *::before,
+html[data-animations="disabled"] *::after {
+  animation: none !important;
+  transition-duration: 0.01ms !important;
+  transition-delay: 0ms !important;
+  scroll-behavior: auto !important;
+}
+
+html[data-animations="disabled"] :where(
+  .dashboard > *,
+  .stat-card,
+  .stat-card2,
+  .orders-table tbody > tr,
+  .overview-page *,
+  .analytics-page *
+) {
+  opacity: 1 !important;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-animations] *,
+  html[data-animations] *::before,
+  html[data-animations] *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

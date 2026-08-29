@@ -239,7 +239,7 @@ function CouriersPage() {
   }, [business?.id]);
 
   return (
-    <main className="dashboard">
+    <main className="dashboard couriers-page">
       <div className="management-page__heading">
         <div className="dashboard__intro">
           <h2>Couriers & Delivery</h2>
