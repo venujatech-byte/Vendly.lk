@@ -17,6 +17,7 @@ import { useSearchParams } from "react-router-dom";
 
 import AddCourierModal from "../components/AddCourierModal";
 import ActionMenu from "../components/ActionMenu";
+import CourierDeliveryFeeMap from "../components/CourierDeliveryFeeMap";
 import StatCard from "../components/StatCard";
 import TablePagination from "../components/TablePagination";
 import SortableHeader from "../components/SortableHeader";
@@ -266,6 +267,8 @@ function CouriersPage() {
 
       {isLoading && <p className="management-page__notice">Loading couriers...</p>}
       {errorMessage && <p className="management-page__notice" role="alert">{errorMessage}</p>}
+
+      {!isLoading && <CourierDeliveryFeeMap couriers={couriers} />}
 
       <section className="orders-table-section courier-table-card">
       <div className="orders-table__scroll courier-table__scroll">
