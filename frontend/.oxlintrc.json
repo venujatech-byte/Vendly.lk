@@ -6,5 +6,11 @@
   },
   "rules": {
     "no-undef": "error"
-  }
+  },
+  "ignorePatterns": [
+    "dist/**",
+    "dist-*/**",
+    "build/**",
+    "public/**"
+  ]
 }

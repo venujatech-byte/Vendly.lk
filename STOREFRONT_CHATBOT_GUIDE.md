@@ -2917,3 +2917,85 @@ detail. Groq was also three to five times faster.
 
 **A benchmark is cheap and an opinion is not.** This took one script and two
 minutes, and it settled a choice that reading provider documentation could not.
+
+### 23.96 "compare t800 and zeblace" compared nothing — FIXED
+
+**Seen:** asking to compare two watches answered "I need at least two products
+to compare. Which others shall I put beside the T900 Ultra?" - naming a third
+product neither of them - and showed **power bank** cards underneath.
+
+Three faults in one reply.
+
+**1. A short name matched nothing.** `products_named_in` needs a model code
+(letters and digits, like `T800`) or two thirds of a name's words. "zeblace" is
+one word of five in "Zeblace Gts 3 Smart Watch" and carries no digits, so it
+failed every rule - while being the only thing a customer would ever type. The
+comparison then held one product and asked what to put beside it.
+
+**2. The suggestions came from the wrong place.** That reply passed
+`products[:4]` - the first four items in the catalogue - so comparing watches
+offered power banks. It now offers other products from the **same category**.
+
+**3. One function was doing two jobs.** Adding a generous rule to
+`products_named_in` broke an existing test: "we have several earbuds" started
+matching the one earbud in the catalogue. Correctly - because that function
+decides which cards sit under **an answer the model wrote**, where a single
+loose word is weak evidence. Reading **what a customer typed** is a different
+job with different stakes.
+
+They are two functions now: `products_named_in` stays strict for answers, and
+`products_the_customer_named` reads a message generously, adding words unique
+to one product in this catalogue. Category words are excluded from that - in a
+shop with a single earbud, "earbuds" is unique to it but still names a kind of
+product rather than that one.
+
+Measured after the split:
+
+| message | matched |
+|---|---|
+| sorry I meant compare t800 ultra and zeblace | T800, Zeblace |
+| compare zeblace and t900 | T900, Zeblace |
+| show me smart watches | nothing |
+| *(answer)* "We have several smart watches." | nothing |
+
+**The failing test was the useful part.** It said the loose rule was wrong for
+the job it had been added to - not that the rule was wrong.
+
+---
+
+## Session handover — 28 August 2026
+
+**State:** 403 backend tests, 3 node self-checks, lint and build clean.
+
+**Live configuration** (`backend/.env`): `AI_PROVIDER=openrouter` with
+`nvidia/nemotron-3-super-120b-a12b:free`, Groq `openai/gpt-oss-120b` as the
+fallback, `AI_TIMEOUT_SECONDS=40`, `AI_FAST_MODEL` blank.
+
+**The open decision is which provider to run.** `scripts/compare_ai_providers.py`
+measured this shop's own catalogue:
+
+| | comparison | recommendation | Sinhala |
+|---|---|---|---|
+| Groq gpt-oss-120b | 2.4s ✓ | 2.3s ✓ | 3.0s ✓ answered in Sinhala |
+| OpenRouter free | 3.7s ✓ | 12.4s ✓ | 7.9s ✗ `[NO_DATA]` |
+
+**Recommended: switch back to Groq primary, OpenRouter fallback** - two lines in
+`.env`, no code change. The free model refused a Sinhala question Groq answered
+from the same catalogue, and needed three separate fixes (§23.92, §23.93) that
+Groq never did. Add a Gemini or Cerebras key and rerun the script to include
+them.
+
+**Not verified in production**, in priority order:
+
+1. `add_items_to_order` and `record_order_payment` - the stock reservation and
+   money writes have tests around the arithmetic but have never run against
+   live Firestore. Do one merge and one payment and check the variant's
+   `stockAvailable`, the balance to collect, and that the receipt opens.
+2. The seller-side "to be paid" order - confirm it shows yellow and refuses
+   confirmation.
+
+**Highest-value work not started** is still §22's list, with one addition:
+`answer_public_message` is now past 3,700 lines and has produced **eight** bugs
+this section from branch ordering and duplicated rules alone (§23.31, §23.38,
+§23.41, §23.45, §23.73, §23.84, §23.90, §23.96). Splitting it into an ordered
+list of named steps would pay for itself within a week.

@@ -1131,11 +1131,69 @@ def products_named_in(answer, products):
 
     answer_words = set(text.split())
 
-    return [
+    matched = [
         product
         for product in products
         if name_appears_in(product.get("name", ""), text, answer_words)
     ]
+
+    return matched
+
+
+def products_the_customer_named(message, products):
+    """Products a customer's own message points at, read generously.
+
+    Deliberately looser than `products_named_in`, because the two do different
+    jobs. That one decides which cards sit under an answer the model wrote, so
+    a wrong match shows the customer a product the text never mentioned. This
+    one reads what a person typed, where "compare t800 ultra and zeblace" names
+    two products and only one survives a strict reading.
+    """
+    text = " ".join(word_characters(str(message or "")).split())
+    matched = products_named_in(message, products)
+    identified = {product.get("id") for product in matched}
+
+    return matched + [
+        product
+        for product in unique_products_for(set(text.split()), products)
+        if product.get("id") not in identified
+    ]
+
+
+def unique_products_for(message_words, products):
+    """Products identified by a word that belongs to no other product.
+
+    Used alongside the full-name match, never instead of it: "zeblace" is one
+    word of five in "Zeblace Gts 3 Smart Watch", so it fails every full-name
+    rule while being the only thing anyone would actually type.
+
+    Self-tuning against the seller's own catalogue: "smart" and "watch" sit in
+    several names so they identify nothing, while "zeblace" and "aspor" sit in
+    one. No word list to maintain - the catalogue decides.
+    """
+    # Words that name a category identify a kind of product, not a particular
+    # one. In a shop with a single earbud, "earbuds" is unique to it - so "we
+    # have several earbuds" would have pulled up its card as though the
+    # sentence had named it.
+    category_words = set()
+
+    for product in products:
+        category_words |= message_word_alias_set(product.get("categoryName", ""))
+
+    owners = {}
+
+    for product in products:
+        for word in message_word_alias_set(product.get("name", "")):
+            if len(word) > 2 and word not in category_words:
+                owners.setdefault(word, set()).add(product.get("id"))
+
+    named = {
+        next(iter(owners[word]))
+        for word in message_words
+        if len(owners.get(word, ())) == 1
+    }
+
+    return [product for product in products if product.get("id") in named]
 
 
 # Words that carry no identity in a product name, so their absence from an
@@ -3902,7 +3960,7 @@ def answer_public_message(database, session_id, provided_token, payload):
         # stops - it exists to resolve one product. A comparison names two, so
         # it uses the matcher built for finding every product named in a piece
         # of text.
-        matched_by_name = products_named_in(message, products)
+        matched_by_name = products_the_customer_named(message, products)
         named_scope = find_category_request(message, products, require_cue=False)
         on_screen = products_by_ids(products, session.get("lastShownProductIds"))
 
@@ -3942,12 +4000,23 @@ def answer_public_message(database, session_id, provided_token, payload):
                 )
 
         if len(to_compare) == 1:
+            # Alternatives from the same category, not the first four items in
+            # the catalogue. Asking which watch to compare against and showing
+            # power banks answers a question nobody asked.
+            alternatives = [
+                item
+                for item in category_products(
+                    products,
+                    to_compare[0].get("categoryName", ""),
+                )
+                if item.get("id") != to_compare[0].get("id")
+            ]
             return respond(
-                "I need at least two products to compare. Which others shall I "
-                f"put beside the {to_compare[0]['name']}?",
+                "I need at least two products to compare. Which shall I put "
+                f"beside the {to_compare[0]['name']}?",
                 "show-category",
                 next_state="browsing",
-                response_products=products[:4],
+                response_products=(alternatives or products)[:4],
             )
 
     if refers_to_shown_products(message) and wants_a_recommendation(message):
