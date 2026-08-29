@@ -647,3 +647,82 @@ html[data-theme="dark"] .filter-panel .filter-panel__reset {
     width: 100%;
   }
 }
+
+
+
+/* ========================================
+   FILTER PANEL PAGE-LOAD ANIMATION
+   Works for OrderFilters + InventoryFilters
+   ======================================== */
+
+.filter-panel.filter-panel {
+  opacity: 0;
+  animation: filterPanelFlyIn
+    650ms cubic-bezier(0.22, 1, 0.36, 1)
+    180ms forwards;
+}
+
+@keyframes filterPanelFlyIn {
+  from {
+    opacity: 0;
+    transform: translateY(30px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Individual filter controls appear after panel */
+.filter-panel.filter-panel {
+  opacity: 0;
+
+  animation: filterPanelFlyIn
+    650ms cubic-bezier(0.22, 1, 0.36, 1)
+    750ms forwards;
+}
+.filter-panel .filter-panel__form > *:nth-child(1) {
+  animation-delay: 300ms;
+}
+
+.filter-panel .filter-panel__form > *:nth-child(2) {
+  animation-delay: 350ms;
+}
+
+.filter-panel .filter-panel__form > *:nth-child(3) {
+  animation-delay: 400ms;
+}
+
+.filter-panel .filter-panel__form > *:nth-child(4) {
+  animation-delay: 450ms;
+}
+
+.filter-panel .filter-panel__form > *:nth-child(5) {
+  animation-delay: 500ms;
+}
+
+.filter-panel .filter-panel__form > *:nth-child(6) {
+  animation-delay: 550ms;
+}
+
+@keyframes filterControlFlyIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .filter-panel.filter-panel,
+  .filter-panel .filter-panel__form > * {
+    opacity: 1;
+    animation: none;
+  }
+}

@@ -554,3 +554,73 @@ html[data-theme="dark"] .orders-table__status--shipped {
 .orders-table__row--paid:hover {
   background-color: rgba(15, 172, 131, 0.16);
 }
+
+
+
+
+
+
+
+.orders-table tbody > tr:not(.orders-table__details-row) {
+  opacity: 0;
+  animation: orderRowFlyIn 500ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.orders-table tbody > tr:nth-child(1) {
+  animation-delay: 400ms;
+}
+
+.orders-table tbody > tr:nth-child(2) {
+  animation-delay: 450ms;
+}
+
+.orders-table tbody > tr:nth-child(3) {
+  animation-delay: 500ms;
+}
+
+.orders-table tbody > tr:nth-child(4) {
+  animation-delay: 550ms;
+}
+
+.orders-table tbody > tr:nth-child(5) {
+  animation-delay: 600ms;
+}
+
+.orders-table tbody > tr:nth-child(6) {
+  animation-delay: 650ms;
+}
+
+.orders-table tbody > tr:nth-child(7) {
+  animation-delay: 700ms;
+}
+
+.orders-table tbody > tr:nth-child(8) {
+  animation-delay: 750ms;
+}
+
+.orders-table tbody > tr:nth-child(9) {
+  animation-delay: 800ms;
+}
+
+.orders-table tbody > tr:nth-child(10) {
+  animation-delay: 850ms;
+}
+
+@keyframes orderRowFlyIn {
+  from {
+    opacity: 0;
+    transform: translateY(15px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orders-table tbody > tr:not(.orders-table__details-row) {
+    opacity: 1;
+    animation: none;
+  }
+}
