@@ -387,6 +387,32 @@ def latest_order_for_session(database, session):
     return max(orders, key=lambda item: str(item.get("createdAt", "")))
 
 
+def session_order_by_number(database, session, order_number):
+    """An order this session already owns, looked up by its number.
+
+    The session records every order it produced in `orderIds`, so ownership is
+    already proven for those - naming one is not a guess and must not send the
+    customer back through the phone check.
+    """
+    orders_reference = (
+        database.collection("businesses")
+        .document(session["businessId"])
+        .collection("orders")
+    )
+    owned = list(session.get("orderIds") or [])
+    if session.get("orderId"):
+        owned.append(session["orderId"])
+
+    for order_id in dict.fromkeys(owned):
+        snapshot = orders_reference.document(order_id).get()
+        if snapshot.exists and str(
+            snapshot.to_dict().get("orderNumber", ""),
+        ).casefold() == str(order_number).casefold():
+            return {"id": snapshot.id, **snapshot.to_dict()}
+
+    return None
+
+
 ORDER_NUMBER_PATTERN = re.compile(r"\b((?:vd|vwb)[- ]?\d+)\b", re.IGNORECASE)
 
 # A guessed order number plus repeated phone guesses is the only way in, so the
@@ -3024,6 +3050,10 @@ def answer_public_message(database, session_id, provided_token, payload):
             session_snapshot.reference.set(
                 {
                     "orderId": verified_order["id"],
+                    # Without this the order leaves the notification list as
+                    # soon as a newer one replaces `orderId`, and its status
+                    # updates stop reaching the chat.
+                    "orderIds": firestore.ArrayUnion([verified_order["id"]]),
                     "pendingOrderNumber": "",
                     "orderVerificationAttempts": 0,
                     "updatedAt": firestore.SERVER_TIMESTAMP,
@@ -3064,7 +3094,19 @@ def answer_public_message(database, session_id, provided_token, payload):
             next_state="verifying-order",
         )
 
-    if named_order_number and not session.get("orderId"):
+    if named_order_number:
+        # An order this session placed needs no re-verification. Without this
+        # the customer could only ever ask about their newest order.
+        owned_order = session_order_by_number(database, session, named_order_number)
+
+        if owned_order:
+            return respond(
+                order_information_message(owned_order),
+                "show-order-info",
+                next_state="completed",
+            )
+
+        # Anything else is someone else's number until the phone matches.
         session_snapshot.reference.set(
             {
                 "pendingOrderNumber": named_order_number,
@@ -3501,6 +3543,7 @@ def answer_public_message(database, session_id, provided_token, payload):
             session_snapshot.reference.set(
                 {
                     "orderId": latest_order["id"],
+                    "orderIds": firestore.ArrayUnion([latest_order["id"]]),
                     "status": "completed",
                     "state": "completed",
                     "updatedAt": firestore.SERVER_TIMESTAMP,
