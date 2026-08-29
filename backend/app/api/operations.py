@@ -14,6 +14,7 @@ from app.services.operations_service import (
     mark_notification_read,
     record_courier_issue,
 )
+from app.services.courier_service import get_courier
 
 
 operations_blueprint = Blueprint("operations", __name__, url_prefix="/api/v1")
@@ -70,6 +71,7 @@ def create_waybill(business_id, order_id):
 @require_firebase_user
 @require_business_member(permission="orders:read")
 def download_orders(business_id):
+    courier_id = request.args.get("courierId")
     workbook = export_orders(
         get_firestore_client(),
         business_id,
@@ -77,13 +79,15 @@ def download_orders(business_id):
         search=request.args.get("search"),
         date_from=request.args.get("dateFrom"),
         date_to=request.args.get("dateTo"),
-        courier_id=request.args.get("courierId"),
+        courier_id=courier_id,
+        order_ids=request.args.getlist("orderId"),
     )
+    courier = get_courier(get_firestore_client(), business_id, courier_id)
     date_stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     return send_file(
         workbook,
         as_attachment=True,
-        download_name=f"vendly-orders-{date_stamp}.xlsx",
+        download_name=f"{courier.get('code', 'courier')}-orders-{date_stamp}.xlsx",
         mimetype=(
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         ),

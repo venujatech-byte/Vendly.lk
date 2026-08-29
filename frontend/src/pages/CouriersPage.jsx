@@ -1,15 +1,33 @@
-import { Fragment, useEffect, useState } from "react";
-import { ChevronDown, ChevronRight, FileDigit, Pencil, Plus, Power, Truck } from "lucide-react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import {
+  CircleCheckBig,
+  ChevronDown,
+  ChevronRight,
+  Clock3,
+  FileDigit,
+  FileSpreadsheet,
+  Pencil,
+  Plus,
+  Power,
+  RotateCcw,
+  Truck,
+  Upload,
+} from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 
 import AddCourierModal from "../components/AddCourierModal";
 import ActionMenu from "../components/ActionMenu";
+import StatCard from "../components/StatCard";
 import TablePagination from "../components/TablePagination";
 import SortableHeader from "../components/SortableHeader";
 import useTablePagination from "../hooks/useTablePagination";
 import useTableSort from "../hooks/useTableSort";
 import { useAuth } from "../context/authContextValue";
-import { getCouriers, updateCourier } from "../services/courierService";
+import {
+  getCouriers,
+  updateCourier,
+  uploadCourierExportTemplate,
+} from "../services/courierService";
 
 import "./ManagementPage.css";
 import "../components/OrderTable.css";
@@ -56,6 +74,70 @@ function CouriersPage() {
   const [isAddCourierOpen, setIsAddCourierOpen] = useState(false);
   const [editingCourier, setEditingCourier] = useState(null);
   const [expandedCourierId, setExpandedCourierId] = useState(null);
+  const [uploadingTemplateId, setUploadingTemplateId] = useState("");
+  const templateInputReference = useRef(null);
+  const templateCourierReference = useRef(null);
+
+  // Build the dashboard figures from the same courier records used by the
+  // table. Completed orders are used for the most accurate success rate. A
+  // newly configured courier falls back to its stored success-rate estimate.
+  const courierStats = useMemo(() => {
+    const activeCouriers = couriers.filter((courier) => courier.status === "active");
+    const couriersForAverages = activeCouriers.length ? activeCouriers : couriers;
+    const deliveredOrders = couriers.reduce(
+      (total, courier) => total + (courier.deliveredOrderCount ?? 0),
+      0,
+    );
+    const returnedOrders = couriers.reduce(
+      (total, courier) => total + (courier.returnedOrderCount ?? 0),
+      0,
+    );
+    const completedOrders = deliveredOrders + returnedOrders;
+
+    const averageDeliveryDays = couriersForAverages.length
+      ? couriersForAverages.reduce(
+        (total, courier) => total + (courier.averageDeliveryDays ?? 0),
+        0,
+      ) / couriersForAverages.length
+      : 0;
+
+    const estimatedSuccessRate = couriersForAverages.length
+      ? couriersForAverages.reduce(
+        (total, courier) => total + (courier.successRate ?? 0),
+        0,
+      ) / couriersForAverages.length
+      : 0;
+    const deliverySuccessRate = completedOrders
+      ? deliveredOrders / completedOrders
+      : estimatedSuccessRate;
+
+    return [
+      {
+        label: "Active Couriers",
+        value: String(activeCouriers.length),
+        icon: Truck,
+        tone: "blue",
+      },
+      {
+        label: "Average Delivery",
+        value: `${Number(averageDeliveryDays.toFixed(1))} days`,
+        icon: Clock3,
+        tone: "orange",
+      },
+      {
+        label: "Delivery Success",
+        value: `${Math.round(deliverySuccessRate * 100)}%`,
+        icon: CircleCheckBig,
+        tone: "green",
+      },
+      {
+        label: "Returned Orders",
+        value: String(returnedOrders),
+        icon: RotateCcw,
+        tone: "red",
+      },
+    ];
+  }, [couriers]);
 
   function replaceCourier(updatedCourier) {
     setCouriers((current) => current.map((courier) => (
@@ -103,6 +185,37 @@ function CouriersPage() {
     }
   }
 
+  function chooseExportTemplate(courier) {
+    templateCourierReference.current = courier;
+    if (templateInputReference.current) {
+      templateInputReference.current.value = "";
+      templateInputReference.current.click();
+    }
+  }
+
+  async function handleTemplateSelected(event) {
+    const file = event.target.files?.[0];
+    const courier = templateCourierReference.current;
+    if (!file || !courier || !business?.id) return;
+
+    setUploadingTemplateId(courier.id);
+    setErrorMessage("");
+    try {
+      const updatedCourier = await uploadCourierExportTemplate(
+        business.id,
+        courier.id,
+        file,
+      );
+      replaceCourier(updatedCourier);
+      setExpandedCourierId(courier.id);
+    } catch (error) {
+      setErrorMessage(error.message);
+    } finally {
+      setUploadingTemplateId("");
+      templateCourierReference.current = null;
+    }
+  }
+
   useEffect(() => {
     if (assistantAction !== "add-courier") return;
 
@@ -134,7 +247,22 @@ function CouriersPage() {
         <button className="management-page__primary-button" type="button" onClick={() => setIsAddCourierOpen(true)} disabled={!business?.id}>
           <Plus size={18} /> Add Courier
         </button>
+        <input
+          ref={templateInputReference}
+          type="file"
+          accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          hidden
+          onChange={handleTemplateSelected}
+        />
       </div>
+
+      <section className="courier-stats" aria-label="Courier summary">
+        <div className="stats-grid">
+          {courierStats.map((stat) => (
+            <StatCard key={stat.label} {...stat} />
+          ))}
+        </div>
+      </section>
 
       {isLoading && <p className="management-page__notice">Loading couriers...</p>}
       {errorMessage && <p className="management-page__notice" role="alert">{errorMessage}</p>}
@@ -183,6 +311,16 @@ function CouriersPage() {
                           onClick: () => manageWaybillRange(courier),
                         },
                         {
+                          label: uploadingTemplateId === courier.id
+                            ? "Uploading Excel format..."
+                            : courier.exportTemplateFilename
+                              ? "Replace Excel format"
+                              : "Upload Excel format",
+                          icon: <Upload size={16} aria-hidden="true" />,
+                          disabled: Boolean(uploadingTemplateId),
+                          onClick: () => chooseExportTemplate(courier),
+                        },
+                        {
                           label: courier.status === "active" ? "Deactivate courier" : "Activate courier",
                           icon: <Power size={16} aria-hidden="true" />,
                           danger: courier.status === "active",
@@ -195,7 +333,7 @@ function CouriersPage() {
                 {isExpanded && (
                   <tr className="management-table__mobile-details-row orders-table__details-row">
                     <td className="orders-table__details-cell" colSpan={9}>
-                      <div className="management-table__mobile-details">
+                      <div className="courier-table__details-grid">
                         <div><span>First 1 kg (most districts)</span><strong>{money(courier.firstKgPriceMinor)}</strong></div>
                         <div><span>Extra 1 kg</span><strong>{money(courier.extraKgPriceMinor)}</strong></div>
                         <div><span>District exceptions</span><strong>{districtPriceExceptions(courier)}</strong></div>
@@ -205,6 +343,13 @@ function CouriersPage() {
                         <div><span>Waybill range</span><strong>{courier.waybillPrefix}{courier.waybillStart} – {courier.waybillPrefix}{courier.waybillEnd}</strong></div>
                         <div><span>Delivered orders</span><strong>{courier.deliveredOrderCount ?? 0}</strong></div>
                         <div><span>Returned orders</span><strong>{courier.returnedOrderCount ?? 0}</strong></div>
+                        <div className="courier-table__template-detail">
+                          <span>Order export format</span>
+                          <strong>
+                            <FileSpreadsheet size={15} aria-hidden="true" />
+                            {courier.exportTemplateFilename ?? "Not uploaded"}
+                          </strong>
+                        </div>
                       </div>
                     </td>
                   </tr>

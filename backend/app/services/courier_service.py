@@ -1,12 +1,19 @@
 from collections import Counter
 from decimal import Decimal, ROUND_CEILING
+from io import BytesIO
 
 from firebase_admin import firestore
+from openpyxl import load_workbook
+from werkzeug.utils import secure_filename
 
 from app.core.errors import ApiError
 from app.core.serialization import serialize_snapshot
 from app.services.numbers import money_to_minor_units, non_negative_integer
 from app.services.text import optional_text, required_text, slugify
+
+
+MAX_EXPORT_TEMPLATE_BYTES = 750 * 1024
+EXPORT_TEMPLATE_DOCUMENT_ID = "orders"
 
 
 # The 25 administrative districts of Sri Lanka as (English, Sinhala, Tamil).
@@ -278,6 +285,92 @@ def get_courier(database, business_id, courier_id):
         raise ApiError("courier_not_found", "Courier not found.", 404)
 
     return serialize_snapshot(snapshot)
+
+
+def courier_export_template_reference(database, business_id, courier_id):
+    return (
+        database.collection("businesses")
+        .document(business_id)
+        .collection("couriers")
+        .document(courier_id)
+        .collection("exportTemplates")
+        .document(EXPORT_TEMPLATE_DOCUMENT_ID)
+    )
+
+
+def save_courier_export_template(database, business_id, courier_id, uploaded_file):
+    """Validate and save one courier's XLSX upload format."""
+    get_courier(database, business_id, courier_id)
+    filename = secure_filename(uploaded_file.filename or "")
+
+    if not filename.lower().endswith(".xlsx"):
+        raise ApiError(
+            "invalid_export_template",
+            "Choose a valid .xlsx courier template.",
+            422,
+        )
+
+    workbook_bytes = uploaded_file.read(MAX_EXPORT_TEMPLATE_BYTES + 1)
+    if not workbook_bytes:
+        raise ApiError("invalid_export_template", "The workbook is empty.", 422)
+    if len(workbook_bytes) > MAX_EXPORT_TEMPLATE_BYTES:
+        raise ApiError(
+            "export_template_too_large",
+            "The courier workbook must be smaller than 750 KB.",
+            422,
+        )
+
+    try:
+        workbook = load_workbook(BytesIO(workbook_bytes), read_only=True)
+        sheet_names = list(workbook.sheetnames)
+        workbook.close()
+    except Exception as error:
+        raise ApiError(
+            "invalid_export_template",
+            "The selected file is not a readable Excel workbook.",
+            422,
+        ) from error
+
+    timestamp = firestore.SERVER_TIMESTAMP
+    courier_export_template_reference(database, business_id, courier_id).set(
+        {
+            "filename": filename,
+            "content": workbook_bytes,
+            "sizeBytes": len(workbook_bytes),
+            "sheetNames": sheet_names,
+            "updatedAt": timestamp,
+        },
+    )
+    (
+        database.collection("businesses")
+        .document(business_id)
+        .collection("couriers")
+        .document(courier_id)
+        .update(
+            {
+                "exportTemplateFilename": filename,
+                "exportTemplateUpdatedAt": timestamp,
+                "updatedAt": timestamp,
+            },
+        )
+    )
+    return get_courier(database, business_id, courier_id)
+
+
+def get_courier_export_template(database, business_id, courier_id):
+    get_courier(database, business_id, courier_id)
+    snapshot = courier_export_template_reference(
+        database,
+        business_id,
+        courier_id,
+    ).get()
+    if not snapshot.exists:
+        raise ApiError(
+            "courier_export_template_missing",
+            "Upload an Excel format for this courier before exporting orders.",
+            409,
+        )
+    return snapshot.to_dict()
 
 
 def create_courier(database, business_id, payload):

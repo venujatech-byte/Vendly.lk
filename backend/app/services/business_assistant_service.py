@@ -874,13 +874,12 @@ def process_read_intent(database, business_id, membership, intent):
 
     if intent_name == "export_orders":
         require_permission(membership, "orders:read")
-        export_action = {"type": "export_orders"}
-        for key in ("dateFrom", "dateTo", "status"):
-            if intent.get(key):
-                export_action[key] = intent[key]
         return {
-            "message": "Preparing your courier-compatible order export.",
-            "clientAction": export_action,
+            "message": (
+                "Opening Orders. Select Export Orders, then choose the courier "
+                "whose saved Excel format you want to use."
+            ),
+            "navigateTo": "/orders",
         }
 
     if intent_name == "export_sales":

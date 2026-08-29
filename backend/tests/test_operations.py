@@ -1,5 +1,7 @@
+from io import BytesIO
+
 import pytest
-from openpyxl import load_workbook
+from openpyxl import Workbook, load_workbook
 
 from app.core.errors import ApiError
 from app.services.operations_service import (
@@ -49,6 +51,75 @@ def test_order_export_creates_real_excel_workbook():
     assert sheet["C2"].value == "Kamal"
     assert sheet["H2"].value == 2450
     assert sheet["J2"].value == 2000
+
+
+def test_order_export_fills_the_courier_template_without_replacing_its_layout():
+    template = Workbook()
+    sheet = template.active
+    sheet.title = "Courier Upload"
+    sheet["A1"] = "Courier upload instructions"
+    sheet.append(["Waybill No", "Receiver Name", "Order Number", "COD"])
+    sheet.append(["sample", "sample", "sample", 0])
+    template_stream = BytesIO()
+    template.save(template_stream)
+
+    stream = build_orders_workbook(
+        [
+            {
+                "waybillNumber": "KMB-00012",
+                "orderNumber": "VD-000012",
+                "customerSnapshot": {"name": "Nimali"},
+                "totalAmountMinor": 345000,
+            },
+        ],
+        template_bytes=template_stream.getvalue(),
+    )
+    exported = load_workbook(stream)
+    exported_sheet = exported["Courier Upload"]
+
+    assert exported_sheet["A1"].value == "Courier upload instructions"
+    assert exported_sheet["A3"].value == "KMB-00012"
+    assert exported_sheet["B3"].value == "Nimali"
+    assert exported_sheet["C3"].value == "VD-000012"
+    assert exported_sheet["D3"].value == 3450
+
+
+def test_order_export_can_be_limited_to_selected_order_ids(monkeypatch):
+    from app.services import operations_service
+
+    orders = [
+        {"id": "order-1", "orderNumber": "VD-000001"},
+        {"id": "order-2", "orderNumber": "VD-000002"},
+    ]
+    captured = {}
+
+    monkeypatch.setattr(
+        operations_service,
+        "get_courier_export_template",
+        lambda *_args: {"content": b"courier-template"},
+    )
+    monkeypatch.setattr(
+        operations_service,
+        "list_orders",
+        lambda *_args, **_kwargs: orders,
+    )
+
+    def fake_build(exported_orders, template_bytes=None):
+        captured["orders"] = exported_orders
+        captured["template"] = template_bytes
+        return BytesIO()
+
+    monkeypatch.setattr(operations_service, "build_orders_workbook", fake_build)
+
+    operations_service.export_orders(
+        object(),
+        "business-1",
+        courier_id="courier-1",
+        order_ids=["order-2"],
+    )
+
+    assert captured["orders"] == [orders[1]]
+    assert captured["template"] == b"courier-template"
 
 
 class FakeDocument:

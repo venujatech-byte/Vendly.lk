@@ -2,12 +2,13 @@ from io import BytesIO
 
 from firebase_admin import firestore
 from google.cloud import firestore as google_firestore
-from openpyxl import Workbook
+from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font, PatternFill
 
 from app.core.errors import ApiError
 from app.core.serialization import serialize_snapshot
 from app.services.order_service import get_order, list_orders
+from app.services.courier_service import get_courier_export_template
 from app.services.fraud_service import (
     global_fraud_reference,
     global_registry_increment,
@@ -31,6 +32,19 @@ COURIER_ISSUE_TYPES = {
     "other",
 }
 WAYBILL_ALLOWED_STATUSES = {"confirmed", "packed", "shipped", "delivered"}
+
+ORDER_EXPORT_COLUMNS = {
+    "waybill": ("waybill id", "waybill no", "waybill number"),
+    "order": ("order number", "order id", "order no"),
+    "receiver": ("receiver name", "customer name", "customer"),
+    "address": ("delivery address", "address"),
+    "district": ("district name", "district"),
+    "city": ("city", "nearest city"),
+    "phone": ("receiver phone", "phone", "phone number"),
+    "cod": ("cod", "cash on delivery", "amount to collect"),
+    "description": ("description", "items", "item names"),
+    "actual": ("actual value", "subtotal", "item value"),
+}
 
 
 def validate_report_payload(payload, allowed_values, field_label):
@@ -296,7 +310,90 @@ def format_address(address):
     )
 
 
-def build_orders_workbook(orders):
+def order_export_values(order):
+    items = order.get("items", [])
+    address = order.get("deliveryAddress", {}) or {}
+    customer = order.get("customerSnapshot", {}) or {}
+    phone_numbers = [
+        customer.get("phoneNumber") or customer.get("normalizedPhone") or "",
+        customer.get("secondaryPhoneNumber")
+        or customer.get("normalizedSecondaryPhone")
+        or "",
+    ]
+    total_minor = order.get("totalAmountMinor", 0) or 0
+    delivery_minor = order.get("deliveryFeeMinor", 0) or 0
+    paid_minor = order.get("paidAmountMinor", 0) or 0
+    return {
+        "waybill": order.get("waybillNumber", ""),
+        "order": order.get("orderNumber") or order.get("id", ""),
+        "receiver": customer.get("name", ""),
+        "address": format_address(address),
+        "district": address.get("district", ""),
+        "city": address.get("city", ""),
+        "phone": ", ".join(phone for phone in phone_numbers if phone),
+        "cod": (total_minor - paid_minor) / 100,
+        "description": ", ".join(
+            f"{item.get('name', '')} {item.get('size', '')}".strip()
+            for item in items
+            if item.get("name")
+        ),
+        "actual": (total_minor - delivery_minor) / 100,
+    }
+
+
+def normalize_heading(value):
+    return " ".join(str(value or "").strip().casefold().replace("_", " ").split())
+
+
+def find_template_columns(workbook):
+    aliases = {
+        alias: field
+        for field, field_aliases in ORDER_EXPORT_COLUMNS.items()
+        for alias in field_aliases
+    }
+    for sheet in workbook.worksheets:
+        for row_number in range(1, min(sheet.max_row, 30) + 1):
+            columns = {}
+            for cell in sheet[row_number]:
+                field = aliases.get(normalize_heading(cell.value))
+                if field:
+                    columns[field] = cell.column
+            if "order" in columns and len(columns) >= 3:
+                return sheet, row_number, columns
+    raise ApiError(
+        "invalid_export_template",
+        "The courier template needs recognizable headings such as Order Number, Receiver Name and COD.",
+        422,
+    )
+
+
+def build_orders_from_template(orders, template_bytes):
+    workbook = load_workbook(BytesIO(template_bytes))
+    sheet, header_row, columns = find_template_columns(workbook)
+    first_data_row = header_row + 1
+
+    for row_number in range(first_data_row, sheet.max_row + 1):
+        for column_number in columns.values():
+            sheet.cell(row=row_number, column=column_number).value = None
+
+    for index, order in enumerate(orders):
+        values = order_export_values(order)
+        for field, column_number in columns.items():
+            sheet.cell(
+                row=first_data_row + index,
+                column=column_number,
+            ).value = values[field]
+
+    stream = BytesIO()
+    workbook.save(stream)
+    stream.seek(0)
+    return stream
+
+
+def build_orders_workbook(orders, template_bytes=None):
+    if template_bytes:
+        return build_orders_from_template(orders, template_bytes)
+
     workbook = Workbook()
     sheet = workbook.active
     sheet.title = "Orders"
@@ -372,13 +469,33 @@ def build_orders_workbook(orders):
     return stream
 
 
-def export_orders(database, business_id, status=None, search=None, date_from=None, date_to=None, courier_id=None):
-    return build_orders_workbook(
-        list_orders(
-            database, business_id, status=status, search=search,
-            date_from=date_from, date_to=date_to, courier_id=courier_id,
-        ),
+def export_orders(
+    database,
+    business_id,
+    status=None,
+    search=None,
+    date_from=None,
+    date_to=None,
+    courier_id=None,
+    order_ids=None,
+):
+    if not courier_id:
+        raise ApiError(
+            "courier_required",
+            "Choose a courier before exporting orders.",
+            422,
+        )
+    template = get_courier_export_template(database, business_id, courier_id)
+    orders = list_orders(
+        database, business_id, status=status, search=search,
+        date_from=date_from, date_to=date_to, courier_id=courier_id,
     )
+    selected_order_ids = {
+        str(order_id).strip() for order_id in (order_ids or []) if str(order_id).strip()
+    }
+    if selected_order_ids:
+        orders = [order for order in orders if order.get("id") in selected_order_ids]
+    return build_orders_workbook(orders, template_bytes=template.get("content"))
 
 
 # A fixed document id, so a provider that fails on every message leaves one

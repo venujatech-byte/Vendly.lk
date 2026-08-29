@@ -1,0 +1,110 @@
+.export-orders-form {
+  display: grid;
+  gap: 16px;
+}
+
+.export-orders-form__field {
+  display: grid;
+  gap: 7px;
+  color: var(--color-text-strong);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.export-orders-form__field select {
+  width: 100%;
+  min-height: 42px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 9px;
+  color: var(--color-text);
+  background: var(--color-surface);
+  font: inherit;
+}
+
+.export-orders-form__summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.export-orders-form__summary > div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  color: var(--color-accent);
+  background: var(--color-surface-muted);
+}
+
+.export-orders-form__summary span {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.export-orders-form__summary small {
+  color: var(--color-text-muted);
+  font-size: 0.68rem;
+}
+
+.export-orders-form__summary strong {
+  color: var(--color-text-strong);
+  font-size: 0.78rem;
+  overflow-wrap: anywhere;
+}
+
+.export-orders-form__warning {
+  margin: 0;
+  padding: 11px 12px;
+  border: 1px solid #f6c56a;
+  border-radius: 9px;
+  color: #9a5c00;
+  background: #fff8e8;
+  font-size: 0.76rem;
+}
+
+.export-orders-form__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+  padding-top: 4px;
+}
+
+.export-orders-form__footer button {
+  min-height: 38px;
+  padding: 0 15px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  color: var(--color-text);
+  background: var(--color-surface);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.export-orders-form__footer button[type="submit"] {
+  color: #fff;
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+}
+
+.export-orders-form__footer button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+[data-theme="dark"] .export-orders-form__warning {
+  color: #ffd58a;
+  background: rgba(245, 158, 11, 0.12);
+}
+
+@media (max-width: 540px) {
+  .export-orders-form__summary {
+    grid-template-columns: 1fr;
+  }
+}

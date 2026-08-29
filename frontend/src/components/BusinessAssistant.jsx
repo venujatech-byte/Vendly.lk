@@ -19,7 +19,7 @@ import {
   sendBusinessAssistantMessage,
   transcribeBusinessAssistantAudio,
 } from "../services/businessAssistantService";
-import { downloadOrderExport, printWaybill } from "../services/operationService";
+import { printWaybill } from "../services/operationService";
 import { downloadInventoryWorkbook } from "../services/productService";
 import { downloadCustomersCsv, getCustomers } from "../services/customerService";
 import { getShopSales } from "../services/shopSaleService";
@@ -312,11 +312,7 @@ function BusinessAssistant({ isOpen, onToggle, onClose }) {
     const action = response?.clientAction;
 
     if (action?.type === "export_orders") {
-      await downloadOrderExport(business.id, {
-        dateFrom: action.dateFrom || "",
-        dateTo: action.dateTo || "",
-        status: action.status || "",
-      });
+      navigate("/orders");
       return;
     }
 

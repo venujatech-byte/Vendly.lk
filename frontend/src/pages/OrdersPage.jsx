@@ -46,6 +46,7 @@ import ShopSalesTable from "../components/ShopSalesTable";
 import WarrantyClaimModal from "../components/WarrantyClaimModal";
 import WarrantyClaimsTable from "../components/WarrantyClaimsTable";
 import BarcodeScannerModal from "../components/BarcodeScannerModal";
+import ExportOrdersModal from "../components/ExportOrdersModal";
 import { getCouriers } from "../services/courierService";
 import {
   downloadOrderExport,
@@ -89,6 +90,8 @@ function OrdersPage() {
   const [filters, setFilters] = useState({});
   const [isAddOrderOpen, setIsAddOrderOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [selectedExportOrderIds, setSelectedExportOrderIds] = useState([]);
   const [couriers, setCouriers] = useState([]);
   const [linkWasCopied, setLinkWasCopied] = useState(false);
   const [statusFilter, setStatusFilter] = useState("");
@@ -374,30 +377,21 @@ function OrdersPage() {
   }
 
   function handleExportSelected(selectedIds) {
-    const selectedOrders = visibleOrders.filter((order) => selectedIds.includes(order.id));
-    const columns = ["Order number", "Customer", "Phone", "Items", "Subtotal", "Delivery fee", "Total", "Courier", "Status", "Date"];
-    const escape = (value) => `"${String(value ?? "").replaceAll('"', '""')}"`;
-    const rows = selectedOrders.map((order) => [
-      order.orderNumber,
-      order.customerName,
-      order.phoneNumber,
-      order.itemCount,
-      order.subtotal,
-      order.deliveryFee,
-      order.total,
-      order.courier,
-      order.status,
-      `${order.date} ${order.time}`,
-    ]);
-    const csv = [columns, ...rows].map((row) => row.map(escape).join(",")).join("\r\n");
-    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `vendly-selected-orders-${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
+    const visibleOrderIds = new Set(visibleOrders.map((order) => order.id));
+    const validSelectedIds = selectedIds.filter((orderId) => visibleOrderIds.has(orderId));
+    if (!validSelectedIds.length) return;
+    setSelectedExportOrderIds(validSelectedIds);
+    setIsExportModalOpen(true);
+  }
+
+  function openOrdersExportModal() {
+    setSelectedExportOrderIds([]);
+    setIsExportModalOpen(true);
+  }
+
+  function closeOrdersExportModal() {
+    setIsExportModalOpen(false);
+    setSelectedExportOrderIds([]);
   }
 
   // Export only the currently loaded physical-shop sales, including active filters.
@@ -467,16 +461,28 @@ function OrdersPage() {
     await reportCourierIssue(business.id, orderId, "branch-problem", note);
   }
 
-  async function handleExport() {
-    if (!business?.id || isExporting) return;
+  async function handleExport(courierId) {
+    if (!business?.id || isExporting || !courierId) return false;
 
     setIsExporting(true);
     setOrdersError(null);
 
     try {
-      await downloadOrderExport(business.id);
+      await downloadOrderExport(business.id, {
+        courierId,
+        ...(selectedExportOrderIds.length > 0
+          ? { orderIds: selectedExportOrderIds }
+          : {
+              status: statusFilter || filters.status || routeStatus,
+              search: filters.search || routeSearch,
+              dateFrom: filters.dateFrom || routeDateFrom,
+              dateTo: filters.dateTo || routeDateTo,
+            }),
+      });
+      return true;
     } catch (error) {
       setOrdersError(error);
+      return false;
     } finally {
       setIsExporting(false);
     }
@@ -529,9 +535,9 @@ function OrdersPage() {
                 {linkWasCopied ? <Check size={19} aria-hidden="true" /> : <Link2 size={19} aria-hidden="true" />}
                 <span>{linkWasCopied ? "Link Copied" : "Chatbot Link"}</span>
               </button>
-              <button type="button" onClick={handleExport} disabled={isExporting || !business?.id}>
+              <button type="button" onClick={openOrdersExportModal} disabled={!business?.id}>
                 <Download size={19} strokeWidth={1.8} />
-                <span>{isExporting ? "Exporting..." : "Export Orders"}</span>
+                <span>Export Orders</span>
               </button>
               <button className="page__add-button" type="button" onClick={() => setIsAddOrderOpen(true)} disabled={!business?.id}>
                 <Plus size={19} aria-hidden="true" />
@@ -743,6 +749,17 @@ function OrdersPage() {
         manualLabel="Or enter the waybill number"
         inputPlaceholder="Scan or enter a waybill number"
         submitLabel="Use waybill"
+      />
+      <ExportOrdersModal
+        isOpen={isExportModalOpen}
+        couriers={couriers}
+        orders={selectedExportOrderIds.length > 0
+          ? visibleOrders.filter((order) => selectedExportOrderIds.includes(order.id))
+          : visibleOrders}
+        selectedOrderCount={selectedExportOrderIds.length}
+        isExporting={isExporting}
+        onClose={closeOrdersExportModal}
+        onExport={handleExport}
       />
     </main>
   );
