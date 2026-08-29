@@ -1,6 +1,8 @@
 import {
   Bot,
   Check,
+  ExternalLink,
+  Lightbulb,
   Mic,
   MicOff,
   Send,
@@ -22,13 +24,26 @@ import { downloadInventoryCsv, getProducts } from "../services/productService";
 import { downloadCustomersCsv, getCustomers } from "../services/customerService";
 import { getShopSales } from "../services/shopSaleService";
 import { downloadReceiptPdf } from "../services/receiptService";
+import addOrderGuideImage from "../../assets/designs/add-order-single-size-variant-v1.png";
+import addProductGuideImage from "../../assets/designs/add-product-single-size-variant-v1.png";
+import categoriesGuideImage from "../../assets/designs/inventory-categories-tab-v2.png";
+import inventoryGuideImage from "../../assets/designs/inventory-table-single-size-variant-v1.png";
+import ordersGuideImage from "../../assets/designs/order-table-single-size-variant-v1.png";
 import "./BusinessAssistant.css";
 
 const starterMessage = {
   id: "assistant-welcome",
   role: "assistant",
-  text: "Hello! I can summarize your business, search and filter records, open dashboard tools and settings, export data, and safely prepare status or stock updates.",
-  suggestions: ["Today's summary", "Filter packed orders", "Open customer messages", "Add a new order"],
+  text: "Hello! I can guide you through Vendly step by step, open the correct page, summarize your business, find records and safely prepare updates. Ask me something like “How do I add an order?”",
+  suggestions: ["How do I add an order?", "How do I add a product?", "Today's summary"],
+};
+
+const GUIDE_IMAGES = {
+  "add-order": addOrderGuideImage,
+  "add-product": addProductGuideImage,
+  categories: categoriesGuideImage,
+  inventory: inventoryGuideImage,
+  orders: ordersGuideImage,
 };
 
 const AUDIO_MIME_TYPES = [
@@ -284,6 +299,7 @@ function BusinessAssistant({ isOpen, onToggle, onClose }) {
       role: "assistant",
       text: response?.message || "I could not prepare a response.",
       cards: response?.cards || [],
+      guide: response?.guide || null,
       suggestions: response?.suggestions || [],
       pendingAction: response?.pendingAction || null,
     };
@@ -1006,6 +1022,66 @@ function BusinessAssistant({ isOpen, onToggle, onClose }) {
                       </button>
                     ))}
                   </div>
+                )}
+
+                {message.guide && (
+                  <section className="business-assistant__guide">
+                    <div className="business-assistant__guide-heading">
+                      <span className="business-assistant__guide-number">Guide</span>
+                      <div>
+                        <strong>{message.guide.title}</strong>
+                        <p>{message.guide.description}</p>
+                      </div>
+                    </div>
+
+                    {GUIDE_IMAGES[message.guide.imageKey] && (
+                      <a
+                        className="business-assistant__guide-image-link"
+                        href={GUIDE_IMAGES[message.guide.imageKey]}
+                        target="_blank"
+                        rel="noreferrer"
+                        aria-label={`Open the full ${message.guide.title} screenshot`}
+                      >
+                        <img
+                          className="business-assistant__guide-image"
+                          src={GUIDE_IMAGES[message.guide.imageKey]}
+                          alt={message.guide.imageAlt || message.guide.title}
+                        />
+                        <span><ExternalLink aria-hidden="true" /> View full screenshot</span>
+                      </a>
+                    )}
+
+                    <ol className="business-assistant__guide-steps">
+                      {message.guide.steps?.map((step, index) => (
+                        <li key={`${message.id}-guide-step-${index}`}>
+                          <span>{index + 1}</span>
+                          <div>
+                            <strong>{step.title}</strong>
+                            <p>{step.description}</p>
+                          </div>
+                        </li>
+                      ))}
+                    </ol>
+
+                    {message.guide.tips?.length > 0 && (
+                      <div className="business-assistant__guide-tips">
+                        <Lightbulb aria-hidden="true" />
+                        <div>
+                          {message.guide.tips.map((tip) => <p key={tip}>{tip}</p>)}
+                        </div>
+                      </div>
+                    )}
+
+                    {message.guide.navigateTo && (
+                      <button
+                        className="business-assistant__guide-open"
+                        type="button"
+                        onClick={() => navigate(message.guide.navigateTo)}
+                      >
+                        Open {message.guide.title} <ExternalLink aria-hidden="true" />
+                      </button>
+                    )}
+                  </section>
                 )}
 
                 {message.pendingAction && (

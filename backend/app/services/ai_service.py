@@ -987,6 +987,7 @@ BUSINESS_ASSISTANT_INTENTS = {
     "set_theme",
     "bulk_update_order_status",
     "help",
+    "guide",
     "unknown",
 }
 
@@ -1032,7 +1033,11 @@ def generate_business_assistant_intent(message):
         "open_section, open_settings, order_view, customer_view, edit_product, "
         "inventory_view, export_customers, shop_sale_view, sales_metric, export_sales, "
         "print_waybills, print_receipts, scan_waybill, scan_barcode, set_theme, "
-        "bulk_update_order_status, help, unknown. "
+        "bulk_update_order_status, guide, help, unknown. "
+        "Use guide when the seller asks how to use Vendly, asks for steps, instructions or help completing a task. "
+        "For guide include guideTopic as one of add_order, manage_orders, add_product, manage_inventory, "
+        "categories, shop_sale, order_status, waybill, add_courier, customers, customer_messages, "
+        "reviews, fraud_reports or analytics. Do not use guide for a direct command such as 'add an order'. "
         "For navigation include page, which must be one of overview, orders, "
         "inventory, couriers, customers or analytics. "
         "Use open_add_order for a new online/delivery order, open_shop_sale for "

@@ -5,6 +5,41 @@
   padding-bottom: 42px;
 }
 
+.analytics-view-tabs {
+  display: inline-flex;
+  justify-self: start;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--color-border);
+  border-radius: 11px;
+  background: var(--color-surface);
+}
+
+.analytics-view-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 7px 12px;
+  border: 0;
+  border-radius: 8px;
+  color: var(--color-muted);
+  background: transparent;
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.analytics-view-tabs button:hover {
+  color: var(--color-text-strong);
+  background: var(--color-surface-soft);
+}
+
+.analytics-view-tabs button.is-active {
+  color: #fff;
+  background: var(--color-accent);
+  box-shadow: 0 6px 14px color-mix(in srgb, var(--color-accent) 25%, transparent);
+}
+
 .analytics-hero {
   display: flex;
   align-items: center;
@@ -593,6 +628,16 @@ html[data-theme="dark"] .analytics-financial-flow .is-total strong {
   .analytics-page {
     gap: 14px;
     padding: 12px 12px 100px;
+  }
+
+  .analytics-view-tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    justify-self: stretch;
+  }
+
+  .analytics-view-tabs button {
+    justify-content: center;
   }
 
   .analytics-hero {

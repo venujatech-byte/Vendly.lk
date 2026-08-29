@@ -1,0 +1,408 @@
+.analytics-ledger {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.analytics-ledger--message,
+.analytics-ledger__intro,
+.analytics-ledger__table-shell {
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: var(--color-surface);
+}
+
+.analytics-ledger--message {
+  padding: 24px;
+  color: #c63434;
+}
+
+.analytics-ledger__intro {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 17px 19px;
+}
+
+.analytics-ledger__intro > div > span {
+  color: var(--color-accent);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.analytics-ledger__intro h3,
+.analytics-ledger__intro p {
+  margin: 0;
+}
+
+.analytics-ledger__intro h3 {
+  margin-top: 2px;
+  color: var(--color-text-strong);
+  font-size: 20px;
+}
+
+.analytics-ledger__intro p {
+  margin-top: 3px;
+  color: var(--color-muted);
+  font-size: 11px;
+}
+
+.analytics-ledger__intro > svg {
+  width: 42px;
+  height: 42px;
+  padding: 10px;
+  border-radius: 12px;
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 11%, transparent);
+}
+
+.analytics-ledger__stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.analytics-ledger__stats .stat-card {
+  min-width: 0;
+}
+
+.analytics-ledger__stats .stat-card__value {
+  overflow: hidden;
+  font-size: clamp(17px, 1.55vw, 23px);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.analytics-ledger__filters.filter-panel {
+  margin: 0;
+}
+
+.analytics-ledger__filter-form.filter-panel__form {
+  display: grid;
+  align-items: end;
+  grid-template-columns: minmax(250px, 1.8fr) minmax(165px, 1fr) minmax(135px, 0.8fr) minmax(135px, 0.8fr) auto auto;
+}
+
+.analytics-ledger__filter-form .filter-panel__field {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+}
+
+.analytics-ledger__field-label {
+  display: block;
+  color: var(--color-text-strong);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.analytics-ledger__filter-form .filter-panel__icon-field {
+  position: relative;
+  display: flex;
+  width: 100%;
+}
+
+.analytics-ledger__filter-form .filter-panel__icon-field input {
+  width: 100%;
+  min-width: 0;
+  height: 40px;
+  padding: 0 11px 0 36px;
+  border: 1px solid var(--color-border);
+  border-radius: 7px;
+  outline: none;
+  color: var(--color-text);
+  background: var(--color-control);
+  font: inherit;
+}
+
+.analytics-ledger__filter-form .filter-panel__icon-field input:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(41, 151, 255, 0.14);
+}
+
+.analytics-ledger__table-shell {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.analytics-ledger__table {
+  width: 100%;
+  border-collapse: collapse;
+  color: var(--color-text);
+  font-size: 10px;
+}
+
+.analytics-ledger__table th {
+  padding: 11px 10px;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-strong);
+  background: var(--color-surface-soft);
+  font-size: 9px;
+  font-weight: 800;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.analytics-ledger__table td {
+  padding: 10px;
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: middle;
+}
+
+.analytics-ledger__table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.analytics-ledger__table td strong,
+.analytics-ledger__table td small {
+  display: block;
+}
+
+.analytics-ledger__table td strong {
+  color: var(--color-text-strong);
+  font-size: 10px;
+}
+
+.analytics-ledger__table td small {
+  max-width: 190px;
+  margin-top: 2px;
+  overflow: hidden;
+  color: var(--color-muted);
+  font-size: 8px;
+  text-overflow: ellipsis;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
+.analytics-ledger__row--debit {
+  background: color-mix(in srgb, #ef4c4c 3.5%, var(--color-surface));
+}
+
+.analytics-ledger__type {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 4px 8px;
+  border: 1px solid color-mix(in srgb, var(--ledger-tone) 35%, var(--color-border));
+  border-radius: 999px;
+  color: var(--ledger-tone);
+  background: color-mix(in srgb, var(--ledger-tone) 8%, var(--color-surface));
+  font-size: 8px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.analytics-ledger__type--credit { --ledger-tone: #168c72; }
+.analytics-ledger__type--debit { --ledger-tone: #dd4545; }
+
+.analytics-ledger__money,
+.analytics-ledger__balance {
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.analytics-ledger__money--credit { color: #13845f; }
+.analytics-ledger__money--debit { color: #d94141; }
+.analytics-ledger__balance { color: var(--color-text-strong); }
+
+.analytics-ledger__empty {
+  padding: 35px !important;
+  color: var(--color-muted);
+  text-align: center;
+}
+
+.analytics-ledger .orders-table__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 12px;
+  border-top: 1px solid var(--color-border);
+  color: var(--color-muted);
+  font-size: 9px;
+}
+
+.analytics-ledger .orders-table__pagination {
+  display: flex;
+  gap: 5px;
+}
+
+.analytics-ledger .orders-table__pagination button {
+  min-width: 31px;
+  height: 31px;
+  padding: 0 9px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  color: var(--color-text);
+  background: var(--color-surface);
+}
+
+.analytics-ledger .orders-table__pagination button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.analytics-ledger .orders-table__pagination .orders-table__page--active {
+  border-color: var(--color-accent);
+  color: #fff;
+  background: var(--color-accent);
+}
+
+.analytics-ledger__note {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+@media (max-width: 1100px) {
+  .analytics-ledger__stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .analytics-ledger__filter-form.filter-panel__form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .analytics-ledger__intro {
+    padding: 14px;
+  }
+
+  .analytics-ledger__intro h3 {
+    font-size: 17px;
+  }
+
+  .analytics-ledger__intro p {
+    font-size: 9px;
+  }
+
+  .analytics-ledger__intro > svg {
+    width: 36px;
+    height: 36px;
+  }
+
+  .analytics-ledger__stats {
+    gap: 8px;
+  }
+
+  .analytics-ledger__stats .stat-card {
+    min-height: 82px;
+    padding: 10px;
+  }
+
+  .analytics-ledger__stats .stat-card__icon {
+    width: 42px;
+    height: 42px;
+  }
+
+  .analytics-ledger__stats .stat-card__icon svg {
+    width: 27px;
+    height: 27px;
+  }
+
+  .analytics-ledger__stats .stat-card__value {
+    font-size: 13px;
+  }
+
+  .analytics-ledger__filter-form.filter-panel__form {
+    display: none;
+    grid-template-columns: 1fr;
+  }
+
+  .analytics-ledger__filter-form.filter-panel__form.is-open {
+    display: grid;
+  }
+
+  .analytics-ledger__table-shell {
+    overflow: visible;
+    border: 0;
+    background: transparent;
+  }
+
+  .analytics-ledger__table,
+  .analytics-ledger__table tbody,
+  .analytics-ledger__table tr,
+  .analytics-ledger__table td {
+    display: block;
+    width: 100%;
+  }
+
+  .analytics-ledger__table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+  }
+
+  .analytics-ledger__table tbody {
+    display: grid;
+    gap: 9px;
+  }
+
+  .analytics-ledger__table tr {
+    padding: 7px 11px;
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    background: var(--color-surface);
+  }
+
+  .analytics-ledger__table td {
+    display: grid;
+    grid-template-columns: 92px minmax(0, 1fr);
+    align-items: center;
+    min-height: 32px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--color-border);
+    text-align: right;
+  }
+
+  .analytics-ledger__table td::before {
+    content: attr(data-label);
+    color: var(--color-muted);
+    font-size: 8px;
+    font-weight: 750;
+    text-align: left;
+    text-transform: uppercase;
+  }
+
+  .analytics-ledger__table td:last-child {
+    border-bottom: 0;
+  }
+
+  .analytics-ledger__table td strong,
+  .analytics-ledger__table td small {
+    text-align: right;
+  }
+
+  .analytics-ledger__table td small {
+    justify-self: end;
+    max-width: 210px;
+  }
+
+  .analytics-ledger__type {
+    justify-self: end;
+  }
+
+  .analytics-ledger__empty {
+    display: block !important;
+  }
+
+  .analytics-ledger__empty::before {
+    content: none !important;
+  }
+
+  .analytics-ledger .orders-table__footer {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 10px 0 0;
+    border: 0;
+  }
+}

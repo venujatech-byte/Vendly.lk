@@ -112,3 +112,37 @@ def test_the_punctuation_blind_match_needs_a_long_name():
     products = [{"id": "x", "name": "Pro"}]
 
     assert products_named_in("This is a professional grade cable.", products) == []
+
+
+def test_a_customer_naming_two_products_gets_both():
+    from app.services.public_chat_service import products_the_customer_named
+
+    # "zeblace" is one word of five in "Zeblace Gts 3 Smart Watch", so every
+    # strict rule missed it - while being the only thing anyone would type.
+    # The comparison then had one product and asked which to put beside it.
+    products = [
+        {"id": "t800", "name": "T800 Ultra Smart Watch", "categoryName": "Smart watch"},
+        {"id": "zeb", "name": "Zeblace Gts 3 Smart Watch", "categoryName": "Smart watch"},
+        {"id": "xiaomi", "name": "Xiaomi 20000mAh Power Bank", "categoryName": "PowerBanks"},
+    ]
+    matched = products_the_customer_named(
+        "sorry I meant compare t800 ultra and zeblace", products,
+    )
+
+    assert sorted(item["id"] for item in matched) == ["t800", "zeb"]
+
+
+def test_the_generous_reading_is_not_used_for_answers():
+    from app.services.public_chat_service import products_the_customer_named
+
+    products = [
+        {"id": "t800", "name": "T800 Ultra Smart Watch", "categoryName": "Smart watch"},
+        {"id": "zeb", "name": "Zeblace Gts 3 Smart Watch", "categoryName": "Smart watch"},
+    ]
+
+    # A category word names a kind of product, not a particular one - even when
+    # only one product happens to carry it.
+    assert products_the_customer_named("show me smart watches", products) == []
+    # And the strict reading, which decides which cards sit under an answer the
+    # model wrote, is unchanged.
+    assert products_named_in("We have several smart watches.", products) == []

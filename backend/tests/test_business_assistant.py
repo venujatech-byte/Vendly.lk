@@ -45,6 +45,37 @@ def test_assistant_recognizes_exports_and_existing_dashboard_forms():
     assert deterministic_intent("Export customers")["intent"] == "export_customers"
 
 
+def test_assistant_separates_how_to_guides_from_direct_actions():
+    assert deterministic_intent("How do I add an order?") == {
+        "intent": "guide",
+        "guideTopic": "add_order",
+    }
+    assert deterministic_intent("How do I add a product?") == {
+        "intent": "guide",
+        "guideTopic": "add_product",
+    }
+    assert deterministic_intent("Add a new order")["intent"] == "open_add_order"
+    assert deterministic_intent("How do I add a courier?")["guideTopic"] == "add_courier"
+    assert deterministic_intent("How can I reply to a customer message?")["guideTopic"] == "customer_messages"
+    assert deterministic_intent("Show me how to view analytics")["guideTopic"] == "analytics"
+
+
+def test_assistant_returns_a_verified_visual_guide():
+    owner = {"role": "owner", "permissions": ["*"]}
+    response = process_read_intent(
+        None,
+        "business-1",
+        owner,
+        {"intent": "guide", "guideTopic": "add_order"},
+    )
+
+    assert response["navigateTo"] == "/orders?assistantAction=add-order"
+    assert response["guide"]["imageKey"] == "add-order"
+    assert response["guide"]["title"] == "Add an online order"
+    assert len(response["guide"]["steps"]) == 4
+    assert "permission" not in response["guide"]
+
+
 def test_assistant_opens_online_orders_instead_of_the_add_order_form():
     assert deterministic_intent("Show me online orders") == {
         "intent": "order_view",

@@ -3,7 +3,9 @@ import {
   Boxes,
   CircleCheck,
   Clock3,
+  LayoutDashboard,
   PackageCheck,
+  ReceiptText,
   RotateCcw,
   ShoppingBag,
   TrendingUp,
@@ -11,9 +13,11 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
+import AnalyticsLedger from "../components/AnalyticsLedger";
 import { useAuth } from "../context/authContextValue";
 import {
   formatAnalyticsMoney,
+  getAnalyticsLedger,
   getAnalyticsOverview,
 } from "../services/analyticsService";
 import "./AnalyticsPage.css";
@@ -27,7 +31,10 @@ function percentage(value, total) {
 function AnalyticsPage() {
   const { business } = useAuth();
   const [analytics, setAnalytics] = useState(null);
+  const [ledger, setLedger] = useState(null);
   const [error, setError] = useState(null);
+  const [ledgerError, setLedgerError] = useState(null);
+  const [activeView, setActiveView] = useState("overview");
 
   useEffect(() => {
     let requestIsCurrent = true;
@@ -40,6 +47,14 @@ function AnalyticsPage() {
       })
       .catch((requestError) => {
         if (requestIsCurrent) setError(requestError);
+      });
+    setLedgerError(null);
+    getAnalyticsLedger(business.id)
+      .then((data) => {
+        if (requestIsCurrent) setLedger(data);
+      })
+      .catch((requestError) => {
+        if (requestIsCurrent) setLedgerError(requestError);
       });
 
     return () => {
@@ -108,6 +123,16 @@ function AnalyticsPage() {
           <span><CircleCheck size={16} /><b>{performance.deliverySuccessPercent ?? 0}%</b> delivery success</span>
         </div>
       </section>
+
+      <nav className="analytics-view-tabs" aria-label="Analytics views">
+        <button type="button" className={activeView === "overview" ? "is-active" : ""} onClick={() => setActiveView("overview")}><LayoutDashboard size={16} /> Overview</button>
+        <button type="button" className={activeView === "ledger" ? "is-active" : ""} onClick={() => setActiveView("ledger")}><ReceiptText size={16} /> Transaction ledger</button>
+      </nav>
+
+      {activeView === "ledger" ? (
+        <AnalyticsLedger ledger={ledger} isLoading={!ledger && !ledgerError} error={ledgerError} />
+      ) : (
+        <>
 
       <section className="analytics-summary" aria-label="Business totals">
         {summaryCards.map(({ label, value, note, icon: Icon, tone }) => (
@@ -216,6 +241,8 @@ function AnalyticsPage() {
       <p className="analytics-page__footnote">
         Gross profit is product revenue minus recorded product cost. It does not subtract salaries, rent, advertising, tax or other operating expenses.
       </p>
+        </>
+      )}
     </main>
   );
 }
