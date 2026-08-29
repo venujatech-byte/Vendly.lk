@@ -714,3 +714,549 @@ html[data-theme="dark"] .analytics-financial-flow .is-total strong {
     display: none;
   }
 }
+
+
+
+
+
+/* ========================================
+   ANALYTICS PAGE LOAD ANIMATIONS
+   ======================================== */
+
+
+/* HERO */
+.analytics-hero {
+  animation:
+    analyticsHeroIn
+    650ms cubic-bezier(0.22, 1, 0.36, 1)
+    100ms both;
+}
+
+@keyframes analyticsHeroIn {
+  from {
+    opacity: 0;
+    transform: translateY(-22px) scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+
+/* HERO SIGNALS */
+.analytics-hero__signals > span {
+  opacity: 0;
+
+  animation:
+    analyticsSignalIn
+    420ms cubic-bezier(0.22, 1, 0.36, 1)
+    both;
+}
+
+.analytics-hero__signals > span:nth-child(1) {
+  animation-delay: 320ms;
+}
+
+.analytics-hero__signals > span:nth-child(2) {
+  animation-delay: 390ms;
+}
+
+.analytics-hero__signals > span:nth-child(3) {
+  animation-delay: 460ms;
+}
+
+@keyframes analyticsSignalIn {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+
+/* ========================================
+   VIEW TABS
+   ======================================== */
+
+.analytics-view-tabs {
+  animation:
+    analyticsFadeUp
+    480ms cubic-bezier(0.22, 1, 0.36, 1)
+    500ms both;
+}
+
+
+/* Improve tab interaction */
+.analytics-view-tabs button {
+  transition:
+    color 200ms ease,
+    background 220ms ease,
+    transform 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 220ms ease;
+}
+
+.analytics-view-tabs button:hover {
+  transform: translateY(-1px);
+}
+
+.analytics-view-tabs button:active {
+  transform: scale(0.96);
+}
+
+.analytics-view-tabs button.is-active {
+  transform: scale(1.02);
+}
+
+
+/* ========================================
+   SUMMARY CARDS
+   ======================================== */
+
+.analytics-summary__card {
+  opacity: 0;
+
+  animation:
+    analyticsCardIn
+    520ms cubic-bezier(0.22, 1, 0.36, 1)
+    both;
+}
+
+.analytics-summary__card:nth-child(1) {
+  animation-delay: 650ms;
+}
+
+.analytics-summary__card:nth-child(2) {
+  animation-delay: 720ms;
+}
+
+.analytics-summary__card:nth-child(3) {
+  animation-delay: 790ms;
+}
+
+.analytics-summary__card:nth-child(4) {
+  animation-delay: 860ms;
+}
+
+@keyframes analyticsCardIn {
+  from {
+    opacity: 0;
+    transform: translateY(25px) scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+
+/* ========================================
+   CHART PANELS
+   ======================================== */
+
+.analytics-grid--charts
+.analytics-panel:nth-child(1) {
+  animation:
+    analyticsPanelLeft
+    650ms cubic-bezier(0.22, 1, 0.36, 1)
+    1050ms both;
+}
+
+.analytics-grid--charts
+.analytics-panel:nth-child(2) {
+  animation:
+    analyticsPanelRight
+    650ms cubic-bezier(0.22, 1, 0.36, 1)
+    1120ms both;
+}
+
+@keyframes analyticsPanelLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-28px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes analyticsPanelRight {
+  from {
+    opacity: 0;
+    transform: translateX(28px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+
+/* ========================================
+   BAR CHART ANIMATION
+   ======================================== */
+
+.analytics-bars i {
+  transform-origin: bottom;
+  animation:
+    analyticsBarGrow
+    750ms cubic-bezier(0.22, 1, 0.36, 1)
+    1350ms both;
+}
+
+@keyframes analyticsBarGrow {
+  from {
+    transform: scaleY(0);
+    opacity: 0;
+  }
+
+  to {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+
+
+/* Stagger chart labels */
+.analytics-bars > div {
+  opacity: 0;
+
+  animation:
+    analyticsBarItemIn
+    420ms ease
+    both;
+}
+
+.analytics-bars > div:nth-child(1) { animation-delay: 1280ms; }
+.analytics-bars > div:nth-child(2) { animation-delay: 1330ms; }
+.analytics-bars > div:nth-child(3) { animation-delay: 1380ms; }
+.analytics-bars > div:nth-child(4) { animation-delay: 1430ms; }
+.analytics-bars > div:nth-child(5) { animation-delay: 1480ms; }
+.analytics-bars > div:nth-child(6) { animation-delay: 1530ms; }
+.analytics-bars > div:nth-child(7) { animation-delay: 1580ms; }
+
+@keyframes analyticsBarItemIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+
+/* ========================================
+   FINANCIAL + STATUS PANELS
+   ======================================== */
+
+.analytics-panel--financial {
+  animation:
+    analyticsPanelLeft
+    650ms cubic-bezier(0.22, 1, 0.36, 1)
+    1650ms both;
+}
+
+.analytics-panel--status {
+  animation:
+    analyticsPanelRight
+    650ms cubic-bezier(0.22, 1, 0.36, 1)
+    1720ms both;
+}
+
+
+/* Financial rows */
+.analytics-financial-flow > div {
+  opacity: 0;
+
+  animation:
+    analyticsItemUp
+    420ms cubic-bezier(0.22, 1, 0.36, 1)
+    both;
+}
+
+.analytics-financial-flow > div:nth-child(1) {
+  animation-delay: 1850ms;
+}
+
+.analytics-financial-flow > div:nth-child(2) {
+  animation-delay: 1910ms;
+}
+
+.analytics-financial-flow > div:nth-child(3) {
+  animation-delay: 1970ms;
+}
+
+
+/* Gross margin */
+.analytics-margin {
+  animation:
+    analyticsFadeUp
+    450ms cubic-bezier(0.22, 1, 0.36, 1)
+    2020ms both;
+}
+
+
+/* Gross margin progress bar */
+.analytics-margin u {
+  transform-origin: left;
+  animation:
+    analyticsProgressGrow
+    750ms cubic-bezier(0.22, 1, 0.36, 1)
+    2100ms both;
+}
+
+@keyframes analyticsProgressGrow {
+  from {
+    transform: scaleX(0);
+  }
+
+  to {
+    transform: scaleX(1);
+  }
+}
+
+
+/* ========================================
+   DONUT CHART
+   ======================================== */
+
+.analytics-donut {
+  animation:
+    analyticsDonutIn
+    700ms cubic-bezier(0.22, 1, 0.36, 1)
+    1900ms both;
+}
+
+@keyframes analyticsDonutIn {
+  from {
+    opacity: 0;
+    transform: rotate(-35deg) scale(0.75);
+  }
+
+  to {
+    opacity: 1;
+    transform: rotate(0) scale(1);
+  }
+}
+
+
+/* Status legend */
+.analytics-status-legend > span {
+  opacity: 0;
+
+  animation:
+    analyticsLegendIn
+    400ms cubic-bezier(0.22, 1, 0.36, 1)
+    both;
+}
+
+.analytics-status-legend > span:nth-child(1) {
+  animation-delay: 1950ms;
+}
+
+.analytics-status-legend > span:nth-child(2) {
+  animation-delay: 2010ms;
+}
+
+.analytics-status-legend > span:nth-child(3) {
+  animation-delay: 2070ms;
+}
+
+.analytics-status-legend > span:nth-child(4) {
+  animation-delay: 2130ms;
+}
+
+@keyframes analyticsLegendIn {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+
+/* ========================================
+   BOTTOM PANELS
+   ======================================== */
+
+.analytics-panel--products {
+  animation:
+    analyticsPanelLeft
+    650ms cubic-bezier(0.22, 1, 0.36, 1)
+    2250ms both;
+}
+
+.analytics-panel--inventory {
+  animation:
+    analyticsPanelRight
+    650ms cubic-bezier(0.22, 1, 0.36, 1)
+    2320ms both;
+}
+
+
+/* ========================================
+   TOP PRODUCT ROWS
+   ======================================== */
+
+.analytics-products > div {
+  opacity: 0;
+
+  animation:
+    analyticsItemUp
+    420ms cubic-bezier(0.22, 1, 0.36, 1)
+    both;
+}
+
+.analytics-products > div:nth-child(1) { animation-delay: 2450ms; }
+.analytics-products > div:nth-child(2) { animation-delay: 2510ms; }
+.analytics-products > div:nth-child(3) { animation-delay: 2570ms; }
+.analytics-products > div:nth-child(4) { animation-delay: 2630ms; }
+.analytics-products > div:nth-child(5) { animation-delay: 2690ms; }
+
+
+/* Product progress bars */
+.analytics-products u {
+  transform-origin: left;
+
+  animation:
+    analyticsProgressGrow
+    700ms cubic-bezier(0.22, 1, 0.36, 1)
+    2700ms both;
+}
+
+
+/* ========================================
+   INVENTORY
+   ======================================== */
+
+.analytics-inventory-score > div {
+  opacity: 0;
+
+  animation:
+    analyticsItemUp
+    450ms cubic-bezier(0.22, 1, 0.36, 1)
+    both;
+}
+
+.analytics-inventory-score > div:nth-child(1) {
+  animation-delay: 2470ms;
+}
+
+.analytics-inventory-score > div:nth-child(2) {
+  animation-delay: 2540ms;
+}
+
+
+.analytics-inventory-list > span {
+  opacity: 0;
+
+  animation:
+    analyticsLegendIn
+    400ms cubic-bezier(0.22, 1, 0.36, 1)
+    both;
+}
+
+.analytics-inventory-list > span:nth-child(1) {
+  animation-delay: 2600ms;
+}
+
+.analytics-inventory-list > span:nth-child(2) {
+  animation-delay: 2660ms;
+}
+
+.analytics-inventory-list > span:nth-child(3) {
+  animation-delay: 2720ms;
+}
+
+
+/* Work warning */
+.analytics-work-note {
+  animation:
+    analyticsFadeUp
+    450ms cubic-bezier(0.22, 1, 0.36, 1)
+    2800ms both;
+}
+
+
+/* Footnote */
+.analytics-page__footnote {
+  animation:
+    analyticsFadeUp
+    450ms cubic-bezier(0.22, 1, 0.36, 1)
+    2900ms both;
+}
+
+
+/* ========================================
+   SHARED
+   ======================================== */
+
+@keyframes analyticsItemUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+
+@keyframes analyticsFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+
+/* ========================================
+   REDUCED MOTION
+   ======================================== */
+
+@media (prefers-reduced-motion: reduce) {
+
+  .analytics-hero,
+  .analytics-hero__signals > span,
+  .analytics-view-tabs,
+  .analytics-summary__card,
+  .analytics-panel,
+  .analytics-bars > div,
+  .analytics-bars i,
+  .analytics-financial-flow > div,
+  .analytics-margin,
+  .analytics-margin u,
+  .analytics-donut,
+  .analytics-status-legend > span,
+  .analytics-products > div,
+  .analytics-products u,
+  .analytics-inventory-score > div,
+  .analytics-inventory-list > span,
+  .analytics-work-note,
+  .analytics-page__footnote {
+    opacity: 1;
+    animation: none;
+    transform: none;
+  }
+}

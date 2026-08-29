@@ -376,3 +376,468 @@ html[data-theme="dark"] .courier-fee-map__svg path[data-selected="true"] {
     justify-self: start;
   }
 }
+
+
+/* ========================================
+   COURIER DELIVERY FEE MAP ANIMATIONS
+   ======================================== */
+
+
+/* 1. Whole map card loads in */
+.courier-fee-map {
+  animation:
+    courierMapEnter
+    700ms cubic-bezier(0.22, 1, 0.36, 1)
+    900ms both;
+}
+
+@keyframes courierMapEnter {
+  from {
+    opacity: 0;
+    transform: translateY(35px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+
+/* ========================================
+   2. Header animation
+   ======================================== */
+
+.courier-fee-map__header {
+  opacity: 0;
+
+  animation:
+    courierSectionEnter
+    500ms cubic-bezier(0.22, 1, 0.36, 1)
+    1100ms both;
+}
+
+
+/* ========================================
+   3. Map visual section
+   ======================================== */
+
+.courier-fee-map__visual-card {
+  opacity: 0;
+
+  animation:
+    courierSectionEnter
+    550ms cubic-bezier(0.22, 1, 0.36, 1)
+    1200ms both;
+}
+
+
+/* ========================================
+   4. Comparison section
+   ======================================== */
+
+.courier-fee-map__comparison {
+  opacity: 0;
+
+  animation:
+    courierSectionEnterRight
+    550ms cubic-bezier(0.22, 1, 0.36, 1)
+    1280ms both;
+}
+
+
+@keyframes courierSectionEnter {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+
+@keyframes courierSectionEnterRight {
+  from {
+    opacity: 0;
+    transform: translateX(22px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+
+/* ========================================
+   5. MAP DISTRICT ANIMATIONS
+   ======================================== */
+
+.courier-fee-map__svg path[data-district] {
+  transform-box: fill-box;
+  transform-origin: center;
+
+  transition:
+    fill 220ms ease,
+    filter 220ms ease,
+    opacity 220ms ease,
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    stroke-width 220ms ease,
+    stroke 220ms ease;
+}
+
+
+/* Hover district */
+.courier-fee-map__svg path[data-district]:hover {
+  transform: scale(1.025);
+
+  filter:
+    brightness(1.08)
+    drop-shadow(0 0 8px rgba(24, 132, 232, 0.5));
+}
+
+
+/* Keyboard focus */
+.courier-fee-map__svg path[data-district]:focus-visible {
+  transform: scale(1.025);
+
+  filter:
+    brightness(1.08)
+    drop-shadow(0 0 8px rgba(24, 132, 232, 0.5));
+}
+
+
+/* Selected district */
+.courier-fee-map__svg path[data-selected="true"] {
+  animation:
+    selectedDistrictPulse
+    420ms cubic-bezier(0.22, 1, 0.36, 1);
+
+  stroke: #082f55;
+  stroke-width: 7;
+
+  filter:
+    drop-shadow(0 0 10px rgba(20, 133, 238, 0.55));
+}
+
+
+@keyframes selectedDistrictPulse {
+  0% {
+    transform: scale(1);
+  }
+
+  45% {
+    transform: scale(1.07);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+/* ========================================
+   COURIER DELIVERY FEE MAP ANIMATIONS
+   ======================================== */
+
+
+/* 1. Whole map card loads in */
+.courier-fee-map {
+  animation:
+    courierMapEnter
+    700ms cubic-bezier(0.22, 1, 0.36, 1)
+    900ms both;
+}
+
+@keyframes courierMapEnter {
+  from {
+    opacity: 0;
+    transform: translateY(35px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+
+/* ========================================
+   2. Header animation
+   ======================================== */
+
+.courier-fee-map__header {
+  opacity: 0;
+
+  animation:
+    courierSectionEnter
+    500ms cubic-bezier(0.22, 1, 0.36, 1)
+    1100ms both;
+}
+
+
+/* ========================================
+   3. Map visual section
+   ======================================== */
+
+.courier-fee-map__visual-card {
+  opacity: 0;
+
+  animation:
+    courierSectionEnter
+    550ms cubic-bezier(0.22, 1, 0.36, 1)
+    1200ms both;
+}
+
+
+/* ========================================
+   4. Comparison section
+   ======================================== */
+
+.courier-fee-map__comparison {
+  opacity: 0;
+
+  animation:
+    courierSectionEnterRight
+    550ms cubic-bezier(0.22, 1, 0.36, 1)
+    1280ms both;
+}
+
+
+@keyframes courierSectionEnter {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+
+@keyframes courierSectionEnterRight {
+  from {
+    opacity: 0;
+    transform: translateX(22px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+
+/* ========================================
+   5. MAP DISTRICT ANIMATIONS
+   ======================================== */
+
+.courier-fee-map__svg path[data-district] {
+  transform-box: fill-box;
+  transform-origin: center;
+
+  transition:
+    fill 220ms ease,
+    filter 220ms ease,
+    opacity 220ms ease,
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    stroke-width 220ms ease,
+    stroke 220ms ease;
+}
+
+
+/* Hover district */
+.courier-fee-map__svg path[data-district]:hover {
+  transform: scale(1.025);
+
+  filter:
+    brightness(1.08)
+    drop-shadow(0 0 8px rgba(24, 132, 232, 0.5));
+}
+
+
+/* Keyboard focus */
+.courier-fee-map__svg path[data-district]:focus-visible {
+  transform: scale(1.025);
+
+  filter:
+    brightness(1.08)
+    drop-shadow(0 0 8px rgba(24, 132, 232, 0.5));
+}
+
+
+/* Selected district */
+.courier-fee-map__svg path[data-selected="true"] {
+  animation:
+    selectedDistrictPulse
+    420ms cubic-bezier(0.22, 1, 0.36, 1);
+
+  stroke: #082f55;
+  stroke-width: 7;
+
+  filter:
+    drop-shadow(0 0 10px rgba(20, 133, 238, 0.55));
+}
+
+
+@keyframes selectedDistrictPulse {
+  0% {
+    transform: scale(1);
+  }
+
+  45% {
+    transform: scale(1.07);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+
+
+
+/* ========================================
+   6. COURIER CARD ANIMATION
+   ======================================== */
+
+.courier-fee-map__courier-list > button {
+  position: relative;
+  overflow: hidden;
+
+  transition:
+    border-color 220ms ease,
+    background 220ms ease,
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 220ms ease;
+}
+
+
+/* Better hover */
+.courier-fee-map__courier-list > button:hover {
+  border-color:
+    color-mix(
+      in srgb,
+      var(--color-accent) 52%,
+      var(--color-border)
+    );
+
+  transform: translateX(4px) translateY(-1px);
+
+  box-shadow:
+    0 6px 16px rgba(20, 52, 86, 0.08);
+}
+
+
+/* Press effect */
+.courier-fee-map__courier-list > button:active {
+  transform:
+    translateX(2px)
+    scale(0.985);
+}
+
+
+/* Selected courier */
+.courier-fee-map__courier-list > button.is-selected {
+  border-color: var(--color-accent);
+
+  background:
+    color-mix(
+      in srgb,
+      var(--color-accent) 8%,
+      var(--color-surface)
+    );
+
+  box-shadow:
+    inset 4px 0 var(--color-accent),
+    0 5px 14px rgba(20, 111, 190, 0.08);
+
+  animation:
+    courierSelected
+    320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+
+@keyframes courierSelected {
+  0% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.015);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+
+
+
+/* ========================================
+   8. SELECTED DISTRICT SUMMARY
+   ======================================== */
+
+.courier-fee-map__selected-summary {
+  transition:
+    border-color 250ms ease,
+    background 250ms ease,
+    box-shadow 250ms ease,
+    transform 250ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+
+.courier-fee-map__selected-summary:hover {
+  border-color:
+    color-mix(
+      in srgb,
+      var(--color-accent) 38%,
+      var(--color-border)
+    );
+
+  transform: translateY(-2px);
+
+  box-shadow:
+    0 6px 18px rgba(20, 100, 180, 0.08);
+}
+
+
+
+/* ========================================
+   REDUCED MOTION
+   ======================================== */
+
+@media (prefers-reduced-motion: reduce) {
+
+  .courier-fee-map,
+  .courier-fee-map__header,
+  .courier-fee-map__visual-card,
+  .courier-fee-map__comparison,
+  .courier-fee-map__courier-list > button {
+    opacity: 1;
+    animation: none;
+    transform: none;
+  }
+
+  .courier-fee-map__svg path[data-district],
+  .courier-fee-map__courier-list > button,
+  .courier-fee-map__selected-summary {
+    transition: none;
+  }
+}
