@@ -112,6 +112,7 @@ def validate_product(payload):
                 f"Selling price in row {index}",
                 allow_zero=False,
             )
+            image_url = optional_text(raw_variant.get("imageUrl"), 2000)
         except ValueError as error:
             raise ApiError("validation_error", str(error), 422) from error
 
@@ -155,6 +156,7 @@ def validate_product(payload):
                 "initialStock": initial_stock,
                 "costPriceMinor": variant_cost_price_minor,
                 "sellingPriceMinor": variant_selling_price_minor,
+                "imageUrl": image_url,
             },
         )
 
@@ -336,6 +338,7 @@ def create_product(database, business_id, uid, payload):
                 "stockAvailable": initial_stock,
                 "stockStatus": variant_status,
                 "status": "active",
+                "imageUrl": variant.get("imageUrl", ""),
                 "createdAt": timestamp,
                 "updatedAt": timestamp,
             }
@@ -352,7 +355,7 @@ def create_product(database, business_id, uid, payload):
                     "stockStatus": variant_status,
                     "costPriceMinor": variant["costPriceMinor"],
                     "sellingPriceMinor": variant["sellingPriceMinor"],
-                    "imageUrl": "",
+                    "imageUrl": variant.get("imageUrl", ""),
                 },
             )
 
@@ -602,14 +605,18 @@ def update_product(database, business_id, product_id, payload):
                     raise ApiError("insufficient_adjustable_stock", "Variant stock cannot be below reserved stock.", 409)
                 reference = snapshot.reference
                 retained_ids.add(snapshot.id)
-                image_url = current.get("imageUrl", "")
+                image_url = (
+                    optional_text(raw_variant.get("imageUrl"), 2000)
+                    if "imageUrl" in raw_variant
+                    else current.get("imageUrl", "")
+                )
                 created_at = current.get("createdAt")
             else:
                 current = {}
                 reserved = 0
                 reference = business_reference.collection("productVariants").document()
                 variant_id = reference.id
-                image_url = raw_variant.get("imageUrl", "")
+                image_url = optional_text(raw_variant.get("imageUrl"), 2000)
                 created_at = firestore.SERVER_TIMESTAMP
             sku_registry = business_reference.collection("skuRegistry").document(normalize_registry_key(sku))
             barcode_registry = business_reference.collection("barcodeRegistry").document(normalize_registry_key(barcode))

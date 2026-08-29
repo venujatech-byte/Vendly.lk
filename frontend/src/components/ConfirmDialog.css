@@ -1,4 +1,5 @@
 .confirm-dialog p { margin: 0; color: var(--color-text-muted); line-height: 1.6; }
 .confirm-dialog__actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; }
 .confirm-dialog__actions button { min-height: 40px; padding: 0 16px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-surface); color: var(--color-text); cursor: pointer; font-weight: 600; }
-.confirm-dialog__actions .confirm-dialog__danger { border-color: #ef4444; background: #ef4444; color: white; }
+.confirm-dialog__actions .confirm-dialog__confirm--danger { border-color: #ef4444; background: #ef4444; color: white; }
+.confirm-dialog__actions .confirm-dialog__confirm--primary { border-color: var(--color-accent); background: var(--color-accent); color: white; }

@@ -1,4 +1,8 @@
-from flask import Blueprint, current_app, g, jsonify, request
+from datetime import datetime, timezone
+
+from datetime import datetime, timezone
+
+from flask import Blueprint, current_app, g, jsonify, request, send_file
 
 from app.core.auth import require_firebase_user
 from app.core.authorization import require_business_member
@@ -13,6 +17,10 @@ from app.services.product_service import (
 )
 from app.services.media_service import upload_product_media, upload_variant_image
 from app.services.ai_service import generate_product_description
+from app.services.spreadsheet_service import (
+    export_inventory_workbook,
+    import_inventory_workbook,
+)
 
 
 products_blueprint = Blueprint("products", __name__, url_prefix="/api/v1")
@@ -29,6 +37,43 @@ def get_products(business_id):
         status=request.args.get("status"),
     )
     return jsonify({"products": products})
+
+
+@products_blueprint.get("/businesses/<business_id>/inventory-export.xlsx")
+@require_firebase_user
+@require_business_member(permission="inventory:read")
+def download_inventory(business_id):
+    workbook = export_inventory_workbook(
+        get_firestore_client(),
+        business_id,
+        product_ids=request.args.getlist("productId"),
+    )
+    date_stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    return send_file(
+        workbook,
+        as_attachment=True,
+        download_name=f"vendly-inventory-{date_stamp}.xlsx",
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+
+
+@products_blueprint.post("/businesses/<business_id>/inventory-import")
+@require_firebase_user
+@require_business_member("owner", "admin", "inventory_manager", permission="inventory:manage")
+def upload_inventory(business_id):
+    upload = request.files.get("file")
+    if upload is None or not upload.filename:
+        return jsonify({"error": {"code": "file_required", "message": "Choose a Vendly inventory workbook."}}), 422
+    if not upload.filename.lower().endswith(".xlsx"):
+        return jsonify({"error": {"code": "invalid_file_type", "message": "Inventory imports must use the .xlsx format."}}), 422
+
+    result = import_inventory_workbook(
+        get_firestore_client(),
+        business_id,
+        g.current_user["uid"],
+        upload.stream,
+    )
+    return jsonify({"import": result})
 
 
 @products_blueprint.post("/businesses/<business_id>/products")

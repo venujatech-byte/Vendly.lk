@@ -20,7 +20,7 @@ import {
   transcribeBusinessAssistantAudio,
 } from "../services/businessAssistantService";
 import { downloadOrderExport, printWaybill } from "../services/operationService";
-import { downloadInventoryCsv, getProducts } from "../services/productService";
+import { downloadInventoryWorkbook } from "../services/productService";
 import { downloadCustomersCsv, getCustomers } from "../services/customerService";
 import { getShopSales } from "../services/shopSaleService";
 import { downloadReceiptPdf } from "../services/receiptService";
@@ -352,8 +352,7 @@ function BusinessAssistant({ isOpen, onToggle, onClose }) {
     }
 
     if (action?.type === "export_inventory") {
-      const products = await getProducts(business.id);
-      downloadInventoryCsv(products);
+      await downloadInventoryWorkbook(business.id);
       return;
     }
 

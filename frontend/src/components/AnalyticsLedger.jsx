@@ -2,6 +2,7 @@ import {
   BanknoteArrowDown,
   BanknoteArrowUp,
   ChevronDown,
+  Download,
   Filter,
   ReceiptText,
   RotateCcw,
@@ -11,7 +12,7 @@ import {
 import { useMemo, useState } from "react";
 
 import useTablePagination from "../hooks/useTablePagination";
-import { formatAnalyticsMoney } from "../services/analyticsService";
+import { downloadAnalyticsLedger, formatAnalyticsMoney } from "../services/analyticsService";
 import StatCard from "./StatCard";
 import TablePagination from "./TablePagination";
 import "./OrderFilters.css";
@@ -47,9 +48,11 @@ function displayDate(value) {
 }
 
 
-function AnalyticsLedger({ ledger, isLoading, error }) {
+function AnalyticsLedger({ businessId, ledger, isLoading, error }) {
   const [filters, setFilters] = useState({ search: "", type: "all", dateFrom: "", dateTo: "" });
   const [areMobileFiltersOpen, setAreMobileFiltersOpen] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportError, setExportError] = useState("");
 
   const filteredEntries = useMemo(() => {
     const needle = filters.search.trim().toLowerCase();
@@ -83,6 +86,19 @@ function AnalyticsLedger({ ledger, isLoading, error }) {
     setFilters({ search: "", type: "all", dateFrom: "", dateTo: "" });
   }
 
+  async function exportLedger() {
+    if (!businessId || isExporting) return;
+    setIsExporting(true);
+    setExportError("");
+    try {
+      await downloadAnalyticsLedger(businessId, filters);
+    } catch (downloadError) {
+      setExportError(downloadError.message || "The transaction ledger could not be exported.");
+    } finally {
+      setIsExporting(false);
+    }
+  }
+
   if (error) {
     return <section className="analytics-ledger analytics-ledger--message" role="alert">The transaction ledger could not be loaded.</section>;
   }
@@ -95,8 +111,16 @@ function AnalyticsLedger({ ledger, isLoading, error }) {
           <h3 id="ledger-title">Transaction ledger</h3>
           <p>Trace every online order, shop sale, reversal and warranty deduction in one place.</p>
         </div>
-        <ReceiptText aria-hidden="true" />
+        <div className="analytics-ledger__intro-actions">
+          <button type="button" onClick={exportLedger} disabled={!businessId || isExporting}>
+            <Download size={16} aria-hidden="true" />
+            {isExporting ? "Exporting..." : "Export ledger"}
+          </button>
+          <ReceiptText aria-hidden="true" />
+        </div>
       </header>
+
+      {exportError && <p className="analytics-ledger__export-error" role="alert">{exportError}</p>}
 
       <div className="analytics-ledger__stats" aria-label="Filtered ledger totals">
         <StatCard label="Transactions" value={String(filteredEntries.length)} icon={ReceiptText} tone="blue" />

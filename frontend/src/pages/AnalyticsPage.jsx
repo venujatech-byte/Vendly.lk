@@ -130,7 +130,7 @@ function AnalyticsPage() {
       </nav>
 
       {activeView === "ledger" ? (
-        <AnalyticsLedger ledger={ledger} isLoading={!ledger && !ledgerError} error={ledgerError} />
+        <AnalyticsLedger businessId={business?.id} ledger={ledger} isLoading={!ledger && !ledgerError} error={ledgerError} />
       ) : (
         <>
 

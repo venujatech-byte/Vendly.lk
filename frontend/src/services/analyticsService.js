@@ -1,4 +1,4 @@
-import { apiRequest } from "./apiClient";
+import { apiFileRequest, apiRequest } from "./apiClient";
 
 
 export async function getAnalyticsOverview(businessId) {
@@ -14,6 +14,27 @@ export async function getAnalyticsLedger(businessId) {
     `/businesses/${businessId}/analytics/ledger`,
   );
   return response.ledger;
+}
+
+
+export async function downloadAnalyticsLedger(businessId, filters = {}) {
+  const searchParameters = new URLSearchParams();
+  if (filters.search?.trim()) searchParameters.set("search", filters.search.trim());
+  if (filters.type && filters.type !== "all") searchParameters.set("type", filters.type);
+  if (filters.dateFrom) searchParameters.set("dateFrom", filters.dateFrom);
+  if (filters.dateTo) searchParameters.set("dateTo", filters.dateTo);
+  const query = searchParameters.toString();
+  const file = await apiFileRequest(
+    `/businesses/${businessId}/analytics/ledger-export.xlsx${query ? `?${query}` : ""}`,
+  );
+  const url = URL.createObjectURL(file.blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = decodeURIComponent(file.filename);
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
 }
 
 

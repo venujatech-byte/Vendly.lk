@@ -1,5 +1,5 @@
 // React state remembers whether Products or Categories is selected.
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 // Icons used by statistics, tabs, and page action buttons.
@@ -9,6 +9,7 @@ import {
   TriangleAlert,
   CircleX,
   Download,
+  Upload,
   Plus,
   ScanBarcode,
   Tags,
@@ -27,7 +28,14 @@ import AdjustStockModal from "../components/AdjustStockModal";
 import BarcodeScannerModal from "../components/BarcodeScannerModal";
 import { useAuth } from "../context/authContextValue";
 import { getCategories, removeCategory } from "../services/categoryService";
-import { downloadInventoryCsv, getProducts, removeProduct, updateProduct, updateProductStatus } from "../services/productService";
+import {
+  downloadInventoryWorkbook,
+  getProducts,
+  importInventoryWorkbook,
+  removeProduct,
+  updateProduct,
+  updateProductStatus,
+} from "../services/productService";
 import { getProductStockStatus } from "../utils/inventory";
 
 import "./InventoryPage.css";
@@ -59,9 +67,14 @@ function InventoryPage() {
   const [removalTarget, setRemovalTarget] = useState(null);
   const [isRemoving, setIsRemoving] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const [inventoryImportFile, setInventoryImportFile] = useState(null);
+  const [inventoryActionError, setInventoryActionError] = useState("");
+  const [inventoryActionMessage, setInventoryActionMessage] = useState("");
   const [inventoryFilters, setInventoryFilters] = useState({});
   const [inventoryRefreshKey, setInventoryRefreshKey] = useState(0);
   const [isBarcodeScannerOpen, setIsBarcodeScannerOpen] = useState(false);
+  const inventoryFileInputRef = useRef(null);
 
   const assistantInventoryFilters = useMemo(() => {
     if (!routeSearchValue && !routeStockStatus) return null;
@@ -331,11 +344,14 @@ function InventoryPage() {
     }
   }
 
-  function handleExportInventory() {
-    if (isExporting) return;
+  async function handleExportInventory() {
+    if (isExporting || !business?.id) return;
     setIsExporting(true);
+    setInventoryActionError("");
     try {
-      downloadInventoryCsv(visibleProducts);
+      await downloadInventoryWorkbook(business.id);
+    } catch (error) {
+      setInventoryActionError(error.message || "Inventory could not be exported.");
     } finally {
       setIsExporting(false);
     }
@@ -347,9 +363,48 @@ function InventoryPage() {
     setIsBarcodeScannerOpen(false);
   }, [setSearchParameters]);
 
-  function handleExportSelected(selectedIds) {
-    const selectedProducts = visibleProducts.filter((product) => selectedIds.includes(product.id));
-    downloadInventoryCsv(selectedProducts);
+  async function handleExportSelected(selectedIds) {
+    if (isExporting || !business?.id || selectedIds.length === 0) return;
+    setIsExporting(true);
+    setInventoryActionError("");
+    try {
+      await downloadInventoryWorkbook(business.id, selectedIds);
+    } catch (error) {
+      setInventoryActionError(error.message || "The selected products could not be exported.");
+    } finally {
+      setIsExporting(false);
+    }
+  }
+
+  function handleInventoryFileSelected(event) {
+    const file = event.target.files?.[0] ?? null;
+    event.target.value = "";
+    setInventoryActionError("");
+    setInventoryActionMessage("");
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith(".xlsx")) {
+      setInventoryActionError("Choose a .xlsx inventory workbook exported by Vendly.");
+      return;
+    }
+    setInventoryImportFile(file);
+  }
+
+  async function confirmInventoryImport() {
+    if (!business?.id || !inventoryImportFile || isImporting) return;
+    setIsImporting(true);
+    setInventoryActionError("");
+    try {
+      const result = await importInventoryWorkbook(business.id, inventoryImportFile);
+      setInventoryActionMessage(
+        `Import complete: ${result.productsCreated} created, ${result.productsUpdated} updated, and ${result.categoriesCreated} categories created.`,
+      );
+      setInventoryImportFile(null);
+      setInventoryRefreshKey((currentKey) => currentKey + 1);
+    } catch (error) {
+      setInventoryActionError(error.message || "The inventory workbook could not be imported.");
+    } finally {
+      setIsImporting(false);
+    }
   }
 
   async function handleBulkStatusChange(selectedIds, status) {
@@ -396,6 +451,21 @@ function InventoryPage() {
             <button type="button" onClick={handleExportInventory} disabled={isExporting}>
               <Download size={18} aria-hidden="true" />
               {isExporting ? "Exporting..." : "Export Inventory"}
+            </button>
+            <input
+              ref={inventoryFileInputRef}
+              className="inventory-page__file-input"
+              type="file"
+              accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              onChange={handleInventoryFileSelected}
+            />
+            <button
+              type="button"
+              onClick={() => inventoryFileInputRef.current?.click()}
+              disabled={!business?.id || isImporting}
+            >
+              <Upload size={18} aria-hidden="true" />
+              {isImporting ? "Importing..." : "Import Inventory"}
             </button>
             <button
               className="page__add-button"
@@ -446,6 +516,18 @@ function InventoryPage() {
         <p className="inventory-page__notice inventory-page__notice--error" role="alert">
           Inventory data could not be loaded from the Vendly API. Start the
           Flask server and check its Firebase Admin configuration.
+        </p>
+      )}
+
+      {inventoryActionError && (
+        <p className="inventory-page__notice inventory-page__notice--error" role="alert">
+          {inventoryActionError}
+        </p>
+      )}
+
+      {inventoryActionMessage && (
+        <p className="inventory-page__notice inventory-page__notice--success" role="status">
+          {inventoryActionMessage}
         </p>
       )}
 
@@ -620,6 +702,18 @@ function InventoryPage() {
         isWorking={isRemoving}
         onCancel={() => setRemovalTarget(null)}
         onConfirm={confirmRemoval}
+      />
+
+      <ConfirmDialog
+        isOpen={Boolean(inventoryImportFile)}
+        title="Import inventory workbook?"
+        message={`Vendly will create missing products and update matching products from ${inventoryImportFile?.name ?? "this workbook"}. Products not listed in the workbook will not be deleted.`}
+        confirmLabel="Import inventory"
+        workingLabel="Importing..."
+        isWorking={isImporting}
+        tone="primary"
+        onCancel={() => setInventoryImportFile(null)}
+        onConfirm={confirmInventoryImport}
       />
 
       <ReviewsModal
