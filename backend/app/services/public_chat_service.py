@@ -393,6 +393,14 @@ ORDER_NUMBER_PATTERN = re.compile(r"\b((?:vd|vwb)[- ]?\d+)\b", re.IGNORECASE)
 # attempts are capped per session.
 MAX_ORDER_VERIFICATION_ATTEMPTS = 5
 
+# How many products a reply may carry, how many a comparison may cover, and how
+# many stay remembered as "these". Comparison used to reuse the reply cap, so
+# "compare these" over six shown products silently dropped two of them.
+MAX_RESPONSE_PRODUCTS = 12
+MAX_COMPARE_PRODUCTS = 10
+MAX_REMEMBERED_PRODUCTS = 12
+MAX_SEEN_PRODUCTS = 100
+
 
 def order_number_in_message(message):
     """Return an order or waybill number the customer typed, normalised."""
@@ -1108,6 +1116,29 @@ def wants_a_comparison(message):
 def wants_a_recommendation(message):
     """"Which is the best one?" wants an answer, not the whole shelf."""
     return any(phrase in str(message).casefold() for phrase in SUPERLATIVE_PHRASES)
+
+
+MORE_PRODUCTS_PHRASES = (
+    "show more",
+    "more products",
+    "more items",
+    "any more",
+    "anything else",
+    "other products",
+    "others",
+    "next",
+    "thawa",
+    "thava",
+    "තව",
+    "වෙන",
+    "wena",
+)
+
+
+def wants_more_products(message):
+    """"Show me more" asks for the ones that were left out, not a repeat."""
+    lowered = str(message).casefold()
+    return any(phrase in lowered for phrase in MORE_PRODUCTS_PHRASES)
 
 
 def products_named_in(answer, products):
@@ -2717,6 +2748,7 @@ def answer_public_message(database, session_id, provided_token, payload):
         selected_product_id="unchanged",
         pending_variant_id="unchanged",
         is_translated=False,
+        accumulate_seen=False,
     ):
         state = next_state or current_state
         # Every deterministic reply is written in English in this file, so this
@@ -2770,7 +2802,16 @@ def answer_public_message(database, session_id, provided_token, payload):
         if response_products:
             changes["lastShownProductIds"] = [
                 item["id"] for item in response_products if item.get("id")
-            ][:8]
+            ][:MAX_REMEMBERED_PRODUCTS]
+
+            # "Show me more" must return what was left out. A fresh listing
+            # restarts the page; only the more-branch adds to it.
+            shown_ids = [item["id"] for item in response_products if item.get("id")]
+            changes["seenProductIds"] = (
+                (session.get("seenProductIds") or []) + shown_ids
+                if accumulate_seen
+                else shown_ids
+            )[:MAX_SEEN_PRODUCTS]
         elif product and product.get("categoryName"):
             changes["lastCategoryShown"] = product["categoryName"]
 
@@ -2836,7 +2877,9 @@ def answer_public_message(database, session_id, provided_token, payload):
             " ".join(notes),
             "start-order",
             next_state=next_stock_state,
-            response_products=products[:4] if not cart_summary else [],
+            response_products=(
+                products[:MAX_RESPONSE_PRODUCTS] if not cart_summary else []
+            ),
         )
 
     if current_state == "clarifying-scope":
@@ -2867,7 +2910,7 @@ def answer_public_message(database, session_id, provided_token, payload):
                 answer.strip(),
                 "show-category",
                 next_state="browsing",
-                response_products=named[:4],
+                response_products=named[:MAX_RESPONSE_PRODUCTS],
                 is_translated=True,
             )
 
@@ -3132,7 +3175,7 @@ def answer_public_message(database, session_id, provided_token, payload):
             f"ordered.{placed_order_hint} Would you like to start again?",
             "start-order",
             next_state="browsing",
-            response_products=products[:4],
+            response_products=products[:MAX_RESPONSE_PRODUCTS],
         )
 
     # Above the collecting-* states as well as product resolution. Those states
@@ -3977,7 +4020,7 @@ def answer_public_message(database, session_id, provided_token, payload):
         else:
             to_compare = []
 
-        to_compare = to_compare[:4]
+        to_compare = to_compare[:MAX_COMPARE_PRODUCTS]
 
         if len(to_compare) > 1:
             table = generate_comparison_answer(to_compare, language)
@@ -4016,7 +4059,7 @@ def answer_public_message(database, session_id, provided_token, payload):
                 f"beside the {to_compare[0]['name']}?",
                 "show-category",
                 next_state="browsing",
-                response_products=(alternatives or products)[:4],
+                response_products=(alternatives or products)[:MAX_RESPONSE_PRODUCTS],
             )
 
     if refers_to_shown_products(message) and wants_a_recommendation(message):
@@ -4044,12 +4087,53 @@ def answer_public_message(database, session_id, provided_token, payload):
                     comparison.strip(),
                     "show-category",
                     next_state="browsing",
-                    response_products=(named or on_screen)[:4],
+                    response_products=(named or on_screen)[:MAX_COMPARE_PRODUCTS],
                     selected_product_id=(
                         named[0]["id"] if len(named) == 1 else "unchanged"
                     ),
                     is_translated=True,
                 )
+
+    # "Show me more" used to fall through to the generic prompt, or re-list the
+    # same first four. The scope is whatever was last listed; the page is
+    # everything in it that has not been shown yet.
+    # "thawa dekak" is two *more of this item*, not more products - a digit or
+    # a quantity intent means the cart branch below owns the message.
+    if (
+        wants_more_products(message)
+        and session.get("seenProductIds")
+        and not intent_is("set_quantity", "add_to_cart", "place_order")
+        and not any(character.isdigit() for character in message)
+    ):
+        scope = (
+            category_products(products, session["lastCategoryShown"])
+            if session.get("lastCategoryShown")
+            else products
+        )
+        seen = set(session.get("seenProductIds") or [])
+        remaining = [item for item in scope if item.get("id") not in seen]
+
+        if remaining:
+            return respond(
+                "Here are more.",
+                "show-category",
+                next_state="browsing",
+                response_products=remaining[:MAX_RESPONSE_PRODUCTS],
+                accumulate_seen=True,
+            )
+
+        if not find_matching_products(message, products):
+            return respond(
+                "That is everything I have"
+                + (
+                    f" in {session['lastCategoryShown']}"
+                    if session.get("lastCategoryShown")
+                    else ""
+                )
+                + ". Tell me what you are looking for and I will help you find it.",
+                "prompt",
+                next_state="browsing",
+            )
 
     category_request = find_category_request(message, products)
     matching_products = find_matching_products(message, products)
@@ -4235,7 +4319,7 @@ def answer_public_message(database, session_id, provided_token, payload):
                     feature_answer.strip(),
                     "show-category",
                     next_state="browsing",
-                    response_products=named[:4],
+                    response_products=named[:MAX_RESPONSE_PRODUCTS],
                     is_translated=True,
                 )
 
@@ -4252,7 +4336,7 @@ def answer_public_message(database, session_id, provided_token, payload):
             "of our agents can check for you.",
             "show-category",
             next_state="browsing",
-            response_products=alternatives[:4],
+            response_products=alternatives[:MAX_RESPONSE_PRODUCTS],
         )
 
 
@@ -4445,7 +4529,7 @@ def answer_public_message(database, session_id, provided_token, payload):
                 recommendation.strip(),
                 "show-category",
                 next_state="browsing",
-                response_products=(named or scoped)[:4],
+                response_products=(named or scoped)[:MAX_RESPONSE_PRODUCTS],
                 # "More info" after a recommendation must be about the product
                 # that was recommended, not whatever was selected before it.
                 selected_product_id=(
@@ -4689,7 +4773,7 @@ def answer_public_message(database, session_id, provided_token, payload):
             "like to know about?",
             "show-catalog",
             next_state="browsing",
-            response_products=matching_products[:4],
+            response_products=matching_products[:MAX_RESPONSE_PRODUCTS],
         )
 
     is_simple_greeting = intent_is("greeting") or normalized_phrase(message) in {
@@ -4743,7 +4827,7 @@ def answer_public_message(database, session_id, provided_token, payload):
                 budget_answer.strip(),
                 "show-category",
                 next_state="browsing",
-                response_products=named[:4],
+                response_products=named[:MAX_RESPONSE_PRODUCTS],
                 is_translated=True,
             )
 
@@ -4789,7 +4873,7 @@ def answer_public_message(database, session_id, provided_token, payload):
                 catalogue_answer.strip(),
                 "show-catalog",
                 next_state="browsing",
-                response_products=(named or scoped_products or products)[:4],
+                response_products=(named or scoped_products or products)[:MAX_RESPONSE_PRODUCTS],
                 selected_product_id=(
                     named[0]["id"] if len(named) == 1 else "unchanged"
                 ),
