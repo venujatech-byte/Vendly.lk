@@ -4020,6 +4020,20 @@ def answer_public_message(database, session_id, provided_token, payload):
         else:
             to_compare = []
 
+        # A listing renders MAX_RESPONSE_PRODUCTS cards, so "compare these"
+        # could never see more than four however many the shelf holds. Top the
+        # on-screen set up from its own category before truncating.
+        if to_compare and len(to_compare) < MAX_COMPARE_PRODUCTS:
+            picked = {item.get("id") for item in to_compare}
+            to_compare = to_compare + [
+                item
+                for item in category_products(
+                    products,
+                    to_compare[0].get("categoryName", ""),
+                )
+                if item.get("id") not in picked
+            ]
+
         to_compare = to_compare[:MAX_COMPARE_PRODUCTS]
 
         if len(to_compare) > 1:
