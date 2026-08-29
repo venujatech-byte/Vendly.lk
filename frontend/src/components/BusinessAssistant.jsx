@@ -1,6 +1,8 @@
 import {
   Bot,
   Check,
+  ExternalLink,
+  Lightbulb,
   Mic,
   MicOff,
   Send,
@@ -13,20 +15,184 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { useAuth } from "../context/authContextValue";
-import { sendBusinessAssistantMessage } from "../services/businessAssistantService";
-import { downloadOrderExport, printWaybill } from "../services/operationService";
-import { downloadInventoryCsv, getProducts } from "../services/productService";
+import {
+  sendBusinessAssistantMessage,
+  transcribeBusinessAssistantAudio,
+} from "../services/businessAssistantService";
+import { printWaybill } from "../services/operationService";
+import { downloadInventoryWorkbook } from "../services/productService";
 import { downloadCustomersCsv, getCustomers } from "../services/customerService";
 import { getShopSales } from "../services/shopSaleService";
 import { downloadReceiptPdf } from "../services/receiptService";
+import addOrderGuideImage from "../../assets/designs/add-order-single-size-variant-v1.png";
+import addProductGuideImage from "../../assets/designs/add-product-single-size-variant-v1.png";
+import categoriesGuideImage from "../../assets/designs/inventory-categories-tab-v2.png";
+import inventoryGuideImage from "../../assets/designs/inventory-table-single-size-variant-v1.png";
+import ordersGuideImage from "../../assets/designs/order-table-single-size-variant-v1.png";
 import "./BusinessAssistant.css";
 
 const starterMessage = {
   id: "assistant-welcome",
   role: "assistant",
-  text: "Hello! I can summarize your business, search and filter records, open dashboard tools and settings, export data, and safely prepare status or stock updates.",
-  suggestions: ["Today's summary", "Filter packed orders", "Open customer messages", "Add a new order"],
+  text: "Hello! I can guide you through Vendly step by step, open the correct page, summarize your business, find records and safely prepare updates. Ask me something like “How do I add an order?”",
+  suggestions: ["How do I add an order?", "How do I add a product?", "Today's summary"],
 };
+
+const GUIDE_IMAGES = {
+  "add-order": addOrderGuideImage,
+  "add-product": addProductGuideImage,
+  categories: categoriesGuideImage,
+  inventory: inventoryGuideImage,
+  orders: ordersGuideImage,
+};
+
+const AUDIO_MIME_TYPES = [
+  "audio/webm;codecs=opus",
+  "audio/ogg;codecs=opus",
+  "audio/mp4",
+  "audio/webm",
+];
+
+const VOICE_AGENT = String(import.meta.env.VITE_VOICE_AGENT || "ai")
+  .trim()
+  .toLowerCase();
+const USE_BROWSER_VOICE_AGENT = VOICE_AGENT === "browser";
+
+function preferredAudioMimeType() {
+  if (!window.MediaRecorder?.isTypeSupported) return "";
+  return AUDIO_MIME_TYPES.find((type) => window.MediaRecorder.isTypeSupported(type)) || "";
+}
+
+function audioFileExtension(mimeType) {
+  if (mimeType.includes("wav")) return "wav";
+  if (mimeType.includes("ogg")) return "ogg";
+  if (mimeType.includes("mp4")) return "m4a";
+  return "webm";
+}
+
+function mixAudioBufferToMono(audioBuffer) {
+  const monoSamples = new Float32Array(audioBuffer.length);
+
+  for (let channelIndex = 0; channelIndex < audioBuffer.numberOfChannels; channelIndex += 1) {
+    const channelSamples = audioBuffer.getChannelData(channelIndex);
+    for (let sampleIndex = 0; sampleIndex < channelSamples.length; sampleIndex += 1) {
+      monoSamples[sampleIndex] += channelSamples[sampleIndex] / audioBuffer.numberOfChannels;
+    }
+  }
+
+  return monoSamples;
+}
+
+function resampleAudio(samples, inputSampleRate, outputSampleRate = 16000) {
+  if (inputSampleRate === outputSampleRate) return samples;
+
+  const sampleRateRatio = inputSampleRate / outputSampleRate;
+  const outputLength = Math.max(1, Math.round(samples.length / sampleRateRatio));
+  const output = new Float32Array(outputLength);
+
+  for (let outputIndex = 0; outputIndex < outputLength; outputIndex += 1) {
+    const inputStart = Math.round(outputIndex * sampleRateRatio);
+    const inputEnd = Math.min(
+      samples.length,
+      Math.max(inputStart + 1, Math.round((outputIndex + 1) * sampleRateRatio)),
+    );
+    let total = 0;
+
+    for (let inputIndex = inputStart; inputIndex < inputEnd; inputIndex += 1) {
+      total += samples[inputIndex];
+    }
+    output[outputIndex] = total / (inputEnd - inputStart);
+  }
+
+  return output;
+}
+
+function normalizeVoiceSamples(samples) {
+  let peak = 0;
+  let squareTotal = 0;
+
+  for (const sample of samples) {
+    const absoluteSample = Math.abs(sample);
+    if (absoluteSample > peak) peak = absoluteSample;
+    squareTotal += sample * sample;
+  }
+
+  const rms = Math.sqrt(squareTotal / Math.max(1, samples.length));
+  if (rms < 0.001) {
+    throw new Error("The recording is too quiet. Move closer to the microphone and try again.");
+  }
+
+  const gain = peak > 0 ? Math.min(6, 0.92 / peak) : 1;
+  if (gain <= 1.05) return samples;
+
+  const normalized = new Float32Array(samples.length);
+  for (let index = 0; index < samples.length; index += 1) {
+    normalized[index] = Math.max(-1, Math.min(1, samples[index] * gain));
+  }
+  return normalized;
+}
+
+function encodePcmWav(samples, sampleRate) {
+  const bytesPerSample = 2;
+  const wavBuffer = new ArrayBuffer(44 + samples.length * bytesPerSample);
+  const view = new DataView(wavBuffer);
+
+  const writeText = (offset, value) => {
+    for (let index = 0; index < value.length; index += 1) {
+      view.setUint8(offset + index, value.charCodeAt(index));
+    }
+  };
+
+  writeText(0, "RIFF");
+  view.setUint32(4, 36 + samples.length * bytesPerSample, true);
+  writeText(8, "WAVE");
+  writeText(12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * bytesPerSample, true);
+  view.setUint16(32, bytesPerSample, true);
+  view.setUint16(34, 16, true);
+  writeText(36, "data");
+  view.setUint32(40, samples.length * bytesPerSample, true);
+
+  let offset = 44;
+  for (const sample of samples) {
+    const clampedSample = Math.max(-1, Math.min(1, sample));
+    view.setInt16(
+      offset,
+      clampedSample < 0 ? clampedSample * 0x8000 : clampedSample * 0x7fff,
+      true,
+    );
+    offset += bytesPerSample;
+  }
+
+  return wavBuffer;
+}
+
+async function prepareWhisperAudio(recordedBlob) {
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContext) return null;
+
+  const audioContext = new AudioContext();
+  try {
+    const audioBuffer = await audioContext.decodeAudioData(await recordedBlob.arrayBuffer());
+    const monoSamples = mixAudioBufferToMono(audioBuffer);
+    const whisperSampleRate = Math.min(16000, audioBuffer.sampleRate);
+    const resampledSamples = resampleAudio(
+      monoSamples,
+      audioBuffer.sampleRate,
+      whisperSampleRate,
+    );
+    const normalizedSamples = normalizeVoiceSamples(resampledSamples);
+    const wavBuffer = encodePcmWav(normalizedSamples, whisperSampleRate);
+
+    return new Blob([wavBuffer], { type: "audio/wav" });
+  } finally {
+    audioContext.close().catch(() => {});
+  }
+}
 
 function messageId(prefix) {
   return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -75,10 +241,22 @@ function BusinessAssistant({ isOpen, onToggle, onClose }) {
   const [draft, setDraft] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
   const [speechEnabled, setSpeechEnabled] = useState(false);
   const [voiceLanguage, setVoiceLanguage] = useState("en-LK");
   const messageListRef = useRef(null);
-  const recognitionRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const mediaStreamRef = useRef(null);
+  const browserRecognitionRef = useRef(null);
+  const browserTranscriptRef = useRef("");
+  const browserRecognitionErrorRef = useRef(false);
+  const livePreviewRecognitionRef = useRef(null);
+  const livePreviewTranscriptRef = useRef("");
+  const isAiRecordingRef = useRef(false);
+  const audioChunksRef = useRef([]);
+  const recordingStartedAtRef = useRef(0);
+  const isStartingVoiceRef = useRef(false);
+  const isMountedRef = useRef(true);
   const voiceHoldTimerRef = useRef(null);
   const skipNextAssistantClickRef = useRef(false);
   const voiceStopRequestedRef = useRef(false);
@@ -90,10 +268,19 @@ function BusinessAssistant({ isOpen, onToggle, onClose }) {
     messageListRef.current.scrollTop = messageListRef.current.scrollHeight;
   }, [isOpen, messages, isSending]);
 
-  useEffect(() => () => {
-    window.clearTimeout(voiceHoldTimerRef.current);
-    recognitionRef.current?.abort();
-    window.speechSynthesis?.cancel();
+  useEffect(() => {
+    isMountedRef.current = true;
+
+    return () => {
+      isMountedRef.current = false;
+      window.clearTimeout(voiceHoldTimerRef.current);
+      const recorder = mediaRecorderRef.current;
+      if (recorder && recorder.state !== "inactive") recorder.stop();
+      browserRecognitionRef.current?.abort();
+      livePreviewRecognitionRef.current?.abort();
+      mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+      window.speechSynthesis?.cancel();
+    };
   }, []);
 
   function speak(text) {
@@ -112,6 +299,7 @@ function BusinessAssistant({ isOpen, onToggle, onClose }) {
       role: "assistant",
       text: response?.message || "I could not prepare a response.",
       cards: response?.cards || [],
+      guide: response?.guide || null,
       suggestions: response?.suggestions || [],
       pendingAction: response?.pendingAction || null,
     };
@@ -124,11 +312,7 @@ function BusinessAssistant({ isOpen, onToggle, onClose }) {
     const action = response?.clientAction;
 
     if (action?.type === "export_orders") {
-      await downloadOrderExport(business.id, {
-        dateFrom: action.dateFrom || "",
-        dateTo: action.dateTo || "",
-        status: action.status || "",
-      });
+      navigate("/orders");
       return;
     }
 
@@ -164,8 +348,7 @@ function BusinessAssistant({ isOpen, onToggle, onClose }) {
     }
 
     if (action?.type === "export_inventory") {
-      const products = await getProducts(business.id);
-      downloadInventoryCsv(products);
+      await downloadInventoryWorkbook(business.id);
       return;
     }
 
@@ -266,68 +449,426 @@ function BusinessAssistant({ isOpen, onToggle, onClose }) {
     )));
   }
 
-  function startVoiceInput() {
+  function stopMediaStream() {
+    mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+    mediaStreamRef.current = null;
+  }
+
+  function startBrowserVoiceInput() {
+    window.speechSynthesis?.cancel();
+
+    if (isListening || isTranscribing || isStartingVoiceRef.current) return;
+
+    if (!business?.id) {
+      appendAssistantResponse({
+        message: "Your business account is still loading. Please try voice input again in a moment.",
+      });
+      return;
+    }
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      appendAssistantResponse({
+        message: "Browser speech recognition is not supported here. Use Chrome or Edge, or set VITE_VOICE_AGENT=ai.",
+      });
+      return;
+    }
+
+    if (!window.isSecureContext) {
+      appendAssistantResponse({
+        message: "Microphone access needs HTTPS or localhost. Open the deployed HTTPS site, or use localhost on this computer.",
+      });
+      return;
+    }
+
+    voiceStopRequestedRef.current = false;
+    browserTranscriptRef.current = "";
+    browserRecognitionErrorRef.current = false;
+    isStartingVoiceRef.current = true;
+    setVoiceTranscript("Preparing browser speech recognition…");
+
+    const recognition = new SpeechRecognition();
+    browserRecognitionRef.current = recognition;
+    recognition.lang = voiceLanguage;
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = () => {
+      isStartingVoiceRef.current = false;
+      setIsListening(true);
+      setVoiceTranscript("Listening in browser…");
+    };
+
+    recognition.onresult = (event) => {
+      let interimTranscript = "";
+
+      for (let index = event.resultIndex; index < event.results.length; index += 1) {
+        const transcript = event.results[index][0]?.transcript || "";
+        if (event.results[index].isFinal) {
+          browserTranscriptRef.current += `${transcript} `;
+        } else {
+          interimTranscript += transcript;
+        }
+      }
+
+      const visibleTranscript = `${browserTranscriptRef.current}${interimTranscript}`.trim();
+      setVoiceTranscript(visibleTranscript || "Listening in browser…");
+    };
+
+    recognition.onerror = (event) => {
+      if (event.error === "aborted" && voiceStopRequestedRef.current) return;
+
+      browserRecognitionErrorRef.current = true;
+      const errorMessages = {
+        "not-allowed": "Microphone permission was denied. Allow microphone access in your browser settings and try again.",
+        "audio-capture": "No working microphone was found on this device.",
+        network: "The browser speech service could not connect. Check your internet connection or use the AI voice provider.",
+        "no-speech": "No speech was detected. Press the microphone and try again.",
+      };
+      appendAssistantResponse({
+        message: errorMessages[event.error] || "Browser speech recognition failed. Please try again or use the AI voice provider.",
+      });
+    };
+
+    recognition.onend = async () => {
+      isStartingVoiceRef.current = false;
+      setIsListening(false);
+      browserRecognitionRef.current = null;
+
+      const transcribedText = browserTranscriptRef.current.trim();
+      browserTranscriptRef.current = "";
+
+      if (!isMountedRef.current || browserRecognitionErrorRef.current) {
+        setVoiceTranscript("");
+        return;
+      }
+
+      if (!transcribedText) {
+        setVoiceTranscript("");
+        if (voiceStopRequestedRef.current) {
+          appendAssistantResponse({
+            message: "No speech was detected. Hold the microphone and speak your full request.",
+          });
+        }
+        return;
+      }
+
+      setDraft(transcribedText);
+      setVoiceTranscript(transcribedText);
+      await sendMessage(transcribedText);
+      if (isMountedRef.current) setVoiceTranscript("");
+    };
+
+    try {
+      recognition.start();
+    } catch {
+      isStartingVoiceRef.current = false;
+      browserRecognitionRef.current = null;
+      setVoiceTranscript("");
+      appendAssistantResponse({
+        message: "Browser speech recognition could not start. Wait a moment and try again.",
+      });
+    }
+  }
+
+  function stopLiveTranscriptionPreview() {
+    const recognition = livePreviewRecognitionRef.current;
+    livePreviewRecognitionRef.current = null;
+    isAiRecordingRef.current = false;
+
+    if (!recognition) return;
+    recognition.onend = null;
+    recognition.onresult = null;
+    recognition.onerror = null;
+
+    try {
+      recognition.stop();
+    } catch {
+      try {
+        recognition.abort();
+      } catch {
+        // The browser may already have stopped the preview recognizer.
+      }
+    }
+  }
+
+  function startLiveTranscriptionPreview() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition || !window.isSecureContext) return;
+
+    stopLiveTranscriptionPreview();
+    isAiRecordingRef.current = true;
+    livePreviewTranscriptRef.current = "";
+
+    const recognition = new SpeechRecognition();
+    livePreviewRecognitionRef.current = recognition;
+    recognition.lang = voiceLanguage;
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
+
+    recognition.onresult = (event) => {
+      let interimTranscript = "";
+
+      for (let index = event.resultIndex; index < event.results.length; index += 1) {
+        const transcript = event.results[index][0]?.transcript || "";
+        if (event.results[index].isFinal) {
+          livePreviewTranscriptRef.current += `${transcript} `;
+        } else {
+          interimTranscript += transcript;
+        }
+      }
+
+      const visibleTranscript = `${livePreviewTranscriptRef.current}${interimTranscript}`.trim();
+      if (visibleTranscript && isMountedRef.current) setVoiceTranscript(visibleTranscript);
+    };
+
+    // Live browser recognition can end after a pause. Restart only the visual
+    // preview while MediaRecorder is still capturing the authoritative audio.
+    recognition.onend = () => {
+      if (!isAiRecordingRef.current || livePreviewRecognitionRef.current !== recognition) return;
+      try {
+        recognition.start();
+      } catch {
+        // Whisper still receives the complete recording if preview restart fails.
+      }
+    };
+
+    recognition.onerror = () => {
+      // Live preview is optional. Keep recording for the final Whisper result.
+    };
+
+    try {
+      recognition.start();
+    } catch {
+      livePreviewRecognitionRef.current = null;
+    }
+  }
+
+  async function startVoiceInput() {
     // Stop the current TTS reply before opening the microphone. This prevents
     // the assistant from transcribing its own voice and keeps voice controls
     // predictable for both the composer mic and floating-button long press.
     window.speechSynthesis?.cancel();
 
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (USE_BROWSER_VOICE_AGENT) {
+      startBrowserVoiceInput();
+      return;
+    }
 
-    if (!SpeechRecognition) {
+    if (isListening || isTranscribing || isStartingVoiceRef.current) return;
+
+    if (!business?.id) {
       appendAssistantResponse({
-        message: "Voice input is not supported by this browser. Try Chrome on HTTPS or localhost.",
+        message: "Your business account is still loading. Please try voice input again in a moment.",
       });
       return;
     }
 
-    recognitionRef.current?.abort();
-    voiceStopRequestedRef.current = false;
-    setVoiceTranscript("");
-    const recognition = new SpeechRecognition();
-    recognition.lang = voiceLanguage;
-    // Interim text lets the Siri-style overlay show the words while the
-    // browser is still listening, before the final command is submitted.
-    recognition.interimResults = true;
-    recognition.maxAlternatives = 1;
-    recognitionRef.current = recognition;
-
-    recognition.onstart = () => setIsListening(true);
-    recognition.onend = () => setIsListening(false);
-    recognition.onerror = () => {
-      setIsListening(false);
-      // Releasing the hold button can intentionally end recognition before a
-      // phrase is detected. Do not present that normal action as an error.
-      if (voiceStopRequestedRef.current) return;
+    if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
       appendAssistantResponse({
-        message: "I could not hear that clearly. Please try again or type your request.",
+        message: "Microphone access needs HTTPS or localhost. Open the deployed HTTPS site, or use localhost on this computer.",
       });
-    };
-    recognition.onresult = (event) => {
-      let transcript = "";
-      let finalTranscript = "";
+      return;
+    }
 
-      for (let index = event.resultIndex; index < event.results.length; index += 1) {
-        const phrase = event.results[index]?.[0]?.transcript || "";
-        transcript += phrase;
-        if (event.results[index].isFinal) finalTranscript += phrase;
+    if (!window.MediaRecorder) {
+      appendAssistantResponse({
+        message: "Audio recording is not supported by this browser. Please use a current version of Chrome, Edge or Safari.",
+      });
+      return;
+    }
+
+    isStartingVoiceRef.current = true;
+    stopMediaStream();
+    voiceStopRequestedRef.current = false;
+    setVoiceTranscript("Preparing microphone…");
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          channelCount: { ideal: 1 },
+          sampleRate: { ideal: 48000 },
+          sampleSize: { ideal: 16 },
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
+
+      if (voiceStopRequestedRef.current || !isMountedRef.current) {
+        stream.getTracks().forEach((track) => track.stop());
+        isStartingVoiceRef.current = false;
+        setVoiceTranscript("");
+        return;
       }
 
-      setVoiceTranscript(transcript.trim());
-      if (finalTranscript.trim()) {
-        setDraft(finalTranscript.trim());
-        sendMessage(finalTranscript.trim());
-      }
-    };
+      mediaStreamRef.current = stream;
+      audioChunksRef.current = [];
+      const selectedMimeType = preferredAudioMimeType();
+      const recorderOptions = {
+        audioBitsPerSecond: 128000,
+        ...(selectedMimeType ? { mimeType: selectedMimeType } : {}),
+      };
+      let recorder;
 
-    recognition.start();
+      try {
+        recorder = new window.MediaRecorder(stream, recorderOptions);
+      } catch {
+        recorder = new window.MediaRecorder(stream);
+      }
+
+      mediaRecorderRef.current = recorder;
+
+      recorder.ondataavailable = (event) => {
+        if (event.data?.size > 0) audioChunksRef.current.push(event.data);
+      };
+
+      recorder.onerror = () => {
+        isStartingVoiceRef.current = false;
+        stopLiveTranscriptionPreview();
+        setIsListening(false);
+        stopMediaStream();
+        if (!voiceStopRequestedRef.current) {
+          appendAssistantResponse({
+            message: "The microphone recording failed. Please try again or type your request.",
+          });
+        }
+      };
+
+      recorder.onstart = () => {
+        isStartingVoiceRef.current = false;
+        recordingStartedAtRef.current = performance.now();
+        setVoiceTranscript("Listening…");
+        setIsListening(true);
+        startLiveTranscriptionPreview();
+      };
+
+      recorder.onstop = async () => {
+        isStartingVoiceRef.current = false;
+        stopLiveTranscriptionPreview();
+        setIsListening(false);
+        stopMediaStream();
+
+        const durationMilliseconds = performance.now() - recordingStartedAtRef.current;
+        const mimeType = recorder.mimeType || selectedMimeType || "audio/webm";
+        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+        audioChunksRef.current = [];
+
+        if (!isMountedRef.current) return;
+
+        if (durationMilliseconds < 600 || audioBlob.size < 512) {
+          setVoiceTranscript("");
+          appendAssistantResponse({
+            message: "That recording was too short. Hold the microphone and speak your full request.",
+          });
+          return;
+        }
+
+        setIsTranscribing(true);
+        setVoiceTranscript("Preparing clear audio…");
+
+        try {
+          let whisperAudioBlob = audioBlob;
+          let whisperMimeType = mimeType;
+
+          try {
+            const preparedWav = await prepareWhisperAudio(audioBlob);
+            if (preparedWav) {
+              whisperAudioBlob = preparedWav;
+              whisperMimeType = "audio/wav";
+            }
+          } catch (audioError) {
+            if (audioError?.message?.includes("too quiet")) throw audioError;
+            // If this browser cannot decode its own recording, Groq can still
+            // receive the original supported MediaRecorder file.
+          }
+
+          setVoiceTranscript("Transcribing with Groq…");
+          const extension = audioFileExtension(whisperMimeType);
+          const transcription = await transcribeBusinessAssistantAudio(
+            business.id,
+            whisperAudioBlob,
+            {
+              filename: `business-assistant-${Date.now()}.${extension}`,
+              // Let multilingual Whisper detect English, Sinhala, Tamil and
+              // mixed-language commands instead of incorrectly forcing the
+              // language used for text-to-speech playback.
+              language: "",
+            },
+          );
+          const transcribedText = transcription?.text?.trim();
+          if (!transcribedText) throw new Error("No speech was detected in the recording.");
+
+          if (isMountedRef.current) {
+            setDraft(transcribedText);
+            setVoiceTranscript(transcribedText);
+            await sendMessage(transcribedText);
+          }
+        } catch (error) {
+          if (isMountedRef.current) {
+            appendAssistantResponse({ message: friendlyError(error) });
+          }
+        } finally {
+          if (isMountedRef.current) {
+            setIsTranscribing(false);
+            setVoiceTranscript("");
+          }
+        }
+      };
+
+      recorder.start(250);
+    } catch (error) {
+      isStartingVoiceRef.current = false;
+      stopLiveTranscriptionPreview();
+      stopMediaStream();
+      setIsListening(false);
+      setVoiceTranscript("");
+
+      const errorMessage = error?.name === "NotAllowedError"
+        ? "Microphone permission was denied. Allow microphone access in your browser settings and try again."
+        : error?.name === "NotFoundError"
+          ? "No microphone was found on this device."
+          : "The microphone could not be opened. Please check your browser permissions and try again.";
+      appendAssistantResponse({ message: errorMessage });
+    }
   }
 
   function stopVoiceInput() {
     window.speechSynthesis?.cancel();
     voiceStopRequestedRef.current = true;
-    recognitionRef.current?.stop();
-    setIsListening(false);
+
+    if (USE_BROWSER_VOICE_AGENT) {
+      const recognition = browserRecognitionRef.current;
+      if (recognition) {
+        try {
+          recognition.stop();
+        } catch {
+          recognition.abort();
+        }
+      } else if (!isStartingVoiceRef.current) {
+        setIsListening(false);
+      }
+      return;
+    }
+
+    const recorder = mediaRecorderRef.current;
+
+    if (recorder && recorder.state !== "inactive") {
+      try {
+        recorder.requestData();
+      } catch {
+        // Some browsers do not allow requestData immediately after start.
+      }
+      recorder.stop();
+      return;
+    }
+
+    if (!isStartingVoiceRef.current) {
+      stopMediaStream();
+      setIsListening(false);
+    }
   }
 
   function startHeldVoiceCommand(event) {
@@ -369,28 +910,36 @@ function BusinessAssistant({ isOpen, onToggle, onClose }) {
   return (
     <>
       <button
-        className={`floating-assistant-button ${isListening || isHoldingVoiceButton ? "is-listening" : ""}`}
+        className={`floating-assistant-button ${isListening || isHoldingVoiceButton || isTranscribing ? "is-listening" : ""}`}
         type="button"
         onClick={handleAssistantButtonClick}
         onPointerDown={startHeldVoiceCommand}
         onPointerUp={finishHeldVoiceCommand}
         onPointerLeave={cancelHeldVoiceCommand}
         onPointerCancel={cancelHeldVoiceCommand}
-        aria-label={isListening || isHoldingVoiceButton ? "Listening for a voice command" : isOpen ? "Close business assistant" : "Open business assistant"}
+        aria-label={isTranscribing ? "Transcribing voice command" : isListening || isHoldingVoiceButton ? "Listening for a voice command" : isOpen ? "Close business assistant" : "Open business assistant"}
         aria-expanded={isOpen}
         title="Click to open. Press and hold to speak."
       >
-        {isListening || isHoldingVoiceButton ? <Mic aria-hidden="true" /> : isOpen ? <X aria-hidden="true" /> : <Sparkles aria-hidden="true" />}
+        {isListening || isHoldingVoiceButton || isTranscribing ? <Mic aria-hidden="true" /> : isOpen ? <X aria-hidden="true" /> : <Sparkles aria-hidden="true" />}
       </button>
 
-      {(isListening || isHoldingVoiceButton) && (
+      {(isListening || isHoldingVoiceButton || isTranscribing) && (
         <div className="business-assistant__voice-overlay" aria-live="polite">
           <div className="business-assistant__voice-orb"><Mic aria-hidden="true" /></div>
-          <p className="business-assistant__voice-label">Listening…</p>
+          <p className="business-assistant__voice-label">
+            {isTranscribing ? "Transcribing…" : "Listening…"}
+          </p>
           <p className="business-assistant__voice-transcript">
             {voiceTranscript || "Speak your dashboard command"}
           </p>
-          <p className="business-assistant__voice-hint">Release to finish</p>
+          <p className="business-assistant__voice-hint">
+            {isTranscribing
+              ? "Converting your recording to text with Groq"
+              : USE_BROWSER_VOICE_AGENT
+                ? "Using browser speech recognition · release to finish"
+                : "Live preview · Groq Whisper verifies the final text"}
+          </p>
         </div>
       )}
 
@@ -470,6 +1019,66 @@ function BusinessAssistant({ isOpen, onToggle, onClose }) {
                   </div>
                 )}
 
+                {message.guide && (
+                  <section className="business-assistant__guide">
+                    <div className="business-assistant__guide-heading">
+                      <span className="business-assistant__guide-number">Guide</span>
+                      <div>
+                        <strong>{message.guide.title}</strong>
+                        <p>{message.guide.description}</p>
+                      </div>
+                    </div>
+
+                    {GUIDE_IMAGES[message.guide.imageKey] && (
+                      <a
+                        className="business-assistant__guide-image-link"
+                        href={GUIDE_IMAGES[message.guide.imageKey]}
+                        target="_blank"
+                        rel="noreferrer"
+                        aria-label={`Open the full ${message.guide.title} screenshot`}
+                      >
+                        <img
+                          className="business-assistant__guide-image"
+                          src={GUIDE_IMAGES[message.guide.imageKey]}
+                          alt={message.guide.imageAlt || message.guide.title}
+                        />
+                        <span><ExternalLink aria-hidden="true" /> View full screenshot</span>
+                      </a>
+                    )}
+
+                    <ol className="business-assistant__guide-steps">
+                      {message.guide.steps?.map((step, index) => (
+                        <li key={`${message.id}-guide-step-${index}`}>
+                          <span>{index + 1}</span>
+                          <div>
+                            <strong>{step.title}</strong>
+                            <p>{step.description}</p>
+                          </div>
+                        </li>
+                      ))}
+                    </ol>
+
+                    {message.guide.tips?.length > 0 && (
+                      <div className="business-assistant__guide-tips">
+                        <Lightbulb aria-hidden="true" />
+                        <div>
+                          {message.guide.tips.map((tip) => <p key={tip}>{tip}</p>)}
+                        </div>
+                      </div>
+                    )}
+
+                    {message.guide.navigateTo && (
+                      <button
+                        className="business-assistant__guide-open"
+                        type="button"
+                        onClick={() => navigate(message.guide.navigateTo)}
+                      >
+                        Open {message.guide.title} <ExternalLink aria-hidden="true" />
+                      </button>
+                    )}
+                  </section>
+                )}
+
                 {message.pendingAction && (
                   <div className="business-assistant__confirmation">
                     <strong>Confirmation required</strong>
@@ -533,9 +1142,10 @@ function BusinessAssistant({ isOpen, onToggle, onClose }) {
           >
             <button
               type="button"
-              className={`business-assistant__voice ${isListening ? "is-listening" : ""}`}
+              className={`business-assistant__voice ${isListening || isTranscribing ? "is-listening" : ""}`}
               onClick={isListening ? stopVoiceInput : startVoiceInput}
-              aria-label={isListening ? "Stop listening" : "Use voice input"}
+              aria-label={isTranscribing ? "Transcribing voice command" : isListening ? "Stop listening" : "Use voice input"}
+              disabled={isTranscribing || isSending}
             >
               {isListening ? <MicOff aria-hidden="true" /> : <Mic aria-hidden="true" />}
             </button>
@@ -544,14 +1154,14 @@ function BusinessAssistant({ isOpen, onToggle, onClose }) {
               onChange={(event) => setDraft(event.target.value)}
               placeholder="Ask about your business..."
               aria-label="Assistant request"
-              disabled={isSending}
+              disabled={isSending || isTranscribing}
               autoComplete="off"
             />
             <button
               type="submit"
               className="business-assistant__send"
               aria-label="Send request"
-              disabled={isSending || !draft.trim()}
+              disabled={isSending || isTranscribing || !draft.trim()}
             >
               <Send aria-hidden="true" />
             </button>

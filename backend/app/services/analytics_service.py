@@ -283,3 +283,180 @@ def get_business_analytics(database, business_id):
         ),
         warranty_claims=warranty_claims,
     )
+
+
+def _minor_units(value):
+    """Coerce saved money values without allowing malformed data to break analytics."""
+    try:
+        return max(int(value or 0), 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _customer_name(record):
+    customer = record.get("customerSnapshot") or {}
+    return customer.get("name") or record.get("customerName") or "Walk-in customer"
+
+
+def _item_names(record):
+    names = [item.get("name") for item in record.get("items", []) if item.get("name")]
+    return ", ".join(dict.fromkeys(names)) or "Sale"
+
+
+def _latest_status_time(record, status):
+    history = record.get("statusHistory") or []
+    matching = [entry for entry in history if entry.get("to") == status]
+    if matching:
+        return matching[-1].get("changedAt") or record.get("updatedAt")
+    return record.get("updatedAt") or record.get("createdAt")
+
+
+def build_transaction_ledger(orders, shop_sales, warranty_claims):
+    """Build a read-only sales ledger from the system's source documents.
+
+    Every sale is recorded as a credit. A returned/cancelled online order or a
+    voided shop sale receives a matching debit so its net effect is zero.
+    Warranty costs are debit adjustments. This keeps the ledger auditable while
+    leaving the order, sale and stock write paths as the single source of truth.
+    """
+    entries = []
+
+    def add_entry(**entry):
+        entry["amountMinor"] = _minor_units(entry.get("amountMinor"))
+        entry["createdAt"] = entry.get("createdAt")
+        entries.append(entry)
+
+    for order in orders:
+        total_minor = _minor_units(order.get("totalAmountMinor"))
+        status = order.get("fulfilmentStatus", "needs-confirmation")
+        reference = order.get("orderNumber") or order.get("id") or "Order"
+        shared = {
+            "sourceId": order.get("id", ""),
+            "sourceType": "online-order",
+            "reference": reference,
+            "customerName": _customer_name(order),
+            "description": _item_names(order),
+            "paymentMethod": order.get("paymentMethod", "cod"),
+            "paymentStatus": order.get("paymentStatus", "unpaid"),
+        }
+        add_entry(
+            **shared,
+            id=f"order:{order.get('id') or reference}:sale",
+            transactionType="online-order",
+            label="Online order",
+            direction="credit",
+            amountMinor=total_minor,
+            status=status,
+            createdAt=order.get("createdAt"),
+        )
+        if status in {"returned", "cancelled"}:
+            add_entry(
+                **shared,
+                id=f"order:{order.get('id') or reference}:{status}",
+                transactionType=status,
+                label="Order return" if status == "returned" else "Order cancellation",
+                direction="debit",
+                amountMinor=total_minor,
+                status=status,
+                createdAt=_latest_status_time(order, status),
+            )
+
+    for sale in shop_sales:
+        total_minor = _minor_units(sale.get("totalAmountMinor"))
+        status = sale.get("status", "completed")
+        reference = sale.get("saleNumber") or sale.get("id") or "Shop sale"
+        shared = {
+            "sourceId": sale.get("id", ""),
+            "sourceType": "shop-sale",
+            "reference": reference,
+            "customerName": _customer_name(sale),
+            "description": _item_names(sale),
+            "paymentMethod": sale.get("paymentMethod", "cash"),
+            "paymentStatus": "paid" if status != "voided" else "voided",
+        }
+        add_entry(
+            **shared,
+            id=f"shop-sale:{sale.get('id') or reference}:sale",
+            transactionType="shop-sale",
+            label="Shop sale",
+            direction="credit",
+            amountMinor=total_minor,
+            status=status,
+            createdAt=sale.get("createdAt"),
+        )
+        if status == "voided":
+            add_entry(
+                **shared,
+                id=f"shop-sale:{sale.get('id') or reference}:voided",
+                transactionType="voided-sale",
+                label="Voided shop sale",
+                direction="debit",
+                amountMinor=total_minor,
+                status="voided",
+                createdAt=sale.get("voidedAt") or sale.get("updatedAt"),
+            )
+
+    for claim in warranty_claims:
+        impact_minor = _minor_units(claim.get("revenueImpactMinor"))
+        add_entry(
+            id=f"warranty:{claim.get('id') or claim.get('claimNumber', '')}",
+            sourceId=claim.get("id", ""),
+            sourceType=claim.get("sourceType", "warranty-claim"),
+            reference=claim.get("claimNumber") or claim.get("sourceNumber") or "Warranty",
+            customerName=claim.get("customerName") or "Customer",
+            description=(claim.get("item") or {}).get("name") or claim.get("reason") or "Warranty claim",
+            paymentMethod="adjustment",
+            paymentStatus=claim.get("status", "open"),
+            transactionType="warranty-adjustment",
+            label="Warranty adjustment",
+            direction="debit",
+            amountMinor=impact_minor,
+            status=claim.get("status", "open"),
+            createdAt=claim.get("createdAt"),
+        )
+
+    entries.sort(
+        key=lambda entry: as_datetime(entry.get("createdAt"))
+        or datetime.min.replace(tzinfo=timezone.utc),
+    )
+    running_balance = 0
+    for entry in entries:
+        if entry["direction"] == "credit":
+            running_balance += entry["amountMinor"]
+        else:
+            running_balance -= entry["amountMinor"]
+        entry["balanceMinor"] = running_balance
+
+    total_credit = sum(
+        entry["amountMinor"] for entry in entries if entry["direction"] == "credit"
+    )
+    total_debit = sum(
+        entry["amountMinor"] for entry in entries if entry["direction"] == "debit"
+    )
+    entries.reverse()
+    return {
+        "summary": {
+            "transactionCount": len(entries),
+            "creditMinor": total_credit,
+            "debitMinor": total_debit,
+            "netMinor": total_credit - total_debit,
+        },
+        "entries": entries,
+    }
+
+
+def get_business_ledger(database, business_id):
+    business_reference = database.collection("businesses").document(business_id)
+    orders = [
+        serialize_snapshot(snapshot)
+        for snapshot in business_reference.collection("orders").limit(1000).stream()
+    ]
+    shop_sales = [
+        serialize_snapshot(snapshot)
+        for snapshot in business_reference.collection("shopSales").limit(1000).stream()
+    ]
+    warranty_claims = [
+        serialize_snapshot(snapshot)
+        for snapshot in business_reference.collection("warrantyClaims").limit(1000).stream()
+    ]
+    return build_transaction_ledger(orders, shop_sales, warranty_claims)

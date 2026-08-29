@@ -19,7 +19,10 @@ from app.services.fraud_service import (
     global_fraud_summary,
     global_registry_increment,
 )
-from app.services.chat_event_service import send_order_status_chat_message
+from app.services.chat_event_service import (
+    send_order_status_chat_message,
+    send_payment_recorded_chat_message,
+)
 from app.services.numbers import money_to_minor_units, non_negative_integer
 from app.services.product_service import stock_status
 from app.services.text import optional_text, required_text
@@ -66,8 +69,16 @@ def validate_order_request(payload):
     try:
         customer_id = required_text(payload.get("customerId"), "Customer", 120)
         private_note = optional_text(payload.get("privateNote"), 2000)
+        # The customer's own words, kept as their own field. Buried inside the
+        # seller's private note they could not be shown as the customer's
+        # instruction, and the notification had nothing to quote.
+        customer_note = optional_text(payload.get("customerNote"), 500)
         source = optional_text(payload.get("source"), 40) or "dashboard"
         payment_method = optional_text(payload.get("paymentMethod"), 40) or "cod"
+        # The customer chose a bank transfer and has not sent it yet. Recorded
+        # as an intention, never as money: an order marked paid on a promise is
+        # a parcel shipped for free if the transfer never arrives.
+        payment_pending = payload.get("paymentPending") is True
         discount_minor = money_to_minor_units(
             payload.get("discountAmount", 0),
             "Discount",
@@ -140,8 +151,10 @@ def validate_order_request(payload):
         "depositMinor": deposit_minor,
         "secondaryPhoneNumber": secondary_phone,
         "paymentMethod": payment_method,
+        "paymentPending": payment_pending,
         "source": source,
         "privateNote": private_note,
+        "customerNote": customer_note,
         "assignedStaffUid": optional_text(payload.get("assignedStaffUid"), 120),
         "customerUid": optional_text(payload.get("customerUid"), 128),
     }
@@ -554,14 +567,20 @@ def create_order(database, business_id, uid, payload):
             raise ApiError("invalid_deposit", "Deposit cannot exceed the order total.", 422)
 
         paid_amount_minor = (
-            total_minor
+            0
+            if request_data["paymentPending"]
+            else total_minor
             if request_data["paymentMethod"] == "paid"
             else request_data["depositMinor"]
             if request_data["paymentMethod"] == "deposit"
             else 0
         )
         payment_status = (
-            "paid" if paid_amount_minor == total_minor
+            # Distinct from "unpaid", which is a cash-on-delivery order behaving
+            # normally. This one is waiting on a transfer and must not ship.
+            "pending-payment"
+            if request_data["paymentPending"]
+            else "paid" if paid_amount_minor == total_minor
             else "partially-paid" if paid_amount_minor > 0
             else "unpaid"
         )
@@ -604,6 +623,7 @@ def create_order(database, business_id, uid, payload):
                 "totalWeightGrams": total_weight_grams,
                 "source": request_data["source"],
                 "privateNote": request_data["privateNote"],
+                "customerNote": request_data["customerNote"],
                 "assignedStaffUid": request_data["assignedStaffUid"] or uid,
                 "waybillNumber": waybill_number,
                 "stockReservationStatus": "reserved",
@@ -682,7 +702,18 @@ def create_order(database, business_id, uid, payload):
             {
                 "type": "new-order",
                 "title": f"New order {order_number}",
-                "message": f"{customer_data.get('name', 'Customer')} placed an order.",
+                # A note is an instruction about this delivery - a landmark, a
+                # time to call, a gift wrap. It is worth nothing if the seller
+                # only finds it after opening the order.
+                "message": (
+                    f"{customer_data.get('name', 'Customer')} placed an order."
+                    + (
+                        f' Note: "{request_data["customerNote"]}"'
+                        if request_data["customerNote"]
+                        else ""
+                    )
+                ),
+                "hasCustomerNote": bool(request_data["customerNote"]),
                 "orderId": order_reference.id,
                 "orderNumber": order_number,
                 "isRead": False,
@@ -728,6 +759,11 @@ def update_order_status(database, business_id, order_id, uid, payload):
         .document(order_id)
     )
     business_reference = database.collection("businesses").document(business_id)
+    # Allocated outside the transaction, as create_order does: a document
+    # reference must not be created during a retry.
+    status_notification_reference = business_reference.collection(
+        "notifications",
+    ).document()
     transaction = database.transaction()
 
     @google_firestore.transactional
@@ -747,6 +783,22 @@ def update_order_status(database, business_id, order_id, uid, payload):
                 f"Order cannot move from {current_status} to {new_status}.",
                 409,
                 {"allowedStatuses": sorted(allowed_next_statuses)},
+            )
+
+        # A bank transfer that has not arrived yet. Confirming starts the shop
+        # picking and packing against money nobody has received, which is the
+        # whole risk the customer chose bank transfer to avoid for the seller.
+        # Cancelling stays available - an order that never gets paid has to be
+        # closable.
+        if (
+            new_status == "confirmed"
+            and order.get("paymentStatus") == "pending-payment"
+        ):
+            raise ApiError(
+                "payment_not_received",
+                "This order is waiting on a bank transfer. Record the payment "
+                "before confirming it.",
+                409,
             )
 
         stock_action = None
@@ -955,6 +1007,32 @@ def update_order_status(database, business_id, order_id, uid, payload):
 
         current_transaction.update(order_reference, order_changes)
 
+        # A customer cancelling is news to the seller: stock has just been
+        # released, anything already picked has to be put back, and a courier
+        # may have been booked. A seller cancelling their own order is not -
+        # they were the one who did it.
+        if new_status == "cancelled" and str(uid).startswith("public-chat:"):
+            customer_name = (order.get("customerSnapshot") or {}).get(
+                "name",
+                "The customer",
+            )
+            current_transaction.set(
+                status_notification_reference,
+                {
+                    "type": "order-cancelled",
+                    "title": f"Order {order.get('orderNumber', '')} cancelled",
+                    "message": (
+                        f"{customer_name} cancelled this order from the chat."
+                        + (f" Reason: {note}" if note else "")
+                        + " The reserved stock has been released."
+                    ),
+                    "orderId": order_reference.id,
+                    "orderNumber": order.get("orderNumber", ""),
+                    "isRead": False,
+                    "createdAt": timestamp,
+                },
+            )
+
         if new_status == "delivered" and customer_snapshot and customer_snapshot.exists:
             customer = customer_snapshot.to_dict()
             current_transaction.update(
@@ -1136,4 +1214,511 @@ def update_order(database, business_id, order_id, uid, payload):
             },
             merge=True,
         )
+    return get_order(database, business_id, order_id)
+
+
+# Only an order the seller has not begun working on. Once it is confirmed,
+# picked or dispatched, the packed contents no longer match the record, and a
+# customer must not be able to change what is already on its way.
+MERGEABLE_ORDER_STATUSES = {"needs-confirmation"}
+
+
+def order_accepts_more_items(order):
+    return (order or {}).get("fulfilmentStatus") in MERGEABLE_ORDER_STATUSES
+
+
+def add_items_to_order(database, business_id, order_id, uid, items):
+    """Append items to an order the seller has not confirmed yet.
+
+    A customer who orders again minutes later usually means one delivery, not
+    two. `update_order` deliberately never touches reserved items, so this is
+    the one path that adds them: it reserves the new stock exactly as
+    `create_order` does, then reprices the order - subtotal, weight, delivery
+    for the new weight, and total.
+
+    The order keeps its number, its customer and its courier. Only the lines,
+    the weight and the money change.
+    """
+    if not items:
+        raise ApiError("validation_error", "No items to add.", 422)
+
+    business_reference = database.collection("businesses").document(business_id)
+    order_reference = business_reference.collection("orders").document(order_id)
+
+    @firestore.transactional
+    def apply(current_transaction):
+        order_snapshot = order_reference.get(transaction=current_transaction)
+
+        if not order_snapshot.exists:
+            raise ApiError("order_not_found", "Order not found.", 404)
+
+        order = order_snapshot.to_dict()
+
+        # Re-checked inside the transaction: the seller may have confirmed the
+        # order in the seconds between the customer being offered this and
+        # choosing it.
+        if not order_accepts_more_items(order):
+            raise ApiError(
+                "order_not_editable",
+                "That order is already being prepared, so it can no longer be "
+                "changed.",
+                409,
+            )
+
+        courier_snapshot = business_reference.collection("couriers").document(
+            order.get("courierId", ""),
+        ).get(transaction=current_transaction)
+
+        if not courier_snapshot.exists:
+            raise ApiError("courier_not_found", "Courier not found.", 404)
+
+        variant_snapshots = {}
+        product_snapshots = {}
+
+        for item in items:
+            variant_reference = business_reference.collection(
+                "productVariants",
+            ).document(item["variantId"])
+            variant_snapshot = variant_reference.get(transaction=current_transaction)
+
+            if not variant_snapshot.exists:
+                raise ApiError(
+                    "variant_not_found",
+                    "A selected item no longer exists.",
+                    404,
+                )
+
+            variant = variant_snapshot.to_dict()
+
+            if variant.get("stockAvailable", 0) < item["quantity"]:
+                raise ApiError(
+                    "insufficient_stock",
+                    "Only {0} unit(s) are available for SKU {1}.".format(
+                        variant.get("stockAvailable", 0),
+                        variant.get("sku"),
+                    ),
+                    409,
+                )
+
+            variant_snapshots[item["variantId"]] = variant_snapshot
+            product_id = variant.get("productId")
+
+            if product_id not in product_snapshots:
+                product_snapshot = business_reference.collection("products").document(
+                    product_id,
+                ).get(transaction=current_transaction)
+
+                if not product_snapshot.exists:
+                    raise ApiError(
+                        "inactive_product",
+                        "A selected product is unavailable.",
+                        409,
+                    )
+
+                product_snapshots[product_id] = product_snapshot
+
+        timestamp = firestore.SERVER_TIMESTAMP
+        existing_items = [dict(line) for line in (order.get("items") or [])]
+        quantities_by_product = defaultdict(int)
+        warranty_started_at = datetime.now(timezone.utc)
+
+        for item in items:
+            variant_snapshot = variant_snapshots[item["variantId"]]
+            variant = variant_snapshot.to_dict()
+            product = product_snapshots[variant["productId"]].to_dict()
+            quantity = item["quantity"]
+            unit_price_minor = variant.get("sellingPriceMinor", 0)
+            media = product.get("media", [])
+            existing_line = next(
+                (
+                    line
+                    for line in existing_items
+                    if line.get("variantId") == variant_snapshot.id
+                ),
+                None,
+            )
+
+            # Ordering the same item twice is one line of three, not two lines
+            # the picker has to notice are the same product.
+            if existing_line:
+                existing_line["quantity"] += quantity
+                existing_line["lineTotalMinor"] = (
+                    existing_line["unitPriceMinor"] * existing_line["quantity"]
+                )
+            else:
+                existing_items.append(
+                    {
+                        "productId": variant["productId"],
+                        "variantId": variant_snapshot.id,
+                        "name": product.get("name", "Product"),
+                        "size": variant.get("size", ""),
+                        "sku": variant.get("sku", ""),
+                        "barcode": variant.get("barcode", ""),
+                        "quantity": quantity,
+                        "unitPriceMinor": unit_price_minor,
+                        "unitCostMinor": variant.get("costPriceMinor", 0),
+                        "unitWeightGrams": variant.get("weightGrams", 0),
+                        "lineTotalMinor": unit_price_minor * quantity,
+                        "mediaUrl": media[0].get("url", "") if media else "",
+                        **warranty_snapshot(product, warranty_started_at),
+                    },
+                )
+
+            quantities_by_product[variant["productId"]] += quantity
+            available_before = variant.get("stockAvailable", 0)
+            available_after = available_before - quantity
+            current_transaction.update(
+                variant_snapshot.reference,
+                {
+                    "stockReserved": variant.get("stockReserved", 0) + quantity,
+                    "stockAvailable": available_after,
+                    "stockStatus": stock_status(
+                        available_after,
+                        product.get("lowStockThreshold", 0),
+                    ),
+                    "updatedAt": timestamp,
+                },
+            )
+            current_transaction.set(
+                business_reference.collection("inventoryTransactions").document(),
+                {
+                    "productId": variant["productId"],
+                    "variantId": variant_snapshot.id,
+                    "type": "reserve",
+                    "quantity": quantity,
+                    "stockBefore": available_before,
+                    "stockAfter": available_after,
+                    "orderId": order_reference.id,
+                    "reference": order.get("orderNumber", ""),
+                    "reason": "Items added to existing order",
+                    "performedBy": uid,
+                    "createdAt": timestamp,
+                },
+            )
+
+        for product_id, reserved_quantity in quantities_by_product.items():
+            product_snapshot = product_snapshots[product_id]
+            product = product_snapshot.to_dict()
+            added_by_variant = defaultdict(int)
+
+            for item in items:
+                variant = variant_snapshots[item["variantId"]].to_dict()
+
+                if variant.get("productId") == product_id:
+                    added_by_variant[item["variantId"]] += item["quantity"]
+
+            summaries = []
+
+            for summary in product.get("variantSummaries", []):
+                quantity = added_by_variant.get(summary.get("id"), 0)
+
+                if quantity:
+                    available = summary.get("stockAvailable", 0) - quantity
+                    summaries.append(
+                        {
+                            **summary,
+                            "stockReserved": summary.get("stockReserved", 0) + quantity,
+                            "stockAvailable": available,
+                            "stockStatus": stock_status(
+                                available,
+                                product.get("lowStockThreshold", 0),
+                            ),
+                        },
+                    )
+                else:
+                    summaries.append(summary)
+
+            available_product_stock = (
+                product.get("availableStock", 0) - reserved_quantity
+            )
+            current_transaction.update(
+                product_snapshot.reference,
+                {
+                    "reservedStock": product.get("reservedStock", 0) + reserved_quantity,
+                    "availableStock": available_product_stock,
+                    "stockStatus": stock_status(
+                        available_product_stock,
+                        product.get("lowStockThreshold", 0),
+                    ),
+                    "variantSummaries": summaries,
+                    "updatedAt": timestamp,
+                },
+            )
+
+        subtotal_minor = sum(line["lineTotalMinor"] for line in existing_items)
+        total_weight_grams = sum(
+            line.get("unitWeightGrams", 0) * line["quantity"]
+            for line in existing_items
+        )
+        # Delivery is charged on the whole parcel. Keeping the old fee would
+        # undercharge the seller on the extra weight.
+        delivery_fee_minor = calculate_delivery_fee(
+            courier_snapshot.to_dict(),
+            total_weight_grams,
+            order.get("district", ""),
+        )
+        discount_minor = order.get("discountTotalMinor", 0)
+        total_minor = (
+            subtotal_minor
+            - discount_minor
+            + delivery_fee_minor
+            + order.get("taxTotalMinor", 0)
+        )
+        paid_amount_minor = order.get("paidAmountMinor", 0)
+        added_quantity = sum(item["quantity"] for item in items)
+        current_transaction.update(
+            order_reference,
+            {
+                "items": existing_items,
+                "itemCount": sum(line["quantity"] for line in existing_items),
+                "subtotalMinor": subtotal_minor,
+                "deliveryFeeMinor": delivery_fee_minor,
+                "totalAmountMinor": total_minor,
+                "balanceAmountMinor": total_minor - paid_amount_minor,
+                # A deposit that covered the old total may not cover the new
+                # one, so the status is recomputed rather than carried over.
+                "paymentStatus": (
+                    "paid" if paid_amount_minor >= total_minor
+                    else "partially-paid" if paid_amount_minor > 0
+                    else "unpaid"
+                ),
+                "totalWeightGrams": total_weight_grams,
+                "updatedAt": timestamp,
+                "updatedBy": uid,
+            },
+        )
+        current_transaction.set(
+            order_reference.collection("events").document(),
+            {
+                "status": order.get("fulfilmentStatus", "needs-confirmation"),
+                "message": (
+                    "Customer added {0} item(s) to this order before "
+                    "confirmation.".format(added_quantity)
+                ),
+                "performedBy": uid,
+                "createdAt": timestamp,
+            },
+        )
+
+    apply(database.transaction())
+    return get_order(database, business_id, order_id)
+
+
+def record_order_payment(database, business_id, order_id, uid, payload):
+    """Record money the seller has actually received against an order.
+
+    The seller enters what landed in their account and attaches the receipt.
+    Anything still outstanding becomes the cash-on-delivery amount, so a half
+    transfer and a full transfer are the same operation with different numbers
+    rather than two code paths that can disagree.
+    """
+    # The transfer never came, or the customer changed their mind at the door.
+    # Rather than leaving the order stuck as unconfirmable, the seller moves the
+    # whole amount to cash on delivery and carries on.
+    if payload.get("convertToCashOnDelivery") is True:
+        return convert_order_to_cash_on_delivery(
+            database,
+            business_id,
+            order_id,
+            uid,
+        )
+
+    try:
+        paid_amount_minor = int(payload.get("paidAmountMinor") or 0)
+    except (TypeError, ValueError) as error:
+        raise ApiError(
+            "validation_error",
+            "Paid amount must be a number.",
+            422,
+        ) from error
+
+    if paid_amount_minor <= 0:
+        raise ApiError(
+            "validation_error",
+            "Enter the amount you received.",
+            422,
+        )
+
+    receipt_url = optional_text(payload.get("receiptUrl"), 2000)
+    note = optional_text(payload.get("note"), 500)
+    order_reference = (
+        database.collection("businesses").document(business_id)
+        .collection("orders").document(order_id)
+    )
+    snapshot = order_reference.get()
+
+    if not snapshot.exists:
+        raise ApiError("order_not_found", "Order not found.", 404)
+
+    order = snapshot.to_dict()
+    total_minor = order.get("totalAmountMinor", 0)
+
+    # Overpayment is a data-entry slip, and silently accepting it would show a
+    # negative balance to collect on the courier's sheet.
+    if paid_amount_minor > total_minor:
+        raise ApiError(
+            "invalid_payment",
+            "The amount received cannot be more than the order total.",
+            422,
+        )
+
+    balance_minor = total_minor - paid_amount_minor
+    payment_status = "paid" if balance_minor == 0 else "partially-paid"
+    receipts = list(order.get("paymentReceipts") or [])
+
+    if receipt_url:
+        receipts.append(
+            {
+                "url": receipt_url,
+                "amountMinor": paid_amount_minor,
+                "recordedBy": uid,
+                "recordedAt": datetime.now(timezone.utc),
+            },
+        )
+
+    order_reference.update(
+        {
+            "paidAmountMinor": paid_amount_minor,
+            "balanceAmountMinor": balance_minor,
+            "paymentStatus": payment_status,
+            # Settled either way: the rest is collected on delivery, so nothing
+            # is still waiting on a transfer.
+            "paymentPending": False,
+            "paymentReceipts": receipts,
+            "paymentVerifiedBy": uid,
+            "paymentVerifiedAt": firestore.SERVER_TIMESTAMP,
+            "updatedAt": firestore.SERVER_TIMESTAMP,
+        },
+    )
+    # The customer sent a receipt and then heard nothing. Confirming it closes
+    # the loop they started, and says what the courier will still collect.
+    send_payment_recorded_chat_message(
+        database,
+        business_id,
+        order_id,
+        order,
+        paid_amount_minor,
+        balance_minor,
+    )
+    order_reference.collection("events").document().set(
+        {
+            "status": order.get("fulfilmentStatus", "needs-confirmation"),
+            "message": (
+                f"Payment of {paid_amount_minor / 100:,.2f} recorded."
+                + (
+                    f" Balance {balance_minor / 100:,.2f} to collect on delivery."
+                    if balance_minor
+                    else " Order fully paid."
+                )
+                + (f" {note}" if note else "")
+            ),
+            "performedBy": uid,
+            "createdAt": firestore.SERVER_TIMESTAMP,
+        },
+    )
+    return get_order(database, business_id, order_id)
+
+
+def convert_order_to_cash_on_delivery(database, business_id, order_id, uid):
+    """Drop a promised transfer and collect the whole amount on delivery.
+
+    A pending transfer blocks confirmation, which is right while the money is
+    still expected and wrong once it is not. This is the way out that does not
+    involve cancelling an order the customer still wants.
+    """
+    order_reference = (
+        database.collection("businesses").document(business_id)
+        .collection("orders").document(order_id)
+    )
+    snapshot = order_reference.get()
+
+    if not snapshot.exists:
+        raise ApiError("order_not_found", "Order not found.", 404)
+
+    order = snapshot.to_dict()
+    total_minor = order.get("totalAmountMinor", 0)
+    already_paid = order.get("paidAmountMinor", 0)
+
+    # Money already banked cannot be turned into cash the courier collects.
+    if already_paid:
+        raise ApiError(
+            "payment_already_recorded",
+            "Part of this order is already paid, so it cannot be moved to cash "
+            "on delivery. Record the rest of the payment instead.",
+            409,
+        )
+
+    order_reference.update(
+        {
+            "paymentMethod": "cod",
+            "paymentPending": False,
+            "paymentStatus": "unpaid",
+            "paidAmountMinor": 0,
+            "depositAmountMinor": 0,
+            "balanceAmountMinor": total_minor,
+            "updatedAt": firestore.SERVER_TIMESTAMP,
+            "updatedBy": uid,
+        },
+    )
+    order_reference.collection("events").document().set(
+        {
+            "status": order.get("fulfilmentStatus", "needs-confirmation"),
+            "message": (
+                "Changed to cash on delivery. The courier collects "
+                f"{total_minor / 100:,.2f} in full."
+            ),
+            "performedBy": uid,
+            "createdAt": firestore.SERVER_TIMESTAMP,
+        },
+    )
+    send_payment_recorded_chat_message(
+        database,
+        business_id,
+        order_id,
+        order,
+        0,
+        total_minor,
+    )
+    return get_order(database, business_id, order_id)
+
+
+def attach_order_payment_receipt(
+    database,
+    business_id,
+    order_id,
+    uid,
+    receipt_url,
+    paid_amount_minor,
+):
+    """Store a receipt against an order whose payment is already recorded.
+
+    Used when the seller enters the payment while creating the order: the
+    amount is set by `create_order`, so this only files the proof of it. The
+    same list the Record payment popup writes to, so both routes leave the
+    seller looking in one place.
+    """
+    order_reference = (
+        database.collection("businesses").document(business_id)
+        .collection("orders").document(order_id)
+    )
+    snapshot = order_reference.get()
+
+    if not snapshot.exists:
+        raise ApiError("order_not_found", "Order not found.", 404)
+
+    receipts = list((snapshot.to_dict() or {}).get("paymentReceipts") or [])
+    receipts.append(
+        {
+            "url": receipt_url,
+            "amountMinor": paid_amount_minor,
+            "recordedBy": uid,
+            "recordedAt": datetime.now(timezone.utc),
+        },
+    )
+    order_reference.update(
+        {
+            "paymentReceipts": receipts,
+            "updatedAt": firestore.SERVER_TIMESTAMP,
+        },
+    )
     return get_order(database, business_id, order_id)

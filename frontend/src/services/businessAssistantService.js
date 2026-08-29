@@ -18,3 +18,24 @@ export async function sendBusinessAssistantMessage(
 
   return response.assistant;
 }
+
+/** Upload a browser microphone recording for server-side Groq transcription. */
+export async function transcribeBusinessAssistantAudio(
+  businessId,
+  audioBlob,
+  { filename = "business-assistant.webm", language = "" } = {},
+) {
+  const formData = new FormData();
+  formData.append("audio", audioBlob, filename);
+  if (language) formData.append("language", language);
+
+  const response = await apiRequest(
+    `/businesses/${businessId}/assistant/transcriptions`,
+    {
+      method: "POST",
+      body: formData,
+    },
+  );
+
+  return response.transcription;
+}

@@ -24,6 +24,23 @@ export async function updateCourier(businessId, courierId, courierData) {
   return response.courier;
 }
 
+export async function uploadCourierExportTemplate(
+  businessId,
+  courierId,
+  file,
+) {
+  const formData = new FormData();
+  formData.append("file", file);
+  const response = await apiRequest(
+    `/businesses/${businessId}/couriers/${courierId}/order-export-template`,
+    {
+      method: "POST",
+      body: formData,
+    },
+  );
+  return response.courier;
+}
+
 export async function recommendCouriers(businessId, totalWeightGrams, district) {
   const response = await apiRequest(
     `/businesses/${businessId}/couriers/recommend`,

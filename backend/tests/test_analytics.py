@@ -1,6 +1,10 @@
 from datetime import datetime, timezone
 
-from app.services.analytics_service import calculate_analytics, recent_months
+from app.services.analytics_service import (
+    build_transaction_ledger,
+    calculate_analytics,
+    recent_months,
+)
 
 
 def test_analytics_uses_only_delivered_orders_for_revenue_and_profit():
@@ -68,3 +72,53 @@ def test_warranty_claims_reduce_revenue_only_by_the_saved_claim_impact():
     )
     assert analytics["financials"]["warrantyDeductionsMinor"] == 25000
     assert analytics["financials"]["productRevenueMinor"] == 25000
+
+
+def test_transaction_ledger_combines_sales_reversals_and_warranty_adjustments():
+    created = datetime(2026, 8, 17, 9, tzinfo=timezone.utc)
+    returned = datetime(2026, 8, 18, 9, tzinfo=timezone.utc)
+    ledger = build_transaction_ledger(
+        [
+            {
+                "id": "order-1",
+                "orderNumber": "VD-000001",
+                "fulfilmentStatus": "returned",
+                "totalAmountMinor": 250000,
+                "paymentMethod": "cod",
+                "customerSnapshot": {"name": "Nimal"},
+                "items": [{"name": "Watch"}],
+                "createdAt": created,
+                "statusHistory": [{"to": "returned", "changedAt": returned}],
+            },
+        ],
+        [
+            {
+                "id": "sale-1",
+                "saleNumber": "SHOP-000001",
+                "status": "completed",
+                "totalAmountMinor": 100000,
+                "paymentMethod": "cash",
+                "items": [{"name": "Earbuds"}],
+                "createdAt": created,
+            },
+        ],
+        [
+            {
+                "id": "claim-1",
+                "claimNumber": "WC-000001",
+                "sourceType": "online-order",
+                "revenueImpactMinor": 20000,
+                "item": {"name": "Watch"},
+                "createdAt": returned,
+            },
+        ],
+    )
+
+    assert ledger["summary"] == {
+        "transactionCount": 4,
+        "creditMinor": 350000,
+        "debitMinor": 270000,
+        "netMinor": 80000,
+    }
+    assert ledger["entries"][0]["direction"] == "debit"
+    assert ledger["entries"][-1]["balanceMinor"] in {250000, 350000}

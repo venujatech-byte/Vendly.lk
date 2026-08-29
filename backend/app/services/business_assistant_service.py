@@ -39,6 +39,218 @@ PAGE_ROUTES = {
 }
 
 
+# These guides are the assistant's verified product knowledge. Keeping the UI
+# instructions here (instead of asking the language model to invent them) means
+# the wording, route and required permission stay aligned with Vendly.
+BUSINESS_GUIDES = {
+    "add_order": {
+        "permission": "orders:manage",
+        "title": "Add an online order",
+        "description": "Create a delivery order, calculate its total and reserve the selected stock.",
+        "imageKey": "add-order",
+        "imageAlt": "Vendly Add Order window showing customer, item and delivery sections",
+        "navigateTo": "/orders?assistantAction=add-order",
+        "steps": [
+            {"title": "Choose the customer", "description": "Search for an existing customer or select New Customer, then enter their contact and delivery details."},
+            {"title": "Add the items", "description": "Search by product name, SKU or barcode. Select a variant, set the quantity and choose Add to order."},
+            {"title": "Check delivery", "description": "Choose the district, nearest city and courier. Vendly calculates the delivery fee and order total."},
+            {"title": "Confirm the order", "description": "Select the payment method, review the summary and choose Create order. The order number is generated automatically."},
+        ],
+        "tips": ["Stock is reserved when the order is created.", "Use the private note for instructions that customers must not see."],
+        "suggestions": ["How do I update an order status?", "How do I print a waybill?"],
+    },
+    "manage_orders": {
+        "permission": "orders:read",
+        "title": "Manage online orders",
+        "description": "Find orders, review their full details and move them through fulfilment.",
+        "imageKey": "orders",
+        "imageAlt": "Vendly online orders table with an expanded order",
+        "navigateTo": "/orders?assistantAction=open-online-orders",
+        "steps": [
+            {"title": "Find the order", "description": "Use the search box, date range, status, payment or courier filters."},
+            {"title": "Open its details", "description": "Choose the arrow beside the order to see items, customer details, totals, warnings and waybill information."},
+            {"title": "Use Actions", "description": "Open the three-dot menu to edit, update status, print documents, report a problem or manage a warranty claim."},
+        ],
+        "tips": ["Click a status card to filter the table immediately."],
+        "suggestions": ["How do I add an order?", "How do I filter pending orders?"],
+    },
+    "add_product": {
+        "permission": "inventory:manage",
+        "title": "Add a product",
+        "description": "Create a catalogue item with media, pricing, stock, SKU, barcode and optional variants.",
+        "imageKey": "add-product",
+        "imageAlt": "Vendly Add Product window showing product, pricing, media and variant fields",
+        "navigateTo": "/inventory?assistantAction=add-product",
+        "steps": [
+            {"title": "Enter product details", "description": "Add the product name, colour, category, brand and warranty. A category is optional and can be assigned later."},
+            {"title": "Add media and description", "description": "Upload clear product photos or videos. Enter a description or use Generate with AI, then verify the result."},
+            {"title": "Set pricing and stock", "description": "Enter cost, selling price and weight. Generate or enter the SKU and barcode."},
+            {"title": "Add variants when needed", "description": "Enable variants only for choices such as sizes. Each variant receives its own SKU, barcode, price, stock and optional image."},
+            {"title": "Save", "description": "Review the values and choose Add Product. It will then appear in Inventory and the seller storefront."},
+        ],
+        "tips": ["Use separate products for different colours and variants for sizes.", "Never publish an AI-generated description without checking it."],
+        "suggestions": ["How do I adjust stock?", "How do categories work?"],
+    },
+    "manage_inventory": {
+        "permission": "inventory:read",
+        "title": "Manage inventory",
+        "description": "Search products, inspect variants and keep stock quantities accurate.",
+        "imageKey": "inventory",
+        "imageAlt": "Vendly inventory table with an expanded product",
+        "navigateTo": "/inventory",
+        "steps": [
+            {"title": "Find a product", "description": "Search by product name, SKU or barcode, or use the category and stock-status filters."},
+            {"title": "Expand the row", "description": "Use the arrow to review its description, media, variants, stock and reviews."},
+            {"title": "Open Actions", "description": "Use the three-dot menu to edit, adjust stock, change status, assign a category or remove the product."},
+        ],
+        "tips": ["Scan Barcode can find a product without typing its SKU."],
+        "suggestions": ["How do I add a product?", "How do I adjust stock?"],
+    },
+    "categories": {
+        "permission": "inventory:read",
+        "title": "Manage product categories",
+        "description": "Group related products so sellers and customers can find them more easily.",
+        "imageKey": "categories",
+        "imageAlt": "Vendly inventory Categories tab with an expanded category",
+        "navigateTo": "/inventory?assistantAction=open-categories",
+        "steps": [
+            {"title": "Open Categories", "description": "On Inventory, choose the Categories tab above the table."},
+            {"title": "Create or edit a category", "description": "Enter a clear category name and optional description, then save it."},
+            {"title": "Assign products", "description": "Select products in the Products tab and choose Add to category, or select a category when editing a product."},
+            {"title": "Review category stock", "description": "Expand a category to see all products and their current stock."},
+        ],
+        "tips": ["Products can remain Uncategorized until you are ready to organise them."],
+        "suggestions": ["How do I add a product?", "Show inventory"],
+    },
+    "shop_sale": {
+        "permission": "orders:manage",
+        "title": "Record a physical-shop sale",
+        "description": "Record counter sales so online and physical-shop stock stay synchronized.",
+        "imageKey": "orders",
+        "imageAlt": "Vendly Orders workspace where Shop Sales can be opened",
+        "navigateTo": "/orders?assistantAction=add-shop-sale",
+        "steps": [
+            {"title": "Open Shop Sales", "description": "On Orders, switch from Online Orders to Shop Sales and choose Add Shop Sale."},
+            {"title": "Add items", "description": "Search by product name, SKU or barcode, choose the variant and quantity, then add it."},
+            {"title": "Complete the sale", "description": "Optionally enter customer details, select payment, apply a discount and add a private note."},
+            {"title": "Print the receipt", "description": "After saving, download or print the generated sale receipt."},
+        ],
+        "tips": ["Deleting a shop sale restores its sold quantities to inventory."],
+        "suggestions": ["How do I add an online order?", "Show shop sales"],
+    },
+    "order_status": {
+        "permission": "orders:manage",
+        "title": "Update an order status",
+        "description": "Keep the seller dashboard and customer chatbot synchronized with fulfilment progress.",
+        "imageKey": "orders",
+        "imageAlt": "Vendly orders table and expanded order actions",
+        "navigateTo": "/orders?assistantAction=open-online-orders",
+        "steps": [
+            {"title": "Find and expand the order", "description": "Search for its order or waybill number, then use the row arrow."},
+            {"title": "Choose the next status", "description": "In Order Actions, select the valid next fulfilment status and save it."},
+            {"title": "Check the update", "description": "The table, dashboard totals and order history update, and the customer receives a chatbot status message."},
+        ],
+        "tips": ["Use bulk actions only when several selected orders truly need the same status."],
+        "suggestions": ["Show pending orders", "How do I find an order?"],
+    },
+    "waybill": {
+        "permission": "orders:read",
+        "title": "Assign and print a waybill",
+        "description": "Use courier waybill ranges to assign, edit, scan and print shipment references.",
+        "imageKey": "orders",
+        "imageAlt": "Vendly order details including courier and waybill actions",
+        "navigateTo": "/orders?assistantAction=open-online-orders",
+        "steps": [
+            {"title": "Configure the courier", "description": "Add the courier and its available waybill-number range on the Couriers page."},
+            {"title": "Assign the courier", "description": "Choose a courier for the order. Vendly assigns the next available waybill when possible."},
+            {"title": "Verify or edit", "description": "Expand the order to check the Waybill No field. Enter a unique number and save if it needs correction."},
+            {"title": "Print or scan", "description": "Use Print Waybill for the document or Scan Waybill to locate the matching order."},
+        ],
+        "tips": ["Vendly rejects a waybill number already used by another order."],
+        "suggestions": ["Open waybill scanner", "How do I add a courier?"],
+    },
+    "add_courier": {
+        "permission": "couriers:manage",
+        "title": "Add and configure a courier",
+        "description": "Save courier charges, service details and waybill ranges for automatic delivery calculations.",
+        "navigateTo": "/couriers?assistantAction=add-courier",
+        "steps": [
+            {"title": "Open Add Courier", "description": "Go to Couriers and choose Add Courier."},
+            {"title": "Enter courier details", "description": "Add its name, code, first-kilogram charge, extra-kilogram charge and supported delivery information."},
+            {"title": "Add waybill numbers", "description": "Enter the available waybill range so Vendly can assign the next unique number to an order."},
+            {"title": "Save and review", "description": "Save the courier, then use its row actions whenever charges, status or waybill stock must change."},
+        ],
+        "tips": ["Courier codes are shown in the Orders table.", "Record branch problems so recommendations can improve over time."],
+        "suggestions": ["How do I print a waybill?", "Open couriers"],
+    },
+    "customers": {
+        "permission": "customers:read",
+        "title": "Manage customers",
+        "description": "Review customer details, order history, loyalty and return risk in one workspace.",
+        "navigateTo": "/customers?tab=customers",
+        "steps": [
+            {"title": "Find the customer", "description": "Search by name, phone number or email, and use the available risk and location filters."},
+            {"title": "Expand the row", "description": "Open the row to see both phone numbers, address, recent orders, spending and private customer information."},
+            {"title": "Use customer actions", "description": "Open the action menu to report fraud or remove a customer when your role allows it."},
+        ],
+        "tips": ["Customer records are created or updated automatically when orders are placed."],
+        "suggestions": ["How do I view customer messages?", "How do fraud reports work?"],
+    },
+    "customer_messages": {
+        "permission": "customers:read",
+        "title": "Use customer messages",
+        "description": "Continue the same conversation a customer started through the storefront chatbot.",
+        "navigateTo": "/customers?tab=messages",
+        "steps": [
+            {"title": "Choose a conversation", "description": "Select a customer from the conversation list to load their saved chat history."},
+            {"title": "Pause AI when needed", "description": "Use Pause AI before replying personally so the chatbot does not answer at the same time."},
+            {"title": "Reply or call", "description": "Send a message from the input or use the call button when the customer has provided a phone number."},
+        ],
+        "tips": ["Vendly alerts the seller when the chatbot cannot answer confidently."],
+        "suggestions": ["Open customer messages", "How do I manage customers?"],
+    },
+    "reviews": {
+        "permission": "customers:read",
+        "title": "Manage product reviews",
+        "description": "Inspect customer ratings, written feedback and uploaded review photos.",
+        "navigateTo": "/customers?tab=reviews",
+        "steps": [
+            {"title": "Open Reviews", "description": "Choose Reviews on the Customers page."},
+            {"title": "Filter the list", "description": "Use the status cards and filters to find pending, approved or rejected reviews."},
+            {"title": "Inspect and moderate", "description": "Expand a review to read it and open its images, then approve or reject it from Actions."},
+        ],
+        "tips": ["Approved reviews can be shown by the storefront chatbot when customers ask."],
+        "suggestions": ["Open customer reviews", "How do fraud reports work?"],
+    },
+    "fraud_reports": {
+        "permission": "customers:read",
+        "title": "Use fraud reports",
+        "description": "Review return history and risk information before confirming a potentially unsafe order.",
+        "navigateTo": "/customers?tab=fraud",
+        "steps": [
+            {"title": "Open Fraud Reports", "description": "Choose Fraud Reports on the Customers page and search for the customer."},
+            {"title": "Review the evidence", "description": "Expand the record to check returned orders, return rate, reason and risk score."},
+            {"title": "Take an authorised action", "description": "Use Actions to change the risk level or remove the customer from the fraud list."},
+        ],
+        "tips": ["The global fraud database warns sellers while showing each seller only their own customer records."],
+        "suggestions": ["Open fraud reports", "How do I manage customers?"],
+    },
+    "analytics": {
+        "permission": "analytics:read",
+        "title": "Read business analytics",
+        "description": "Understand sales, revenue, profit, order status and top-selling products.",
+        "navigateTo": "/analytics",
+        "steps": [
+            {"title": "Choose a period", "description": "Open Analytics and select the date range you want to study."},
+            {"title": "Read the summaries", "description": "Use the cards for revenue, orders, average order value and profit, then compare the charts."},
+            {"title": "Investigate a result", "description": "Use top-product and order-status sections to identify products and fulfilment stages needing attention."},
+        ],
+        "tips": ["Use recorded cost prices so profit calculations remain meaningful."],
+        "suggestions": ["Show today's summary", "Open analytics"],
+    },
+}
+
+
 def format_money(minor_units):
     return f"LKR {minor_units / 100:,.0f}"
 
@@ -173,6 +385,92 @@ def detected_status(text):
     return ""
 
 
+def detected_guide_topic(message):
+    """Resolve common how-to questions before command classification.
+
+    A request such as "how do I add an order" must teach first; it must not be
+    mistaken for the shorter imperative command "add an order".
+    """
+    lowered = str(message or "").casefold().strip()
+    guide_language = any(
+        phrase in lowered
+        for phrase in (
+            "how do i",
+            "how can i",
+            "how to",
+            "show me how",
+            "teach me",
+            "guide me",
+            "instructions",
+            "steps to",
+            "where can i",
+            "where do i",
+            "what should i do",
+            "කොහොමද",
+            "කෙසේද",
+            "කරන්නේ කොහොමද",
+        )
+    )
+    if not guide_language:
+        return ""
+
+    rules = (
+        ("waybill", ("waybill", "way bill")),
+        ("add_courier", ("add courier", "add a courier", "new courier", "create courier", "courier setup")),
+        ("order_status", ("order status", "status update", "update status", "mark order")),
+        ("customer_messages", ("customer message", "customer chat", "reply to customer", "message customer")),
+        ("reviews", ("review", "reviews", "rating", "ratings")),
+        ("fraud_reports", ("fraud", "risk customer", "returned customer")),
+        ("analytics", ("analytics", "report", "revenue", "profit", "top selling")),
+        (
+            "customers",
+            (
+                "manage customer",
+                "view customer",
+                "find customer",
+                "customer details",
+                "customer page",
+                "customers tab",
+            ),
+        ),
+        ("shop_sale", ("shop sale", "counter sale", "physical sale", "shop order")),
+        (
+            "add_product",
+            (
+                "add product",
+                "add a product",
+                "add new product",
+                "add a new product",
+                "new product",
+                "create product",
+                "create a product",
+                "upload product",
+            ),
+        ),
+        ("categories", ("category", "categories", "categorise", "categorize")),
+        (
+            "add_order",
+            (
+                "add order",
+                "add an order",
+                "add new order",
+                "add a new order",
+                "new order",
+                "create order",
+                "create an order",
+                "online order",
+                "delivery order",
+            ),
+        ),
+        ("manage_inventory", ("stock", "inventory", "barcode", "product")),
+        ("manage_orders", ("order", "orders")),
+    )
+    for topic, phrases in rules:
+        if any(phrase in lowered for phrase in phrases):
+            return topic
+    return ""
+
+
 def deterministic_intent(message):
     """Handle common commands predictably when AI is unavailable or unnecessary."""
     text = message.strip()
@@ -182,6 +480,10 @@ def deterministic_intent(message):
 
     if not text or lowered in {"help", "commands", "what can you do"}:
         return {"intent": "help"}
+
+    guide_topic = detected_guide_topic(text)
+    if guide_topic:
+        return {"intent": "guide", "guideTopic": guide_topic}
 
     # Reset commands must be handled before the general filter branch. Sending
     # them to the AI classifier can turn a follow-up such as "reset filters"
@@ -524,18 +826,38 @@ def resolve_variant(products, product_query, variant_query=""):
 def help_response():
     return {
         "message": (
-            "I can show today's summary, pending orders, low-stock products, find an order or product, "
-            "open dashboard pages, settings and customer sections; export orders, inventory or customers; "
-            "open order, shop-sale, product and courier forms; filter orders or inventory; update an order status; "
-            "and adjust stock. Database changes always require "
-            "confirmation or a validated dashboard form."
+            "I can teach you how to use Vendly with page-specific steps and screenshots, or do safe dashboard tasks for you. "
+            "Ask about orders, products, stock, categories, shop sales, couriers, waybills, customers, messages, "
+            "reviews, fraud reports or analytics. Database changes always require confirmation or a validated form."
         ),
-        "suggestions": ["Today's summary", "Filter packed orders", "Open customer messages", "Add a new order"],
+        "suggestions": ["How do I add an order?", "How do I add a product?", "How do I update an order status?"],
+    }
+
+
+def guide_response(membership, topic):
+    guide = BUSINESS_GUIDES.get(str(topic or "").strip().casefold())
+    if not guide:
+        return help_response()
+
+    require_permission(membership, guide["permission"])
+    public_guide = {
+        key: value
+        for key, value in guide.items()
+        if key not in {"permission", "suggestions"}
+    }
+    return {
+        "message": f"Here is how to {guide['title'].casefold()}. I opened the relevant Vendly page for you.",
+        "guide": public_guide,
+        "navigateTo": guide["navigateTo"],
+        "suggestions": guide.get("suggestions", []),
     }
 
 
 def process_read_intent(database, business_id, membership, intent):
     intent_name = intent.get("intent")
+
+    if intent_name == "guide":
+        return guide_response(membership, intent.get("guideTopic"))
 
     if intent_name == "help" or intent_name == "unknown":
         return help_response()
@@ -552,13 +874,12 @@ def process_read_intent(database, business_id, membership, intent):
 
     if intent_name == "export_orders":
         require_permission(membership, "orders:read")
-        export_action = {"type": "export_orders"}
-        for key in ("dateFrom", "dateTo", "status"):
-            if intent.get(key):
-                export_action[key] = intent[key]
         return {
-            "message": "Preparing your courier-compatible order export.",
-            "clientAction": export_action,
+            "message": (
+                "Opening Orders. Select Export Orders, then choose the courier "
+                "whose saved Excel format you want to use."
+            ),
+            "navigateTo": "/orders",
         }
 
     if intent_name == "export_sales":

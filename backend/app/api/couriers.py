@@ -8,6 +8,7 @@ from app.services.courier_service import (
     create_courier,
     list_couriers,
     recommend_couriers,
+    save_courier_export_template,
     update_courier,
 )
 from app.services.numbers import non_negative_integer
@@ -45,6 +46,32 @@ def edit_courier(business_id, courier_id):
         business_id,
         courier_id,
         get_json_object(),
+    )
+    return jsonify({"courier": courier})
+
+
+@couriers_blueprint.post(
+    "/businesses/<business_id>/couriers/<courier_id>/order-export-template",
+)
+@require_firebase_user
+@require_business_member("owner", "admin", permission="couriers:manage")
+def upload_order_export_template(business_id, courier_id):
+    uploaded_file = request.files.get("file")
+    if uploaded_file is None:
+        return jsonify(
+            {
+                "error": {
+                    "code": "missing_export_template",
+                    "message": "Choose an Excel template to upload.",
+                },
+            },
+        ), 422
+
+    courier = save_courier_export_template(
+        get_firestore_client(),
+        business_id,
+        courier_id,
+        uploaded_file,
     )
     return jsonify({"courier": courier})
 

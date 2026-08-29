@@ -622,7 +622,11 @@
 .order-summary h2 { margin: 0; font-size: 1.12rem; }
 .order-summary header button { border: 0; color: #94a3b8; background: transparent; cursor: pointer; }
 .order-summary__body { display: grid; gap: 12px; min-height: 0; padding: 16px 20px; overflow-y: auto; overscroll-behavior: contain; }
-.order-summary__body > div,
+/* Every direct div of the body is a label/value row - except the containers,
+   which stack their own children. Without the exclusions this rule turned the
+   item list into a horizontal flex row, so only the first item was visible and
+   the rest overflowed off the side. */
+.order-summary__body > div:not(.order-summary__items):not(.order-summary__totals):not(.order-summary__paid),
 .order-summary__body > label:not(.order-summary__courier) { display: flex; align-items: center; justify-content: space-between; }
 .order-summary__discount { display: grid; grid-template-columns: 20px 90px; align-items: center; }
 .order-summary__discount input { width: 90px; height: 38px; border: 1px solid #d5dee9; border-radius: 6px; text-align: right; }
@@ -1306,4 +1310,164 @@
   .order-dialog--fit .order-dialog__footer-total { min-width: 0; }
   .order-dialog--fit .order-dialog__footer-actions button { padding: 0 11px; }
   .order-summary__body > .order-summary__recap { grid-template-columns: 1fr; }
+}
+
+/* Recording money at creation. The same fields as the Record payment popup,
+   because it is the same act - what arrived, and the proof of it. */
+.order-summary__paid {
+  display: grid !important;
+  gap: 9px;
+  padding: 12px;
+  border: 1px solid #d7e3f0;
+  border-radius: 11px;
+  background: #fff;
+}
+
+.order-summary__paid > label {
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.order-summary__paid > label > span {
+  color: #65758b;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.order-summary__paid input[type="number"] {
+  height: 38px;
+  padding: 0 10px;
+  border: 1px solid #d5dee9;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.order-summary__paid > button {
+  justify-self: start;
+  padding: 5px 12px;
+  border: 1px solid #d5dee9;
+  border-radius: 999px;
+  color: #0872d9;
+  font-size: 12px;
+  font-weight: 700;
+  background: transparent;
+  cursor: pointer;
+}
+
+.order-summary__receipt > div {
+  display: flex;
+  position: relative;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 11px;
+  border: 1px dashed #d5dee9;
+  border-radius: 9px;
+  color: #65758b;
+  cursor: pointer;
+}
+
+.order-summary__receipt input[type="file"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+/* Why this order will sit in yellow and refuse to be confirmed. */
+.order-summary__pending-note {
+  margin: 0;
+  padding: 9px 11px;
+  border: 1px solid rgba(217, 160, 14, 0.4);
+  border-radius: 9px;
+  color: #8a6100;
+  font-size: 12px;
+  line-height: 1.45;
+  background: rgba(217, 160, 14, 0.1);
+}
+
+[data-theme="dark"] .order-summary__paid {
+  border-color: #23374d;
+  background: #0d1927;
+}
+
+[data-theme="dark"] .order-summary__paid input[type="number"] {
+  border-color: #23374d;
+  color: #eef6ff;
+  background: #122131;
+}
+
+/* A wider review on desktop, laid out in two columns so the whole thing fits
+   without scrolling. Scrolling was the actual complaint behind "items are
+   missing": with the body mid-scroll, the item rows sat above the visible
+   area while their header and the totals stayed in view. */
+@media (min-width: 900px) and (min-height: 620px) {
+  .order-summary {
+    width: min(820px, 100%);
+  }
+
+  .order-summary__body {
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    align-content: start;
+    gap: 12px 14px;
+  }
+
+  /* The recap and the payment choice run the full width; the items and the
+     totals sit side by side, which is what removes the scroll. */
+  .order-summary__recap,
+  .order-summary .order-summary__payment,
+  .order-summary__pending-note,
+  .order-summary__balance {
+    grid-column: 1 / -1;
+  }
+
+  .order-summary__body > .order-summary__items {
+    align-self: start;
+  }
+
+  .order-summary__paid {
+    grid-column: 1 / -1;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1.2fr);
+    align-items: end;
+  }
+
+  .order-summary__paid > button {
+    align-self: end;
+    height: 38px;
+  }
+}
+
+/* A fieldset laid out as a grid, inside a grid, with `min-height: 0` can be
+   sized SHORTER than the cards it contains - they then overflow it and
+   whatever follows is drawn over them. Measured: a 35px fieldset holding 38px
+   labels, with the panel below starting 2px above their bottom edge. */
+.order-summary .order-summary__payment {
+  min-height: min-content;
+  align-self: start;
+}
+
+/* The payment group is a div now, so it needs the label the legend used to
+   draw, and the grid can size it normally. */
+.order-summary__payment-legend {
+  grid-column: 1 / -1;
+  color: #526982;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+[data-theme="dark"] .order-summary__payment-legend {
+  color: #9db4cd;
+}
+
+/* Rows sized by their content, and the body scrolls when there is more than
+   fits. Without this the grid compressed its own tracks on a short window -
+   measured at 133/2/45/22/186/56px, so the item list got a 2px track and the
+   payment cards a 22px one. Their content then spilled out and whatever came
+   next was painted over it. Both reported "UI bugs" were this. */
+.order-summary__body {
+  align-content: start;
+  grid-auto-rows: min-content;
 }

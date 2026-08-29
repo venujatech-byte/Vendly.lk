@@ -2,6 +2,7 @@ from firebase_admin import firestore
 
 from app.core.errors import ApiError
 from app.core.serialization import serialize_snapshot
+from app.services.ai_service import translate_chat_message
 from app.services.text import required_text
 
 
@@ -121,19 +122,38 @@ def send_seller_message(database, business_id, session_id, seller_uid, payload):
     except ValueError as error:
         raise ApiError("validation_error", str(error), 422) from error
 
-    reference, _session = _session_reference(database, business_id, session_id)
+    reference, session = _session_reference(database, business_id, session_id)
+
+    # The whole conversation may have been in Sinhala or Tamil, and a human
+    # steps in precisely when the question was hard. Handing that customer a
+    # sudden English reply is where the language guarantee used to break.
+    #
+    # This runs whatever the seller typed: if they already wrote in the
+    # customer's language it is close to a no-op, and if they typed English in
+    # a hurry the customer still reads their own language.
+    language = session.get("language", "en")
+    customer_message = translate_chat_message(message, language)
+    was_translated = customer_message != message
+
     message_reference = reference.collection("messages").document()
     message_reference.set(
         {
             "role": "seller",
-            "message": message,
-            "metadata": {"sellerUid": seller_uid},
+            # What the customer reads.
+            "message": customer_message,
+            # What the seller typed, so their own inbox shows their words back.
+            "sellerMessage": message,
+            "metadata": {
+                "sellerUid": seller_uid,
+                "language": language,
+                "translated": was_translated,
+            },
             "createdAt": firestore.SERVER_TIMESTAMP,
         }
     )
     reference.set(
         {
-            "lastMessage": message,
+            "lastMessage": customer_message,
             "lastMessageRole": "seller",
             "updatedAt": firestore.SERVER_TIMESTAMP,
         },

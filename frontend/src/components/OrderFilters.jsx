@@ -17,6 +17,7 @@ const initialFilters = {
   search: "",
   courier: "",
   status: "",
+  payment: "",
 };
 
 function OrderFilters({ couriers = [], onApply, onReset, onStatusChange, appliedFilters }) {
@@ -151,6 +152,16 @@ function OrderFilters({ couriers = [], onApply, onReset, onStatusChange, applied
             {couriers.map((courier) => (
               <option key={courier.id} value={courier.id}>{courier.name}</option>
             ))}
+          </select>
+        </div>
+
+        {/* Filter orders by how the customer paid. */}
+        <div className="order-filters__field filter-panel__field">
+          <select id="order-payment" name="payment" value={filters.payment} onChange={handleInputChange}>
+            <option value="">All payments</option>
+            <option value="cod">COD</option>
+            <option value="partially-paid">Half paid</option>
+            <option value="paid">Fully paid</option>
           </select>
         </div>
 

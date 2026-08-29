@@ -39,6 +39,11 @@ export async function downloadOrderExport(businessId, filters = {}) {
   ["status", "search", "dateFrom", "dateTo", "courierId"].forEach((key) => {
     if (filters[key]) query.set(key, filters[key]);
   });
+  if (Array.isArray(filters.orderIds)) {
+    filters.orderIds.forEach((orderId) => {
+      if (orderId) query.append("orderId", orderId);
+    });
+  }
   const { blob, filename } = await apiFileRequest(
     `/businesses/${businessId}/orders-export.xlsx${query.size ? `?${query}` : ""}`,
   );

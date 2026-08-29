@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   Bot,
+  Languages,
   MessageCircle,
   PhoneCall,
   Search,
@@ -18,6 +19,10 @@ import {
 } from "../services/messageService";
 
 import "./CustomerMessages.css";
+
+// The customer reads their own language; the seller sees both so they
+// know what was actually delivered on their behalf.
+const LANGUAGE_NAMES = { en: "English", si: "Sinhala", ta: "Tamil" };
 
 function initials(name) {
   return String(name || "Guest")
@@ -258,7 +263,28 @@ export default function CustomerMessages({
                 const outgoing = ["seller", "assistant"].includes(message.role);
                 return (
                   <article key={message.id} className={`customer-messages__bubble ${outgoing ? "is-outgoing" : "is-incoming"}`}>
-                    <p>{message.message}</p>
+                    {/* A seller's own reply is shown back in the words they
+                        typed; `message` holds the version the customer read. */}
+                    {message.metadata?.imageUrl && (
+                      /* A bank slip or a photo of a damaged item. Showing only
+                         the caption would hide the thing that matters. */
+                      <a
+                        className="customer-messages__image"
+                        href={message.metadata.imageUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        <img src={message.metadata.imageUrl} alt="Sent by the customer" />
+                      </a>
+                    )}
+                    <p>{message.sellerMessage || message.message}</p>
+                    {message.metadata?.translated && (
+                      <small className="customer-messages__translated">
+                        <Languages size={12} aria-hidden="true" />
+                        Sent in {LANGUAGE_NAMES[message.metadata.language] || message.metadata.language}:
+                        {" "}{message.message}
+                      </small>
+                    )}
                     <time>{formatTime(message.createdAt)}</time>
                   </article>
                 );

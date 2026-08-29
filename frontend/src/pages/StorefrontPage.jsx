@@ -4,10 +4,12 @@ import {
   Bot,
   Building2,
   Check,
+  ChevronDown,
   CheckCircle2,
   CircleUserRound,
   ClipboardList,
   Copy,
+  Headset,
   Mail,
   MapPin,
   Menu,
@@ -17,6 +19,7 @@ import {
   Minus,
   Moon,
   Package,
+  Paperclip,
   Phone,
   Plus,
   Search,
@@ -24,6 +27,7 @@ import {
   ShieldCheck,
   ShoppingBag,
   ShoppingCart,
+  SlidersHorizontal,
   Star,
   Store,
   Sun,
@@ -35,6 +39,9 @@ import {
 } from "lucide-react";
 import { useParams } from "react-router-dom";
 import vendlyLogo from "../assets/vendly-logo.png";
+import { SRI_LANKA_DISTRICTS } from "../data/districts";
+import { splitMessageBlocks } from "../data/messageBlocks";
+import { CHAT_SUGGESTIONS, storefrontText } from "../data/storefrontText";
 import {
   createPublicChatOrder,
   createPublicChatSession,
@@ -44,6 +51,7 @@ import {
   getCustomerChats,
   getCustomerOrders,
   getPublicChatMessages,
+  sendPublicChatImage,
   sendPublicChatMessage,
   submitPublicReview,
 } from "../services/publicService";
@@ -53,6 +61,48 @@ import { useAuth } from "../context/authContextValue";
 import { claimPublicChatSession } from "../services/publicService";
 
 import "./StorefrontPage.css";
+
+// Speech recognition and synthesis need a BCP 47 tag; the chat API answers with
+// a plain language code. The chat is the source of truth, so a reply in Sinhala
+// switches the microphone and the spoken reply to Sinhala too.
+const VOICE_LANGUAGES = ["en-LK", "si-LK", "ta-LK"];
+
+const VOICE_LANGUAGE_LABELS = {
+  "en-LK": "EN",
+  "si-LK": "සිං",
+  "ta-LK": "தமி",
+};
+
+const CHAT_LANGUAGE_TO_VOICE = {
+  en: "en-LK",
+  si: "si-LK",
+  ta: "ta-LK",
+};
+
+const VOICE_TO_CHAT_LANGUAGE = {
+  "en-LK": "en",
+  "si-LK": "si",
+  "ta-LK": "ta",
+};
+
+// The speech locale is already persisted, so it doubles as the remembered
+// conversation language. Without this a returning Sinhala customer would see
+// English labels again until their next message came back.
+// Empty when the visitor has never chosen one. The backend needs to tell that
+// apart from a deliberate "en" so a first-time visitor gets the trilingual
+// greeting instead of an English one.
+function savedChatLanguage() {
+  return (
+    VOICE_TO_CHAT_LANGUAGE[
+      localStorage.getItem("vendly-storefront-voice-language")
+    ] || ""
+  );
+}
+
+function nextVoiceLanguage(current) {
+  const index = VOICE_LANGUAGES.indexOf(current);
+  return VOICE_LANGUAGES[(index + 1) % VOICE_LANGUAGES.length];
+}
 
 const EMPTY_CUSTOMER = {
   name: "",
@@ -82,10 +132,18 @@ function publicMediaUrl(item) {
   return item?.secureUrl || item?.secure_url || item?.url || item?.downloadUrl || "";
 }
 
+// Per-variant photos arrive as a plain `imageUrl` string, not as a media
+// array - that is the shape the seller's product form writes.
+function variantImageUrl(variant) {
+  return publicMediaUrl(variant?.imageUrl) || publicMediaUrl(variant?.media?.[0]);
+}
+
 function productMediaUrls(product) {
   const media = [
     ...(product?.media || []),
-    ...(product?.variants || []).flatMap((variant) => variant.media || []),
+    ...(product?.variants || []).flatMap((variant) =>
+      variantImageUrl(variant) ? [variantImageUrl(variant)] : [],
+    ),
   ];
 
   return [...new Set(media.map(publicMediaUrl).filter(Boolean))];
@@ -107,9 +165,9 @@ function loadImageFile(file) {
   });
 }
 
-async function compressReviewImage(file) {
+async function compressUploadImage(file) {
   if (!file.type.startsWith("image/")) {
-    throw new Error("Review attachments must be image files.");
+    throw new Error("Attachments must be image files.");
   }
 
   const image = await loadImageFile(file);
@@ -135,7 +193,9 @@ async function compressReviewImage(file) {
 
 function getInitialView() {
   const view = window.location.hash.replace("#", "");
-  return ["catalog", "chatbot", "reviews", "contact"].includes(view) ? view : "catalog";
+  return ["catalog", "chatbot", "reviews", "contact", "orders"].includes(view)
+    ? view
+    : "catalog";
 }
 
 function getInitialTheme() {
@@ -166,6 +226,13 @@ function StorefrontPage({ linkType }) {
   const [voiceLanguage, setVoiceLanguage] = useState(
     () => localStorage.getItem("vendly-storefront-voice-language") || "en-LK",
   );
+  // The language the backend decided this conversation is in. Chat replies are
+  // translated by the model; these fixed labels come from a table.
+  const [chatLanguage, setChatLanguage] = useState(() => savedChatLanguage() || "en");
+  // Every sub-component declares its own; the top bar sits in this component
+  // and had none, so the notification panel referenced an undefined `text` and
+  // took the whole page down the moment it opened.
+  const text = storefrontText(chatLanguage);
   const [cart, setCart] = useState([]);
   const [customer, setCustomer] = useState(EMPTY_CUSTOMER);
   const [activeView, setActiveView] = useState(getInitialView);
@@ -181,7 +248,26 @@ function StorefrontPage({ linkType }) {
   const [confirmedOrder, setConfirmedOrder] = useState(null);
   const [copiedField, setCopiedField] = useState("");
   const [reviews, setReviews] = useState([]);
+  const [catalogSort, setCatalogSort] = useState("featured");
+  const [catalogFilters, setCatalogFilters] = useState({
+    inStockOnly: false,
+    brand: "",
+    maxPrice: "",
+  });
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [isDraftOpen, setIsDraftOpen] = useState(false);
+  const [paymentChoice, setPaymentChoice] = useState("cod");
+  const [detailProduct, setDetailProduct] = useState(null);
+  const [detailReviews, setDetailReviews] = useState([]);
+  const [isLoadingDetailReviews, setIsLoadingDetailReviews] = useState(false);
   const [customerOrders, setCustomerOrders] = useState([]);
+  const [notifications, setNotifications] = useState([]);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [readNotificationCount, setReadNotificationCount] = useState(0);
+  const orderStatusRef = useRef(new Map());
+  // The poller runs on its own timer, so it reads the view through a ref
+  // rather than closing over a value that was current when it started.
+  const viewRef = useRef("catalog");
   const [storefrontReviewDraft, setStorefrontReviewDraft] = useState({
     orderNumber: "",
     phoneNumber: "",
@@ -201,6 +287,7 @@ function StorefrontPage({ linkType }) {
   const [reviewMessage, setReviewMessage] = useState("");
   const [isAccountOpen, setIsAccountOpen] = useState(false);
   const messagesEndRef = useRef(null);
+  const latestMessageRef = useRef(null);
   const recognitionRef = useRef(null);
   const voiceHoldTimerRef = useRef(null);
   const skipNextVoiceClickRef = useRef(false);
@@ -241,11 +328,15 @@ function StorefrontPage({ linkType }) {
             .catch(() => createPublicChatSession({
               storeCode: linkType === "store" ? storeCode : undefined,
               productCode: linkType === "product" ? productCode : undefined,
+              // A returning customer is greeted in the language they settled
+              // on last visit instead of starting again in English.
+              language: savedChatLanguage(),
             }));
         } else {
           sessionRequest = createPublicChatSession({
             storeCode: linkType === "store" ? storeCode : undefined,
             productCode: linkType === "product" ? productCode : undefined,
+            language: savedChatLanguage(),
           });
         }
         const reviewRequest =
@@ -348,12 +439,19 @@ function StorefrontPage({ linkType }) {
             ? getCustomerChats(business.shortCode).catch(() => ({ chats: [] }))
             : Promise.resolve({ chats: [] }),
         ]);
-        const candidates = [
+        // The current session is also one of the customer's chats, so the
+        // same message arrives from both sources. Collapse by id first: the
+        // "unseen" set is checked before any id is recorded, so a duplicate
+        // inside one batch passed the filter twice and rendered twice.
+        const candidates = new Map();
+        [
           ...(currentResponse.messages || []),
           ...(historyResponse.chats || []).flatMap((chat) => chat.messages || []),
-        ];
-        const unseen = candidates.filter(
-          (message) => message.role === "seller" && message.id
+        ].forEach((message) => {
+          if (message.id) candidates.set(message.id, message);
+        });
+        const unseen = [...candidates.values()].filter(
+          (message) => message.role === "seller"
             && !receivedSellerMessageIds.current.has(message.id),
         );
         if (!isCurrent || unseen.length === 0) return;
@@ -362,10 +460,23 @@ function StorefrontPage({ linkType }) {
           ...current,
           ...unseen.map((message) => ({
             id: message.id,
-            role: "assistant",
+            role: "seller",
             text: message.message,
           })),
         ]);
+        // Only when they are somewhere else. Notifying about a message that is
+        // already on screen is noise.
+        if (viewRef.current !== "chatbot") {
+          setNotifications((current) => [
+            ...unseen.map((message) => ({
+              id: message.id,
+              kind: "seller",
+              title: business?.name || "The seller",
+              body: message.message,
+            })),
+            ...current,
+          ].slice(0, 20));
+        }
       } catch {
         // The normal send flow reports errors. Silent polling should not cover
         // the storefront with an error if the network briefly disconnects.
@@ -378,8 +489,69 @@ function StorefrontPage({ linkType }) {
       isCurrent = false;
       window.clearInterval(timer);
     };
-  }, [business?.shortCode, session?.sessionId, session?.sessionToken]);
+  }, [
+    business?.name,
+    business?.shortCode,
+    session?.sessionId,
+    session?.sessionToken,
+  ]);
 
+
+  // Orders are loaded once at startup, so a status the seller changes minutes
+  // later never reaches the customer. Polled separately from seller replies:
+  // a status moves at human speed, and asking every five seconds would be a
+  // request per customer per five seconds for information that rarely changes.
+  useEffect(() => {
+    if (!business?.shortCode) return undefined;
+
+    let isCurrent = true;
+
+    async function pollOrders() {
+      try {
+        const response = await getCustomerOrders(business.shortCode);
+
+        if (!isCurrent) return;
+
+        const orders = response.orders || [];
+        const changes = orders.filter((order) => {
+          const previous = orderStatusRef.current.get(order.id);
+          return previous && previous !== order.fulfilmentStatus;
+        });
+        const isFirstLoad = orderStatusRef.current.size === 0;
+
+        orders.forEach((order) =>
+          orderStatusRef.current.set(order.id, order.fulfilmentStatus),
+        );
+        setCustomerOrders(orders);
+
+        // On the first poll every order looks new. Recording the statuses
+        // without announcing them avoids a burst of notifications for things
+        // the customer already knows.
+        if (isFirstLoad || changes.length === 0) return;
+
+        setNotifications((current) => [
+          ...changes.map((order) => ({
+            id: `${order.id}-${order.fulfilmentStatus}`,
+            kind: "order",
+            title: order.orderNumber || "Your order",
+            body: `Status: ${String(order.fulfilmentStatus || "").replace(/-/g, " ")}`,
+          })),
+          ...current,
+        ].slice(0, 20));
+      } catch {
+        // Silent: the customer has not asked for this, and a failed poll must
+        // not cover the storefront in errors.
+      }
+    }
+
+    pollOrders();
+    const timer = window.setInterval(pollOrders, 30000);
+
+    return () => {
+      isCurrent = false;
+      window.clearInterval(timer);
+    };
+  }, [business?.shortCode]);
   useEffect(() => {
     localStorage.setItem("vendly-storefront-theme", theme);
   }, [theme]);
@@ -407,10 +579,33 @@ function StorefrontPage({ linkType }) {
   }, []);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({
-      behavior: "smooth",
-      block: "nearest",
-    });
+    const newest = messages[messages.length - 1];
+    const latest = latestMessageRef.current;
+    const list = latest?.parentElement;
+
+    if (!list) return;
+
+    // Scroll THIS list, never `scrollIntoView`. That walks every scrollable
+    // ancestor, so it also scrolled the page and dragged the whole chat panel
+    // up under the sticky top bar. Setting scrollTop moves one element.
+    const scrollList = (top) =>
+      list.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+
+    // A reply carrying a product card, a comparison table or a cart runs
+    // taller than the window. Stopping at its bottom left the customer at the
+    // end of an answer they had not read; its top lets them read downwards.
+    // Only when it will not fit - pinning a one-line answer to the top strands
+    // it above a screen of blank space.
+    const replyOverflows = latest.offsetHeight > list.clientHeight * 0.7;
+
+    if (newest?.role === "assistant" && !isSending && replyOverflows) {
+      scrollList(latest.offsetTop - list.offsetTop - 12);
+      return;
+    }
+
+    // Their own message, or the typing indicator: the newest thing is short
+    // and at the bottom, so that is where to be.
+    scrollList(list.scrollHeight);
   }, [messages, isSending]);
 
   useEffect(() => {
@@ -438,8 +633,9 @@ function StorefrontPage({ linkType }) {
 
   const visibleProducts = useMemo(() => {
     const query = searchText.trim().toLowerCase();
+    const maxPriceMinor = Number(catalogFilters.maxPrice) * 100;
 
-    return products.filter((product) => {
+    const matching = products.filter((product) => {
       const matchesCategory =
         activeCategory === "All" || product.categoryName === activeCategory;
       const matchesSearch =
@@ -448,9 +644,57 @@ function StorefrontPage({ linkType }) {
           .join(" ")
           .toLowerCase()
           .includes(query);
-      return matchesCategory && matchesSearch;
+      const matchesStock =
+        !catalogFilters.inStockOnly || product.availableStock > 0;
+      const matchesBrand =
+        !catalogFilters.brand || product.brand === catalogFilters.brand;
+      // An empty box means "no limit", not "nothing under zero".
+      const matchesPrice =
+        !maxPriceMinor || product.sellingPriceMinor <= maxPriceMinor;
+
+      return (
+        matchesCategory &&
+        matchesSearch &&
+        matchesStock &&
+        matchesBrand &&
+        matchesPrice
+      );
     });
-  }, [activeCategory, products, searchText]);
+
+    const byPrice = (first, second) =>
+      first.sellingPriceMinor - second.sellingPriceMinor;
+
+    // Sorted copies only. Sorting `matching` in place would reorder the array
+    // the filter just produced and, through it, the memo's own result.
+    if (catalogSort === "price-asc") return [...matching].sort(byPrice);
+    if (catalogSort === "price-desc") return [...matching].sort((a, b) => byPrice(b, a));
+    if (catalogSort === "name")
+      return [...matching].sort((first, second) =>
+        first.name.localeCompare(second.name),
+      );
+    if (catalogSort === "stock")
+      return [...matching].sort(
+        (first, second) => second.availableStock - first.availableStock,
+      );
+
+    return matching;
+  }, [activeCategory, catalogFilters, catalogSort, products, searchText]);
+
+  const catalogBrands = useMemo(
+    () =>
+      [...new Set(products.map((product) => product.brand).filter(Boolean))]
+        .sort(),
+    [products],
+  );
+
+  useEffect(() => {
+    viewRef.current = activeView;
+  }, [activeView]);
+
+  const unreadNotifications = Math.max(
+    0,
+    notifications.length - readNotificationCount,
+  );
 
   const cartQuantity = useMemo(
     () => cart.reduce((total, item) => total + item.quantity, 0),
@@ -499,8 +743,7 @@ function StorefrontPage({ linkType }) {
           size: variant.size,
           sku: variant.sku,
           imageUrl:
-            publicMediaUrl(variant.media?.[0]) ||
-            publicMediaUrl(product.media?.[0]),
+            variantImageUrl(variant) || publicMediaUrl(product.media?.[0]),
           sellingPriceMinor:
             variant.sellingPriceMinor ?? product.sellingPriceMinor,
           availableStock: variant.availableStock,
@@ -523,6 +766,32 @@ function StorefrontPage({ linkType }) {
         })
         .filter((item) => item.quantity > 0),
     );
+  }
+
+  // A customer sending a bank slip or a photo of a damaged item. The image
+  // goes to Cloudinary; only its URL is kept on the message.
+  async function sendChatImage(file) {
+    if (!file || !session?.sessionId) return;
+
+    setIsSending(true);
+    setErrorMessage("");
+    try {
+      const { url } = await compressUploadImage(file);
+      const response = await sendPublicChatImage(
+        session.sessionId,
+        session.sessionToken,
+        url,
+      );
+      setMessages((current) => [
+        ...current,
+        { role: "customer", text: "", imageUrl: response.imageUrl },
+        { role: "assistant", text: response.message },
+      ]);
+    } catch (error) {
+      setErrorMessage(error.message);
+    } finally {
+      setIsSending(false);
+    }
   }
 
   async function requestChatMessage(cleanMessage) {
@@ -563,12 +832,50 @@ function StorefrontPage({ linkType }) {
       if (response.order) {
         setConfirmedOrder(response.order);
         setCart([]);
+      } else if (response.cartSummary) {
+        // The chat can add items itself now ("mata GM2 pro dekak ona"), so the
+        // server's cart wins. Without this the added line stays invisible and
+        // the next message uploads the stale local cart over the top of it.
+        setCart((current) =>
+          response.cartSummary.map((line) => {
+            const existing = current.find(
+              (item) => item.variantId === line.variantId,
+            );
+            // A line the chat added has no local entry, so its stock ceiling
+            // comes from the catalogue. Falling back to the ordered quantity
+            // would freeze the "+" button on that row.
+            const catalogueVariant = products
+              .flatMap((product) => product.variants || [])
+              .find((variant) => variant.id === line.variantId);
+
+            return {
+              ...existing,
+              variantId: line.variantId,
+              productName: line.productName,
+              size: line.size,
+              sku: line.sku,
+              imageUrl: line.imageUrl || existing?.imageUrl || "",
+              sellingPriceMinor: line.unitPriceMinor,
+              availableStock:
+                catalogueVariant?.availableStock ??
+                existing?.availableStock ??
+                line.quantity,
+              quantity: line.quantity,
+            };
+          }),
+        );
       }
 
       setSession((current) => ({
         ...current,
         state: response.state,
       }));
+      // The backend decided which language this conversation is in, including
+      // for romanised Sinhala the browser cannot detect. Follow it.
+      if (CHAT_LANGUAGE_TO_VOICE[response.language]) {
+        setChatLanguage(response.language);
+        setVoiceLanguage(CHAT_LANGUAGE_TO_VOICE[response.language]);
+      }
       if (response.message) {
         setMessages((current) => [
           ...current,
@@ -576,9 +883,11 @@ function StorefrontPage({ linkType }) {
             role: "assistant",
             text: response.message,
             action: response.action,
+            suggestions: response.suggestions,
             product: response.product,
             products: response.products,
             reviews: response.reviews,
+            categories: response.categories,
             reviewSummary: response.reviewSummary,
             sellerRating: response.sellerRating,
             cartSummary: response.cartSummary,
@@ -723,6 +1032,25 @@ function StorefrontPage({ linkType }) {
     skipNextVoiceClickRef.current = false;
   }
 
+  async function openProductDetails(product) {
+    setDetailProduct(product);
+    setDetailReviews([]);
+
+    if (!product.shortCode) return;
+
+    setIsLoadingDetailReviews(true);
+    try {
+      const response = await getPublicProductReviews(product.shortCode);
+      setDetailReviews(response.reviews || []);
+    } catch {
+      // A product with no reviews yet answers 404. The panel already reads
+      // correctly with an empty list, so there is nothing to report.
+      setDetailReviews([]);
+    } finally {
+      setIsLoadingDetailReviews(false);
+    }
+  }
+
   function addFromChat(product, variant) {
     if (!variant || variant.availableStock < 1) return;
 
@@ -776,6 +1104,16 @@ function StorefrontPage({ linkType }) {
             address: customer.address,
           },
           deliveryNote: customer.deliveryNote,
+          // "paid" and "deposit" record what the customer intends to transfer;
+          // paymentPending says the money has not arrived. The seller records
+          // it when it does - nothing here may mark an order as paid.
+          paymentMethod:
+            paymentChoice === "cod"
+              ? "cod"
+              : paymentChoice === "bank-full"
+                ? "paid"
+                : "deposit",
+          paymentPending: paymentChoice !== "cod",
           items: cart.map((item) => ({
             variantId: item.variantId,
             quantity: item.quantity,
@@ -926,13 +1264,18 @@ function StorefrontPage({ linkType }) {
             <Star size={20} /> Reviews
           </button>
           <button
+            className={activeView === "orders" ? "is-active" : ""}
             type="button"
             onClick={() => {
               setIsMobileMenuOpen(false);
-              setIsAccountOpen(true);
+              // Orders are a page, not a modal. They are read, compared and
+              // acted on - a dialog that covers the shop is the wrong shape
+              // for that, and it cannot be linked to or returned to.
+              if (user) changeView("orders");
+              else setIsAccountOpen(true);
             }}
           >
-            <UserRound size={20} /> {user ? "My orders" : "Login / Guest"}
+            <UserRound size={20} /> {user ? text.myOrders : text.loginGuest}
           </button>
         </nav>
       </aside>
@@ -963,6 +1306,7 @@ function StorefrontPage({ linkType }) {
                 {activeView === "chatbot" &&
                   `${business.name} – AI Ordering Assistant`}
                 {activeView === "reviews" && "Reviews"}
+                {activeView === "orders" && text.myOrders}
                 {activeView === "contact" && "Contact"}
               </strong>
               <small>{business.name}</small>
@@ -970,13 +1314,97 @@ function StorefrontPage({ linkType }) {
           </div>
 
           <div className="storefront-topbar__actions">
-            <button
-              className="storefront-icon-button"
-              type="button"
-              aria-label="Notifications"
-            >
-              <Bell size={20} />
-            </button>
+            {/* Voice controls belong to the chat, so they appear only there -
+                and in the top bar, where the composer has room for typing. */}
+            {activeView === "chatbot" && (
+              <>
+                <button
+                  className="storefront-icon-button storefront-topbar__language"
+                  type="button"
+                  onClick={() =>
+                    setVoiceLanguage((current) => {
+                      const next = nextVoiceLanguage(current);
+                      setChatLanguage(VOICE_TO_CHAT_LANGUAGE[next] || "en");
+                      return next;
+                    })
+                  }
+                  aria-label="Change voice language"
+                  title="Change voice language"
+                >
+                  {VOICE_LANGUAGE_LABELS[voiceLanguage] ?? "EN"}
+                </button>
+                <button
+                  className="storefront-icon-button"
+                  type="button"
+                  onClick={() => {
+                    if (speechEnabled) window.speechSynthesis?.cancel();
+                    setSpeechEnabled((current) => !current);
+                  }}
+                  aria-label={
+                    speechEnabled
+                      ? "Turn spoken replies off"
+                      : "Turn spoken replies on"
+                  }
+                  aria-pressed={speechEnabled}
+                  title={speechEnabled ? "Spoken replies on" : "Spoken replies off"}
+                >
+                  {speechEnabled ? <Volume2 size={20} /> : <VolumeX size={20} />}
+                </button>
+              </>
+            )}
+            <div className="storefront-notifications">
+              <button
+                className="storefront-icon-button storefront-topbar__notifications"
+                type="button"
+                aria-label={`Notifications${unreadNotifications ? ` (${unreadNotifications} unread)` : ""}`}
+                aria-expanded={isNotificationsOpen}
+                onClick={() => {
+                  setIsNotificationsOpen((open) => !open);
+                  // Opening is what marks them read - a badge that clears on
+                  // its own leaves the customer wondering what they missed.
+                  setReadNotificationCount(notifications.length);
+                }}
+              >
+                <Bell size={20} />
+                {unreadNotifications > 0 && (
+                  <span className="storefront-notifications__badge">
+                    {unreadNotifications}
+                  </span>
+                )}
+              </button>
+
+              {isNotificationsOpen && (
+                <div className="storefront-notifications__panel">
+                  <header>{text.notifications}</header>
+                  {notifications.length === 0 ? (
+                    <p>{text.noNotifications}</p>
+                  ) : (
+                    notifications.map((note) => (
+                      <button
+                        type="button"
+                        key={note.id}
+                        onClick={() => {
+                          setIsNotificationsOpen(false);
+                          changeView(note.kind === "order" ? "reviews" : "chatbot");
+                        }}
+                      >
+                        <span className="storefront-notifications__icon">
+                          {note.kind === "order" ? (
+                            <Package size={15} />
+                          ) : (
+                            <Headset size={15} />
+                          )}
+                        </span>
+                        <span>
+                          <strong>{note.title}</strong>
+                          <small>{note.body}</small>
+                        </span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
             <button
               className="storefront-icon-button"
               type="button"
@@ -1002,7 +1430,21 @@ function StorefrontPage({ linkType }) {
             <button
               className="storefront-cart-button"
               type="button"
-              onClick={() => setIsCartOpen(true)}
+              onClick={() => {
+                // In the chat, the cart IS the order draft, and on a phone the
+                // draft panel is hidden for space. Opening a separate cart
+                // there shows the same items in a second place with none of
+                // the checkout context beside them.
+                if (
+                  activeView === "chatbot"
+                  && window.matchMedia("(max-width: 820px)").matches
+                ) {
+                  setIsDraftOpen(true);
+                  return;
+                }
+
+                setIsCartOpen(true);
+              }}
               aria-label={`Open cart with ${cartQuantity} items`}
             >
               <ShoppingCart size={21} />
@@ -1027,10 +1469,30 @@ function StorefrontPage({ linkType }) {
         {activeView === "catalog" && (
           <CatalogView
             business={business}
+            chatLanguage={chatLanguage}
+            cart={cart}
             products={visibleProducts}
             categories={categories}
             activeCategory={activeCategory}
             searchText={searchText}
+            sort={catalogSort}
+            filters={catalogFilters}
+            brands={catalogBrands}
+            isFilterOpen={isFilterOpen}
+            activeFilterCount={
+              (catalogFilters.inStockOnly ? 1 : 0) +
+              (catalogFilters.brand ? 1 : 0) +
+              (catalogFilters.maxPrice ? 1 : 0) +
+              // One button now stands for both, so a non-default sort has to
+              // show on the badge or it is a change with no visible trace.
+              (catalogSort === "featured" ? 0 : 1)
+            }
+            onSortChange={setCatalogSort}
+            onFiltersChange={setCatalogFilters}
+            onToggleFilters={() => setIsFilterOpen((open) => !open)}
+            onClearFilters={() =>
+              setCatalogFilters({ inStockOnly: false, brand: "", maxPrice: "" })
+            }
             linkType={linkType}
             reviews={reviews}
             reviewForm={reviewForm}
@@ -1040,6 +1502,7 @@ function StorefrontPage({ linkType }) {
             onCategoryChange={setActiveCategory}
             onAddToCart={addToCart}
             onOpenChat={() => changeView("chatbot")}
+            onOpenDetails={openProductDetails}
             onReviewFormChange={setReviewForm}
             onSubmitReview={submitReview}
           />
@@ -1051,31 +1514,23 @@ function StorefrontPage({ linkType }) {
             cart={cart}
             customer={customer}
             chatState={session?.state || "browsing"}
+            chatLanguage={chatLanguage}
             messages={messages}
             messageText={messageText}
             isSending={isSending}
             messagesEndRef={messagesEndRef}
+            latestMessageRef={latestMessageRef}
             onMessageTextChange={setMessageText}
             onSendMessage={sendMessage}
             isListening={isListening}
             isHoldingVoiceButton={isHoldingVoiceButton}
             voiceTranscript={voiceTranscript}
-            speechEnabled={speechEnabled}
-            voiceLanguage={voiceLanguage}
             onToggleListening={isListening ? stopVoiceInput : startVoiceInput}
             onStartHeldVoiceCommand={startHeldVoiceCommand}
             onFinishHeldVoiceCommand={finishHeldVoiceCommand}
             onCancelHeldVoiceCommand={cancelHeldVoiceCommand}
-            onToggleSpeech={() => {
-              if (speechEnabled) window.speechSynthesis?.cancel();
-              setSpeechEnabled((current) => !current);
-            }}
-            onToggleVoiceLanguage={() =>
-              setVoiceLanguage((current) =>
-                current === "en-LK" ? "si-LK" : "en-LK",
-              )
-            }
             onQuickMessage={requestChatMessage}
+            onSendImage={sendChatImage}
             onAddFromChat={addFromChat}
             onDecreaseItem={(variantId) => updateCartQuantity(variantId, -1)}
             onIncreaseItem={(variantId) => updateCartQuantity(variantId, 1)}
@@ -1084,13 +1539,38 @@ function StorefrontPage({ linkType }) {
                 current.filter((item) => item.variantId !== variantId),
               )
             }
+            isDraftOpen={isDraftOpen}
+            onCloseDraft={() => setIsDraftOpen(false)}
             onOpenCheckout={() => setIsCheckoutOpen(true)}
             onOpenReviews={() => changeView("reviews")}
           />
         )}
 
+        {activeView === "orders" && (
+          <StorefrontOrdersView
+            business={business}
+            chatLanguage={chatLanguage}
+            orders={customerOrders}
+            isSignedIn={Boolean(user)}
+            onOpenAccount={() => setIsAccountOpen(true)}
+            onCancelOrder={(order) => {
+              // Routed through the chat on purpose. The rule for what may be
+              // cancelled, the confirmation step and the stock release all
+              // live there already; a second implementation would be a second
+              // set of rules to keep in step.
+              changeView("chatbot");
+              requestChatMessage(`Cancel order ${order.orderNumber}`);
+            }}
+            onOpenChat={(order) => {
+              changeView("chatbot");
+              requestChatMessage(`About order ${order.orderNumber}`);
+            }}
+          />
+        )}
+
         {activeView === "reviews" && (
           <StorefrontReviewCenter
+            chatLanguage={chatLanguage}
             orders={customerOrders}
             draft={storefrontReviewDraft}
             message={storefrontReviewMessage}
@@ -1102,7 +1582,7 @@ function StorefrontPage({ linkType }) {
                 setErrorMessage("");
                 const selectedFiles = Array.from(event.target.files || []).slice(0, 4);
                 const encodedFiles = await Promise.all(
-                  selectedFiles.map(compressReviewImage),
+                  selectedFiles.map(compressUploadImage),
                 );
                 setStorefrontReviewFiles(encodedFiles);
               } catch (error) {
@@ -1115,6 +1595,7 @@ function StorefrontPage({ linkType }) {
 
         {activeView === "contact" && (
           <ContactView
+            chatLanguage={chatLanguage}
             business={business}
             copiedField={copiedField}
             onCopyContact={copyContact}
@@ -1124,6 +1605,7 @@ function StorefrontPage({ linkType }) {
 
       <CartDrawer
         isOpen={isCartOpen}
+        chatLanguage={chatLanguage}
         cart={cart}
         subtotal={cartSubtotal}
         onClose={() => setIsCartOpen(false)}
@@ -1134,14 +1616,34 @@ function StorefrontPage({ linkType }) {
         }}
       />
 
+      {detailProduct && (
+        <ProductDetailModal
+          product={detailProduct}
+          reviews={detailReviews}
+          isLoadingReviews={isLoadingDetailReviews}
+          chatLanguage={chatLanguage}
+          cart={cart}
+          onAddToCart={addToCart}
+          onOpenChat={() => {
+            setDetailProduct(null);
+            changeView("chatbot");
+          }}
+          onClose={() => setDetailProduct(null)}
+        />
+      )}
+
       {isCheckoutOpen && (
         <CheckoutModal
+          chatLanguage={chatLanguage}
           cart={cart}
           customer={customer}
           subtotal={cartSubtotal}
           isSending={isSending}
           onClose={() => setIsCheckoutOpen(false)}
           onCustomerChange={updateCustomer}
+          bankDetails={business?.bankDetails}
+          paymentChoice={paymentChoice}
+          onPaymentChoiceChange={setPaymentChoice}
           onSubmit={checkout}
         />
       )}
@@ -1150,7 +1652,8 @@ function StorefrontPage({ linkType }) {
         <OrderSuccess
           business={business}
           order={confirmedOrder}
-          closeLabel="Return to Storefront"
+          chatLanguage={chatLanguage}
+          closeLabel={storefrontText(chatLanguage).returnToStorefront}
           onClose={() => {
             setConfirmedOrder(null);
             setCustomer(EMPTY_CUSTOMER);
@@ -1169,8 +1672,139 @@ function StorefrontPage({ linkType }) {
   );
 }
 
+// A customer may cancel only while the shop has not started on the order.
+// Once it is packed, the parcel exists and the stock has moved with it. The
+// server enforces this too - this list only decides whether to offer a button
+// that would be refused.
+const CUSTOMER_CANCELLABLE_STATUSES = ["needs-confirmation", "confirmed"];
+
+function StorefrontOrdersView({
+  business,
+  chatLanguage,
+  orders,
+  isSignedIn,
+  onCancelOrder,
+  onOpenAccount,
+  onOpenChat,
+}) {
+  const text = storefrontText(chatLanguage);
+
+  if (!isSignedIn) {
+    return (
+      <div className="storefront-page storefront-orders-page">
+        <div className="storefront-empty-state">
+          <Package size={34} />
+          <h2>{text.signInToSeeOrders}</h2>
+          <p>{text.signInToSeeOrdersHint}</p>
+          <button type="button" onClick={onOpenAccount}>
+            {text.loginGuest}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="storefront-page storefront-orders-page">
+      <header className="storefront-orders-page__header">
+        <h1>{text.myOrders}</h1>
+        <p>{business.name}</p>
+      </header>
+
+      {orders.length === 0 && (
+        <div className="storefront-empty-state">
+          <Package size={34} />
+          <h2>{text.noOrdersYet}</h2>
+          <p>{text.noOrdersYetHint}</p>
+        </div>
+      )}
+
+      {orders.map((order) => {
+        const status = order.fulfilmentStatus || "needs-confirmation";
+        const canCancel = CUSTOMER_CANCELLABLE_STATUSES.includes(status);
+
+        return (
+          <article className="storefront-order-card" key={order.id}>
+            <header>
+              <div>
+                <strong>{order.orderNumber}</strong>
+                <small>
+                  {order.itemCount} {text.reviewYourItems.toLowerCase()}
+                </small>
+              </div>
+              <span className={`storefront-order-card__status is-${status}`}>
+                {String(status).replace(/-/g, " ")}
+              </span>
+            </header>
+
+            <div className="storefront-order-card__items">
+              {(order.items || []).map((item) => (
+                <div key={item.variantId || item.productId}>
+                  <span className="storefront-order-card__image">
+                    {item.mediaUrl ? (
+                      <img src={item.mediaUrl} alt="" />
+                    ) : (
+                      <Package size={16} />
+                    )}
+                  </span>
+                  <span>
+                    <strong>{item.name}</strong>
+                    {item.size ? <small>{item.size}</small> : null}
+                  </span>
+                  <span className="storefront-order-card__quantity">
+                    × {item.quantity}
+                  </span>
+                  <strong>{money(item.lineTotalMinor)}</strong>
+                </div>
+              ))}
+            </div>
+
+            <dl className="storefront-order-card__totals">
+              <div>
+                <dt>{text.itemsTotal}</dt>
+                <dd>{money(order.subtotalMinor)}</dd>
+              </div>
+              <div>
+                <dt>{text.deliveryFee}</dt>
+                <dd>{money(order.deliveryFeeMinor)}</dd>
+              </div>
+              <div>
+                <dt>{text.total}</dt>
+                <dd>{money(order.totalAmountMinor)}</dd>
+              </div>
+            </dl>
+
+            <footer>
+              <button type="button" onClick={() => onOpenChat(order)}>
+                {text.askAboutOrder}
+              </button>
+              {canCancel ? (
+                <button
+                  type="button"
+                  className="storefront-order-card__cancel"
+                  onClick={() => onCancelOrder(order)}
+                >
+                  <X size={15} /> {text.cancelOrder}
+                </button>
+              ) : (
+                // Saying why beats a button that fails, and beats no button at
+                // all - the customer would otherwise keep looking for one.
+                <small className="storefront-order-card__locked">
+                  {text.cannotCancelNow}
+                </small>
+              )}
+            </footer>
+          </article>
+        );
+      })}
+    </div>
+  );
+}
+
 function CatalogView({
   business,
+  chatLanguage,
+  cart,
   products,
   categories,
   activeCategory,
@@ -1180,31 +1814,152 @@ function CatalogView({
   reviewForm,
   reviewMessage,
   isSending,
+  sort,
+  filters,
+  brands,
+  isFilterOpen,
+  activeFilterCount,
   onSearchChange,
+  onSortChange,
+  onFiltersChange,
+  onToggleFilters,
+  onClearFilters,
   onCategoryChange,
   onAddToCart,
   onOpenChat,
+  onOpenDetails,
   onReviewFormChange,
   onSubmitReview,
 }) {
+  const text = storefrontText(chatLanguage);
+
   return (
     <div className="storefront-page storefront-catalog-page">
       <section className="storefront-catalog-hero">
         <h1>
           Welcome to <span>{business.name}</span>
         </h1>
-        <p>Discover products, check live availability, and order securely.</p>
+        <p>{text.storeTagline}</p>
       </section>
 
-      <div className="storefront-search">
-        <Search size={21} />
-        <input
-          value={searchText}
-          onChange={(event) => onSearchChange(event.target.value)}
-          placeholder="Search products, brands or categories…"
-          aria-label="Search products"
-        />
+      <div className="storefront-search-row">
+        <div className="storefront-search">
+          <Search size={21} />
+          <input
+            value={searchText}
+            onChange={(event) => onSearchChange(event.target.value)}
+            placeholder={text.searchPlaceholder}
+            aria-label="Search products"
+          />
+        </div>
+
+        {/* One control. Sorting and filtering are the same act - narrowing
+            what is on screen - and two labelled buttons crowded the search
+            box on a phone for no gain. */}
+        <button
+          type="button"
+          className={`storefront-refine-button ${activeFilterCount ? "is-active" : ""}`}
+          onClick={onToggleFilters}
+          aria-label={text.filters}
+          title={text.filters}
+          aria-expanded={isFilterOpen}
+        >
+          <SlidersHorizontal size={18} />
+          {activeFilterCount > 0 && <span>{activeFilterCount}</span>}
+        </button>
       </div>
+
+      {isFilterOpen && (
+        <div className="storefront-refine">
+          <div className="storefront-refine__group">
+            <small>{text.sortBy}</small>
+            <div className="storefront-refine__options">
+              {[
+                ["featured", text.sortFeatured],
+                ["price-asc", text.sortPriceLow],
+                ["price-desc", text.sortPriceHigh],
+                ["name", text.sortName],
+                ["stock", text.sortStock],
+              ].map(([value, label]) => (
+                <button
+                  type="button"
+                  key={value}
+                  className={sort === value ? "is-selected" : ""}
+                  aria-pressed={sort === value}
+                  onClick={() => onSortChange(value)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="storefront-refine__group">
+            <small>{text.filters}</small>
+            <div className="storefront-refine__fields">
+              <label className="storefront-refine__toggle">
+                <input
+                  type="checkbox"
+                  checked={filters.inStockOnly}
+                  onChange={(event) =>
+                    onFiltersChange({
+                      ...filters,
+                      inStockOnly: event.target.checked,
+                    })
+                  }
+                />
+                {text.inStockOnly}
+              </label>
+
+              {brands.length > 0 && (
+                <label>
+                  <span>{text.specBrand}</span>
+                  <select
+                    value={filters.brand}
+                    onChange={(event) =>
+                      onFiltersChange({ ...filters, brand: event.target.value })
+                    }
+                  >
+                    <option value="">{text.allBrands}</option>
+                    {brands.map((brand) => (
+                      <option key={brand} value={brand}>
+                        {brand}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+
+              <label>
+                <span>{text.maxPrice}</span>
+                <input
+                  type="number"
+                  min="0"
+                  inputMode="numeric"
+                  value={filters.maxPrice}
+                  placeholder={text.anyPrice}
+                  onChange={(event) =>
+                    onFiltersChange({ ...filters, maxPrice: event.target.value })
+                  }
+                />
+              </label>
+            </div>
+          </div>
+
+          <footer>
+            <button type="button" onClick={onClearFilters}>
+              {text.clearFilters}
+            </button>
+            <button
+              type="button"
+              className="storefront-refine__done"
+              onClick={onToggleFilters}
+            >
+              {text.done}
+            </button>
+          </footer>
+        </div>
+      )}
 
       <div className="storefront-categories" aria-label="Product categories">
         {categories.map((category) => (
@@ -1224,15 +1979,18 @@ function CatalogView({
           <ProductCard
             product={product}
             key={product.id}
+            cart={cart}
+            chatLanguage={chatLanguage}
             onAddToCart={onAddToCart}
             onOpenChat={onOpenChat}
+            onOpenDetails={onOpenDetails}
           />
         ))}
         {products.length === 0 && (
           <div className="storefront-empty-state">
             <Search size={34} />
-            <h2>No matching products</h2>
-            <p>Try a different search or category.</p>
+            <h2>{text.noMatchingProducts}</h2>
+            <p>{text.tryDifferentSearch}</p>
           </div>
         )}
       </section>
@@ -1243,6 +2001,7 @@ function CatalogView({
           reviewForm={reviewForm}
           reviewMessage={reviewMessage}
           isSending={isSending}
+          chatLanguage={chatLanguage}
           onReviewFormChange={onReviewFormChange}
           onSubmitReview={onSubmitReview}
         />
@@ -1251,21 +2010,248 @@ function CatalogView({
   );
 }
 
-function ProductCard({ product, onAddToCart, onOpenChat }) {
+function ProductDetailModal({
+  product,
+  reviews,
+  isLoadingReviews,
+  chatLanguage,
+  cart,
+  onAddToCart,
+  onOpenChat,
+  onClose,
+}) {
+  const text = storefrontText(chatLanguage);
+  const mediaUrls = productMediaUrls(product);
+  const [activeImage, setActiveImage] = useState(mediaUrls[0] || "");
+  const firstVariant = product.variants?.[0];
+  const hasVariantPhotos = (product.variants || []).some(variantImageUrl);
+  const hasChoice = (product.variants || []).length > 1;
+  // With one option there is nothing to choose. With several, nothing is
+  // chosen until the customer says so - picking for them is how the wrong
+  // colour ends up in a real order.
+  const [selectedVariant, setSelectedVariant] = useState(
+    hasChoice ? null : firstVariant,
+  );
+  const cartQuantity = (cart || [])
+    .filter((item) =>
+      (product.variants || []).some((variant) => variant.id === item.variantId),
+    )
+    .reduce((total, item) => total + item.quantity, 0);
+
+  // The catalogue carries a review count but no average, and the reviews are
+  // already here - averaging them beats a second round trip.
+  const averageRating = reviews.length
+    ? reviews.reduce((total, review) => total + (Number(review.rating) || 0), 0) /
+      reviews.length
+    : 0;
+
+  const specs = [
+    [text.specPrice, money(product.sellingPriceMinor)],
+    product.brand && [text.specBrand, product.brand],
+    product.categoryName && [text.specCategory, product.categoryName],
+    product.warrantyPeriodMonths > 0 && [
+      text.specWarranty,
+      `${product.warrantyPeriodMonths} months`,
+    ],
+    product.productSize && [text.specSize, product.productSize],
+    product.weightGrams > 0 && [text.specWeight, `${product.weightGrams} g`],
+    [text.specAvailability, `${product.availableStock} available`],
+  ].filter(Boolean);
+
+  useEffect(() => {
+    function closeOnEscape(event) {
+      if (event.key === "Escape") onClose();
+    }
+
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [onClose]);
+
+  return (
+    <div
+      className="storefront-product-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-label={product.name}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <article className="storefront-product-modal__panel">
+        <button
+          type="button"
+          className="storefront-product-modal__close"
+          onClick={onClose}
+          aria-label={text.close}
+        >
+          <X size={18} />
+        </button>
+
+        <div className="storefront-product-modal__gallery">
+          <div className="storefront-product-modal__stage">
+            {activeImage ? (
+              <img src={activeImage} alt={product.name} />
+            ) : (
+              <Package size={54} />
+            )}
+          </div>
+          {mediaUrls.length > 1 && (
+            <div className="storefront-product-modal__thumbs">
+              {mediaUrls.map((url) => (
+                <button
+                  type="button"
+                  key={url}
+                  className={url === activeImage ? "is-active" : ""}
+                  onClick={() => setActiveImage(url)}
+                  aria-label={`${product.name} photo`}
+                >
+                  <img src={url} alt="" loading="lazy" />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="storefront-product-modal__info">
+          <span className="storefront-product-modal__eyebrow">
+            {product.categoryName || product.brand || "Product"}
+          </span>
+          <h2>{product.name}</h2>
+
+          <div className="storefront-product-modal__price">
+            <strong>{money(product.sellingPriceMinor)}</strong>
+            {product.compareAtPriceMinor > product.sellingPriceMinor && (
+              <small>{money(product.compareAtPriceMinor)}</small>
+            )}
+          </div>
+
+          {reviews.length > 0 && (
+            <div className="storefront-product-modal__rating">
+              <ReviewStars rating={averageRating} size={15} />
+              <b>{averageRating.toFixed(1)}</b>
+              <small>
+                {reviews.length} {text.reviews}
+              </small>
+            </div>
+          )}
+
+          <dl className="storefront-product-modal__specs">
+            {specs.map(([label, value]) => (
+              <div key={label}>
+                <dt>{label}</dt>
+                <dd>{value}</dd>
+              </div>
+            ))}
+          </dl>
+
+          {(product.description || product.aiDescription) && (
+            <div className="storefront-product-modal__description">
+              <h3>{text.description}</h3>
+              <p>{product.description || product.aiDescription}</p>
+            </div>
+          )}
+
+          {product.variants?.length > 1 && (
+            hasVariantPhotos ? (
+              <VariantGallery
+                product={product}
+                chatLanguage={chatLanguage}
+                selectedId={selectedVariant?.id}
+                onChoose={setSelectedVariant}
+              />
+            ) : (
+              <div className="storefront-product-modal__variants">
+                <h3>{text.chooseOption}</h3>
+                <div>
+                  {product.variants.map((variant) => (
+                    <button
+                      type="button"
+                      key={variant.id}
+                      className={
+                        variant.id === selectedVariant?.id ? "is-selected" : ""
+                      }
+                      aria-pressed={variant.id === selectedVariant?.id}
+                      disabled={(variant.availableStock ?? 0) < 1}
+                      onClick={() => setSelectedVariant(variant)}
+                    >
+                      {variant.size || variant.sku}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )
+          )}
+
+          {cartQuantity > 0 && (
+            <span className="storefront-product-modal__added">
+              <Check size={15} /> {text.addedToCart} ({cartQuantity})
+            </span>
+          )}
+
+          <div className="storefront-product-modal__actions">
+            <button
+              type="button"
+              disabled={!selectedVariant}
+              onClick={() => onAddToCart(product, selectedVariant)}
+            >
+              <ShoppingCart size={17} />{" "}
+              {selectedVariant || !hasChoice ? text.addToCart : text.chooseOption}
+            </button>
+            <button type="button" onClick={() => onOpenChat(product)}>
+              <Bot size={17} />
+            </button>
+          </div>
+        </div>
+
+        {(isLoadingReviews || reviews.length > 0) && (
+          <div className="storefront-product-modal__reviews">
+            <h3>{text.verifiedReviews}</h3>
+            {isLoadingReviews ? (
+              <p className="chat-reviews__empty">{text.loadingReviews}</p>
+            ) : (
+              <ChatReviewCards reviews={reviews} limit={20} />
+            )}
+          </div>
+        )}
+      </article>
+    </div>
+  );
+}
+
+function ProductCard({
+  product,
+  cart,
+  chatLanguage,
+  onAddToCart,
+  onOpenChat,
+  onOpenDetails,
+}) {
+  const text = storefrontText(chatLanguage);
   const firstVariant = product.variants?.[0];
   const hasMultipleVariants = product.variants?.length > 1;
+  const inCart = (cart || []).filter((item) =>
+    (product.variants || []).some((variant) => variant.id === item.variantId),
+  );
+  const cartQuantity = inCart.reduce((total, item) => total + item.quantity, 0);
   const productImage =
-    publicMediaUrl(firstVariant?.media?.[0]) ||
+    variantImageUrl(firstVariant) ||
     publicMediaUrl(product.media?.[0]);
 
   return (
     <article className="storefront-product-card">
       <div className="storefront-product-card__media">
-        {productImage ? (
-          <img src={productImage} alt={product.name} />
-        ) : (
-          <Package size={52} />
-        )}
+        <button
+          type="button"
+          className="storefront-product-card__open"
+          onClick={() => onOpenDetails(product)}
+          aria-label={`View details for ${product.name}`}
+        >
+          {productImage ? (
+            <img src={productImage} alt={product.name} />
+          ) : (
+            <Package size={52} />
+          )}
+        </button>
         <strong>{money(product.sellingPriceMinor)}</strong>
         {product.compareAtPriceMinor > product.sellingPriceMinor && (
           <small>{money(product.compareAtPriceMinor)}</small>
@@ -1274,12 +2260,22 @@ function ProductCard({ product, onAddToCart, onOpenChat }) {
 
       <div className="storefront-product-card__body">
         <span>{product.categoryName || product.brand || "Product"}</span>
-        <h2>{product.name}</h2>
+        <h2>
+          <button type="button" onClick={() => onOpenDetails(product)}>
+            {product.name}
+          </button>
+        </h2>
         <p>
           {product.description ||
             product.aiDescription ||
             "Ask our chatbot for more information."}
         </p>
+        {cartQuantity > 0 && (
+          <span className="storefront-product-card__added">
+            <Check size={14} /> {text.addedToCart} ({cartQuantity})
+          </span>
+        )}
+
         <div className="storefront-product-card__stock">
           <CheckCircle2 size={15} /> {product.availableStock} available
           {product.approvedReviewCount > 0 && (
@@ -1297,9 +2293,9 @@ function ProductCard({ product, onAddToCart, onOpenChat }) {
                 type="button"
                 key={variant.id}
                 onClick={() => onAddToCart(product, variant)}
-                title={`Add ${variant.size || variant.sku} to cart`}
+                title={`${text.addToCart}: ${variant.size || variant.sku}`}
               >
-                {variant.size ? `Size ${variant.size}` : variant.sku}
+                {variant.size || variant.sku}
               </button>
             ))}
           </div>
@@ -1309,10 +2305,16 @@ function ProductCard({ product, onAddToCart, onOpenChat }) {
           <button
             type="button"
             disabled={!firstVariant}
-            onClick={() => onAddToCart(product, firstVariant)}
+            onClick={() =>
+              // With options to choose from, adding "the first" picks for the
+              // customer - the popup asks instead.
+              hasMultipleVariants
+                ? onOpenDetails(product)
+                : onAddToCart(product, firstVariant)
+            }
           >
             <ShoppingCart size={17} />
-            {hasMultipleVariants ? "Add first size" : "Add to Cart"}
+            {text.addToCart}
           </button>
           <button
             type="button"
@@ -1327,20 +2329,97 @@ function ProductCard({ product, onAddToCart, onOpenChat }) {
   );
 }
 
-function ChatCatalogCard({ product, isOrderMode, cart, onQuickMessage, onAddFromChat, onDecreaseItem, onIncreaseItem }) {
+// The model answers a "which is better" question with a markdown pipe table.
+// Rendering it as text shows raw pipes, so it is parsed into real rows here
+// rather than pulling in a markdown library for one shape.
+function MessageBody({ text }) {
+  const blocks = splitMessageBlocks(text);
+
+  if (!blocks.some((block) => block.type === "table" || block.type === "list")) {
+    return <p>{text}</p>;
+  }
+
+  return (
+    <>
+      {blocks.map((block, index) =>
+        block.type === "text" ? (
+          <p key={index}>{block.text}</p>
+        ) : block.type === "list" ? (
+          // Named products, one per line. Read as a run-on sentence when the
+          // lines were collapsed into a paragraph.
+          block.ordered ? (
+            <ol className="storefront-chat-list" key={index}>
+              {block.items.map((item, itemIndex) => (
+                <li key={itemIndex}>{item}</li>
+              ))}
+            </ol>
+          ) : (
+            <ul className="storefront-chat-list" key={index}>
+              {block.items.map((item, itemIndex) => (
+                <li key={itemIndex}>{item}</li>
+              ))}
+            </ul>
+          )
+        ) : (
+          <div className="storefront-chat-table" key={index}>
+            <table>
+              <thead>
+                <tr>
+                  {block.head.map((cell, cellIndex) => (
+                    <th key={cellIndex}>{cell}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {block.rows.map((row, rowIndex) => (
+                  <tr key={rowIndex}>
+                    {row.map((cell, cellIndex) =>
+                      cellIndex === 0 ? (
+                        <th scope="row" key={cellIndex}>{cell}</th>
+                      ) : (
+                        <td key={cellIndex}>{cell === "-" ? "—" : cell}</td>
+                      ),
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ),
+      )}
+    </>
+  );
+}
+
+function ChatCatalogCard({ product, isOrderMode, chatLanguage, cart, onQuickMessage, onAddFromChat, onDecreaseItem, onIncreaseItem }) {
+  const text = storefrontText(chatLanguage);
   const variant = product.variants?.[0];
   const selectedItem = cart.find((item) => item.variantId === variant?.id);
   const quantity = selectedItem?.quantity ?? 0;
   const availableStock = variant?.availableStock ?? product.availableStock ?? 0;
   const imageUrl =
-    publicMediaUrl(variant?.media?.[0]) ||
+    variantImageUrl(variant) ||
     publicMediaUrl(product.media?.[0]);
   const sellingPriceMinor =
     variant?.sellingPriceMinor ?? product.sellingPriceMinor;
 
+  const cartButton = (
+    <button
+      type="button"
+      className="storefront-chat-catalog-card__cart"
+      title={quantity ? text.addedToCart : text.addToCart}
+      aria-label={`${quantity ? text.addedToCart : text.addToCart}: ${product.name}`}
+      disabled={availableStock < 1}
+      onClick={() => onQuickMessage(`I want to order ${product.name}`)}
+    >
+      {quantity ? <Check size={14} /> : <ShoppingCart size={14} />}
+    </button>
+  );
+
   if (!isOrderMode) {
     return (
-      <article className="storefront-chat-catalog-card">
+      <article className={`storefront-chat-catalog-card ${quantity ? "is-selected" : ""}`}>
+        {cartButton}
         <div className="storefront-chat-catalog-card__image">
           {imageUrl ? <img src={imageUrl} alt={product.name} /> : <Package size={28} />}
         </div>
@@ -1353,7 +2432,7 @@ function ChatCatalogCard({ product, isOrderMode, cart, onQuickMessage, onAddFrom
           type="button"
           onClick={() => onQuickMessage(`Tell me about ${product.name}`)}
         >
-          View product details
+          {text.viewDetails}
         </button>
       </article>
     );
@@ -1378,10 +2457,20 @@ function ChatCatalogCard({ product, isOrderMode, cart, onQuickMessage, onAddFrom
         >
           <Plus size={14} /> {availableStock > 0 ? "Add" : "Out of stock"}
         </button>
-      ) : (
+      ) : null}
+      {!quantity && (
+        <button
+          type="button"
+          className="storefront-chat-catalog-card__details-link"
+          onClick={() => onQuickMessage(`Tell me about ${product.name}`)}
+        >
+          {text.viewDetails}
+        </button>
+      )}
+      {quantity ? (
         <>
           <span className="storefront-chat-catalog-card__added">
-            <Check size={13} /> Added to cart
+            <Check size={13} /> {text.addedToCart}
           </span>
           <div className="storefront-chat-catalog-card__quantity" aria-label={`Quantity for ${product.name}`}>
             <button type="button" aria-label={`Remove one ${product.name}`} onClick={() => onDecreaseItem(variant.id)}>-</button>
@@ -1389,7 +2478,7 @@ function ChatCatalogCard({ product, isOrderMode, cart, onQuickMessage, onAddFrom
             <button type="button" aria-label={`Add one ${product.name}`} disabled={quantity >= availableStock} onClick={() => onIncreaseItem(variant.id)}>+</button>
           </div>
         </>
-      )}
+      ) : null}
     </article>
   );
 }
@@ -1479,11 +2568,184 @@ function ChatReviewCards({ reviews = [], limit = 6 }) {
   );
 }
 
-function ChatProductDetails({ product, reviews = [], summary }) {
+function ChatCartLines({
+  lines = [],
+  chatLanguage,
+  onDecreaseItem,
+  onIncreaseItem,
+  onRemoveItem,
+}) {
+  const text = storefrontText(chatLanguage);
+  // Read-only is the default. At the final confirmation the totals have
+  // already been quoted with delivery, and an edit there would submit an order
+  // that does not match the figures the customer just agreed to.
+  const isEditable = Boolean(onIncreaseItem);
+  const subtotal = lines.reduce(
+    (total, line) => total + (line.lineTotalMinor || 0),
+    0,
+  );
+
+  return (
+    <div className="storefront-chat-cart">
+      <ul>
+        {lines.map((line) => (
+          <li key={line.variantId}>
+            <span className="storefront-chat-cart__image">
+              {line.imageUrl ? (
+                <img src={line.imageUrl} alt="" />
+              ) : (
+                <Package size={18} />
+              )}
+            </span>
+            <span className="storefront-chat-cart__name">
+              <strong>{line.productName}</strong>
+              {line.size ? <small>{line.size}</small> : null}
+            </span>
+            {isEditable ? (
+              <span className="storefront-chat-cart__quantity">
+                <button
+                  type="button"
+                  aria-label={`Remove one ${line.productName}`}
+                  onClick={() => onDecreaseItem(line.variantId)}
+                >
+                  -
+                </button>
+                <b>{line.quantity}</b>
+                <button
+                  type="button"
+                  aria-label={`Add one ${line.productName}`}
+                  disabled={line.quantity >= (line.availableStock ?? Infinity)}
+                  onClick={() => onIncreaseItem(line.variantId)}
+                >
+                  +
+                </button>
+              </span>
+            ) : (
+              <span className="storefront-chat-cart__fixed-quantity">
+                × {line.quantity}
+              </span>
+            )}
+            <strong className="storefront-chat-cart__total">
+              {money(line.lineTotalMinor)}
+            </strong>
+            {isEditable && (
+              <button
+                type="button"
+                className="storefront-chat-cart__remove"
+                aria-label={`Remove ${line.productName}`}
+                onClick={() => onRemoveItem(line.variantId)}
+              >
+                <Trash2 size={14} />
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
+      <div className="storefront-chat-cart__subtotal">
+        <span>{text.itemsTotal}</span>
+        <strong>{money(subtotal)}</strong>
+      </div>
+    </div>
+  );
+}
+
+function VariantGallery({ product, chatLanguage, onChoose, selectedId }) {
+  const text = storefrontText(chatLanguage);
+  const shown = (product?.variants || []).filter(variantImageUrl);
+
+  // Nothing to add when the seller photographed the product but not each
+  // option - the main gallery already shows those pictures.
+  if (shown.length === 0) return null;
+
+  return (
+    <div className="storefront-variant-gallery">
+      <small>{text.chooseOption}</small>
+      <div>
+        {shown.map((variant) => {
+          const inStock = (variant.availableStock ?? 0) > 0;
+
+          return (
+            <button
+              type="button"
+              key={variant.id}
+              className={variant.id === selectedId ? "is-selected" : ""}
+              aria-pressed={variant.id === selectedId}
+              disabled={!inStock || !onChoose}
+              onClick={() => onChoose?.(variant)}
+            >
+              <span>
+                <img
+                  src={variantImageUrl(variant)}
+                  alt={variant.size || variant.sku}
+                  loading="lazy"
+                />
+              </span>
+              <strong>{variant.size || variant.sku}</strong>
+              <small>
+                {inStock ? `${variant.availableStock} available` : "Out of stock"}
+              </small>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function ChatProductDetails({ product, reviews = [], summary, chatLanguage, onChooseVariant }) {
   const mediaUrls = productMediaUrls(product);
+  const text = storefrontText(chatLanguage);
+
+  const variantPrices = (product?.variants || [])
+    .map((variant) => variant.sellingPriceMinor)
+    .filter((price) => price > 0);
+  const lowestPrice = variantPrices.length
+    ? Math.min(...variantPrices)
+    : product?.sellingPriceMinor;
+  // Variants can be priced differently, so a single figure would be wrong for
+  // some of them. "From X" is honest; the exact price follows on selection.
+  const pricesDiffer = new Set(variantPrices).size > 1;
+  const specs = [
+    product?.warrantyPeriodMonths > 0 && [
+      text.specWarranty,
+      `${product.warrantyPeriodMonths} months`,
+    ],
+    product?.productSize && [text.specSize, product.productSize],
+    product?.weightGrams > 0 && [text.specWeight, `${product.weightGrams} g`],
+    [text.specAvailability, `${product?.availableStock ?? 0} available`],
+  ].filter(Boolean);
 
   return (
     <section className="chat-product-details" aria-label={`Details for ${product?.name || "product"}`}>
+      <header className="chat-product-details__header">
+        <span className="chat-product-details__eyebrow">
+          {product?.categoryName || product?.brand || "Product"}
+        </span>
+        <strong className="chat-product-details__name">{product?.name}</strong>
+        <span className="chat-product-details__price">
+          <b>
+            {pricesDiffer ? `${text.priceFrom} ` : ""}
+            {money(lowestPrice)}
+          </b>
+          {product?.compareAtPriceMinor > (product?.sellingPriceMinor || 0) && (
+            <small>{money(product.compareAtPriceMinor)}</small>
+          )}
+        </span>
+        <dl className="chat-product-details__specs">
+          {specs.map(([label, value]) => (
+            <div key={label}>
+              <dt>{label}</dt>
+              <dd>{value}</dd>
+            </div>
+          ))}
+        </dl>
+        {(product?.description || product?.aiDescription) && (
+          <p className="chat-product-details__description">
+            {product.description || product.aiDescription}
+          </p>
+        )}
+      </header>
+
       <div className="chat-product-details__gallery">
         {mediaUrls.slice(0, 6).map((url, index) => (
           <a
@@ -1497,26 +2759,40 @@ function ChatProductDetails({ product, reviews = [], summary }) {
           </a>
         ))}
         {mediaUrls.length === 0 && (
-          <span className="chat-product-details__no-photo"><Package size={34} /> No product photos</span>
+          <span className="chat-product-details__no-photo"><Package size={34} /> {text.noProductPhotos}</span>
         )}
       </div>
 
-      <div className="chat-product-details__reviews-heading">
-        <strong>Verified customer reviews</strong>
-        <span>
-          <ReviewStars rating={summary?.averageRating} size={13} />
-          <b>{Number(summary?.averageRating || 0).toFixed(1)}</b>
-          <small>{summary?.reviewCount || 0} reviews</small>
-        </span>
-      </div>
-      <div className="chat-product-details__reviews">
-        <ChatReviewCards reviews={reviews} limit={3} />
-      </div>
+      <VariantGallery
+        product={product}
+        chatLanguage={chatLanguage}
+        onChoose={onChooseVariant}
+      />
+
+      {/* A heading, an empty star row and "no reviews yet" is three lines
+          telling the customer nothing. With none to show, the photos are the
+          answer. */}
+      {reviews.length > 0 && (
+        <>
+          <div className="chat-product-details__reviews-heading">
+            <strong>{text.verifiedReviews}</strong>
+            <span>
+              <ReviewStars rating={summary?.averageRating} size={13} />
+              <b>{Number(summary?.averageRating || 0).toFixed(1)}</b>
+              <small>{summary?.reviewCount || 0} reviews</small>
+            </span>
+          </div>
+          <div className="chat-product-details__reviews">
+            <ChatReviewCards reviews={reviews} limit={3} />
+          </div>
+        </>
+      )}
     </section>
   );
 }
 
 function ChatReviewCollection({
+  chatLanguage,
   product,
   reviews,
   summary,
@@ -1551,7 +2827,7 @@ function ChatReviewCollection({
           {reviewInitials(sellerRating?.businessName || "Seller")}
         </span>
         <div>
-          <small>Seller rating</small>
+          <small>{storefrontText(chatLanguage).sellerRating}</small>
           <strong>{sellerRating?.businessName || "Seller"}</strong>
           <span className="chat-reviews__rating-line">
             <ReviewStars rating={sellerRating?.averageRating} size={13} />
@@ -1559,9 +2835,9 @@ function ChatReviewCollection({
             <small>{sellerRating?.reviewCount || 0} ratings</small>
           </span>
           <div className="chat-reviews__tags">
-            <span>Verified seller</span>
-            <span>Good service</span>
-            <span>Reliable orders</span>
+            <span>{storefrontText(chatLanguage).verifiedSeller}</span>
+            <span>{storefrontText(chatLanguage).goodService}</span>
+            <span>{storefrontText(chatLanguage).reliableOrders}</span>
           </div>
         </div>
       </article>
@@ -1579,31 +2855,54 @@ function ChatbotView({
   cart,
   customer,
   chatState,
+  chatLanguage,
   messages,
   messageText,
   isSending,
   isListening,
   isHoldingVoiceButton,
   voiceTranscript,
-  speechEnabled,
-  voiceLanguage,
   messagesEndRef,
+  latestMessageRef,
   onMessageTextChange,
   onSendMessage,
   onToggleListening,
   onStartHeldVoiceCommand,
   onFinishHeldVoiceCommand,
   onCancelHeldVoiceCommand,
-  onToggleSpeech,
-  onToggleVoiceLanguage,
   onQuickMessage,
+  onSendImage,
   onAddFromChat,
   onDecreaseItem,
   onIncreaseItem,
   onRemoveItem,
+  isDraftOpen,
+  onCloseDraft,
   onOpenCheckout,
   onOpenReviews,
 }) {
+  const text = storefrontText(chatLanguage);
+  const listRef = useRef(null);
+  const [isAwayFromLatest, setIsAwayFromLatest] = useState(false);
+
+  // Reading back through a long conversation, the way down is otherwise a lot
+  // of scrolling - and new replies arrive while they read.
+  function trackScrollPosition(event) {
+    const list = event.currentTarget;
+    const distanceFromBottom =
+      list.scrollHeight - list.scrollTop - list.clientHeight;
+
+    setIsAwayFromLatest(distanceFromBottom > 240);
+  }
+
+  // The editable panel reads the live browser cart, not the summary frozen
+  // into the message, so quantities change as the customer adjusts them. The
+  // next message uploads this cart, which is what makes the edit stick.
+  const cartLines = cart.map((item) => ({
+    ...item,
+    lineTotalMinor: (item.sellingPriceMinor || 0) * item.quantity,
+  }));
+
   function handleVoiceButtonClick() {
     onToggleListening?.();
   }
@@ -1611,21 +2910,60 @@ function ChatbotView({
   return (
     <div className="storefront-page storefront-chat-page">
       <section className="storefront-chat-panel">
-        <div className="storefront-chat-messages" aria-live="polite">
+        <div
+          className="storefront-chat-messages"
+          aria-live="polite"
+          ref={listRef}
+          onScroll={trackScrollPosition}
+        >
           {messages.map((message, index) => (
             <div
               className={`storefront-chat-message storefront-chat-message--${message.role}`}
-              key={`${message.role}-${index}`}
+              key={message.id || `${message.role}-${index}`}
+              ref={index === messages.length - 1 ? latestMessageRef : undefined}
             >
               <span className="storefront-chat-message__avatar">
                 {message.role === "assistant" ? (
                   <Bot size={18} />
+                ) : message.role === "seller" ? (
+                  <Headset size={18} />
                 ) : (
                   <UserRound size={18} />
                 )}
               </span>
               <div className="storefront-chat-message__content">
-                <p>{message.text}</p>
+                {message.imageUrl && (
+                  <a
+                    className="storefront-chat-message__image"
+                    href={message.imageUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <img src={message.imageUrl} alt={text.sentImage} />
+                  </a>
+                )}
+                {message.text && <MessageBody text={message.text} />}
+
+                {/* Only under the newest reply: older chips would stack up and
+                    keep offering actions that no longer make sense. */}
+                {message.role === "assistant"
+                  && index === messages.length - 1
+                  && (message.suggestions || []).length > 0 && (
+                  <div className="storefront-chat-suggestions">
+                    {message.suggestions
+                      .filter((id) => CHAT_SUGGESTIONS[id])
+                      .map((id) => (
+                        <button
+                          key={id}
+                          type="button"
+                          disabled={isSending}
+                          onClick={() => onQuickMessage(CHAT_SUGGESTIONS[id].message)}
+                        >
+                          {text[CHAT_SUGGESTIONS[id].labelKey]}
+                        </button>
+                      ))}
+                  </div>
+                )}
 
                 {message.role === "assistant" &&
                   [
@@ -1641,6 +2979,7 @@ function ChatbotView({
                         <ChatCatalogCard
                           key={product.id}
                           product={product}
+                          chatLanguage={chatLanguage}
                           isOrderMode={[
                             "start-order",
                             "start-another-order",
@@ -1656,13 +2995,75 @@ function ChatbotView({
                   )}
 
                 {message.role === "assistant" &&
+                  message.categories?.length > 0 && (
+                    <div className="storefront-chat-categories">
+                      {message.categories.map((category) => (
+                        <button
+                          key={category}
+                          type="button"
+                          onClick={() => onQuickMessage(category)}
+                          disabled={isSending}
+                        >
+                          {category}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                {message.role === "assistant" &&
+                  message.action === "select-variant" &&
+                  message.product?.variants?.length > 0 && (
+                    <div className="storefront-chat-variants">
+                      <small>{text.chooseOption}</small>
+                      <div className="storefront-chat-variants__list">
+                        {message.product.variants.map((variant) => {
+                          const variantImage =
+                            variantImageUrl(variant) ||
+                            publicMediaUrl(message.product.media?.[0]);
+                          const inStock = (variant.availableStock ?? 0) > 0;
+
+                          return (
+                            <button
+                              key={variant.id}
+                              type="button"
+                              className="storefront-chat-variant"
+                              disabled={isSending || !inStock}
+                              onClick={() => onQuickMessage(variant.size)}
+                            >
+                              <span className="storefront-chat-variant__image">
+                                {variantImage ? (
+                                  <img src={variantImage} alt={variant.size} />
+                                ) : (
+                                  <Package size={20} />
+                                )}
+                              </span>
+                              <strong>{variant.size}</strong>
+                              <small>
+                                {inStock
+                                  ? `${variant.availableStock} available`
+                                  : "Out of stock"}
+                              </small>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                {message.role === "assistant" &&
                   message.action === "show-product" &&
                   message.product && (
                     <div className="storefront-chat-product-decision">
                       <ChatProductDetails
+                        chatLanguage={chatLanguage}
                         product={message.product}
                         reviews={message.reviews || []}
                         summary={message.reviewSummary}
+                        onChooseVariant={(variant) =>
+                          onQuickMessage(
+                            `I want to order ${message.product.name} ${variant.size || variant.sku}`,
+                          )
+                        }
                       />
 
                       <div className="storefront-chat-product-decision__actions">
@@ -1673,7 +3074,18 @@ function ChatbotView({
                           }
                           disabled={isSending}
                         >
-                          <ShoppingCart size={14} /> Order this product
+                          <ShoppingCart size={14} /> {text.orderThisProduct}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isSending}
+                          onClick={() =>
+                            onQuickMessage(
+                              `I want to order ${message.product.name}`,
+                            )
+                          }
+                        >
+                          <Plus size={14} /> {text.addToCart}
                         </button>
                         <button
                           type="button"
@@ -1684,18 +3096,19 @@ function ChatbotView({
                           }
                           disabled={isSending}
                         >
-                          Compare similar products
+                          {text.compareSimilar}
                         </button>
                       </div>
 
                       {message.products?.length > 0 && (
                         <div className="storefront-chat-product-decision__related">
-                          <small>You may also like</small>
+                          <small>{text.youMayAlsoLike}</small>
                           <div className="storefront-chat-catalog">
                             {message.products.map((product) => (
                               <ChatCatalogCard
                                 key={product.id}
                                 product={product}
+                          chatLanguage={chatLanguage}
                                 isOrderMode={false}
                                 cart={cart}
                                 onQuickMessage={onQuickMessage}
@@ -1713,6 +3126,7 @@ function ChatbotView({
                 {message.role === "assistant" &&
                   message.action === "show-reviews" && (
                     <ChatReviewCollection
+                      chatLanguage={chatLanguage}
                       product={message.product}
                       reviews={message.reviews || []}
                       summary={message.reviewSummary}
@@ -1725,18 +3139,50 @@ function ChatbotView({
                   )}
 
                 {message.role === "assistant" &&
+                  ["collect-name", "show-cart"].includes(message.action) &&
+                  cart.length > 0 && (
+                    <div className="storefront-chat-cart-review">
+                      <header>
+                        <strong>{text.reviewYourItems}</strong>
+                        <span>
+                          {cartLines.reduce(
+                            (total, line) => total + line.quantity,
+                            0,
+                          )}
+                        </span>
+                      </header>
+                      <ChatCartLines
+                        lines={cartLines}
+                        chatLanguage={chatLanguage}
+                        onDecreaseItem={onDecreaseItem}
+                        onIncreaseItem={onIncreaseItem}
+                        onRemoveItem={onRemoveItem}
+                      />
+                      <small>{text.deliveryAddedLater}</small>
+                      {/* Only while still shopping. Mid-checkout the next
+                          question is already on screen, and a second way to
+                          start what has started is just a wrong turn. */}
+                      {chatState === "browsing" && (
+                        <button
+                          type="button"
+                          className="storefront-chat-cart-review__checkout"
+                          disabled={isSending}
+                          onClick={() => onQuickMessage("that is everything")}
+                        >
+                          <ShoppingCart size={15} /> {text.checkout}
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                {message.role === "assistant" &&
                   message.action === "confirm-order" && (
                     <div className="storefront-chat-confirmation">
                       <strong>Confirm order before submission</strong>
-                      <div className="storefront-chat-confirmation__items">
-                        {message.cartSummary?.map((item) => (
-                          <span key={item.variantId}>
-                            {item.quantity} × {item.productName}
-                            {item.size ? ` · Size ${item.size}` : ""}
-                            <strong>{money(item.lineTotalMinor)}</strong>
-                          </span>
-                        ))}
-                      </div>
+                      <ChatCartLines
+                        lines={message.cartSummary || []}
+                        chatLanguage={chatLanguage}
+                      />
                       <div className="storefront-chat-confirmation__customer">
                         <span>{message.customerDraft?.name}</span>
                         <span>{message.customerDraft?.phoneNumber}</span>
@@ -1791,30 +3237,6 @@ function ChatbotView({
         </div>
 
         <div className="storefront-chat-composer">
-          <div className="storefront-chat-quick-actions">
-            <button
-              type="button"
-              onClick={() => onQuickMessage("Show products")}
-              disabled={isSending}
-            >
-              Show products
-            </button>
-            <button
-              type="button"
-              onClick={() => onQuickMessage("I want to order")}
-              disabled={isSending}
-            >
-              I want to order
-            </button>
-            <button
-              type="button"
-              onClick={() => onQuickMessage("Show customer reviews")}
-              disabled={isSending}
-            >
-              Reviews
-            </button>
-          </div>
-
           <form className="storefront-chat-input" onSubmit={onSendMessage}>
           <button
             className={`storefront-chat-input__voice ${isListening || isHoldingVoiceButton ? "is-listening" : ""}`}
@@ -1831,34 +3253,32 @@ function ChatbotView({
           >
             {isListening ? <MicOff size={18} /> : <Mic size={18} />}
           </button>
+          <label
+            className="storefront-chat-input__attach"
+            title={text.attachImage}
+            aria-label={text.attachImage}
+          >
+            <Paperclip size={18} />
+            <input
+              type="file"
+              accept="image/*"
+              disabled={isSending}
+              onChange={(event) => {
+                const [file] = event.target.files || [];
+                // Reset so choosing the same file twice still fires onChange.
+                event.target.value = "";
+                if (file) onSendImage?.(file);
+              }}
+            />
+          </label>
           <input
             value={messageText}
             onChange={(event) => onMessageTextChange(event.target.value)}
-            placeholder="Type a message…"
+            placeholder={text.typeMessage}
             aria-label="Chat message"
             disabled={isSending}
             autoComplete="off"
           />
-          <div className="storefront-chat-input__voice-tools">
-            <button
-              className="storefront-chat-input__language"
-              type="button"
-              onClick={onToggleVoiceLanguage}
-              aria-label="Change voice language"
-              title="Change voice language"
-            >
-              {voiceLanguage === "en-LK" ? "EN" : "සිං"}
-            </button>
-            <button
-              type="button"
-              onClick={onToggleSpeech}
-              aria-label={speechEnabled ? "Turn spoken replies off" : "Turn spoken replies on"}
-              aria-pressed={speechEnabled}
-              title={speechEnabled ? "Spoken replies on" : "Spoken replies off"}
-            >
-              {speechEnabled ? <Volume2 size={17} /> : <VolumeX size={17} />}
-            </button>
-          </div>
           <button
             className="storefront-chat-input__send"
             type="submit"
@@ -1869,23 +3289,61 @@ function ChatbotView({
           </button>
           </form>
         </div>
+
+        {/* Inside the panel. As a sibling of it the button was positioned
+            against the chat PAGE, whose right-hand column is the draft, so on
+            a desktop it appeared over the draft instead of the conversation. */}
+        {isAwayFromLatest && (
+          <button
+            type="button"
+            className="storefront-chat-jump"
+            aria-label={text.jumpToLatest}
+            title={text.jumpToLatest}
+            onClick={() =>
+              listRef.current?.scrollTo({
+                top: listRef.current.scrollHeight,
+                behavior: "smooth",
+              })
+            }
+          >
+            <ChevronDown size={20} />
+          </button>
+        )}
       </section>
 
       {(isListening || isHoldingVoiceButton) && (
         <div className="storefront-voice-overlay" aria-live="polite">
           <div className="storefront-voice-overlay__orb"><Mic aria-hidden="true" /></div>
-          <p className="storefront-voice-overlay__label">Listening…</p>
+          <p className="storefront-voice-overlay__label">{text.listening}</p>
           <p className="storefront-voice-overlay__transcript">
-            {voiceTranscript || "Speak your message"}
+            {voiceTranscript || text.speakYourMessage}
           </p>
-          <p className="storefront-voice-overlay__hint">Release to finish</p>
+          <p className="storefront-voice-overlay__hint">{text.releaseToFinish}</p>
         </div>
       )}
 
-      <aside className="storefront-draft">
+      {isDraftOpen && (
+        <button
+          className="storefront-draft-backdrop"
+          type="button"
+          aria-label={text.close}
+          onClick={onCloseDraft}
+        />
+      )}
+
+      <aside className={`storefront-draft ${isDraftOpen ? "is-open" : ""}`}>
+        <button
+          type="button"
+          className="storefront-draft__close"
+          onClick={onCloseDraft}
+          aria-label={text.close}
+        >
+          <X size={18} />
+        </button>
+
 
         <section>
-          <h3>Products & quantity</h3>
+          <h3>{text.productsAndQuantity}</h3>
           <div className="storefront-draft__items">
             {cart.map((item) => (
               <article key={item.variantId}>
@@ -1900,7 +3358,7 @@ function ChatbotView({
                   <strong>{item.productName}</strong>
                   <span>
                     Qty: {item.quantity}
-                    {item.size ? ` · Size ${item.size}` : ""}
+                    {item.size ? ` · ${item.size}` : ""}
                   </span>
                   <small>{money(item.sellingPriceMinor * item.quantity)}</small>
                 </div>
@@ -1913,22 +3371,22 @@ function ChatbotView({
                 </button>
               </article>
             ))}
-            {cart.length === 0 && <p>No products selected yet.</p>}
+            {cart.length === 0 && <p>{text.noProductsSelected}</p>}
           </div>
         </section>
 
         <section>
-          <h3>Customer details</h3>
-          <DraftField label="Customer Name" value={customer.name} />
-          <DraftField label="Phone No" value={customer.phoneNumber} />
+          <h3>{text.customerDetails}</h3>
+          <DraftField label={text.customerName} value={customer.name} />
+          <DraftField label={text.phoneNo} value={customer.phoneNumber} />
           {customer.secondaryPhoneNumber && (
-            <DraftField label="Second phone" value={customer.secondaryPhoneNumber} />
-          )}
-          {customer.secondaryPhoneNumber && (
-            <DraftField label="2nd Phone No" value={customer.secondaryPhoneNumber} />
+            <DraftField
+              label={text.secondPhoneNo}
+              value={customer.secondaryPhoneNumber}
+            />
           )}
           <DraftField
-            label="Address"
+            label={text.address}
             value={[
               customer.address.line1,
               customer.address.city,
@@ -1941,18 +3399,18 @@ function ChatbotView({
 
         <div className="storefront-draft__bottom">
           <section>
-            <h3>Status</h3>
+            <h3>{text.status}</h3>
             <div
               className={`storefront-draft__status ${cart.length ? "is-active" : ""}`}
             >
               <span />{" "}
               {chatState === "awaiting-confirmation"
-                ? "Awaiting order confirmation"
+                ? text.awaitingConfirmation
                 : chatState.startsWith("collecting-")
-                  ? "Collecting customer details"
+                  ? text.collectingDetails
                   : cart.length
-                    ? "Items selected · Ready to order"
-                    : "Waiting for product selection"}
+                    ? text.readyToOrder
+                    : text.waitingForSelection}
             </div>
           </section>
           <button
@@ -1962,7 +3420,7 @@ function ChatbotView({
           >
             Continue to checkout <Check size={17} />
           </button>
-          <small>Ordering from {business.name}</small>
+          <small>{text.orderingFrom} {business.name}</small>
         </div>
       </aside>
     </div>
@@ -1980,9 +3438,10 @@ function DraftField({ label, value }) {
   );
 }
 
-function ContactView({ business, copiedField, onCopyContact }) {
-  const phone = business.phone || "Not provided by this seller";
-  const email = business.email || "Not provided by this seller";
+function ContactView({ business, chatLanguage, copiedField, onCopyContact }) {
+  const text = storefrontText(chatLanguage);
+  const phone = business.phone || text.notProvided;
+  const email = business.email || text.notProvided;
 
   return (
     <div className="storefront-page storefront-contact-page">
@@ -1990,7 +3449,7 @@ function ContactView({ business, copiedField, onCopyContact }) {
         <h1>
           Welcome to <span>{business.name}</span>
         </h1>
-        <p>We are here to help. Reach out through any of the channels below.</p>
+        <p>{text.contactHelp}</p>
       </section>
 
       <div className="storefront-contact-grid">
@@ -2018,7 +3477,7 @@ function ContactView({ business, copiedField, onCopyContact }) {
         <Building2 size={22} />
         <div>
           <strong>{business.name}</strong>
-          <span>Powered by Vendly.lk secure ordering</span>
+          <span>{text.poweredBy}</span>
         </div>
       </section>
     </div>
@@ -2049,12 +3508,15 @@ function ContactCard({
 
 function CartDrawer({
   isOpen,
+  chatLanguage,
   cart,
   subtotal,
   onClose,
   onUpdateQuantity,
   onCheckout,
 }) {
+  const text = storefrontText(chatLanguage);
+
   return (
     <>
       {isOpen && (
@@ -2072,7 +3534,7 @@ function CartDrawer({
         <header>
           <div>
             <ShoppingCart size={22} />
-            <h2>Your Cart</h2>
+            <h2>{text.yourCart}</h2>
             <span>
               {cart.reduce((total, item) => total + item.quantity, 0)}
             </span>
@@ -2095,7 +3557,7 @@ function CartDrawer({
               <div className="storefront-cart__details">
                 <strong>{item.productName}</strong>
                 <span>
-                  {item.size ? `Size ${item.size} · ` : ""}
+                  {item.size ? `${item.size} · ` : ""}
                   {money(item.sellingPriceMinor)}
                 </span>
                 <div>
@@ -2126,30 +3588,30 @@ function CartDrawer({
           {cart.length === 0 && (
             <div className="storefront-cart__empty">
               <ShoppingBag size={38} />
-              <h3>Your cart is empty</h3>
-              <p>Add a product from the catalog or chatbot.</p>
+              <h3>{text.cartEmpty}</h3>
+              <p>{text.cartEmptyHint}</p>
             </div>
           )}
         </div>
 
         <footer>
           <div>
-            <span>Subtotal</span>
+            <span>{text.subtotal}</span>
             <strong>{money(subtotal)}</strong>
           </div>
           <div>
-            <span>Total</span>
+            <span>{text.total}</span>
             <strong>{money(subtotal)}</strong>
           </div>
           <small>
-            Delivery will be calculated from your district and order weight.
+            {text.deliveryNotice}
           </small>
           <button
             type="button"
             disabled={cart.length === 0}
             onClick={onCheckout}
           >
-            Checkout <Check size={18} />
+            {text.checkout} <Check size={18} />
           </button>
         </footer>
       </aside>
@@ -2158,14 +3620,19 @@ function CartDrawer({
 }
 
 function CheckoutModal({
+  chatLanguage,
   cart,
   customer,
   subtotal,
   isSending,
+  paymentChoice,
+  onPaymentChoiceChange,
   onClose,
   onCustomerChange,
   onSubmit,
 }) {
+  const text = storefrontText(chatLanguage);
+
   return (
     <div className="storefront-modal-layer" role="presentation">
       <button
@@ -2180,8 +3647,8 @@ function CheckoutModal({
             <ShoppingBag size={22} />
           </span>
           <div>
-            <h2>Contact & Delivery Details</h2>
-            <p>Please provide accurate shipping information.</p>
+            <h2>{text.contactAndDelivery}</h2>
+            <p>{text.accurateShipping}</p>
           </div>
           <button type="button" onClick={onClose} aria-label="Close checkout">
             <X size={21} />
@@ -2190,20 +3657,20 @@ function CheckoutModal({
 
         <div className="storefront-checkout-modal__body">
           <label>
-            <span>Full Name *</span>
+            <span>{text.fullNameRequired}</span>
             <div>
               <UserRound size={17} />
               <input
                 name="name"
                 value={customer.name}
                 onChange={onCustomerChange}
-                placeholder="Your full name"
+                placeholder={text.yourFullNamePlaceholder}
                 required
               />
             </div>
           </label>
           <label>
-            <span>Phone Number *</span>
+            <span>{text.phoneRequired}</span>
             <div>
               <Phone size={17} />
               <input
@@ -2216,7 +3683,7 @@ function CheckoutModal({
             </div>
           </label>
           <label>
-            <span>2nd Phone Number (Optional)</span>
+            <span>{text.secondPhoneOptional}</span>
             <div>
               <Phone size={17} />
               <input
@@ -2228,33 +3695,37 @@ function CheckoutModal({
             </div>
           </label>
           <label className="is-wide">
-            <span>Street Address *</span>
+            <span>{text.streetAddressRequired}</span>
             <div>
               <MapPin size={17} />
               <input
                 name="address.line1"
                 value={customer.address.line1}
                 onChange={onCustomerChange}
-                placeholder="No. 123, Main Street"
+                placeholder={text.streetAddressPlaceholder}
                 required
               />
             </div>
           </label>
           <label>
-            <span>District *</span>
+            <span>{text.districtRequired}</span>
             <div>
               <MapPin size={17} />
-              <input
+              <select
                 name="address.district"
                 value={customer.address.district}
                 onChange={onCustomerChange}
-                placeholder="e.g. Colombo"
                 required
-              />
+              >
+                <option value="">{text.selectDistrict}</option>
+                {SRI_LANKA_DISTRICTS.map((district) => (
+                  <option key={district} value={district}>{district}</option>
+                ))}
+              </select>
             </div>
           </label>
           <label>
-            <span>Nearest City *</span>
+            <span>{text.nearestCityRequired}</span>
             <div>
               <Building2 size={17} />
               <input
@@ -2267,7 +3738,7 @@ function CheckoutModal({
             </div>
           </label>
           <label>
-            <span>Email (Optional)</span>
+            <span>{text.emailOptional}</span>
             <div>
               <Mail size={17} />
               <input
@@ -2280,7 +3751,7 @@ function CheckoutModal({
             </div>
           </label>
           <label>
-            <span>Postal Code (Optional)</span>
+            <span>{text.postalCodeOptional}</span>
             <div>
               <Building2 size={17} />
               <input
@@ -2292,39 +3763,78 @@ function CheckoutModal({
             </div>
           </label>
           <label className="is-wide">
-            <span>Delivery Note (Optional)</span>
+            <span>{text.deliveryNoteOptional}</span>
             <div>
               <ClipboardList size={17} />
               <textarea
                 name="deliveryNote"
                 value={customer.deliveryNote}
                 onChange={onCustomerChange}
-                placeholder="Call before dispatch or other courier instructions"
+                placeholder={text.deliveryNotePlaceholder}
                 rows="2"
               />
             </div>
           </label>
         </div>
 
+        <div className="storefront-checkout-payment">
+          <strong>{text.paymentMethod}</strong>
+          <div>
+            {[
+              ["cod", text.payCod, text.payCodHint],
+              ["bank-full", text.payBankFull, text.payBankFullHint],
+              ["bank-half", text.payBankHalf, text.payBankHalfHint],
+            ].map(([value, label, hint]) => (
+              <label
+                key={value}
+                className={paymentChoice === value ? "is-selected" : ""}
+              >
+                <input
+                  type="radio"
+                  name="storefront-payment"
+                  value={value}
+                  checked={paymentChoice === value}
+                  onChange={() => onPaymentChoiceChange(value)}
+                />
+                <span>
+                  <strong>{label}</strong>
+                  <small>{hint}</small>
+                </span>
+              </label>
+            ))}
+          </div>
+          {paymentChoice !== "cod" && (
+            // Said before the order is placed, not after. The bank details
+            // themselves arrive with the confirmation, since publishing them
+            // on the storefront would expose them to anyone who loads it.
+            <p className="storefront-checkout-payment__notice">
+              {text.bankDetailsAfterOrder}
+            </p>
+          )}
+        </div>
+
         <div className="storefront-checkout-summary">
           <span>
-            {cart.reduce((total, item) => total + item.quantity, 0)} items
+            {cart.reduce((total, item) => total + item.quantity, 0)} {text.items}
           </span>
           <span>
-            Subtotal: <strong>{money(subtotal)}</strong>
+            {text.subtotal}: <strong>{money(subtotal)}</strong>
           </span>
           <small>
-            Delivery fee is calculated securely when the order is placed.
+            {text.deliveryCalculatedNotice}
           </small>
         </div>
 
         <footer>
           <span>
-            <ShieldCheck size={16} /> Secure cash-on-delivery checkout
+            <ShieldCheck size={16} />{" "}
+            {/* The reassurance has to match the choice, or it reads as a
+                promise about a payment method the customer did not pick. */}
+            {paymentChoice === "cod" ? text.secureCod : text.securePrepaid}
           </span>
           <div>
             <button type="button" onClick={onClose}>
-              Cancel
+              {text.cancel}
             </button>
             <button type="submit" disabled={isSending}>
               {isSending ? "Placing order…" : "Place Order"} <Check size={17} />
@@ -2336,82 +3846,12 @@ function CheckoutModal({
   );
 }
 
-function OrderSuccess({ business, order, onClose, closeLabel }) {
-  return <OrderReceipt business={business} order={order} onClose={onClose} closeLabel={closeLabel} />;
-  /* Previous receipt design retained temporarily for easy visual comparison.
-  return (
-    <div className="storefront-success-layer">
-      <section className="storefront-success">
-        <span className="storefront-success__icon">
-          <Check size={34} strokeWidth={3} />
-        </span>
-        <h1>Order placed successfully!</h1>
-        <p>
-          Your order <strong>{order.orderNumber}</strong> is confirmed and{" "}
-          {business.name} will process it shortly.
-        </p>
-
-        <div className="storefront-success__items">
-          <h2>
-            <ClipboardList size={20} /> Ordered Items
-          </h2>
-          <div>
-            {order.items.map((item) => (
-              <article key={item.variantId}>
-                <div>
-                  {item.mediaUrl ? (
-                    <img src={item.mediaUrl} alt="" />
-                  ) : (
-                    <Package size={30} />
-                  )}
-                </div>
-                <strong>{item.name}</strong>
-                <span>
-                  Qty: {item.quantity}
-                  {item.size ? ` · Size ${item.size}` : ""}
-                </span>
-                <small>{money(item.lineTotalMinor)}</small>
-              </article>
-            ))}
-          </div>
-        </div>
-
-        <div className="storefront-success__summary">
-          <div>
-            <span>Items subtotal</span>
-            <strong>{money(order.subtotalMinor)}</strong>
-          </div>
-          <div>
-            <span>Delivery fee</span>
-            <strong>{money(order.deliveryFeeMinor)}</strong>
-          </div>
-          {order.discountTotalMinor > 0 && (
-            <div>
-              <span>Discount</span>
-              <strong>- {money(order.discountTotalMinor)}</strong>
-            </div>
-          )}
-          <div className="is-total">
-            <span>Total</span>
-            <strong>{money(order.totalAmountMinor)}</strong>
-          </div>
-        </div>
-
-        <div className="storefront-success__actions">
-          <button type="button" onClick={onDownloadReceipt}>
-            <Download size={17} /> Download Receipt
-          </button>
-          <button type="button" onClick={onReturn}>
-            Return to Storefront
-          </button>
-        </div>
-      </section>
-    </div>
-  );
-  */
+function OrderSuccess({ business, order, onClose, closeLabel, chatLanguage }) {
+  return <OrderReceipt business={business} order={order} onClose={onClose} closeLabel={closeLabel} chatLanguage={chatLanguage} />;
 }
 
 function StorefrontReviewCenter({
+  chatLanguage,
   orders,
   draft,
   message,
@@ -2428,11 +3868,11 @@ function StorefrontReviewCenter({
   return (
     <div className="storefront-page storefront-review-center">
       <section className="storefront-review-center__hero">
-        <h1>Reviews</h1>
-        <p>Share your experience with the products and seller.</p>
+        <h1>{storefrontText(chatLanguage).reviewsTitle}</h1>
+        <p>{storefrontText(chatLanguage).reviewsSubtitle}</p>
       </section>
       <form className="storefront-review-center__form" onSubmit={onSubmit}>
-        <h2>Review a delivered order</h2>
+        <h2>{storefrontText(chatLanguage).reviewAnOrder}</h2>
         <label>
           Order
           <select
@@ -2510,7 +3950,7 @@ function StorefrontReviewCenter({
               ...current,
               reviewText: event.target.value,
             }))}
-            placeholder="Tell us about your experience"
+            placeholder={storefrontText(chatLanguage).experiencePlaceholder}
             rows={5}
             required
           />
@@ -2523,7 +3963,7 @@ function StorefrontReviewCenter({
             multiple
             onChange={onFilesChange}
           />
-          <small>Select up to 4 images. They will be sent with your review.</small>
+          <small>{storefrontText(chatLanguage).reviewImagesHint}</small>
         </label>
         <button type="submit" disabled={isSending || orders.length === 0}>
           {isSending ? "Submitting..." : "Submit review"}
@@ -2544,13 +3984,16 @@ function ProductReviews({
   reviewForm,
   reviewMessage,
   isSending,
+  chatLanguage,
   onReviewFormChange,
   onSubmitReview,
 }) {
+  const text = storefrontText(chatLanguage);
+
   return (
     <section className="storefront-reviews">
       <div>
-        <h2>Verified customer reviews</h2>
+        <h2>{text.verifiedReviews}</h2>
         <div className="storefront-reviews__list">
           {reviews.map((review) => (
             <article key={review.id}>
@@ -2561,14 +4004,14 @@ function ProductReviews({
                 </span>
               </header>
               <p>{review.reviewText}</p>
-              <small>Verified purchase</small>
+              <small>{text.verifiedPurchase}</small>
             </article>
           ))}
-          {reviews.length === 0 && <p>No approved reviews yet.</p>}
+          {reviews.length === 0 && <p>{text.noApprovedReviews}</p>}
         </div>
       </div>
       <form onSubmit={onSubmitReview}>
-        <h3>Review a delivered order</h3>
+        <h3>{text.reviewAnOrder}</h3>
         <input
           value={reviewForm.orderNumber}
           onChange={(event) =>
@@ -2577,7 +4020,7 @@ function ProductReviews({
               orderNumber: event.target.value,
             }))
           }
-          placeholder="Order number (VD-000001)"
+          placeholder={text.orderNumberPlaceholder}
           required
         />
         <input
@@ -2588,7 +4031,7 @@ function ProductReviews({
               phoneNumber: event.target.value,
             }))
           }
-          placeholder="Order phone number"
+          placeholder={text.orderPhonePlaceholder}
           required
         />
         <select
@@ -2600,11 +4043,11 @@ function ProductReviews({
             }))
           }
         >
-          <option value="5">5 - Excellent</option>
-          <option value="4">4 - Good</option>
-          <option value="3">3 - Average</option>
-          <option value="2">2 - Poor</option>
-          <option value="1">1 - Very poor</option>
+          <option value="5">{text.rating5}</option>
+          <option value="4">{text.rating4}</option>
+          <option value="3">{text.rating3}</option>
+          <option value="2">{text.rating2}</option>
+          <option value="1">{text.rating1}</option>
         </select>
         <textarea
           value={reviewForm.reviewText}
@@ -2614,12 +4057,12 @@ function ProductReviews({
               reviewText: event.target.value,
             }))
           }
-          placeholder="Write your review"
+          placeholder={text.writeYourReview}
           rows="4"
           required
         />
         <button type="submit" disabled={isSending}>
-          Submit verified review
+          {text.submitReview}
         </button>
         {reviewMessage && (
           <p className="storefront-reviews__success">{reviewMessage}</p>

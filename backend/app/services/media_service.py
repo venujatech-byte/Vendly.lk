@@ -158,7 +158,28 @@ def upload_to_cloudinary(upload, business_id, product_id, cloudinary_config):
     }
 
 
-def upload_review_data_url(data_url, business_id, review_id, cloudinary_config):
+def upload_chat_data_url(data_url, business_id, session_id, cloudinary_config):
+    """Upload one customer-sent chat image, such as a bank slip.
+
+    Shares the review uploader so there is a single Cloudinary path with one
+    set of type and size limits; only the destination folder differs.
+    """
+    return upload_review_data_url(
+        data_url,
+        business_id,
+        session_id,
+        cloudinary_config,
+        folder="chats",
+    )
+
+
+def upload_review_data_url(
+    data_url,
+    business_id,
+    review_id,
+    cloudinary_config,
+    folder="reviews",
+):
     """Upload one browser-compressed review image to Cloudinary."""
     cloud_name = cloudinary_config.get("cloud_name")
     api_key = cloudinary_config.get("api_key")
@@ -188,7 +209,7 @@ def upload_review_data_url(data_url, business_id, review_id, cloudinary_config):
             413,
         )
 
-    public_id = f"businesses/{business_id}/reviews/{review_id}/{uuid4().hex}"
+    public_id = f"businesses/{business_id}/{folder}/{review_id}/{uuid4().hex}"
     timestamp = int(time.time())
     parameters = {"public_id": public_id, "timestamp": timestamp}
     signature = cloudinary_signature(parameters, api_secret)

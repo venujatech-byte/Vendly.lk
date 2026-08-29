@@ -52,6 +52,15 @@ function hasActiveWarranty(order) {
   );
 }
 
+// Keep payment status compact and readable inside the Total column.
+function paymentLabel(order) {
+  const paid = Number(order.paidAmountMinor ?? order.paidAmount ?? 0);
+  const balance = Number(order.balanceAmountMinor ?? order.balanceMinor ?? 0);
+  if (order.paymentStatus === "paid" || (order.paymentMethod === "paid" && balance <= 0)) return "Fully paid";
+  if (order.paymentStatus === "partially-paid" || order.paymentMethod === "deposit" || paid > 0 && balance > 0) return "Half paid";
+  return "COD";
+}
+
 const orderSortAccessors = {
   order: (order) => order.orderNumber,
   customer: (order) => order.customerName,
@@ -68,6 +77,7 @@ function OrderTable({
   onStatusChange,
   onGenerateWaybill,
   onFraudReport,
+  onRecordPayment,
   onCourierIssue,
   onEditOrder,
   onRemoveOrder,
@@ -251,6 +261,16 @@ function OrderTable({
               const isExpanded = expandedOrderId === order.id;
               const isSelected = selectedOrderIds.includes(order.id);
               const hasWarning = Boolean(order.fraudWarning?.matched ?? order.fraudWarning);
+              // Colour by where the money is, which is what the seller scans
+              // this table for. Fraud stays red and outranks all of it - that
+              // is a danger, the rest are states of a normal order.
+              //   yellow  waiting on a transfer, do not pack
+              //   blue    part paid, courier collects the rest
+              //   green   paid in full, nothing to collect
+              const paymentStatus = order.paymentStatus || "unpaid";
+              const awaitsTransfer = paymentStatus === "pending-payment";
+              const isPartlyPaid = paymentStatus === "partially-paid";
+              const isFullyPaid = paymentStatus === "paid";
               const currentStatus = order.fulfilmentStatus || order.status || "pending";
               const availableStatuses = nextStatuses[currentStatus] ?? [];
 
@@ -260,6 +280,9 @@ function OrderTable({
                className={[
                  isSelected ? "orders-table__row--selected" : "",
                  hasWarning ? "orders-table__row--warning" : "",
+                 !hasWarning && awaitsTransfer ? "orders-table__row--deposit" : "",
+                 !hasWarning && isPartlyPaid ? "orders-table__row--part-paid" : "",
+                 !hasWarning && isFullyPaid ? "orders-table__row--paid" : "",
                ].filter(Boolean).join(" ")}
               >
                   <td>
@@ -327,7 +350,12 @@ function OrderTable({
                     </div>
                   </td>
 
-                  <td className="orders-table__total">{order.total}</td>
+                  <td className="orders-table__total">
+                    <strong>{order.total}</strong>
+                    <span className={`orders-table__payment orders-table__payment--${paymentLabel(order).toLowerCase().replace(/\s+/g, "-")}`}>
+                      {paymentLabel(order)}
+                    </span>
+                  </td>
 
                   <td>
                     <strong>{order.courierCode || order.courier || "Not assigned"}</strong>
@@ -410,6 +438,7 @@ function OrderTable({
                     onStatusChange={onStatusChange}
                     onGenerateWaybill={onGenerateWaybill}
                     onFraudReport={onFraudReport}
+                    onRecordPayment={onRecordPayment}
                     onCourierIssue={onCourierIssue}
                     onWaybillSave={onWaybillSave}
                     onWarrantyClaim={onWarrantyClaim}

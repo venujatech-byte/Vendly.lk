@@ -1,13 +1,16 @@
-from flask import Blueprint, g, jsonify, request
+from flask import Blueprint, current_app, g, jsonify, request
 
 from app.core.auth import require_firebase_user
 from app.core.authorization import require_business_member
 from app.core.firebase import get_firestore_client
 from app.core.requests import get_json_object
+from app.services.media_service import upload_review_data_url
 from app.services.order_service import (
     create_order,
     get_order,
     list_orders,
+    attach_order_payment_receipt,
+    record_order_payment,
     update_order_status,
     update_order,
 )
@@ -36,12 +39,39 @@ def get_orders(business_id):
 @require_firebase_user
 @require_business_member("owner", "admin", "order_manager", permission="orders:manage")
 def add_order(business_id):
+    payload = dict(get_json_object())
+    receipt = payload.pop("receiptImage", "")
     order = create_order(
         get_firestore_client(),
         business_id,
         g.current_user["uid"],
-        get_json_object(),
+        payload,
     )
+
+    # Uploaded after the order exists, because the receipt is stored against
+    # it. The same path the Record payment popup uses, so a payment entered at
+    # creation and one entered later leave identical records.
+    if receipt:
+        uploaded = upload_review_data_url(
+            receipt,
+            business_id,
+            order["id"],
+            {
+                "cloud_name": current_app.config.get("CLOUDINARY_CLOUD_NAME"),
+                "api_key": current_app.config.get("CLOUDINARY_API_KEY"),
+                "api_secret": current_app.config.get("CLOUDINARY_API_SECRET"),
+            },
+            folder="payment-receipts",
+        )
+        order = attach_order_payment_receipt(
+            get_firestore_client(),
+            business_id,
+            order["id"],
+            g.current_user["uid"],
+            uploaded["url"],
+            order.get("paidAmountMinor", 0),
+        )
+
     return jsonify({"order": order}), 201
 
 
@@ -50,6 +80,43 @@ def add_order(business_id):
 @require_business_member(permission="orders:read")
 def get_order_by_id(business_id, order_id):
     order = get_order(get_firestore_client(), business_id, order_id)
+    return jsonify({"order": order})
+
+
+@orders_blueprint.patch(
+    "/businesses/<business_id>/orders/<order_id>/payment",
+)
+@require_firebase_user
+@require_business_member("owner", "admin", "order_manager", permission="orders:manage")
+def record_payment(business_id, order_id):
+    """Record money received against an order, with the receipt."""
+    payload = dict(get_json_object())
+    receipt = payload.pop("receiptImage", "")
+
+    # The receipt arrives as a data URL, the same shape the chatbot uses for
+    # customer images, so it goes through the same uploader rather than a
+    # second path to the same bucket.
+    if receipt:
+        uploaded = upload_review_data_url(
+            receipt,
+            business_id,
+            order_id,
+            {
+                "cloud_name": current_app.config.get("CLOUDINARY_CLOUD_NAME"),
+                "api_key": current_app.config.get("CLOUDINARY_API_KEY"),
+                "api_secret": current_app.config.get("CLOUDINARY_API_SECRET"),
+            },
+            folder="payment-receipts",
+        )
+        payload["receiptUrl"] = uploaded["url"]
+
+    order = record_order_payment(
+        get_firestore_client(),
+        business_id,
+        order_id,
+        g.current_user["uid"],
+        payload,
+    )
     return jsonify({"order": order})
 
 

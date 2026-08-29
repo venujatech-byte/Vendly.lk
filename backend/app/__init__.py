@@ -43,7 +43,18 @@ def create_app(test_config=None):
         AI_API_KEY=settings.ai_api_key,
         AI_MODEL=settings.ai_model,
         AI_API_BASE_URL=settings.ai_api_base_url,
+        AI_FAST_MODEL=settings.ai_fast_model,
+        AI_FALLBACK_PROVIDER=settings.ai_fallback_provider,
+        AI_FALLBACK_API_KEY=settings.ai_fallback_api_key,
+        AI_FALLBACK_MODEL=settings.ai_fallback_model,
+        AI_FALLBACK_API_BASE_URL=settings.ai_fallback_api_base_url,
         AI_TIMEOUT_SECONDS=settings.ai_timeout_seconds,
+        GROQ_API_KEY=settings.groq_api_key,
+        GROQ_TRANSCRIPTION_MODEL=settings.groq_transcription_model,
+        GROQ_TRANSCRIPTION_URL=settings.groq_transcription_url,
+        GROQ_TRANSCRIPTION_TIMEOUT_SECONDS=(
+            settings.groq_transcription_timeout_seconds
+        ),
         RATELIMIT_STORAGE_URI=settings.rate_limit_storage_uri,
         RATELIMIT_HEADERS_ENABLED=True,
         RATELIMIT_ENABLED=True,

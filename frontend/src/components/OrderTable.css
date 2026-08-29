@@ -170,6 +170,30 @@
   white-space: nowrap;
 }
 
+.orders-table__total strong {
+  font-weight: 650;
+}
+
+.orders-table__payment {
+  display: block;
+  margin-top: 2px;
+  font-size: 10px;
+  font-weight: 550;
+  line-height: 1.1;
+}
+
+.orders-table__payment--cod {
+  color: #64748b;
+}
+
+.orders-table__payment--fully-paid {
+  color: #14835a;
+}
+
+.orders-table__payment--half-paid {
+  color: #126ed1;
+}
+
 /* Shared status badge followed by status-specific colours. */
 .orders-table__status {
   display: inline-flex;
@@ -491,4 +515,42 @@ html[data-theme="dark"] .orders-table__status--shipped {
     display: table-cell;
     padding: 0 6px 8px !important;
   }
+}
+
+/* Bank-transfer orders: the money has not arrived yet, so the seller must
+   confirm the deposit before dispatching. Amber rather than the fraud red -
+   this is a "check before you pack", not a warning about the customer. */
+.orders-table__row--deposit {
+  background-color: rgba(217, 160, 14, 0.10);
+  box-shadow: inset 4px 0 0 #d9a00e;
+}
+
+.orders-table__row--deposit:hover {
+  background-color: rgba(217, 160, 14, 0.16);
+}
+
+.orders-table__row--deposit .orders-table__order-number {
+  color: #a4700a;
+}
+
+/* Part paid: the transfer arrived but not in full, so the courier still has
+   an amount to collect. Distinct from both the yellow "do not pack yet" and
+   the green "nothing owing". */
+.orders-table__row--part-paid {
+  background-color: rgba(56, 132, 255, 0.10);
+  box-shadow: inset 4px 0 0 #3884ff;
+}
+
+.orders-table__row--part-paid:hover {
+  background-color: rgba(56, 132, 255, 0.16);
+}
+
+/* Paid in full. Nothing for the courier to collect. */
+.orders-table__row--paid {
+  background-color: rgba(15, 172, 131, 0.10);
+  box-shadow: inset 4px 0 0 #0fac83;
+}
+
+.orders-table__row--paid:hover {
+  background-color: rgba(15, 172, 131, 0.16);
 }

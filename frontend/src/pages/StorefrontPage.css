@@ -11,6 +11,16 @@
   --sf-success: #0fac83;
   --sf-warning: #f19b16;
   --sf-danger: #e24848;
+  /* The sticky top bar's height. The chat fills exactly what is left below it,
+     and the body cannot scroll, so anything taller is clipped rather than
+     reachable - four breakpoints each subtracting a different guess (64, 40,
+     84, auto) is how the panel ended up not fitting. */
+  --sf-topbar-height: 50px;
+  /* Emphasised text - prices, headings. Separate from --sf-navy, which is a
+     fixed dark accent: in dark mode that becomes #021e37, so anything using it
+     as a text colour was near-black on a near-black surface. */
+  --sf-heading: #003158;
+  --sf-badge-surface: rgba(255, 255, 255, 0.94);
   --sf-shadow: 0 14px 42px rgba(19, 45, 78, 0.09);
   min-height: 100vh;
   color: var(--sf-text);
@@ -28,6 +38,8 @@
   --sf-soft: #122131;
   --sf-border: #23374d;
   --sf-shadow: 0 18px 46px rgba(0, 0, 0, 0.28);
+  --sf-heading: #eef6ff;
+  --sf-badge-surface: rgba(13, 25, 39, 0.92);
 }
 
 .storefront *,
@@ -111,7 +123,9 @@
   height: 34px;
   place-items: center;
   border-radius: 8px;
-  color: var(--sf-navy);
+  /* Fixed, because the background below is fixed white. This is the alt text
+     when the logo fails to load, so it must not follow the theme. */
+  color: #003158;
   object-fit: contain;
   font-size: 1.15rem;
   font-weight: 900;
@@ -209,7 +223,7 @@
   justify-content: space-between;
   gap: 20px;
   border-bottom: 1px solid var(--sf-border);
-  background: color-mix(in srgb, var(--sf-bg) 91%, transparent);
+  background: color-mix(in srgb, var(--sf-bg) 50%, transparent);
   backdrop-filter: blur(14px);
 }
 
@@ -399,7 +413,11 @@
 .storefront-categories {
   display: flex;
   margin-bottom: 28px;
+  /* Centred while they fit, packed from the left once they overflow. Centring
+     an overflowing row pushes its first chip off the left edge, where it
+     cannot be scrolled back to. */
   justify-content: center;
+  justify-content: safe center;
   gap: 8px;
   overflow-x: auto;
   scrollbar-width: none;
@@ -410,6 +428,10 @@
 }
 
 .storefront-categories button {
+  /* Flex items shrink by default, so in a scrolling row they were squeezed
+     narrower than their own text - "PowerBanks" rendered as "PowerBa". The row
+     scrolls; the chips must keep their natural width. */
+  flex: 0 0 auto;
   min-width: 72px;
   padding: 8px 17px;
   border: 1px solid var(--sf-border);
@@ -460,7 +482,11 @@
 .storefront-product-card__media img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  /* Sellers upload whatever their phone took - tall, square, wide. `cover`
+     filled the frame by cropping, which cut the top and bottom off the
+     product itself. `contain` shows all of it whatever the shape. */
+  object-fit: contain;
+  padding: 10px;
   transition: transform 350ms ease;
 }
 
@@ -475,8 +501,11 @@
   right: 12px;
   padding: 6px 10px;
   border-radius: 999px;
-  color: var(--sf-navy);
-  background: rgba(255, 255, 255, 0.94);
+  /* The pill floats over a photo, so it carries its own surface rather than
+     the card's - and both halves must flip together. Theming only the text
+     left it white-on-white; theming only the pill leaves it dark-on-dark. */
+  color: var(--sf-heading);
+  background: var(--sf-badge-surface);
   box-shadow: 0 4px 12px rgba(19, 40, 64, 0.1);
 }
 
@@ -607,8 +636,8 @@
 .storefront-chat-page {
   display: grid;
   width: min(1280px, calc(100% - 36px));
-  height: calc(100vh - 64px);
-  min-height: 660px;
+  height: calc(100dvh - var(--sf-topbar-height));
+  min-height: 0;
   padding: 0;
   grid-template-columns: minmax(0, 1fr) 320px;
   gap: 18px;
@@ -617,7 +646,7 @@
 .storefront-chat-panel,
 .storefront-draft {
   position: sticky;
-  height: 88%;
+  height: 100%;
   min-height: 0;
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--sf-border) 82%, transparent);
@@ -630,6 +659,9 @@
 
 .storefront-chat-panel {
   display: grid;
+  /* The jump-to-latest button anchors here. Without it the button resolved to
+     the chat page, whose right-hand column is the draft panel. */
+  position: relative;
   min-width: 0;
   grid-template-rows: minmax(0, 1fr) auto auto;
   background:
@@ -672,6 +704,10 @@
 .storefront-chat-messages {
   overflow-y: auto;
   padding: 26px 24px 38px;
+  /* The topbar is sticky above this list; without this, scrolling to a
+     message can tuck it underneath. Also used when a tall reply is scrolled
+     to its top so the customer can read it downwards. */
+  scroll-padding-top: 12px;
   scrollbar-color: var(--sf-border) transparent;
 }
 
@@ -701,6 +737,18 @@
 .storefront-chat-message--customer .storefront-chat-message__avatar {
   color: #fff;
   background: #0b518e;
+}
+
+/* A reply from a real person. It sits where the assistant's replies sit, but
+   the customer should be able to tell at a glance that a human answered. */
+.storefront-chat-message--seller .storefront-chat-message__avatar {
+  color: #0b5c3f;
+  background: #56d3a0;
+  box-shadow: 0 6px 16px rgba(18, 150, 104, .24);
+}
+
+.storefront-chat-message--seller .storefront-chat-message__content > p {
+  border-color: color-mix(in srgb, #12a06a 34%, transparent);
 }
 
 .storefront-chat-message__content {
@@ -743,6 +791,7 @@
 
 .storefront-chat-catalog-card {
   display: grid;
+  position: relative;
   min-width: 0;
   padding: 7px;
   gap: 6px;
@@ -783,7 +832,9 @@
 .storefront-chat-catalog-card__image img {
   width: 100%;
   height: 100%;
-  object-fit: scale-down;
+  /* contain, not scale-down: scale-down never enlarges, so a small source
+     photo sat tiny in the middle of the card. */
+  object-fit: contain;
   object-position: center;
 }
 
@@ -838,6 +889,43 @@
   justify-content: center;
   gap: 4px;
   font-weight: 700;
+}
+
+/* `.card > button` is one class plus one type, so it outranks a lone class
+   however late it appears - source order never had a say. Matching the child
+   combinator is what actually wins the width back. */
+.storefront-chat-catalog-card > .storefront-chat-catalog-card__cart {
+  display: grid;
+  position: absolute;
+  z-index: 1;
+  top: 11px;
+  right: 11px;
+  width: 28px;
+  min-height: 28px;
+  padding: 0;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--sf-primary-dark);
+  background: color-mix(in srgb, var(--sf-surface) 88%, transparent);
+  box-shadow: 0 2px 8px rgba(7, 55, 91, 0.18);
+  backdrop-filter: blur(4px);
+}
+
+.storefront-chat-catalog-card > .storefront-chat-catalog-card__cart:hover:not(:disabled) {
+  color: #fff;
+  background: var(--sf-primary);
+  border-color: var(--sf-primary);
+}
+
+.storefront-chat-catalog-card.is-selected > .storefront-chat-catalog-card__cart {
+  color: #fff;
+  background: var(--sf-primary);
+  border-color: var(--sf-primary);
+}
+
+.storefront-chat-catalog-card > .storefront-chat-catalog-card__cart:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .storefront-chat-catalog-card.is-selected .storefront-chat-catalog-card__select {
@@ -912,7 +1000,8 @@
 
 .chat-product-details__gallery {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(110px, 148px));
+  justify-content: start;
   gap: 8px;
 }
 
@@ -1315,30 +1404,15 @@
   background: var(--sf-primary);
 }
 
-.storefront-chat-quick-actions {
-  display: flex;
-  padding: 8px 16px;
-  gap: 7px;
-  overflow-x: auto;
-  border-top: 1px solid var(--sf-border);
-  background: color-mix(in srgb, var(--sf-surface) 88%, var(--sf-primary) 12%);
-}
 
-.storefront-chat-quick-actions button {
-  padding: 6px 10px;
-  border: 1px solid var(--sf-border);
-  border-radius: 999px;
-  color: var(--sf-primary);
-  font-size: 0.72rem;
-  background: var(--sf-surface);
-  cursor: pointer;
-  white-space: nowrap;
-}
 
 .storefront-chat-input {
   display: grid;
   padding: 5px 16px 5px;
-  grid-template-columns: 42px minmax(0, 1fr) auto 45px;
+  /* Mic, attach, field, send. The fifth column held the voice tools before
+     they moved to the top bar; left behind, it still claimed a gap and pushed
+     the send button in from the edge. */
+  grid-template-columns: 42px 38px minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
   border-top: 1px solid var(--sf-border);
@@ -1360,8 +1434,7 @@
   border-color: var(--sf-primary);
 }
 
-.storefront-chat-input > button,
-.storefront-chat-input__voice-tools button {
+.storefront-chat-input > button {
   display: grid;
   position: relative;
   width: 37px;
@@ -1373,28 +1446,6 @@
   color: var(--sf-primary);
   background: color-mix(in srgb, var(--sf-primary) 7%, var(--sf-surface));
   cursor: pointer;
-}
-
-.storefront-chat-input__voice-tools {
-  display: flex;
-  gap: 5px;
-}
-
-.storefront-chat-input__voice-tools button {
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
-}
-
-.storefront-chat-input__voice-tools button[aria-pressed="true"] {
-  color: #fff;
-  border-color: var(--sf-primary);
-  background: var(--sf-primary);
-}
-
-.storefront-chat-input__language {
-  font-size: 0.62rem;
-  font-weight: 800;
 }
 
 .storefront-chat-input__voice.is-listening {
@@ -1775,7 +1826,7 @@
   gap: 10px;
   border: 0;
   border-radius: 9px;
-  color: var(--sf-navy);
+  color: var(--sf-heading);
   text-align: left;
   background: var(--sf-soft);
   cursor: pointer;
@@ -2117,6 +2168,7 @@
 }
 
 .storefront-checkout-modal input,
+.storefront-checkout-modal select,
 .storefront-checkout-modal textarea {
   width: 100%;
   border: 0;
@@ -2124,6 +2176,20 @@
   color: var(--sf-text);
   background: transparent;
   resize: vertical;
+}
+
+/* The district field is a fixed list, so it stays a select but must not look
+   like a native control next to the text inputs beside it. */
+.storefront-checkout-modal select {
+  appearance: none;
+  padding: 12px 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.storefront-checkout-modal select option {
+  color: #101828;
+  background: #fff;
 }
 
 .storefront-checkout-modal textarea {
@@ -2462,7 +2528,7 @@
 
 .storefront-review-center__hero h1 {
   margin: 0 0 8px;
-  color: var(--sf-navy);
+  color: var(--sf-heading);
   font-size: clamp(1.7rem, 4vw, 2.3rem);
 }
 
@@ -2483,14 +2549,14 @@
 
 .storefront-review-center__form h2 {
   margin: 0 0 4px;
-  color: var(--sf-navy);
+  color: var(--sf-heading);
   font-size: 1.15rem;
 }
 
 .storefront-review-center__form label {
   display: grid;
   gap: 7px;
-  color: var(--sf-navy);
+  color: var(--sf-heading);
   font-size: .86rem;
   font-weight: 650;
 }
@@ -2588,13 +2654,13 @@
   .storefront-chat-page {
     display: block;
     width: calc(100% - 20px);
-    height: auto;
-    margin: 10px auto 24px;
+    height: calc(100dvh - var(--sf-topbar-height));
+    margin: 0 auto;
   }
 
   .storefront-chat-panel {
-    height: calc(100vh - 84px);
-    min-height: calc(100vh - 84px);
+    height: 100%;
+    min-height: 0;
     border: 1px solid var(--sf-border);
     border-radius: 16px;
   }
@@ -2620,10 +2686,9 @@
 }
 
 .storefront-chat-messages {
-  padding-bottom: 132px;
+  padding-bottom: 86px;
 }
 
-.storefront-chat-quick-actions,
 .storefront-chat-input {
   position: absolute;
   right: 14px;
@@ -2636,13 +2701,7 @@
   backdrop-filter: blur(18px) saturate(1.15);
 }
 
-.storefront-chat-quick-actions {
-  bottom: 68px;
-  padding-bottom: 6px;
-  border-bottom: 0;
-  border-radius: 20px 20px 0 0;
-  box-shadow: 0 -2px 12px rgba(7,45,78,.04), inset 0 1px 0 rgba(255,255,255,.8);
-}
+
 
 .storefront-chat-input {
   bottom: 14px;
@@ -2651,10 +2710,6 @@
   box-shadow: 0 10px 24px rgba(7,45,78,.12), inset 0 -1px 0 rgba(255,255,255,.55);
 }
 
-.storefront-chat-quick-actions button {
-  background: rgba(255,255,255,.46);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.72), 0 3px 10px rgba(7,45,78,.07);
-}
 
 .storefront-chat-input input {
   background: rgba(255,255,255,.62);
@@ -2662,17 +2717,10 @@
 
 @media (max-width: 640px) {
   .storefront-chat-messages {
-    padding-bottom: 138px;
+    padding-bottom: 92px;
   }
 
-  .storefront-chat-quick-actions {
-    position: fixed;
-    right: 10px;
-    bottom: 62px;
-    left: 10px;
-    border-radius: 18px 18px 0 0;
-  }
-
+  
   .storefront-chat-input {
     position: fixed;
     right: 10px;
@@ -2687,7 +2735,7 @@
 .storefront-chat-composer {
   position: absolute;
   z-index: 5;
-  right: 14px;
+  right: 20px;
   bottom: 6px;
   left: 14px;
   display: grid;
@@ -2697,7 +2745,6 @@
   backdrop-filter: blur(20px) saturate(1.12);
 }
 
-.storefront-chat-composer .storefront-chat-quick-actions,
 .storefront-chat-composer .storefront-chat-input {
   position: static;
   inset: auto;
@@ -2708,11 +2755,6 @@
   background: transparent;
   box-shadow: none;
   backdrop-filter: none;
-}
-
-.storefront-chat-composer .storefront-chat-quick-actions {
-  padding: 8px 10px 6px;
-  border-bottom: 1px solid rgba(165,185,205,.32);
 }
 
 
@@ -2726,7 +2768,7 @@
 }
 
 .storefront-chat-messages {
-  padding-bottom: 142px;
+  padding-bottom: 96px;
 }
 
 @media (max-width: 640px) {
@@ -2739,11 +2781,21 @@
   }
 
   .storefront-chat-messages {
-    padding-bottom: 136px;
+    padding-bottom: 90px;
   }
 }
 
 @media (max-width: 640px) {
+  .storefront-categories {
+    margin-bottom: 18px;
+    padding-bottom: 2px;
+  }
+
+  .storefront-categories button {
+    padding: 7px 14px;
+    font-size: 0.82rem;
+  }
+
   .storefront-page,
   .storefront-contact-page {
     width: calc(100% - 28px);
@@ -2762,9 +2814,45 @@
     white-space: nowrap;
   }
 
-  .storefront-topbar__actions .storefront-icon-button:first-child,
-  .storefront-topbar__actions .storefront-icon-button:last-of-type {
-    display: none;
+  /* Nothing is hidden here any more. This block used to drop whichever button
+     happened to be first, which silently removed the language toggle when the
+     voice controls moved in; and the bell, now that it reports seller replies
+     and order updates, matters most on a phone. They are made to fit instead. */
+  .storefront-topbar__actions {
+    gap: 1px;
+  }
+
+  .storefront-topbar .storefront-icon-button,
+  .storefront-topbar .storefront-cart-button {
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+  }
+
+  .storefront-topbar__language {
+    font-size: 0.6rem;
+  }
+
+  .storefront-topbar {
+    /* 27px each side is over a seventh of a phone's width, spent on nothing. */
+    padding: 0 8px;
+    gap: 6px;
+  }
+
+  .storefront-topbar__title {
+    /* The title yields space; the buttons do not. Without this the icons are
+       compressed off the end rather than the shop name being truncated. */
+    min-width: 0;
+    flex: 1 1 auto;
+    gap: 6px;
+  }
+
+  .storefront-topbar__actions {
+    flex: 0 0 auto;
+  }
+
+  .storefront-topbar__title small {
+    max-width: 120px;
   }
 
   .storefront-product-grid {
@@ -2947,15 +3035,10 @@
     font-size: 0.6rem;
   }
 
-  .storefront-chat-quick-actions button,
-  .storefront-chat-confirmation,
-  .storefront-draft {
-    font-size: 0.7rem;
-  }
-
+  
   .storefront-chat-input {
-    padding: 10px;
-    grid-template-columns: 36px minmax(0, 1fr) auto 39px;
+    padding: 1px;
+    grid-template-columns: 30px 34px minmax(0, 1fr) auto 0px;
     gap: 6px;
   }
 
@@ -2971,16 +3054,6 @@
     width: 36px;
     height: 36px;
     border-radius: 10px;
-  }
-
-  .storefront-chat-input__voice-tools {
-    gap: 3px;
-  }
-
-  .storefront-chat-input__voice-tools button {
-    width: 29px;
-    height: 29px;
-    border-radius: 9px;
   }
 
   .storefront-chat-input .storefront-chat-input__send {
@@ -3054,7 +3127,7 @@ body:has(.storefront-chat-page) {
 
 @media (max-width: 820px) {
   .storefront-chat-page {
-    height: calc(100dvh - 40px);
+    height: calc(100dvh - var(--sf-topbar-height));
     min-height: 0;
     margin-bottom: 0;
   }
@@ -3075,7 +3148,7 @@ body:has(.storefront-chat-page) {
 @media (max-width: 640px) {
   .storefront-chat-page {
     width: 100%;
-    height: calc(100dvh - 64px);
+    height: calc(100dvh - var(--sf-topbar-height));
     min-height: 0;
     margin: 0;
     padding-top: 0;
@@ -3100,95 +3173,96 @@ body:has(.storefront-chat-page) {
    older responsive rules cannot hide the newest message behind the composer. */
 
 
-.storefront--dark .storefront-chat-composer .storefront-chat-quick-actions {
-  border-bottom-color: rgba(130,165,200,.2);
-}
-
-.storefront--dark .storefront-chat-composer .storefront-chat-quick-actions button {
-  border-color: rgba(91, 166, 235, .38);
-  color: #8fc9ff;
-  background: rgba(20, 43, 65, .78);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.07);
-}
-
-.storefront--dark .storefront-chat-composer .storefront-chat-input input {
+.storefront--dark .storefront-chat-composer {
   border-color: rgba(130,165,200,.2);
   color: var(--sf-text);
   background: rgba(7, 20, 33, .72);
 }
 
-.storefront--dark .storefront-chat-composer .storefront-chat-input input::placeholder {
-  color: #8497ac;
+/* Two rules paint this field translucent white for the frosted-glass look -
+   one on the input itself, one inside the composer - and both are hardcoded,
+   so dark mode has to answer both. Either one left alone is the light grey box
+   the field became. */
+.storefront--dark .storefront-chat-input input {
+  border-color: rgba(130, 165, 200, 0.22);
+  color: var(--sf-text);
+  background: rgba(255, 255, 255, 0.06);
 }
+
+.storefront--dark .storefront-chat-input input::placeholder {
+  color: var(--sf-muted);
+}
+
+/* The composer's own input, which carries a hardcoded translucent white so it
+   reads as frosted glass over the message list. That has to be replaced in
+   dark mode, not tinted: white at 55% over a dark panel is the light grey box
+   the field became. */
+.storefront--dark .storefront-chat-composer .storefront-chat-input input {
+  border-color: rgba(130, 165, 200, 0.22);
+  color: var(--sf-text);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.storefront--dark .storefront-chat-composer .storefront-chat-input input::placeholder {
+  color: var(--sf-muted);
+}
+
 
 .storefront-chat-messages > div:last-child {
   min-height: 1px;
-  scroll-margin-bottom: 154px;
+  scroll-margin-bottom: 92px;
 }
 
 @media (max-width: 640px) {
   .storefront-chat-messages {
     padding: 14px 10px calc(132px + env(safe-area-inset-bottom));
-    scroll-padding-bottom: calc(132px + env(safe-area-inset-bottom));
+    scroll-padding-bottom: calc(86px + env(safe-area-inset-bottom));
   }
 
   .storefront-chat-messages > div:last-child {
-    scroll-margin-bottom: calc(132px + env(safe-area-inset-bottom));
+    scroll-margin-bottom: calc(92px + env(safe-area-inset-bottom));
   }
 
   .storefront-chat-composer {
-    right: 4px;
-    bottom: calc(10px + env(safe-area-inset-bottom));
-    left: 4px;
-    border-radius: 17px;
-  }
-
-  .storefront-chat-composer .storefront-chat-quick-actions {
-    padding: 5px 6px 4px;
-    gap: 5px;
-  }
-
-  .storefront-chat-composer .storefront-chat-quick-actions button {
-    min-height: 25px;
-    padding: 3px 8px;
-    font-size: .65rem;
+    right: 6px;
+    bottom: calc(8px + env(safe-area-inset-bottom));
+    left: 6px;
+    border-radius: 26px;
   }
 
   .storefront-chat-composer .storefront-chat-input {
-    padding: 4px 5px 5px;
-    grid-template-columns: 30px minmax(0, 1fr) auto 31px;
+    /* The three knobs that set how tight this bar looks, in the order they
+       matter: this padding is the gap between the frame and the controls, the
+       gap is the space between them, and the composer's own inset below is
+       the distance from the screen edge. */
+    padding: 3px;
+    grid-template-columns: 45px 45px minmax(0, 1fr) 45px;
     gap: 4px;
   }
 
   .storefront-chat-composer .storefront-chat-input input {
-    height: 33px;
-    min-height: 33px;
-    padding: 0 10px;
+    height: 40px;
+    min-height: 40px;
+    padding: 0 12px;
   }
 
-  .storefront-chat-composer .storefront-chat-input > button {
-    width: 30px;
-    height: 30px;
-  }
-
-  .storefront-chat-composer .storefront-chat-input__voice-tools {
-    gap: 2px;
-  }
-
-  .storefront-chat-composer .storefront-chat-input__voice-tools button {
-    width: 27px;
-    height: 27px;
+  /* One height for every control in the bar, so nothing floats against a
+     taller neighbour. */
+  .storefront-chat-composer .storefront-chat-input > button,
+  .storefront-chat-composer .storefront-chat-input > label {
+    width: 40px;
+    height: 40px;
   }
 
   .storefront-chat-composer .storefront-chat-input .storefront-chat-input__send {
-    width: 30px;
-    height: 30px;
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
   }
 
   .storefront-chat-composer .storefront-chat-input__send svg {
-    width: 16px;
-    height: 16px;
+    width: 20px;
+    height: 20px;
   }
 }
 
@@ -3197,36 +3271,1695 @@ body:has(.storefront-chat-page) {
   overflow: visible;
 }
 
-.storefront-chat-composer .storefront-chat-quick-actions {
+/* Category choices offered instead of dumping the whole catalogue. One tap
+   answers "what kind of product are you looking for?". */
+.storefront-chat-categories {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.storefront-chat-categories button {
+  padding: 7px 13px;
+  border: 1px solid var(--sf-border, #d7dfe9);
+  border-radius: 999px;
+  background: var(--sf-surface, #fff);
+  color: var(--sf-text);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.storefront-chat-categories button:hover:not(:disabled) {
+  border-color: #2f80ed;
+  color: #2f80ed;
+}
+
+.storefront-chat-categories button:disabled {
+  opacity: .55;
+  cursor: default;
+}
+
+/* Attach a photo — a bank slip, or a picture of a damaged item. */
+.storefront-chat-input__attach {
+  display: grid;
+  width: 100%;
+  height: 37px;
+  place-items: center;
+  border: 1px solid var(--sf-border);
+  border-radius: 11px;
+  color: var(--sf-muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+.storefront-chat-input__attach:hover {
+  color: #2f80ed;
+  border-color: #2f80ed;
+}
+
+.storefront-chat-input__attach input { display: none; }
+
+.storefront-chat-message__image {
+  display: block;
+  max-width: 240px;
+  overflow: hidden;
+  border: 1px solid var(--sf-border);
+  border-radius: 14px;
+}
+
+.storefront-chat-message__image img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* The attach control is a label, not a button, so it carried its own heights
+   and drifted out of step with the bar around it. One value, matching the
+   mic, the field and the send button. */
+@media (max-width: 640px) {
+  .storefront-chat-input__attach,
+  .storefront-chat-composer .storefront-chat-input__attach {
+    height: 45px;
+  }
+}
+
+/* Suggestions under the newest bot reply. The backend chooses which ones from
+   the conversation state, so these change as the order progresses. They wrap
+   rather than scroll: inside a message bubble there is no affordance telling
+   the customer that more exist off to the right. */
+.storefront-chat-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.storefront-chat-suggestions button {
+  padding: 6px 11px;
+  border: 1px solid color-mix(in srgb, var(--sf-primary) 30%, var(--sf-border));
+  border-radius: 999px;
+  color: var(--sf-primary);
+  font-size: .72rem;
+  background: color-mix(in srgb, var(--sf-primary) 6%, var(--sf-surface));
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.storefront-chat-suggestions button:hover:not(:disabled) {
+  border-color: var(--sf-primary);
+  background: color-mix(in srgb, var(--sf-primary) 13%, var(--sf-surface));
+}
+
+.storefront-chat-suggestions button:disabled {
+  opacity: .5;
+  cursor: default;
+}
+
+  .storefront-chat-confirmation,
+  .storefront-draft {
+    font-size: 0.7rem;
+  }
+
+/* 23.5 - keep the description scannable rather than a wall of text. The
+   gallery is sized by its grid cells above, not by clipping. */
+.chat-product-details__description,
+.storefront-chat-message--assistant .storefront-chat-message__content > p {
+  white-space: pre-line;
+}
+
+/* 23.7 - "You may also like" was a large two-column grid. One compact row
+   that scrolls sideways keeps the answer above it visible. */
+.storefront-chat-product-decision__related .storefront-chat-catalog {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scroll-snap-type: x mandatory;
+}
+
+.storefront-chat-product-decision__related .storefront-chat-catalog-card {
+  flex: 0 0 128px;
+  scroll-snap-align: start;
+  padding: 8px;
+}
+
+.storefront-chat-product-decision__related .storefront-chat-catalog-card__image {
+  aspect-ratio: 1 / 1;
+}
+
+.storefront-chat-product-decision__related .storefront-chat-catalog-card__details strong {
+  font-size: .72rem;
+}
+
+.storefront-chat-product-decision__related .storefront-chat-catalog-card small {
+  display: none;
+}
+
+.storefront-chat-product-decision__related .storefront-chat-catalog-card button {
+  padding: 4px 6px;
+  font-size: .64rem;
+}
+
+/* Spec comparison tables. The model returns a markdown pipe table for "which
+   of these is better"; MessageBody parses it into real rows so it reads as a
+   table rather than a wall of pipes. */
+.storefront-chat-table {
+  margin: 4px 0 2px;
+  overflow-x: auto;
+  border: 1px solid var(--sf-border);
+  border-radius: 12px;
+  background: var(--sf-surface);
+}
+
+.storefront-chat-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .74rem;
+}
+
+.storefront-chat-table th,
+.storefront-chat-table td {
+  padding: 8px 10px;
+  text-align: left;
+  white-space: nowrap;
+  border-bottom: 1px solid color-mix(in srgb, var(--sf-border) 70%, transparent);
+}
+
+.storefront-chat-table thead th {
+  position: sticky;
+  top: 0;
+  color: var(--sf-primary);
+  font-weight: 650;
+  background: color-mix(in srgb, var(--sf-primary) 8%, var(--sf-surface));
+}
+
+/* The spec name stays visible while the values scroll sideways. */
+.storefront-chat-table tbody th {
+  position: sticky;
+  left: 0;
+  color: var(--sf-text);
+  font-weight: 600;
+  background: var(--sf-surface);
+  box-shadow: 1px 0 0 color-mix(in srgb, var(--sf-border) 70%, transparent);
+}
+
+.storefront-chat-table tbody tr:last-child th,
+.storefront-chat-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.storefront-chat-table tbody tr:nth-child(even) td {
+  background: color-mix(in srgb, var(--sf-primary) 3%, transparent);
+}
+
+.storefront-chat-table td {
+  color: var(--sf-muted);
+}
+
+@media (max-width: 640px) {
+  .storefront-chat-table table { font-size: .7rem; }
+  .storefront-chat-table th,
+  .storefront-chat-table td { padding: 6px 8px; }
+}
+
+/* Variant chooser. The bot asks which option; clicking beats typing "orange"
+   correctly and hoping it is understood. */
+.storefront-chat-variants {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.storefront-chat-variants > small {
+  color: var(--sf-muted);
+  font-size: 0.66rem;
+  font-weight: 700;
+}
+
+.storefront-chat-variants__list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+  gap: 7px;
+}
+
+.storefront-chat-variant {
+  display: grid;
+  gap: 3px;
+  padding: 7px;
+  border: 1px solid var(--sf-border);
+  border-radius: 11px;
+  color: var(--sf-text);
+  text-align: center;
+  background: var(--sf-surface);
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease;
+}
+
+.storefront-chat-variant:hover:not(:disabled) {
+  border-color: var(--sf-primary);
+  background: color-mix(in srgb, var(--sf-primary) 7%, var(--sf-surface));
+}
+
+.storefront-chat-variant:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.storefront-chat-variant__image {
+  display: grid;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 8px;
+  color: var(--sf-primary);
+  background: color-mix(in srgb, var(--sf-soft) 70%, var(--sf-surface));
+}
+
+.storefront-chat-variant__image img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.storefront-chat-variant strong {
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.storefront-chat-variant small {
+  color: var(--sf-muted);
+  font-size: 0.6rem;
+}
+
+/* Product detail popup. The card is a summary; this is where a customer
+   actually decides, so it carries the photos, specs, description and reviews
+   together rather than sending them to the chatbot to ask. */
+.storefront-product-modal {
+  position: fixed;
+  z-index: 60;
+  inset: 0;
+  display: grid;
+  padding: 18px;
+  place-items: center;
+  overflow-y: auto;
+  background: rgba(12, 30, 50, 0.55);
+  backdrop-filter: blur(3px);
+}
+
+.storefront-product-modal__panel {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  width: min(940px, 100%);
+  max-height: min(90vh, 900px);
+  gap: 0 22px;
+  padding: 22px;
+  overflow-y: auto;
+  border-radius: 18px;
+  color: var(--sf-text);
+  background: var(--sf-surface);
+  box-shadow: 0 24px 60px rgba(9, 32, 56, 0.28);
+}
+
+.storefront-product-modal__close {
   position: absolute;
-  right: auto;
-  bottom: calc(100% + 7px);
-  left: 6px;
-  width: max-content;
-  max-width: calc(100% - 12px);
+  z-index: 1;
+  top: 14px;
+  right: 14px;
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border: 1px solid var(--sf-border);
+  border-radius: 50%;
+  color: var(--sf-text);
+  background: var(--sf-surface);
+  cursor: pointer;
+}
+
+.storefront-product-modal__stage {
+  display: grid;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 14px;
+  color: var(--sf-primary);
+  background: var(--sf-soft);
+}
+
+.storefront-product-modal__stage img {
+  width: 100%;
+  height: 100%;
+  padding: 12px;
+  object-fit: contain;
+}
+
+.storefront-product-modal__thumbs {
+  display: flex;
+  gap: 7px;
+  margin-top: 9px;
+  overflow-x: auto;
+}
+
+.storefront-product-modal__thumbs button {
+  flex: 0 0 auto;
+  width: 58px;
+  height: 58px;
+  padding: 3px;
+  border: 1px solid var(--sf-border);
+  border-radius: 9px;
+  background: var(--sf-surface);
+  cursor: pointer;
+}
+
+.storefront-product-modal__thumbs button.is-active {
+  border-color: var(--sf-primary);
+  border-width: 2px;
+  padding: 2px;
+}
+
+.storefront-product-modal__thumbs img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.storefront-product-modal__info {
+  display: grid;
+  gap: 11px;
+  align-content: start;
+  padding-right: 34px;
+}
+
+.storefront-product-modal__eyebrow {
+  color: var(--sf-primary);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.storefront-product-modal__info h2 {
+  margin: 0;
+  font-size: 1.22rem;
+  line-height: 1.3;
+}
+
+.storefront-product-modal__price {
+  display: flex;
+  gap: 9px;
+  align-items: baseline;
+}
+
+.storefront-product-modal__price strong {
+  color: var(--sf-heading);
+  font-size: 1.3rem;
+}
+
+.storefront-product-modal__price small {
+  color: var(--sf-muted);
+  text-decoration: line-through;
+}
+
+.storefront-product-modal__rating {
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  font-size: 0.78rem;
+}
+
+.storefront-product-modal__rating small {
+  color: var(--sf-muted);
+}
+
+.storefront-product-modal__specs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.storefront-product-modal__specs dt {
+  color: var(--sf-muted);
+  font-size: 0.64rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.storefront-product-modal__specs dd {
+  margin: 1px 0 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.storefront-product-modal__description h3,
+.storefront-product-modal__variants h3,
+.storefront-product-modal__reviews h3 {
+  margin: 0 0 6px;
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--sf-muted);
+}
+
+.storefront-product-modal__description p {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.storefront-product-modal__variants div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.storefront-product-modal__variants button {
+  padding: 6px 12px;
+  border: 1px solid var(--sf-border);
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  background: var(--sf-surface);
+  cursor: pointer;
+}
+
+.storefront-product-modal__variants button:hover {
+  border-color: var(--sf-primary);
+  color: var(--sf-primary);
+}
+
+.storefront-product-modal__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.storefront-product-modal__actions button:first-child {
+  display: inline-flex;
+  flex: 1;
+  gap: 7px;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  border: 0;
+  border-radius: 11px;
+  color: #fff;
+  font-weight: 700;
+  background: var(--sf-primary);
+  cursor: pointer;
+}
+
+.storefront-product-modal__actions button:last-child {
+  display: grid;
+  width: 42px;
+  place-items: center;
+  border: 1px solid var(--sf-primary);
+  border-radius: 11px;
+  color: var(--sf-primary);
+  background: var(--sf-surface);
+  cursor: pointer;
+}
+
+.storefront-product-modal__reviews {
+  grid-column: 1 / -1;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--sf-border);
+}
+
+/* The image and the title are the affordance for opening the popup, so they
+   must not look like the buttons around them. */
+.storefront-product-card__open {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+
+.storefront-product-card__body h2 button {
+  padding: 0;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  background: none;
+  cursor: pointer;
+}
+
+.storefront-product-card__body h2 button:hover {
+  color: var(--sf-primary);
+}
+
+@media (max-width: 760px) {
+  .storefront-product-modal__panel {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .storefront-product-modal__info {
+    padding-right: 0;
+  }
+}
+
+/* Variants that have their own photo are listed with it. A colour name alone
+   asks the customer to imagine what they are choosing. */
+.storefront-variant-gallery {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.storefront-variant-gallery > small {
+  color: var(--sf-muted);
+  font-size: 0.66rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.storefront-variant-gallery > div {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(94px, 1fr));
+  gap: 8px;
+}
+
+.storefront-variant-gallery button {
+  display: grid;
+  gap: 3px;
+  padding: 7px;
+  border: 1px solid var(--sf-border);
+  border-radius: 11px;
+  color: var(--sf-text);
+  text-align: center;
+  background: var(--sf-surface);
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease;
+}
+
+.storefront-variant-gallery button:hover:not(:disabled) {
+  border-color: var(--sf-primary);
+  background: color-mix(in srgb, var(--sf-primary) 7%, var(--sf-surface));
+}
+
+.storefront-variant-gallery button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.storefront-variant-gallery span {
+  display: grid;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--sf-soft) 70%, var(--sf-surface));
+}
+
+.storefront-variant-gallery img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.storefront-variant-gallery strong {
+  font-size: 0.72rem;
+}
+
+.storefront-variant-gallery button small {
+  color: var(--sf-muted);
+  font-size: 0.6rem;
+}
+
+/* Cart lines in chat. The same rows serve the editable review before
+   checkout and the locked list at final confirmation - one layout, so the
+   customer confirms exactly what they adjusted. */
+.storefront-chat-cart ul {
+  display: grid;
+  gap: 6px;
   margin: 0;
   padding: 0;
-  gap: 6px;
-  overflow-x: auto;
-  border: 0;
-  background: transparent;
-  box-shadow: none;
+  list-style: none;
 }
 
-.storefront-chat-composer .storefront-chat-quick-actions button {
-  border: 1px solid color-mix(in srgb, var(--sf-primary) 28%, var(--sf-border));
+.storefront-chat-cart li {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto auto;
+  gap: 9px;
+  align-items: center;
+}
+
+.storefront-chat-cart__image {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 8px;
+  color: var(--sf-primary);
+  background: color-mix(in srgb, var(--sf-soft) 70%, var(--sf-surface));
+}
+
+.storefront-chat-cart__image img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.storefront-chat-cart__name {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+}
+
+.storefront-chat-cart__name strong {
+  overflow: hidden;
+  font-size: 0.76rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.storefront-chat-cart__name small {
+  color: var(--sf-muted);
+  font-size: 0.62rem;
+}
+
+.storefront-chat-cart__quantity {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+}
+
+.storefront-chat-cart__quantity button {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border: 1px solid var(--sf-border);
+  border-radius: 6px;
+  color: var(--sf-text);
   background: var(--sf-surface);
-  box-shadow: 0 4px 10px rgba(7,45,78,.1);
-  backdrop-filter: none;
+  cursor: pointer;
 }
 
-.storefront--dark .storefront-chat-composer .storefront-chat-quick-actions {
+.storefront-chat-cart__quantity button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.storefront-chat-cart__quantity b {
+  min-width: 16px;
+  font-size: 0.76rem;
+  text-align: center;
+}
+
+.storefront-chat-cart__fixed-quantity {
+  color: var(--sf-muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.storefront-chat-cart__total {
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.storefront-chat-cart__remove {
+  display: grid;
+  place-items: center;
+  padding: 3px;
   border: 0;
-  background: transparent;
+  border-radius: 6px;
+  color: var(--sf-muted);
+  background: none;
+  cursor: pointer;
 }
 
-.storefront--dark .storefront-chat-composer .storefront-chat-quick-actions button {
-  border-color: rgba(91,166,235,.38);
+.storefront-chat-cart__remove:hover {
+  color: #c0392b;
+}
+
+.storefront-chat-cart li:has(.storefront-chat-cart__remove) {
+  grid-template-columns: 38px minmax(0, 1fr) auto auto auto;
+}
+
+.storefront-chat-cart__subtotal {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 9px;
+  padding-top: 8px;
+  border-top: 1px solid var(--sf-border);
+  font-size: 0.78rem;
+}
+
+.storefront-chat-cart-review {
+  display: grid;
+  gap: 8px;
+  margin-top: 9px;
+  padding: 13px;
+  border: 1px solid var(--sf-border);
+  border-radius: 13px;
+  background: var(--sf-surface);
+}
+
+.storefront-chat-cart-review > strong {
+  font-size: 0.8rem;
+}
+
+.storefront-chat-cart-review > small {
+  color: var(--sf-muted);
+  font-size: 0.66rem;
+}
+
+/* The voice controls, now in the top bar beside the other icon buttons. */
+.storefront-topbar__language {
+  font-size: 0.66rem;
+  font-weight: 800;
+}
+
+.storefront-topbar__actions button[aria-pressed="true"] {
+  color: #fff;
+  border-color: var(--sf-primary);
+  background: var(--sf-primary);
+}
+
+/* The product details header. The gallery and reviews were there, but the
+   name, price and warranty - the three things a buying decision turns on -
+   were not. */
+.chat-product-details__header {
+  display: grid;
+  gap: 5px;
+  margin-bottom: 10px;
+}
+
+.chat-product-details__eyebrow {
+  color: var(--sf-primary);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.chat-product-details__name {
+  font-size: 0.95rem;
+  line-height: 1.35;
+}
+
+.chat-product-details__price {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.chat-product-details__price b {
+  color: var(--sf-heading);
+  font-size: 1.05rem;
+}
+
+.chat-product-details__price small {
+  color: var(--sf-muted);
+  text-decoration: line-through;
+}
+
+.chat-product-details__specs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
+  gap: 7px;
+  margin: 4px 0 0;
+}
+
+.chat-product-details__specs dt {
+  color: var(--sf-muted);
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.chat-product-details__specs dd {
+  margin: 1px 0 0;
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.chat-product-details__description {
+  margin: 4px 0 0;
+  font-size: 0.76rem;
+  line-height: 1.5;
+  color: var(--sf-text);
+  white-space: pre-wrap;
+}
+
+/* Confirmation that an item reached the cart. Without it the only feedback was
+   the cart badge in the top bar, which on a phone is far from the button the
+   customer just pressed. */
+.storefront-product-card__added,
+.storefront-product-modal__added {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+  align-self: start;
+  padding: 4px 9px;
+  border-radius: 999px;
+  color: var(--sf-success);
+  font-size: 0.7rem;
+  font-weight: 700;
+  background: color-mix(in srgb, var(--sf-success) 12%, transparent);
+}
+
+/* A chosen option. Clicking one used to add it to the cart outright; it now
+   selects, and the Add to cart button below acts on the selection - so the
+   customer can change their mind before committing. */
+.storefront-variant-gallery button.is-selected {
+  border-color: var(--sf-primary);
+  border-width: 2px;
+  padding: 6px;
+  background: color-mix(in srgb, var(--sf-primary) 9%, var(--sf-surface));
+}
+
+.storefront-product-modal__variants button.is-selected {
+  border-color: var(--sf-primary);
+  color: #fff;
+  background: var(--sf-primary);
+}
+
+.storefront-product-modal__variants button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+/* Cart review panel. It is where the customer checks what they are about to
+   pay for, so it reads as a panel in its own right rather than another
+   paragraph of chat. */
+.storefront-chat-cart-review > header {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 9px;
+  border-bottom: 1px solid var(--sf-border);
+}
+
+.storefront-chat-cart-review > header strong {
+  font-size: 0.84rem;
+}
+
+.storefront-chat-cart-review > header span {
+  display: grid;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  place-items: center;
+  border-radius: 999px;
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 800;
+  background: var(--sf-primary);
+}
+
+.storefront-chat-cart-review__checkout {
+  display: inline-flex;
+  gap: 7px;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  margin-top: 2px;
+  border: 0;
+  border-radius: 11px;
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 700;
+  background: var(--sf-primary);
+  cursor: pointer;
+}
+
+.storefront-chat-cart-review__checkout:hover:not(:disabled) {
+  background: var(--sf-primary-dark);
+}
+
+.storefront-chat-cart-review__checkout:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+/* Roomier rows: a thumbnail large enough to recognise the product, the price
+   right-aligned so the column reads down, and the option name under the title
+   rather than beside it. */
+.storefront-chat-cart li {
+  grid-template-columns: 46px minmax(0, 1fr) auto auto;
+  padding: 7px 0;
+  gap: 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--sf-border) 55%, transparent);
+}
+
+.storefront-chat-cart li:last-child {
+  border-bottom: 0;
+}
+
+.storefront-chat-cart__image {
+  width: 46px;
+  height: 46px;
+}
+
+.storefront-chat-cart__name strong {
+  font-size: 0.79rem;
+  white-space: normal;
+}
+
+.storefront-chat-cart__total {
+  min-width: 74px;
+  text-align: right;
+}
+
+.storefront-chat-cart__subtotal {
+  align-items: baseline;
+  margin-top: 10px;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.storefront-chat-cart__subtotal strong {
+  font-size: 0.95rem;
+  color: var(--sf-heading);
+}
+
+.storefront-chat-cart li:has(.storefront-chat-cart__remove) {
+  grid-template-columns: 46px minmax(0, 1fr) auto auto auto;
+}
+
+/* Search, sort and filter share a row: they are three ways of narrowing the
+   same list, so separating them would read as unrelated controls. */
+.storefront-search-row {
+  display: flex;
+  /* Capped and centred. Letting the row run the full page width stretched the
+     search field across a desktop, which reads as a page-wide banner rather
+     than a control. */
+  width: min(640px, 100%);
+  margin: 26px auto 14px;
+  gap: 9px;
+  align-items: center;
+  justify-content: center;
+}
+
+.storefront-search-row .storefront-search {
+  flex: 1 1 auto;
+  max-width: 520px;
+  margin: 0;
+}
+
+.storefront-refine-button {
+  display: inline-grid;
+  position: relative;
+  flex: 0 0 auto;
+  /* The same height and shape as the search field beside it. At 44px against
+     its 50px the two sat on different baselines and read as unrelated. */
+  width: 50px;
+  height: 50px;
+  place-items: center;
+  border: 1px solid var(--sf-border);
+  border-radius: 999px;
+  color: var(--sf-text);
+  background: var(--sf-surface);
+  cursor: pointer;
+}
+
+.storefront-refine-button.is-active {
+  border-color: var(--sf-primary);
+  color: var(--sf-primary);
+}
+
+.storefront-refine-button span {
+  display: grid;
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 18px;
+  height: 18px;
+  place-items: center;
+  border-radius: 999px;
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 800;
+  background: var(--sf-primary);
+}
+
+.storefront-refine {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 16px;
+  padding: 15px;
+  border: 1px solid var(--sf-border);
+  border-radius: 15px;
+  background: var(--sf-surface);
+  box-shadow: 0 10px 30px rgba(9, 32, 56, 0.07);
+}
+
+.storefront-refine__group {
+  display: grid;
+  gap: 7px;
+}
+
+.storefront-refine__group > small {
+  color: var(--sf-muted);
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.storefront-refine__options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.storefront-refine__options button {
+  padding: 7px 13px;
+  border: 1px solid var(--sf-border);
+  border-radius: 999px;
+  color: var(--sf-text);
+  font-size: 0.78rem;
+  font-weight: 600;
+  background: transparent;
+  cursor: pointer;
+}
+
+.storefront-refine__options button.is-selected {
+  border-color: var(--sf-primary);
+  color: #fff;
+  background: var(--sf-primary);
+}
+
+.storefront-refine__fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: end;
+}
+
+.storefront-refine__fields label {
+  display: grid;
+  gap: 4px;
+  font-size: 0.78rem;
+}
+
+.storefront-refine__fields span {
+  color: var(--sf-muted);
+  font-size: 0.66rem;
+  font-weight: 700;
+}
+
+.storefront-refine__toggle {
+  display: inline-flex !important;
+  gap: 7px;
+  align-items: center;
+  height: 36px;
+  font-weight: 600;
+}
+
+.storefront-refine__toggle input {
+  width: 17px;
+  height: 17px;
+  accent-color: var(--sf-primary);
+}
+
+.storefront-refine select,
+.storefront-refine input[type="number"] {
+  height: 36px;
+  min-width: 138px;
+  padding: 0 10px;
+  border: 1px solid var(--sf-border);
+  border-radius: 9px;
+  color: var(--sf-text);
+  background: var(--sf-bg);
+}
+
+.storefront-refine footer {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding-top: 12px;
+  border-top: 1px solid var(--sf-border);
+}
+
+.storefront-refine footer button {
+  height: 36px;
+  padding: 0 16px;
+  border: 1px solid var(--sf-border);
+  border-radius: 9px;
+  color: var(--sf-muted);
+  font-weight: 600;
+  background: transparent;
+  cursor: pointer;
+}
+
+.storefront-refine__done {
+  border-color: var(--sf-primary) !important;
+  color: #fff !important;
+  background: var(--sf-primary) !important;
+}
+
+@media (max-width: 640px) {
+  .storefront-search-row {
+    margin-top: 16px;
+  }
+
+  .storefront-search-row .storefront-search {
+    flex: 1 1 auto;
+    max-width: none;
+  }
+
+  .storefront-refine-button {
+    width: 46px;
+    height: 46px;
+  }
+
+  .storefront-search-row .storefront-search {
+    height: 46px;
+  }
+
+  .storefront-refine select,
+  .storefront-refine input[type="number"] {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .storefront-refine__fields label {
+    flex: 1 1 130px;
+  }
+}
+
+/* Notifications. The bell was decorative; it now reports seller replies and
+   order status changes, which are the two things that happen to a customer
+   while they are looking somewhere else. */
+.storefront-notifications {
+  position: relative;
+}
+
+.storefront-notifications__badge {
+  display: grid;
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  place-items: center;
+  border-radius: 999px;
+  color: #fff;
+  font-size: 0.58rem;
+  font-weight: 800;
+  background: var(--sf-danger);
+}
+
+.storefront-notifications__panel {
+  display: grid;
+  position: absolute;
+  z-index: 60;
+  top: calc(100% + 8px);
+  right: 0;
+  width: min(300px, calc(100vw - 24px));
+  max-height: 340px;
+  gap: 2px;
+  padding: 8px;
+  overflow-y: auto;
+  border: 1px solid var(--sf-border);
+  border-radius: 14px;
+  background: var(--sf-surface);
+  box-shadow: 0 18px 44px rgba(9, 32, 56, 0.22);
+}
+
+.storefront-notifications__panel header {
+  padding: 4px 6px 8px;
+  color: var(--sf-muted);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.storefront-notifications__panel p {
+  margin: 0;
+  padding: 10px 6px;
+  color: var(--sf-muted);
+  font-size: 0.78rem;
+}
+
+.storefront-notifications__panel > button {
+  display: grid;
+  gap: 9px;
+  padding: 8px;
+  grid-template-columns: 26px minmax(0, 1fr);
+  align-items: start;
+  border: 0;
+  border-radius: 10px;
+  text-align: left;
+  background: transparent;
+  cursor: pointer;
+}
+
+.storefront-notifications__panel > button:hover {
   background: var(--sf-soft);
-  box-shadow: 0 4px 10px rgba(0,0,0,.24);
+}
+
+.storefront-notifications__icon {
+  display: grid;
+  width: 26px;
+  height: 26px;
+  place-items: center;
+  border-radius: 8px;
+  color: var(--sf-primary);
+  background: color-mix(in srgb, var(--sf-primary) 12%, transparent);
+}
+
+.storefront-notifications__panel strong {
+  display: block;
+  font-size: 0.78rem;
+}
+
+.storefront-notifications__panel small {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--sf-muted);
+  font-size: 0.7rem;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+/* Orders as a page. They were behind the account dialog, which covers the shop
+   and cannot be linked to or returned to - the wrong shape for something the
+   customer reads, compares and acts on. */
+.storefront-orders-page {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+}
+
+.storefront-orders-page__header h1 {
+  margin: 0;
+  font-size: 1.3rem;
+}
+
+.storefront-orders-page__header p {
+  margin: 2px 0 0;
+  color: var(--sf-muted);
+  font-size: 0.84rem;
+}
+
+.storefront-order-card {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--sf-border);
+  border-radius: 16px;
+  background: var(--sf-surface);
+  box-shadow: 0 8px 22px rgba(7, 55, 91, 0.05);
+}
+
+.storefront-order-card > header {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.storefront-order-card > header strong {
+  display: block;
+  font-size: 0.95rem;
+}
+
+.storefront-order-card > header small {
+  color: var(--sf-muted);
+  font-size: 0.72rem;
+}
+
+.storefront-order-card__status {
+  padding: 5px 11px;
+  border-radius: 999px;
+  color: var(--sf-primary-dark);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: capitalize;
+  background: color-mix(in srgb, var(--sf-primary) 12%, transparent);
+}
+
+.storefront-order-card__status.is-delivered {
+  color: var(--sf-success);
+  background: color-mix(in srgb, var(--sf-success) 14%, transparent);
+}
+
+.storefront-order-card__status.is-cancelled,
+.storefront-order-card__status.is-returned {
+  color: var(--sf-danger);
+  background: color-mix(in srgb, var(--sf-danger) 14%, transparent);
+}
+
+.storefront-order-card__items {
+  display: grid;
+  gap: 8px;
+}
+
+.storefront-order-card__items > div {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.storefront-order-card__image {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 8px;
+  color: var(--sf-primary);
+  background: color-mix(in srgb, var(--sf-soft) 70%, var(--sf-surface));
+}
+
+.storefront-order-card__image img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.storefront-order-card__items strong {
+  display: block;
+  font-size: 0.8rem;
+}
+
+.storefront-order-card__items small {
+  color: var(--sf-muted);
+  font-size: 0.68rem;
+}
+
+.storefront-order-card__quantity {
+  color: var(--sf-muted);
+  font-size: 0.78rem;
+}
+
+.storefront-order-card__totals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  margin: 0;
+  padding-top: 11px;
+  border-top: 1px solid var(--sf-border);
+}
+
+.storefront-order-card__totals dt {
+  color: var(--sf-muted);
+  font-size: 0.64rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.storefront-order-card__totals dd {
+  margin: 2px 0 0;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.storefront-order-card > footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.storefront-order-card > footer button {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  height: 38px;
+  padding: 0 15px;
+  border: 1px solid var(--sf-border);
+  border-radius: 10px;
+  color: var(--sf-text);
+  font-size: 0.8rem;
+  font-weight: 600;
+  background: transparent;
+  cursor: pointer;
+}
+
+.storefront-order-card__cancel {
+  border-color: color-mix(in srgb, var(--sf-danger) 45%, transparent) !important;
+  color: var(--sf-danger) !important;
+}
+
+.storefront-order-card__cancel:hover {
+  color: #fff !important;
+  background: var(--sf-danger) !important;
+}
+
+/* Why the button is absent, rather than a button that would be refused. */
+.storefront-order-card__locked {
+  flex: 1 1 220px;
+  color: var(--sf-muted);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+/* Back to the newest message. Reading up through a long conversation, the way
+   down is otherwise a lot of scrolling - and replies keep arriving while the
+   customer reads. Sits above the composer, not over it. */
+.storefront-chat-jump {
+  display: grid;
+  position: absolute;
+  z-index: 6;
+  right: 22px;
+  bottom: 86px;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border: 1px solid var(--sf-border);
+  border-radius: 50%;
+  color: var(--sf-primary);
+  background: var(--sf-surface);
+  box-shadow: 0 6px 18px rgba(9, 32, 56, 0.18);
+  cursor: pointer;
+}
+
+.storefront-chat-jump:hover {
+  color: #fff;
+  border-color: var(--sf-primary);
+  background: var(--sf-primary);
+}
+
+@media (max-width: 640px) {
+  .storefront-chat-jump {
+    right: 14px;
+    bottom: calc(78px + env(safe-area-inset-bottom));
+  }
+}
+
+/* The order draft as a drawer, for phones where the side panel is hidden. */
+.storefront-draft__close {
+  display: none;
+}
+
+.storefront-draft-backdrop {
+  position: fixed;
+  z-index: 70;
+  inset: 0;
+  border: 0;
+  background: rgba(12, 30, 50, 0.5);
+}
+
+@media (max-width: 820px) {
+  /* A bottom sheet, not a full-height side panel. The draft is short - a few
+     items and three fields - so a full-height drawer was mostly empty space,
+     and it covered the top bar the customer uses to get back. */
+  .storefront-chat-page .storefront-draft.is-open {
+    display: block;
+    position: fixed;
+    z-index: 75;
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: auto;
+    max-height: 82dvh;
+    padding: 10px 4px calc(14px + env(safe-area-inset-bottom));
+    overflow-y: auto;
+    border-radius: 20px 20px 0 0;
+    box-shadow: 0 -14px 40px rgba(9, 32, 56, 0.24);
+  }
+
+  .storefront-chat-page .storefront-draft.is-open > section {
+    overflow: visible;
+  }
+
+  .storefront-draft.is-open .storefront-draft__close {
+    display: grid;
+    position: sticky;
+    z-index: 2;
+    top: 0;
+    right: 6px;
+    float: right;
+    width: 32px;
+    height: 32px;
+    place-items: center;
+    border: 1px solid var(--sf-border);
+    border-radius: 50%;
+    color: var(--sf-text);
+    background: var(--sf-surface);
+    cursor: pointer;
+  }
+}
+
+/* Payment choice at checkout. Cards rather than a bare radio list: this is the
+   one decision on the form that changes what happens after Place Order. */
+.storefront-checkout-payment {
+  display: grid;
+  gap: 9px;
+  /* Inset from the form's edge so the cards do not run flush into the modal
+     wall - they are a group, and the gap is what says so. */
+  margin: 6px 4px 4px;
+}
+
+.storefront-checkout-payment > strong {
+  font-size: 0.86rem;
+}
+
+.storefront-checkout-payment > div {
+  display: grid;
+  gap: 8px;
+}
+
+.storefront-checkout-payment label {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  padding: 11px 13px;
+  border: 1px solid var(--sf-border);
+  border-radius: 12px;
+  background: var(--sf-surface);
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease;
+}
+
+.storefront-checkout-payment label:hover {
+  border-color: var(--sf-primary);
+}
+
+.storefront-checkout-payment label.is-selected {
+  border-color: var(--sf-primary);
+  border-width: 2px;
+  padding: 10px 12px;
+  background: color-mix(in srgb, var(--sf-primary) 6%, var(--sf-surface));
+}
+
+.storefront-checkout-payment input[type="radio"] {
+  width: 18px;
+  height: 18px;
+  margin: 1px 0 0;
+  accent-color: var(--sf-primary);
+}
+
+.storefront-checkout-payment label > span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.storefront-checkout-payment label strong {
+  font-size: 0.84rem;
+}
+
+.storefront-checkout-payment label small {
+  color: var(--sf-muted);
+  font-size: 0.73rem;
+  line-height: 1.4;
+}
+
+.storefront-checkout-payment__notice {
+  margin: 2px 0 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  color: var(--sf-primary-dark);
+  font-size: 0.75rem;
+  line-height: 1.45;
+  background: color-mix(in srgb, var(--sf-primary) 9%, transparent);
+}
+
+/* A wider, two-column checkout so the whole form fits without scrolling: the
+   fields on the left, the payment choice and totals on the right. A form the
+   customer has to scroll hides either the payment options or the Place Order
+   button, and both matter at the moment of deciding. */
+@media (min-width: 900px) {
+  .storefront-checkout-modal {
+    width: min(880px, 100%);
+  }
+
+  .storefront-checkout-modal__body {
+    padding: 16px 20px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px 16px;
+  }
+
+  /* The wide fields and the payment block span the full row; everything else
+     packs three across, which is what removes the scroll. */
+  .storefront-checkout-modal__body > label.is-wide,
+  .storefront-checkout-payment,
+  .storefront-checkout-summary {
+    grid-column: 1 / -1;
+  }
+
+  .storefront-checkout-payment {
+    margin-top: 0;
+  }
+
+  .storefront-checkout-payment > div {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .storefront-checkout-payment label {
+    align-content: start;
+  }
+}
+
+/* Tighter spacing throughout, which is most of what buys the extra room. */
+.storefront-checkout-modal .storefront-checkout-payment label {
+  padding: 9px 11px;
+}
+
+.storefront-checkout-modal .storefront-checkout-payment label.is-selected {
+  padding: 8px 10px;
+}
+
+.storefront-checkout-payment label small {
+  font-size: 0.7rem;
+}
+
+/* Products named one per line. A two-product answer collapsed into a paragraph
+   reads as one long sentence, which is exactly what it looked like. */
+.storefront-chat-list {
+  margin: 6px 0 2px;
+  padding-left: 20px;
+  display: grid;
+  gap: 4px;
+}
+
+.storefront-chat-list li {
+  padding-left: 2px;
+  line-height: 1.5;
+}
+
+.storefront-chat-list li::marker {
+  color: var(--sf-muted);
+  font-weight: 700;
 }

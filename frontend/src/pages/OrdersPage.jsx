@@ -28,12 +28,14 @@ import StatCard2 from "../components/StatCard2";
 import StatCard from "../components/StatCard";
 import OrderFilters from "../components/OrderFilters";
 import OrderTable from "../components/OrderTable";
+import RecordPaymentModal from "../components/RecordPaymentModal";
 import { useAuth } from "../context/authContextValue";
 import {
   getOrders,
   removeOrder,
   updateOrder,
   updateOrderStatus,
+  recordOrderPayment,
 } from "../services/orderService";
 import AddOrderModal from "../components/AddOrderModal";
 import EditOrderModal from "../components/EditOrderModal";
@@ -44,6 +46,7 @@ import ShopSalesTable from "../components/ShopSalesTable";
 import WarrantyClaimModal from "../components/WarrantyClaimModal";
 import WarrantyClaimsTable from "../components/WarrantyClaimsTable";
 import BarcodeScannerModal from "../components/BarcodeScannerModal";
+import ExportOrdersModal from "../components/ExportOrdersModal";
 import { getCouriers } from "../services/courierService";
 import {
   downloadOrderExport,
@@ -60,6 +63,14 @@ import {
 import { downloadReceiptPdf } from "../services/receiptService";
 
 import "./OrdersPage.css";
+
+function paymentCategory(order) {
+  const paid = Number(order.paidAmountMinor ?? order.paidAmount ?? 0);
+  const balance = Number(order.balanceAmountMinor ?? order.balanceMinor ?? 0);
+  if (order.paymentStatus === "paid" || (order.paymentMethod === "paid" && balance <= 0)) return "paid";
+  if (order.paymentStatus === "partially-paid" || order.paymentMethod === "deposit" || (paid > 0 && balance > 0)) return "partially-paid";
+  return "cod";
+}
 import "./Buttons.css";
 import "./InventoryPage.css";
 
@@ -79,11 +90,14 @@ function OrdersPage() {
   const [filters, setFilters] = useState({});
   const [isAddOrderOpen, setIsAddOrderOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [selectedExportOrderIds, setSelectedExportOrderIds] = useState([]);
   const [couriers, setCouriers] = useState([]);
   const [linkWasCopied, setLinkWasCopied] = useState(false);
   const [statusFilter, setStatusFilter] = useState("");
   const [editingOrder, setEditingOrder] = useState(null);
   const [removalTarget, setRemovalTarget] = useState(null);
+  const [paymentTarget, setPaymentTarget] = useState(null);
   const [isRemoving, setIsRemoving] = useState(false);
   const [shopSales, setShopSales] = useState([]);
   const [shopFilters, setShopFilters] = useState({});
@@ -237,9 +251,12 @@ function OrdersPage() {
   }, [business?.id]);
 
   const visibleOrders = useMemo(() => {
-    if (!statusFilter) return orders;
-    return orders.filter((order) => order.status === statusFilter);
-  }, [orders, statusFilter]);
+    return orders.filter((order) => {
+      if (statusFilter && order.status !== statusFilter) return false;
+      if (!filters.payment) return true;
+      return paymentCategory(order) === filters.payment;
+    });
+  }, [orders, statusFilter, filters.payment]);
 
   useEffect(() => {
     if (!business?.id) return;
@@ -360,30 +377,21 @@ function OrdersPage() {
   }
 
   function handleExportSelected(selectedIds) {
-    const selectedOrders = visibleOrders.filter((order) => selectedIds.includes(order.id));
-    const columns = ["Order number", "Customer", "Phone", "Items", "Subtotal", "Delivery fee", "Total", "Courier", "Status", "Date"];
-    const escape = (value) => `"${String(value ?? "").replaceAll('"', '""')}"`;
-    const rows = selectedOrders.map((order) => [
-      order.orderNumber,
-      order.customerName,
-      order.phoneNumber,
-      order.itemCount,
-      order.subtotal,
-      order.deliveryFee,
-      order.total,
-      order.courier,
-      order.status,
-      `${order.date} ${order.time}`,
-    ]);
-    const csv = [columns, ...rows].map((row) => row.map(escape).join(",")).join("\r\n");
-    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `vendly-selected-orders-${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
+    const visibleOrderIds = new Set(visibleOrders.map((order) => order.id));
+    const validSelectedIds = selectedIds.filter((orderId) => visibleOrderIds.has(orderId));
+    if (!validSelectedIds.length) return;
+    setSelectedExportOrderIds(validSelectedIds);
+    setIsExportModalOpen(true);
+  }
+
+  function openOrdersExportModal() {
+    setSelectedExportOrderIds([]);
+    setIsExportModalOpen(true);
+  }
+
+  function closeOrdersExportModal() {
+    setIsExportModalOpen(false);
+    setSelectedExportOrderIds([]);
   }
 
   // Export only the currently loaded physical-shop sales, including active filters.
@@ -453,16 +461,28 @@ function OrdersPage() {
     await reportCourierIssue(business.id, orderId, "branch-problem", note);
   }
 
-  async function handleExport() {
-    if (!business?.id || isExporting) return;
+  async function handleExport(courierId) {
+    if (!business?.id || isExporting || !courierId) return false;
 
     setIsExporting(true);
     setOrdersError(null);
 
     try {
-      await downloadOrderExport(business.id);
+      await downloadOrderExport(business.id, {
+        courierId,
+        ...(selectedExportOrderIds.length > 0
+          ? { orderIds: selectedExportOrderIds }
+          : {
+              status: statusFilter || filters.status || routeStatus,
+              search: filters.search || routeSearch,
+              dateFrom: filters.dateFrom || routeDateFrom,
+              dateTo: filters.dateTo || routeDateTo,
+            }),
+      });
+      return true;
     } catch (error) {
       setOrdersError(error);
+      return false;
     } finally {
       setIsExporting(false);
     }
@@ -515,9 +535,9 @@ function OrdersPage() {
                 {linkWasCopied ? <Check size={19} aria-hidden="true" /> : <Link2 size={19} aria-hidden="true" />}
                 <span>{linkWasCopied ? "Link Copied" : "Chatbot Link"}</span>
               </button>
-              <button type="button" onClick={handleExport} disabled={isExporting || !business?.id}>
+              <button type="button" onClick={openOrdersExportModal} disabled={!business?.id}>
                 <Download size={19} strokeWidth={1.8} />
-                <span>{isExporting ? "Exporting..." : "Export Orders"}</span>
+                <span>Export Orders</span>
               </button>
               <button className="page__add-button" type="button" onClick={() => setIsAddOrderOpen(true)} disabled={!business?.id}>
                 <Plus size={19} aria-hidden="true" />
@@ -635,6 +655,7 @@ function OrdersPage() {
             onStatusChange={handleStatusChange}
             onGenerateWaybill={handleGenerateWaybill}
             onFraudReport={handleFraudReport}
+            onRecordPayment={setPaymentTarget}
             onCourierIssue={handleCourierIssue}
             onEditOrder={setEditingOrder}
             onRemoveOrder={setRemovalTarget}
@@ -650,6 +671,28 @@ function OrdersPage() {
 
 
 
+
+      {paymentTarget && (
+        <RecordPaymentModal
+          order={paymentTarget}
+          onClose={() => setPaymentTarget(null)}
+          onSubmit={async (payment) => {
+            const updated = await recordOrderPayment(
+              business.id,
+              paymentTarget.id,
+              payment,
+            );
+            // Replaced in place: the row's colour and the balance the courier
+            // collects both come from this order, so a stale copy would show
+            // the seller a payment they have just recorded as still missing.
+            setOrders((current) =>
+              current.map((order) =>
+                order.id === updated.id ? updated : order,
+              ),
+            );
+          }}
+        />
+      )}
 
       {activeTab === "shopOrders" && (
         <>
@@ -706,6 +749,17 @@ function OrdersPage() {
         manualLabel="Or enter the waybill number"
         inputPlaceholder="Scan or enter a waybill number"
         submitLabel="Use waybill"
+      />
+      <ExportOrdersModal
+        isOpen={isExportModalOpen}
+        couriers={couriers}
+        orders={selectedExportOrderIds.length > 0
+          ? visibleOrders.filter((order) => selectedExportOrderIds.includes(order.id))
+          : visibleOrders}
+        selectedOrderCount={selectedExportOrderIds.length}
+        isExporting={isExporting}
+        onClose={closeOrdersExportModal}
+        onExport={handleExport}
       />
     </main>
   );

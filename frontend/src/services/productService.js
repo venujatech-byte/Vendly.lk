@@ -1,4 +1,4 @@
-import { apiRequest } from "./apiClient";
+import { apiFileRequest, apiRequest } from "./apiClient";
 
 function minorUnitsToAmount(value = 0) {
   return value / 100;
@@ -131,29 +131,35 @@ export async function updateProductStatus(businessId, productId, status) {
   return updateProduct(businessId, productId, { status });
 }
 
-// Export the currently loaded inventory without requiring a second server endpoint.
-export function downloadInventoryCsv(products = []) {
-  const columns = ["Product", "SKU", "Barcode", "Category", "Selling price", "Weight (kg)", "Stock", "Status"];
-  const escape = (value) => `"${String(value ?? "").replaceAll('"', '""')}"`;
-  const rows = products.map((product) => [
-    product.name,
-    product.sku,
-    product.barcode,
-    product.category,
-    product.sellingPrice,
-    product.weightKg,
-    product.stock,
-    product.stockStatus,
-  ]);
-  const csv = [columns, ...rows].map((row) => row.map(escape).join(",")).join("\r\n");
-  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `vendly-inventory-${new Date().toISOString().slice(0, 10)}.csv`;
+  link.download = decodeURIComponent(filename);
   document.body.appendChild(link);
   link.click();
   link.remove();
   URL.revokeObjectURL(url);
+}
+
+export async function downloadInventoryWorkbook(businessId, productIds = []) {
+  const searchParameters = new URLSearchParams();
+  productIds.forEach((productId) => searchParameters.append("productId", productId));
+  const query = searchParameters.toString();
+  const file = await apiFileRequest(
+    `/businesses/${businessId}/inventory-export.xlsx${query ? `?${query}` : ""}`,
+  );
+  downloadBlob(file.blob, file.filename);
+}
+
+export async function importInventoryWorkbook(businessId, file) {
+  const formData = new FormData();
+  formData.append("file", file);
+  const response = await apiRequest(
+    `/businesses/${businessId}/inventory-import`,
+    { method: "POST", body: formData },
+  );
+  return response.import;
 }
 
 export async function adjustProductStock(

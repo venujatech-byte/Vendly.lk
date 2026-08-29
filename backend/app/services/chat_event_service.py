@@ -2,6 +2,8 @@ from firebase_admin import firestore
 from google.cloud import firestore as google_firestore
 from google.cloud.firestore_v1.base_query import FieldFilter
 
+from app.services.ai_service import translate_chat_message
+
 
 ORDER_STATUS_LABELS = {
     "needs-confirmation": "needs confirmation",
@@ -68,42 +70,153 @@ def notify_seller_attention(
     return create_in_transaction(transaction)
 
 
-def send_order_status_chat_message(database, business_id, order_id, order, status, note=""):
-    """Append an automated order update to its originating storefront chat."""
-    sessions = (
-        database.collection("publicChatSessions")
-        .where(filter=FieldFilter("orderId", "==", order_id))
-        .stream()
-    )
-    label = ORDER_STATUS_LABELS.get(status, status.replace("-", " "))
-    order_number = order.get("orderNumber", "Your order")
-    message = f"Order {order_number} status update: {label}."
-    if note:
-        message = f"{message} Note: {note}"
+def send_chat_message_to_order_sessions(
+    database,
+    business_id,
+    order_id,
+    message,
+    metadata,
+    session_changes=None,
+):
+    """Write one automated message into every chat that produced this order.
 
-    for snapshot in sessions:
+    Two queries, because a session holds a list of every order it produced AND
+    a single `orderId` for its most recent one. The list is the correct source;
+    the single field is how sessions written before the list existed are still
+    reachable. Deduplicated by document id, since a recent order matches both.
+    """
+    session_collection = database.collection("publicChatSessions")
+    snapshots = {}
+
+    for snapshot in session_collection.where(
+        filter=FieldFilter("orderIds", "array_contains", order_id),
+    ).stream():
+        snapshots[snapshot.id] = snapshot
+
+    for snapshot in session_collection.where(
+        filter=FieldFilter("orderId", "==", order_id),
+    ).stream():
+        snapshots.setdefault(snapshot.id, snapshot)
+
+    for snapshot in snapshots.values():
         session = snapshot.to_dict()
+
         if session.get("businessId") != business_id:
             continue
+
+        # The customer reads this one, so it follows the language the rest of
+        # the conversation settled on rather than always arriving in English.
+        session_message = translate_chat_message(
+            message,
+            session.get("language", "en"),
+        )
         snapshot.reference.collection("messages").document().set(
             {
                 "role": "seller",
-                "message": message,
-                "metadata": {
-                    "automated": True,
-                    "action": "order-status-update",
-                    "orderId": order_id,
-                    "status": status,
-                },
+                "message": session_message,
+                "metadata": {"automated": True, **metadata},
                 "createdAt": firestore.SERVER_TIMESTAMP,
-            }
+            },
         )
         snapshot.reference.set(
             {
-                "lastMessage": message,
+                "lastMessage": session_message,
                 "lastMessageRole": "seller",
                 "updatedAt": firestore.SERVER_TIMESTAMP,
+                **(session_changes or {}),
             },
             merge=True,
         )
+
+
+def send_payment_recorded_chat_message(
+    database,
+    business_id,
+    order_id,
+    order,
+    paid_amount_minor,
+    balance_minor,
+):
+    """Tell the customer their transfer was received, in their own chat.
+
+    The customer sent a receipt and then heard nothing. Confirming it closes
+    the loop they started, and tells them what the courier will still collect.
+    """
+    order_number = order.get("orderNumber", "your order")
+
+    # Nothing was banked: the order moved to cash on delivery. Announcing a
+    # payment of zero would read as a mistake, or worse as a refund.
+    if not paid_amount_minor:
+        message = (
+            f"Order {order_number} has been changed to cash on delivery. "
+            f"Please have LKR {balance_minor / 100:,.2f} ready for the courier."
+        )
+    else:
+        message = (
+            f"Payment received for order {order_number}: LKR "
+            f"{paid_amount_minor / 100:,.2f}."
+        )
+        message += (
+            f" The courier will collect the remaining LKR "
+            f"{balance_minor / 100:,.2f} on delivery."
+            if balance_minor
+            else " Your order is paid in full and nothing is due on delivery."
+        )
+    send_chat_message_to_order_sessions(
+        database,
+        business_id,
+        order_id,
+        message,
+        {"action": "payment-recorded", "orderId": order_id},
+    )
+
+
+def send_order_status_chat_message(database, business_id, order_id, order, status, note=""):
+    """Append an automated order update to its originating storefront chat."""
+    label = ORDER_STATUS_LABELS.get(status, status.replace("-", " "))
+    order_number = order.get("orderNumber", "Your order")
+    message = f"Order {order_number} status update: {label}."
+
+    if note:
+        message = f"{message} Note: {note}"
+
+    # Delivery is the one moment a review can be asked for: the customer has
+    # the item in hand and the chat is already open. Asking here costs nothing
+    # and needs no email. The state parks the conversation in the review flow;
+    # "skip" leaves it at any step.
+    session_changes = None
+
+    if status == "delivered":
+        items = order.get("items", [])
+        message += (
+            " How would you rate it out of 5? Say skip if you would rather not."
+            if len(items) < 2
+            else " Which item would you like to review? "
+            + ", ".join(
+                f"{position}. {item.get('productName', 'item')}"
+                for position, item in enumerate(items, start=1)
+            )
+            + ". Say skip if you would rather not."
+        )
+        session_changes = {
+            "state": (
+                "collecting-review-rating"
+                if len(items) < 2
+                else "collecting-review-product"
+            ),
+            "reviewDraft": {
+                "orderId": order_id,
+                "productId": items[0].get("productId", "") if items else "",
+                "media": [],
+            },
+        }
+
+    send_chat_message_to_order_sessions(
+        database,
+        business_id,
+        order_id,
+        message,
+        {"action": "order-status-update", "orderId": order_id, "status": status},
+        session_changes,
+    )
 

@@ -12,10 +12,10 @@ export function getPublicProduct(productCode) {
   });
 }
 
-export function createPublicChatSession({ storeCode, productCode }) {
+export function createPublicChatSession({ storeCode, productCode, language }) {
   return apiRequest("/public/chat/sessions", {
     method: "POST",
-    body: { storeCode, productCode },
+    body: { storeCode, productCode, language },
     requiresAuthentication: "optional",
   });
 }
@@ -73,5 +73,14 @@ export function submitPublicReview(storeCode, reviewData) {
     // Send the Firebase token when the customer is signed in. Guests remain
     // supported and are verified by the order phone number on the server.
     requiresAuthentication: "optional",
+  });
+}
+
+export function sendPublicChatImage(sessionId, sessionToken, image, caption = "") {
+  return apiRequest(`/public/chat/sessions/${sessionId}/images`, {
+    method: "POST",
+    headers: { "X-Chat-Session-Token": sessionToken },
+    body: { image, caption },
+    requiresAuthentication: false,
   });
 }
