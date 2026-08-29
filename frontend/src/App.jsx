@@ -115,7 +115,34 @@ function App() {
 }
 
   return (
-  <Suspense fallback={<main className="app-loading">Loading Vendly...</main>}>
+  <Suspense
+  fallback={
+    <main className="app-loading" aria-label="Loading Vendly">
+      <div className="app-loading__content">
+        <div className="app-loading__logo">
+          <span>V</span>
+        </div>
+
+        <h1>Vendly</h1>
+        <p>Preparing your workspace...</p>
+
+        <div className="app-loading__progress">
+          <span />
+        </div>
+
+        <div className="app-loading__dots" aria-hidden="true">
+          <i />
+          <i />
+          <i />
+        </div>
+      </div>
+    </main>
+  }
+>
+
+
+
+  
   <Routes>
     {/* Login remains publicly accessible. */}
     <Route
