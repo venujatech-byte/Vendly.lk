@@ -152,13 +152,13 @@ function AnalyticsPage() {
       </section>
 
       <nav className="analytics-view-tabs" aria-label="Analytics views">
-        <button type="button" className={activeView === "overview" ? "is-active" : ""} onClick={() => setActiveView("overview")}><LayoutDashboard size={16} /> Overview</button>
-        <button type="button" className={activeView === "ledger" ? "is-active" : ""} onClick={() => setActiveView("ledger")}><ReceiptText size={16} /> Transaction ledger</button>
-        <button type="button" className={activeView === "cod" ? "is-active" : ""} onClick={() => setActiveView("cod")}><WalletCards size={16} /> COD reconciliation</button>
-        <button type="button" className={activeView === "dead-stock" ? "is-active" : ""} onClick={() => setActiveView("dead-stock")}><ArchiveX size={16} /> Dead stock</button>
-        <button type="button" className={activeView === "customers" ? "is-active" : ""} onClick={() => setActiveView("customers")}><UsersRound size={16} /> Customer profit</button>
-        <button type="button" className={activeView === "channels" ? "is-active" : ""} onClick={() => setActiveView("channels")}><Store size={16} /> Sales channels</button>
-        <button type="button" className={activeView === "forecast" ? "is-active" : ""} onClick={() => setActiveView("forecast")}><TrendingUp size={16} /> Forecast</button>
+        <button type="button" className={activeView === "overview" ? "is-active" : ""} onClick={() => setActiveView("overview")}><LayoutDashboard size={16} /><span>Overview</span></button>
+        <button type="button" className={activeView === "ledger" ? "is-active" : ""} onClick={() => setActiveView("ledger")}><ReceiptText size={16} /><span>Transaction ledger</span></button>
+        <button type="button" className={activeView === "cod" ? "is-active" : ""} onClick={() => setActiveView("cod")}><WalletCards size={16} /><span>COD reconciliation</span></button>
+        <button type="button" className={activeView === "dead-stock" ? "is-active" : ""} onClick={() => setActiveView("dead-stock")}><ArchiveX size={16} /><span>Dead stock</span></button>
+        <button type="button" className={activeView === "customers" ? "is-active" : ""} onClick={() => setActiveView("customers")}><UsersRound size={16} /><span>Customer profit</span></button>
+        <button type="button" className={activeView === "channels" ? "is-active" : ""} onClick={() => setActiveView("channels")}><Store size={16} /><span>Sales channels</span></button>
+        <button type="button" className={activeView === "forecast" ? "is-active" : ""} onClick={() => setActiveView("forecast")}><TrendingUp size={16} /><span>Forecast</span></button>
       </nav>
 
       {activeView === "ledger" ? (

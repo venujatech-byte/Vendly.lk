@@ -33,56 +33,60 @@
 
 /* Products and Categories tab navigation. */
 .inventory-tabs {
-  display: flex;
-  align-items: center;
-  gap: 26px;
-
-  margin-top: 18px;
-  margin-bottom: 16px;
-
-  border-bottom: 1px solid var(--color-border);
-}
-
-.inventory-tabs__button {
-  position: relative;
-
   display: inline-flex;
   align-items: center;
+  justify-self: start;
+  gap: 4px;
+  max-width: 100%;
+  margin-top: 18px;
+  margin-bottom: 16px;
+  padding: 4px;
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: 11px;
+  background: var(--color-surface);
+  scrollbar-width: none;
+}
+
+.inventory-tabs::-webkit-scrollbar { display: none; }
+
+.inventory-tabs__button {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
   gap: 7px;
-
-  padding: 11px 4px;
-
+  min-height: 34px;
+  padding: 7px 12px;
   border: 0;
+  border-radius: 8px;
   color: var(--color-muted);
   background: transparent;
-
   font: inherit;
-  font-size: 13px;
-  font-weight: 600;
-
+  font-size: 10px;
+  font-weight: 750;
+  white-space: nowrap;
   cursor: pointer;
 }
 
 .inventory-tabs__button:hover {
-  color: var(--color-accent);
+  color: var(--color-text-strong);
+  background: var(--color-surface-soft);
 }
 
 .inventory-tabs__button--active {
-  color: var(--color-accent);
+  color: #fff;
+  background: var(--color-accent);
+  box-shadow: 0 6px 14px color-mix(in srgb, var(--color-accent) 25%, transparent);
 }
 
 /* Blue underline marks the currently selected inventory tab. */
 .inventory-tabs__button--active::after {
-  content: "";
+  content: none;
+}
 
-  position: absolute;
-  right: 0;
-  bottom: -1px;
-  left: 0;
-
-  height: 2px;
-  border-radius: 2px;
-  background: var(--color-accent);
+@media (max-width: 600px) {
+  .inventory-tabs { display: flex; width: 100%; }
+  .inventory-tabs__button { flex: 1 1 0; justify-content: center; min-width: 36px; padding-inline: 8px; }
 }
 
 /* Temporary container for category content before its table is built. */

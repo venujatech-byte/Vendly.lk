@@ -570,48 +570,42 @@ function OrdersPage() {
 
 
       <nav
-        className="inventory-tabs"
+        className="orders-view-tabs"
         role="tablist"
-        aria-label="Inventory sections"
+        aria-label="Order sections"
       >
         <button
           type="button"
           role="tab"
           aria-selected={activeTab === "onlineOrders"}
-          className={`inventory-tabs__button ${activeTab === "onlineOrders" ? "inventory-tabs__button--active" : ""}`}
+          className={activeTab === "onlineOrders" ? "is-active" : ""}
           onClick={() => setActiveTab("onlineOrders")}
         >
           <GlobeCheck size={17} aria-hidden="true" />
-          Online Orders
+          <span>Online Orders</span>
         </button>
 
         <button
           type="button"
           role="tab"
           aria-selected={activeTab === "shopOrders"}
-          className={`inventory-tabs__button ${activeTab === "shopOrders"
-            ? "inventory-tabs__button--active"
-            : ""
-            }`}
+          className={activeTab === "shopOrders" ? "is-active" : ""}
           onClick={() => setActiveTab("shopOrders")}
         >
           <Store size={17} aria-hidden="true" />
-          Shop Sales
+          <span>Shop Sales</span>
         </button>
 
 
-                <button
+        <button
           type="button"
           role="tab"
           aria-selected={activeTab === "warrantyClaims"}
-          className={`inventory-tabs__button ${activeTab === "warrantyClaims"
-            ? "inventory-tabs__button--active"
-            : ""
-            }`}
+          className={activeTab === "warrantyClaims" ? "is-active" : ""}
           onClick={() => setActiveTab("warrantyClaims")}
         >
           <ShieldCheck size={17} aria-hidden="true" />
-          Warranty claims
+          <span>Warranty claims</span>
         </button>
       </nav>
 

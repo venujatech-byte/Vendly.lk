@@ -1279,3 +1279,9 @@ html[data-theme="dark"] .analytics-financial-flow .is-total strong {
     transform: none;
   }
 }
+
+@media (max-width: 600px) {
+  .analytics-view-tabs { display: flex; width: 100%; }
+  .analytics-view-tabs button { flex: 1 1 0; justify-content: center; min-width: 36px; padding-inline: 8px; }
+  .analytics-view-tabs button span { display: none; }
+}

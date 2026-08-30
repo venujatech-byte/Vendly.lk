@@ -553,7 +553,7 @@ function InventoryPage() {
             onClick={() => setActiveTab("products")}
           >
             <Package size={17} aria-hidden="true" />
-            Products
+            <span>Products</span>
           </button>
 
           <button
@@ -567,7 +567,7 @@ function InventoryPage() {
             onClick={() => setActiveTab("categories")}
           >
             <Tags size={17} aria-hidden="true" />
-            Categories
+            <span>Categories</span>
           </button>
         </nav>
 

@@ -10,55 +10,56 @@
 
 
 .customer-tabs {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 26px;
-
+  justify-self: start;
+  gap: 4px;
+  max-width: 100%;
   margin-top: 18px;
   margin-bottom: 16px;
-
-  border-bottom: 1px solid var(--color-border);
+  padding: 4px;
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: 11px;
+  background: var(--color-surface);
+  scrollbar-width: none;
 }
+
+.customer-tabs::-webkit-scrollbar { display: none; }
 
 .customer-tabs__button {
   position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 1px;
-
-  padding: 11px 4px;
-
+  flex: 0 0 auto;
+  gap: 7px;
+  min-height: 34px;
+  padding: 7px 12px;
   border: 0;
+  border-radius: 8px;
   color: var(--color-muted);
   background: transparent;
-
   font: inherit;
-  font-size: 13px;
-  font-weight: 600;
-
+  font-size: 10px;
+  font-weight: 750;
+  white-space: nowrap;
   cursor: pointer;
 }
 
 .customer-tabs__button:hover {
-  color: var(--color-accent);
+  color: var(--color-text-strong);
+  background: var(--color-surface-soft);
 }
 
 .customer-tabs__button--active {
-  color: var(--color-accent);
+  color: #fff;
+  background: var(--color-accent);
+  box-shadow: 0 6px 14px color-mix(in srgb, var(--color-accent) 25%, transparent);
 }
 
 /* Blue underline marks the currently selected inventory tab. */
 .customer-tabs__button--active::after {
-  content: "";
-
-  position: absolute;
-  right: 0;
-  bottom: -1px;
-  left: 0;
-
-  height: 2px;
-  border-radius: 2px;
-  background: var(--color-accent);
+  content: none;
 }
 
 @media (max-width: 700px) {
@@ -445,6 +446,38 @@
   );
   font-size: 0.68rem;
   font-weight: 700;
+}
+
+@media (max-width: 600px) {
+  .customers-page .customer-tabs {
+    display: flex;
+    width: 100%;
+    grid-template-columns: none;
+    gap: 4px;
+    padding: 4px;
+    overflow-x: hidden;
+  }
+
+  .customers-page .customer-tabs__button {
+    flex: 1 1 0;
+    justify-content: center;
+    min-width: 36px;
+    padding-inline: 8px;
+  }
+
+  .customers-page .customer-tabs__button > span { display: none; }
+
+  .customer-tabs__count {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    min-width: 14px;
+    height: 14px;
+    padding: 0 3px;
+    color: #fff;
+    background: #ef4444;
+    font-size: 8px;
+  }
 }
 
 /* Messages is a focused workspace, so it does not need the empty vertical
