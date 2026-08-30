@@ -502,10 +502,24 @@
 }
 
 .analytics-products em {
+  display: grid;
+  gap: 2px;
+  justify-items: end;
   color: var(--color-text-strong);
   font-size: 10px;
   font-style: normal;
   font-weight: 750;
+}
+
+.analytics-products em small {
+  font-size: 8px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.analytics-products em.is-negative,
+.analytics-products em.is-negative small {
+  color: var(--color-danger, #dc3545);
 }
 
 .analytics-inventory-score {

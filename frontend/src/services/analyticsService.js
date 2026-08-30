@@ -17,6 +17,23 @@ export async function getAnalyticsLedger(businessId) {
 }
 
 
+export async function getCodReconciliation(businessId) {
+  const response = await apiRequest(
+    `/businesses/${businessId}/analytics/cod-reconciliation`,
+  );
+  return response.reconciliation;
+}
+
+
+export async function saveCodSettlement(businessId, orderId, settlement) {
+  const response = await apiRequest(
+    `/businesses/${businessId}/analytics/cod-reconciliation/${orderId}`,
+    { method: "PATCH", body: settlement },
+  );
+  return response.reconciliation;
+}
+
+
 export async function downloadAnalyticsLedger(businessId, filters = {}) {
   const searchParameters = new URLSearchParams();
   if (filters.search?.trim()) searchParameters.set("search", filters.search.trim());

@@ -1,5 +1,6 @@
 import {
   Banknote,
+  ArchiveX,
   Boxes,
   CircleCheck,
   Clock3,
@@ -10,15 +11,19 @@ import {
   ShoppingBag,
   TrendingUp,
   TriangleAlert,
+  WalletCards,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import AnalyticsLedger from "../components/AnalyticsLedger";
+import CodReconciliation from "../components/CodReconciliation";
+import DeadStockReport from "../components/DeadStockReport";
 import { useAuth } from "../context/authContextValue";
 import {
   formatAnalyticsMoney,
   getAnalyticsLedger,
   getAnalyticsOverview,
+  getCodReconciliation,
 } from "../services/analyticsService";
 import "./AnalyticsPage.css";
 
@@ -32,8 +37,10 @@ function AnalyticsPage() {
   const { business } = useAuth();
   const [analytics, setAnalytics] = useState(null);
   const [ledger, setLedger] = useState(null);
+  const [reconciliation, setReconciliation] = useState(null);
   const [error, setError] = useState(null);
   const [ledgerError, setLedgerError] = useState(null);
+  const [reconciliationError, setReconciliationError] = useState(null);
   const [activeView, setActiveView] = useState("overview");
 
   useEffect(() => {
@@ -55,6 +62,14 @@ function AnalyticsPage() {
       })
       .catch((requestError) => {
         if (requestIsCurrent) setLedgerError(requestError);
+      });
+    setReconciliationError(null);
+    getCodReconciliation(business.id)
+      .then((data) => {
+        if (requestIsCurrent) setReconciliation(data);
+      })
+      .catch((requestError) => {
+        if (requestIsCurrent) setReconciliationError(requestError);
       });
 
     return () => {
@@ -93,8 +108,8 @@ function AnalyticsPage() {
   const deliveryEnd = percentage(delivered, totalOrders);
   const shippedEnd = percentage(delivered + shipped, totalOrders);
   const progressEnd = percentage(delivered + shipped + confirmedToPacked, totalOrders);
-  const topProductMaximum = Math.max(
-    ...(analytics?.topProducts ?? []).map((item) => item.quantity),
+  const productProfitMaximum = Math.max(
+    ...(analytics?.productProfitability ?? []).map((item) => Math.max(item.grossProfitMinor, 0)),
     1,
   );
   const inventoryAttention = (inventory.lowStockCount ?? 0) + (inventory.outOfStockCount ?? 0);
@@ -127,10 +142,16 @@ function AnalyticsPage() {
       <nav className="analytics-view-tabs" aria-label="Analytics views">
         <button type="button" className={activeView === "overview" ? "is-active" : ""} onClick={() => setActiveView("overview")}><LayoutDashboard size={16} /> Overview</button>
         <button type="button" className={activeView === "ledger" ? "is-active" : ""} onClick={() => setActiveView("ledger")}><ReceiptText size={16} /> Transaction ledger</button>
+        <button type="button" className={activeView === "cod" ? "is-active" : ""} onClick={() => setActiveView("cod")}><WalletCards size={16} /> COD reconciliation</button>
+        <button type="button" className={activeView === "dead-stock" ? "is-active" : ""} onClick={() => setActiveView("dead-stock")}><ArchiveX size={16} /> Dead stock</button>
       </nav>
 
       {activeView === "ledger" ? (
         <AnalyticsLedger businessId={business?.id} ledger={ledger} isLoading={!ledger && !ledgerError} error={ledgerError} />
+      ) : activeView === "cod" ? (
+        <CodReconciliation businessId={business?.id} reconciliation={reconciliation} isLoading={!reconciliation && !reconciliationError} error={reconciliationError} onChange={setReconciliation} />
+      ) : activeView === "dead-stock" ? (
+        <DeadStockReport report={analytics?.deadStock} isLoading={!analytics} />
       ) : (
         <>
 
@@ -209,15 +230,22 @@ function AnalyticsPage() {
 
       <section className="analytics-grid analytics-grid--bottom" aria-label="Product and inventory insights">
         <article className="analytics-panel analytics-panel--products">
-          <header><div><span>Product performance</span><h3>Top-selling products</h3><p>Ranked by delivered units and product revenue</p></div><Boxes size={20} /></header>
+          <header><div><span>Product performance</span><h3>Product profitability</h3><p>Delivered revenue after discounts, recorded cost and warranty impact</p></div><TrendingUp size={20} /></header>
           <div className="analytics-products">
-            {(analytics?.topProducts ?? []).length === 0 ? (
-              <p className="analytics-empty">Delivered product sales will appear here.</p>
-            ) : analytics.topProducts.map((product, index) => (
+            {(analytics?.productProfitability ?? []).length === 0 ? (
+              <p className="analytics-empty">Delivered product profitability will appear here.</p>
+            ) : analytics.productProfitability.map((product, index) => (
               <div key={product.id}>
                 <b>{index + 1}</b>
-                <span><strong>{product.name}</strong><small>{product.quantity} units sold</small><i><u style={{ width: `${(product.quantity / topProductMaximum) * 100}%` }} /></i></span>
-                <em>{formatAnalyticsMoney(product.revenueMinor)}</em>
+                <span>
+                  <strong>{product.name}</strong>
+                  <small>{product.quantity} units · revenue {formatAnalyticsMoney(product.revenueMinor)} · cost {formatAnalyticsMoney(product.costOfGoodsMinor)}</small>
+                  <i><u style={{ width: `${(Math.max(product.grossProfitMinor, 0) / productProfitMaximum) * 100}%` }} /></i>
+                </span>
+                <em className={product.grossProfitMinor < 0 ? "is-negative" : ""}>
+                  {formatAnalyticsMoney(product.grossProfitMinor)}
+                  <small>{product.grossMarginPercent}% margin</small>
+                </em>
               </div>
             ))}
           </div>
@@ -239,7 +267,7 @@ function AnalyticsPage() {
       </section>
 
       <p className="analytics-page__footnote">
-        Gross profit is product revenue minus recorded product cost. It does not subtract salaries, rent, advertising, tax or other operating expenses.
+        Product profitability uses delivered revenue after discounts, recorded product cost and product-linked warranty deductions. It does not subtract salaries, rent, advertising, tax or other operating expenses.
       </p>
         </>
       )}

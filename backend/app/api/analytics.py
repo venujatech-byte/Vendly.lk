@@ -1,8 +1,6 @@
 from datetime import datetime, timezone
 
-from datetime import datetime, timezone
-
-from flask import Blueprint, jsonify, request, send_file
+from flask import Blueprint, g, jsonify, request, send_file
 
 from app.core.auth import require_firebase_user
 from app.core.authorization import require_business_member
@@ -10,6 +8,10 @@ from app.core.firebase import get_firestore_client
 from app.services.analytics_service import (
     get_business_analytics,
     get_business_ledger,
+)
+from app.services.cod_reconciliation_service import (
+    get_cod_reconciliation,
+    update_cod_settlement,
 )
 from app.services.spreadsheet_service import export_ledger_workbook
 
@@ -33,6 +35,30 @@ def analytics_ledger(business_id):
     return jsonify(
         {"ledger": get_business_ledger(get_firestore_client(), business_id)},
     )
+
+
+@analytics_blueprint.get("/businesses/<business_id>/analytics/cod-reconciliation")
+@require_firebase_user
+@require_business_member(permission="analytics:read")
+def analytics_cod_reconciliation(business_id):
+    return jsonify({
+        "reconciliation": get_cod_reconciliation(get_firestore_client(), business_id),
+    })
+
+
+@analytics_blueprint.patch("/businesses/<business_id>/analytics/cod-reconciliation/<order_id>")
+@require_firebase_user
+@require_business_member(permission="orders:*")
+def analytics_update_cod_reconciliation(business_id, order_id):
+    return jsonify({
+        "reconciliation": update_cod_settlement(
+            get_firestore_client(),
+            business_id,
+            order_id,
+            request.get_json(silent=True) or {},
+            g.current_user["uid"],
+        ),
+    })
 
 
 @analytics_blueprint.get("/businesses/<business_id>/analytics/ledger-export.xlsx")

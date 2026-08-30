@@ -76,6 +76,10 @@ PATCH  /businesses/{businessId}/notifications/{notificationId}/read
 GET    /businesses/{businessId}/analytics/overview
 GET    /businesses/{businessId}/analytics/ledger
 GET    /businesses/{businessId}/analytics/ledger-export.xlsx
+GET    /businesses/{businessId}/analytics/cod-reconciliation
+PATCH  /businesses/{businessId}/analytics/cod-reconciliation/{orderId}
+GET    /businesses/{businessId}/analytics/cod-reconciliation
+PATCH  /businesses/{businessId}/analytics/cod-reconciliation/{orderId}
 GET    /businesses/{businessId}/search?q={query}
 ```
 
@@ -88,9 +92,22 @@ search, type, dateFrom, dateTo
 `analytics/overview` currently returns order counts, inventory totals,
 customer count, revenue, cost of goods, gross profit, average order value,
 delivery success, return rate, seven daily order points, twelve monthly revenue
-points, top products, recent orders and the daily work-centre counts. Financial
-amounts are returned as integer minor units; formatting them as LKR belongs in
-the frontend.
+points, top products, product profitability, recent orders and the daily
+
+COD reconciliation uses a separate settlement record per delivered COD order.
+Its PATCH payload accepts `amountCollectedMinor`, `courierChargeMinor`,
+`receivedSettlementMinor`, `settlementDate`, `settlementReference`, `note`, and
+`isDisputed`.
+
+The COD reconciliation PATCH accepts `amountCollectedMinor`,
+`courierChargeMinor`, `receivedSettlementMinor`, `settlementDate`,
+`settlementReference`, `note`, and `isDisputed`. Only delivered orders with a
+remaining COD balance can be reconciled.
+work-centre counts. Each `productProfitability` row contains delivered quantity,
+net product revenue after allocated order discounts, product cost, product-linked
+warranty deductions, gross profit and gross-margin percentage. Financial amounts
+are returned as integer minor units; formatting them as LKR belongs in the
+frontend.
 
 ## Public mini-store and chatbot
 

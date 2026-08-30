@@ -27320,6 +27320,14 @@ Relevant file: `frontend/src/MotionPreferences.css`.
 
 The Analytics page contains Overview and Transaction Ledger tabs. The overview is derived from operational data; the ledger normalizes orders, shop sales, warranty costs and inventory transactions. Both the filtered table and Excel export use the same server-side search, type and date filters.
 
+The Product profitability panel is calculated only from delivered online-order
+items. For every order, the backend allocates the order discount proportionally
+to each line total, calculates COGS from the stored unit cost, and then attributes
+product-linked warranty deductions. The API returns quantity, net revenue, COGS,
+warranty deductions, gross profit and gross-margin percentage per product. Keep
+this labelled as gross product profitability: courier allocation, return handling
+and operating expenses are not included yet.
+
 Relevant files: `frontend/src/pages/AnalyticsPage.jsx`, `frontend/src/components/analytics/AnalyticsLedger.jsx`, `frontend/src/services/analyticsService.js`, `backend/app/api/analytics.py`, and `backend/app/services/analytics_service.py`.
 
 Do not label gross profit as net profit. Net profit additionally requires operating expenses such as rent, salaries, utilities, marketing and tax.

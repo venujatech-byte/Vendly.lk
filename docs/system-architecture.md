@@ -403,3 +403,10 @@ Flask so permissions and monetary formatting are consistent.
 ## Public chatbot checkout state
 
 The chatbot stores its current state and contact draft in Firestore. The draft includes one required phone, an optional second phone, street address, district, nearest city, and an optional delivery note. Flask owns validation and order creation; React only sends replies and renders the returned draft. The confirmed order reuses the standard customer, order, delivery-price, fraud-warning, and stock transaction services.
+# COD reconciliation storage
+
+Courier settlement state is stored at
+`businesses/{businessId}/codSettlements/{orderId}`. The order remains the source
+of truth for delivery and its COD balance; this independent document records
+the courier collection, charges, received settlement, reference, date, notes
+and dispute state.

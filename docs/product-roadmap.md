@@ -353,8 +353,13 @@ These items are future work unless explicitly listed as implemented in `README.m
 
 ### Priority 1 — financial control
 
-- Product contribution margin after discounts, courier cost, returns and warranty cost.
+- **Implemented foundation:** product gross profitability after allocated order
+  discounts, recorded product cost and product-linked warranty deductions.
+- Extend product gross profitability into contribution margin by allocating
+  courier charges and return-handling costs per product.
 - COD reconciliation: expected collection, courier deductions, settlement received, variance and overdue settlements.
+- Implemented: Analytics now records separate per-order settlements and shows
+  courier charges, received settlement, variance, overdue state and disputes.
 - Operating-expense ledger for rent, salaries, utilities, marketing and tax so Vendly can calculate true net profit.
 
 ### Priority 2 — stock and delivery decisions

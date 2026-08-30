@@ -1,0 +1,23 @@
+.dead-stock { display:grid; gap:16px; }
+.dead-stock__intro { display:flex; align-items:center; justify-content:space-between; gap:18px; padding:18px 20px; border:1px solid var(--color-border); border-radius:16px; background:var(--color-surface); }
+.dead-stock__intro span { color:var(--color-accent); font-size:10px; font-weight:800; letter-spacing:.09em; text-transform:uppercase; }
+.dead-stock__intro h3 { margin:3px 0; color:var(--color-text-strong); font-size:20px; }
+.dead-stock__intro p { margin:0; color:var(--color-muted); font-size:12px; }
+.dead-stock__intro > svg { color:#ef4444; }
+.dead-stock__stats { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; }
+.dead-stock__filter-form { grid-template-columns:minmax(220px,2fr) repeat(2,minmax(150px,1fr)) auto auto; }
+.dead-stock__table-shell { overflow:hidden; border:1px solid var(--color-border); border-radius:14px; background:var(--color-surface); }
+.dead-stock table { width:100%; border-collapse:collapse; font-size:11px; }
+.dead-stock th,.dead-stock td { padding:11px 10px; border-bottom:1px solid var(--color-border); text-align:left; vertical-align:middle; }
+.dead-stock th { color:var(--color-text-strong); background:var(--color-surface-soft); font-size:10px; }
+.dead-stock td { color:var(--color-text); }
+.dead-stock td strong,.dead-stock td small { display:block; }
+.dead-stock td small { margin-top:3px; color:var(--color-muted); font-size:9px; }
+.dead-stock__product { display:flex; align-items:center; gap:9px; min-width:150px; }
+.dead-stock__product > img,.dead-stock__product > svg { width:38px; height:38px; flex:0 0 38px; border:1px solid var(--color-border); border-radius:8px; object-fit:contain; background:var(--color-surface-soft); }
+.dead-stock__product > svg { padding:8px; color:var(--color-muted); }
+.dead-stock__state { display:inline-flex; padding:4px 8px; border-radius:999px; font-size:9px; font-weight:800; }
+.dead-stock__state.is-never-sold,.dead-stock__state.is-critical { color:#b42318; background:#feeceb; }
+.dead-stock__state.is-stale { color:#a65a00; background:#fff3db; }
+@media (max-width:900px) { .dead-stock__stats { grid-template-columns:repeat(2,minmax(0,1fr)); }.dead-stock__filter-form { grid-template-columns:1fr 1fr; }.dead-stock__table-shell { overflow-x:auto; }.dead-stock table { min-width:940px; } }
+@media (max-width:600px) { .dead-stock__stats { gap:8px; }.dead-stock__intro { align-items:flex-start; }.dead-stock__intro > svg { width:20px; } }

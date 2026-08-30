@@ -56,6 +56,40 @@ def delivered_financials(order):
     return product_revenue, cost_of_goods, product_revenue - cost_of_goods
 
 
+def delivered_item_financials(order):
+    """Allocate an order discount across its items and return integer totals.
+
+    The final item receives the rounding remainder, so product revenue always
+    adds up to the delivered order's product revenue exactly.
+    """
+    items = order.get("items", [])
+    line_totals = [max(int(item.get("lineTotalMinor", 0) or 0), 0) for item in items]
+    subtotal = sum(line_totals)
+    discount = min(max(int(order.get("discountTotalMinor", 0) or 0), 0), subtotal)
+    allocated = 0
+    results = []
+
+    for index, (item, line_total) in enumerate(zip(items, line_totals)):
+        item_discount = (
+            discount - allocated
+            if index == len(items) - 1
+            else (discount * line_total // subtotal if subtotal else 0)
+        )
+        allocated += item_discount
+        quantity = max(int(item.get("quantity", 0) or 0), 0)
+        cost = max(int(item.get("unitCostMinor", 0) or 0), 0) * quantity
+        revenue = max(line_total - item_discount, 0)
+        results.append({
+            "item": item,
+            "quantity": quantity,
+            "revenueMinor": revenue,
+            "costOfGoodsMinor": cost,
+            "grossProfitMinor": revenue - cost,
+        })
+
+    return results
+
+
 def percentage(part, whole):
     """Return a dashboard-friendly percentage without risking division by zero."""
     return round((part / whole) * 100, 1) if whole else 0
@@ -80,6 +114,132 @@ def recent_order_summary(order):
     }
 
 
+def _product_unit_cost(product):
+    """Return the current weighted unit cost for a product's available stock."""
+    variants = product.get("variantSummaries") or []
+    stocked_variants = [
+        variant for variant in variants
+        if max(int(variant.get("stockAvailable", 0) or 0), 0) > 0
+    ]
+    if not stocked_variants:
+        return max(int(product.get("costPriceMinor", 0) or 0), 0)
+
+    stocked_units = sum(
+        max(int(variant.get("stockAvailable", 0) or 0), 0)
+        for variant in stocked_variants
+    )
+    stocked_cost = sum(
+        max(int(variant.get("stockAvailable", 0) or 0), 0)
+        * max(int(variant.get("costPriceMinor", 0) or 0), 0)
+        for variant in stocked_variants
+    )
+    return stocked_cost // stocked_units if stocked_units else 0
+
+
+def build_dead_stock_report(products, orders, now=None, stale_days=60):
+    """Find stocked products that have never sold or have been idle too long.
+
+    Only delivered orders count as sales. Returned, cancelled and incomplete
+    orders must not make an inactive product appear healthy.
+    """
+    now = now or datetime.now(timezone.utc)
+    recent_cutoff = now - timedelta(days=90)
+    last_sales = {}
+    recent_units = defaultdict(int)
+
+    for order in orders:
+        if order.get("fulfilmentStatus") != "delivered":
+            continue
+        sold_at = as_datetime(order.get("createdAt"))
+        if not sold_at:
+            continue
+        for item in order.get("items", []):
+            product_id = item.get("productId")
+            if not product_id:
+                continue
+            if product_id not in last_sales or sold_at > last_sales[product_id]:
+                last_sales[product_id] = sold_at
+            if sold_at >= recent_cutoff:
+                recent_units[product_id] += max(int(item.get("quantity", 0) or 0), 0)
+
+    rows = []
+    for product in products:
+        if product.get("status", "active") != "active":
+            continue
+        product_id = product.get("id")
+        stock = max(int(product.get("availableStock", 0) or 0), 0)
+        if not product_id or stock <= 0:
+            continue
+
+        last_sold_at = last_sales.get(product_id)
+        days_since_sale = (now - last_sold_at).days if last_sold_at else None
+        if last_sold_at and days_since_sale < stale_days:
+            continue
+
+        unit_cost = _product_unit_cost(product)
+        selling_price = max(int(product.get("sellingPriceMinor", 0) or 0), 0)
+        margin = percentage(selling_price - unit_cost, selling_price)
+        media = product.get("media") or []
+        image_url = next(
+            (item.get("url") or item.get("path") for item in media
+             if item.get("type", "image") == "image"),
+            "",
+        )
+        if not image_url:
+            image_url = next(
+                (variant.get("imageUrl", "") for variant in
+                 product.get("variantSummaries", []) if variant.get("imageUrl")),
+                "",
+            )
+
+        if last_sold_at is None:
+            state = "never-sold"
+            recommendation = "Launch a promotion or bundle"
+        elif days_since_sale >= 120:
+            state = "critical"
+            recommendation = "Discount or clear this stock"
+        else:
+            state = "stale"
+            recommendation = "Promote to recent customers"
+
+        rows.append({
+            "id": product_id,
+            "name": product.get("name") or "Product",
+            "sku": product.get("skuPrefix") or "—",
+            "categoryName": product.get("categoryName") or "Uncategorized",
+            "imageUrl": image_url,
+            "availableStock": stock,
+            "unitCostMinor": unit_cost,
+            "sellingPriceMinor": selling_price,
+            "tiedUpCostMinor": stock * unit_cost,
+            "grossMarginPercent": margin,
+            "lastSoldAt": last_sold_at,
+            "daysSinceLastSale": days_since_sale,
+            "unitsSoldLast90Days": recent_units[product_id],
+            "state": state,
+            "recommendation": recommendation,
+        })
+
+    rows.sort(
+        key=lambda row: (
+            row["state"] == "never-sold",
+            row["daysSinceLastSale"] or 999999,
+            row["tiedUpCostMinor"],
+        ),
+        reverse=True,
+    )
+    return {
+        "summary": {
+            "productCount": len(rows),
+            "stockUnits": sum(row["availableStock"] for row in rows),
+            "tiedUpCostMinor": sum(row["tiedUpCostMinor"] for row in rows),
+            "neverSoldCount": sum(row["state"] == "never-sold" for row in rows),
+        },
+        "staleAfterDays": stale_days,
+        "products": rows,
+    }
+
+
 def calculate_analytics(
     orders,
     products,
@@ -96,7 +256,14 @@ def calculate_analytics(
     cost_of_goods_minor = 0
     gross_profit_minor = 0
     top_products = defaultdict(
-        lambda: {"name": "Product", "quantity": 0, "revenueMinor": 0},
+        lambda: {
+            "name": "Product",
+            "quantity": 0,
+            "revenueMinor": 0,
+            "costOfGoodsMinor": 0,
+            "grossProfitMinor": 0,
+            "warrantyDeductionsMinor": 0,
+        },
     )
     day_keys = [
         (now.date() - timedelta(days=offset)).isoformat()
@@ -128,13 +295,16 @@ def calculate_analytics(
             if key in monthly_revenue:
                 monthly_revenue[key] += revenue
 
-        for item in order.get("items", []):
+        for item_financials in delivered_item_financials(order):
+            item = item_financials["item"]
             product_id = item.get("productId", "unknown")
             summary = top_products[product_id]
             summary["id"] = product_id
             summary["name"] = item.get("name", "Product")
-            summary["quantity"] += item.get("quantity", 0)
-            summary["revenueMinor"] += item.get("lineTotalMinor", 0)
+            summary["quantity"] += item_financials["quantity"]
+            summary["revenueMinor"] += item_financials["revenueMinor"]
+            summary["costOfGoodsMinor"] += item_financials["costOfGoodsMinor"]
+            summary["grossProfitMinor"] += item_financials["grossProfitMinor"]
 
     active_orders = [
         order
@@ -189,6 +359,34 @@ def calculate_analytics(
     product_revenue_minor = max(product_revenue_minor - warranty_deductions_minor, 0)
     gross_profit_minor -= warranty_deductions_minor
 
+    for claim in warranty_claims:
+        if (
+            claim.get("status") == "cancelled"
+            or claim.get("sourceType") != "online-order"
+        ):
+            continue
+        impact = max(int(claim.get("revenueImpactMinor", 0) or 0), 0)
+        item = claim.get("item") or {}
+        product_id = item.get("productId")
+        if not product_id or not impact:
+            continue
+        summary = top_products[product_id]
+        summary["id"] = product_id
+        summary["name"] = item.get("name") or summary["name"]
+        summary["warrantyDeductionsMinor"] += impact
+        summary["revenueMinor"] = max(summary["revenueMinor"] - impact, 0)
+        summary["grossProfitMinor"] -= impact
+
+    product_profitability = []
+    for summary in top_products.values():
+        product_profitability.append({
+            **summary,
+            "grossMarginPercent": percentage(
+                summary["grossProfitMinor"],
+                summary["revenueMinor"],
+            ),
+        })
+
     return {
         "orderCounts": {"all": len(orders), **status_counts},
         "inventory": {
@@ -236,6 +434,12 @@ def calculate_analytics(
             key=lambda item: (item["quantity"], item["revenueMinor"]),
             reverse=True,
         )[:5],
+        "productProfitability": sorted(
+            product_profitability,
+            key=lambda item: (item["grossProfitMinor"], item["revenueMinor"]),
+            reverse=True,
+        )[:5],
+        "deadStock": build_dead_stock_report(products, orders, now=now),
         "recentOrders": [
             recent_order_summary(order) for order in recent_orders
         ],
