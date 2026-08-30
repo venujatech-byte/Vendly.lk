@@ -1,11 +1,62 @@
 from datetime import datetime, timezone
 
 from app.services.analytics_service import (
+    build_customer_profitability_report,
     build_dead_stock_report,
     build_transaction_ledger,
     calculate_analytics,
     recent_months,
 )
+
+
+def test_customer_profitability_uses_delivered_sales_and_tracks_returns():
+    report = build_customer_profitability_report(
+        [
+            {"id": "c1", "name": "Nimali", "normalizedPhone": "94771234567",
+             "email": "nimali@example.com"},
+            {"id": "c2", "name": "Kamal", "normalizedPhone": "94770000000"},
+        ],
+        [
+            {
+                "id": "o1", "customerId": "c1", "fulfilmentStatus": "delivered",
+                "createdAt": "2026-08-20T10:00:00Z", "subtotalMinor": 200000,
+                "discountTotalMinor": 20000,
+                "items": [{"quantity": 2, "unitCostMinor": 50000}],
+            },
+            {
+                "id": "o2", "customerId": "c1", "fulfilmentStatus": "returned",
+                "createdAt": "2026-08-22T10:00:00Z", "subtotalMinor": 100000,
+                "items": [{"quantity": 1, "unitCostMinor": 50000}],
+            },
+            {
+                "id": "o3", "customerId": "c1", "fulfilmentStatus": "cancelled",
+                "createdAt": "2026-08-23T10:00:00Z", "subtotalMinor": 900000,
+            },
+        ],
+    )
+
+    nimali = next(row for row in report["customers"] if row["id"] == "c1")
+    assert nimali["orderCount"] == 2
+    assert nimali["deliveredOrderCount"] == 1
+    assert nimali["returnedOrderCount"] == 1
+    assert nimali["productRevenueMinor"] == 180000
+    assert nimali["discountTotalMinor"] == 20000
+    assert nimali["costOfGoodsMinor"] == 100000
+    assert nimali["grossProfitMinor"] == 80000
+    assert nimali["grossMarginPercent"] == 44.4
+    assert nimali["returnRatePercent"] == 50
+    assert nimali["isHighReturn"] is True
+    assert nimali["profitabilityState"] == "profitable"
+
+    kamal = next(row for row in report["customers"] if row["id"] == "c2")
+    assert kamal["profitabilityState"] == "no-sales"
+    assert report["summary"] == {
+        "customerCount": 2,
+        "productRevenueMinor": 180000,
+        "grossProfitMinor": 80000,
+        "profitableCustomerCount": 1,
+        "highReturnCustomerCount": 1,
+    }
 
 
 def test_dead_stock_report_includes_never_sold_and_old_stock_only():

@@ -1,0 +1,26 @@
+.customer-profitability { display:grid; gap:16px; }
+.customer-profitability__intro { display:flex; align-items:center; justify-content:space-between; gap:18px; padding:18px 20px; border:1px solid var(--color-border); border-radius:16px; background:var(--color-surface); }
+.customer-profitability__intro span { color:var(--color-accent); font-size:10px; font-weight:800; letter-spacing:.09em; text-transform:uppercase; }
+.customer-profitability__intro h3 { margin:3px 0; color:var(--color-text-strong); font-size:20px; }
+.customer-profitability__intro p { margin:0; color:var(--color-muted); font-size:12px; }
+.customer-profitability__intro > svg { color:var(--color-accent); }
+.customer-profitability__stats { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; }
+.customer-profitability__filter-form { grid-template-columns:minmax(230px,2fr) repeat(2,minmax(160px,1fr)) auto auto; }
+.customer-profitability__table-shell { overflow:hidden; border:1px solid var(--color-border); border-radius:14px; background:var(--color-surface); }
+.customer-profitability table { width:100%; border-collapse:collapse; font-size:11px; }
+.customer-profitability th,.customer-profitability td { padding:11px 9px; border-bottom:1px solid var(--color-border); text-align:left; vertical-align:middle; }
+.customer-profitability th { color:var(--color-text-strong); background:var(--color-surface-soft); font-size:10px; white-space:nowrap; }
+.customer-profitability td { color:var(--color-text); }
+.customer-profitability td strong,.customer-profitability td small { display:block; }
+.customer-profitability td small { margin-top:3px; color:var(--color-muted); font-size:9px; }
+.customer-profitability__customer { display:flex; align-items:center; gap:9px; min-width:185px; }
+.customer-profitability__customer > i { display:grid; width:36px; height:36px; flex:0 0 36px; place-items:center; border-radius:50%; color:var(--color-accent); background:color-mix(in srgb,var(--color-accent) 12%,var(--color-surface)); font-size:10px; font-style:normal; font-weight:800; }
+.customer-profitability__state { display:inline-flex; padding:4px 8px; border-radius:999px; font-size:9px; font-weight:800; white-space:nowrap; }
+.customer-profitability__state.is-profitable { color:#067647; background:#dcfae6; }
+.customer-profitability__state.is-low-margin { color:#a15c00; background:#fff3db; }
+.customer-profitability__state.is-loss { color:#b42318; background:#feeceb; }
+.customer-profitability__state.is-no-sales { color:var(--color-muted); background:var(--color-surface-soft); }
+.customer-profitability .is-profit { color:#087a4b; }
+.customer-profitability .is-loss,.customer-profitability .is-risk { color:#d92d20; }
+@media (max-width:1000px) { .customer-profitability__stats { grid-template-columns:repeat(2,minmax(0,1fr)); }.customer-profitability__filter-form { grid-template-columns:1fr 1fr; }.customer-profitability__table-shell { overflow-x:auto; }.customer-profitability table { min-width:1050px; } }
+@media (max-width:600px) { .customer-profitability__stats { gap:8px; }.customer-profitability__intro { align-items:flex-start; }.customer-profitability__intro > svg { width:20px; }.customer-profitability__customer { min-width:165px; } }

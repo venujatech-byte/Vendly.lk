@@ -240,6 +240,166 @@ def build_dead_stock_report(products, orders, now=None, stale_days=60):
     }
 
 
+def build_customer_profitability_report(customers, orders):
+    """Summarize delivered revenue, product cost and returns by customer.
+
+    Revenue and cost come only from delivered orders. Returned orders are
+    tracked as a customer-risk signal, but are never counted as sales. This
+    mirrors the main analytics totals and prevents pending or cancelled orders
+    from making a customer's lifetime value look larger than it is.
+    """
+    rows = {}
+
+    def customer_row(customer_id, customer=None, snapshot=None):
+        customer = customer or {}
+        snapshot = snapshot or {}
+        name = customer.get("name") or snapshot.get("name") or "Customer"
+        phone = (
+            customer.get("normalizedPhone")
+            or snapshot.get("normalizedPhone")
+            or ""
+        )
+        email = customer.get("email") or snapshot.get("email") or ""
+        return {
+            "id": customer_id,
+            "name": name,
+            "phoneNumber": phone,
+            "email": email,
+            "orderCount": 0,
+            "deliveredOrderCount": 0,
+            "returnedOrderCount": 0,
+            "productRevenueMinor": 0,
+            "discountTotalMinor": 0,
+            "costOfGoodsMinor": 0,
+            "grossProfitMinor": 0,
+            "lastOrderAt": None,
+        }
+
+    customer_lookup = {}
+    for customer in customers:
+        customer_id = customer.get("id")
+        if not customer_id:
+            continue
+        customer_lookup[customer_id] = customer
+        rows[customer_id] = customer_row(customer_id, customer=customer)
+
+    for order in orders:
+        status = order.get("fulfilmentStatus", "needs-confirmation")
+        if status == "cancelled":
+            continue
+
+        snapshot = order.get("customerSnapshot") or {}
+        customer_id = order.get("customerId")
+        if not customer_id:
+            customer_id = (
+                f"phone:{snapshot.get('normalizedPhone')}"
+                if snapshot.get("normalizedPhone")
+                else f"order:{order.get('id') or len(rows)}"
+            )
+        if customer_id not in rows:
+            rows[customer_id] = customer_row(
+                customer_id,
+                customer=customer_lookup.get(customer_id),
+                snapshot=snapshot,
+            )
+
+        row = rows[customer_id]
+        # Fill older customer records from the order snapshot where useful.
+        if row["name"] == "Customer" and snapshot.get("name"):
+            row["name"] = snapshot["name"]
+        if not row["phoneNumber"]:
+            row["phoneNumber"] = snapshot.get("normalizedPhone", "")
+        if not row["email"]:
+            row["email"] = snapshot.get("email", "")
+
+        row["orderCount"] += 1
+        created_at = as_datetime(order.get("createdAt"))
+        if created_at and (
+            not row["lastOrderAt"] or created_at > row["lastOrderAt"]
+        ):
+            row["lastOrderAt"] = created_at
+
+        if status == "returned":
+            row["returnedOrderCount"] += 1
+            continue
+        if status != "delivered":
+            continue
+
+        revenue, cost, profit = delivered_financials(order)
+        row["deliveredOrderCount"] += 1
+        row["productRevenueMinor"] += revenue
+        row["discountTotalMinor"] += max(
+            int(order.get("discountTotalMinor", 0) or 0),
+            0,
+        )
+        row["costOfGoodsMinor"] += cost
+        row["grossProfitMinor"] += profit
+
+    report_rows = []
+    for row in rows.values():
+        completed_outcomes = (
+            row["deliveredOrderCount"] + row["returnedOrderCount"]
+        )
+        margin = percentage(
+            row["grossProfitMinor"],
+            row["productRevenueMinor"],
+        )
+        return_rate = percentage(
+            row["returnedOrderCount"],
+            completed_outcomes,
+        )
+        if not row["deliveredOrderCount"]:
+            profitability_state = "no-sales"
+        elif row["grossProfitMinor"] < 0:
+            profitability_state = "loss"
+        elif margin < 15:
+            profitability_state = "low-margin"
+        else:
+            profitability_state = "profitable"
+
+        report_rows.append({
+            **row,
+            "averageOrderValueMinor": (
+                row["productRevenueMinor"] // row["deliveredOrderCount"]
+                if row["deliveredOrderCount"] else 0
+            ),
+            "grossMarginPercent": margin,
+            "returnRatePercent": return_rate,
+            "isHighReturn": bool(
+                row["returnedOrderCount"] and return_rate >= 30
+            ),
+            "profitabilityState": profitability_state,
+        })
+
+    report_rows.sort(
+        key=lambda row: (
+            row["grossProfitMinor"],
+            row["productRevenueMinor"],
+            row["orderCount"],
+        ),
+        reverse=True,
+    )
+    return {
+        "summary": {
+            "customerCount": len(report_rows),
+            "productRevenueMinor": sum(
+                row["productRevenueMinor"] for row in report_rows
+            ),
+            "grossProfitMinor": sum(
+                row["grossProfitMinor"] for row in report_rows
+            ),
+            "profitableCustomerCount": sum(
+                row["profitabilityState"] == "profitable"
+                for row in report_rows
+            ),
+            "highReturnCustomerCount": sum(
+                row["isHighReturn"] for row in report_rows
+            ),
+        },
+        "customers": report_rows,
+    }
+
+
 def calculate_analytics(
     orders,
     products,
@@ -440,6 +600,10 @@ def calculate_analytics(
             reverse=True,
         )[:5],
         "deadStock": build_dead_stock_report(products, orders, now=now),
+        "customerProfitability": build_customer_profitability_report(
+            customers,
+            orders,
+        ),
         "recentOrders": [
             recent_order_summary(order) for order in recent_orders
         ],

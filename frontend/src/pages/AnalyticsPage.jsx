@@ -11,12 +11,14 @@ import {
   ShoppingBag,
   TrendingUp,
   TriangleAlert,
+  UsersRound,
   WalletCards,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import AnalyticsLedger from "../components/AnalyticsLedger";
 import CodReconciliation from "../components/CodReconciliation";
+import CustomerProfitability from "../components/CustomerProfitability";
 import DeadStockReport from "../components/DeadStockReport";
 import { useAuth } from "../context/authContextValue";
 import {
@@ -144,6 +146,7 @@ function AnalyticsPage() {
         <button type="button" className={activeView === "ledger" ? "is-active" : ""} onClick={() => setActiveView("ledger")}><ReceiptText size={16} /> Transaction ledger</button>
         <button type="button" className={activeView === "cod" ? "is-active" : ""} onClick={() => setActiveView("cod")}><WalletCards size={16} /> COD reconciliation</button>
         <button type="button" className={activeView === "dead-stock" ? "is-active" : ""} onClick={() => setActiveView("dead-stock")}><ArchiveX size={16} /> Dead stock</button>
+        <button type="button" className={activeView === "customers" ? "is-active" : ""} onClick={() => setActiveView("customers")}><UsersRound size={16} /> Customer profit</button>
       </nav>
 
       {activeView === "ledger" ? (
@@ -152,6 +155,8 @@ function AnalyticsPage() {
         <CodReconciliation businessId={business?.id} reconciliation={reconciliation} isLoading={!reconciliation && !reconciliationError} error={reconciliationError} onChange={setReconciliation} />
       ) : activeView === "dead-stock" ? (
         <DeadStockReport report={analytics?.deadStock} isLoading={!analytics} />
+      ) : activeView === "customers" ? (
+        <CustomerProfitability report={analytics?.customerProfitability} isLoading={!analytics} />
       ) : (
         <>
 
