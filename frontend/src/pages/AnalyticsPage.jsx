@@ -9,6 +9,7 @@ import {
   ReceiptText,
   RotateCcw,
   ShoppingBag,
+  Store,
   TrendingUp,
   TriangleAlert,
   UsersRound,
@@ -20,12 +21,15 @@ import AnalyticsLedger from "../components/AnalyticsLedger";
 import CodReconciliation from "../components/CodReconciliation";
 import CustomerProfitability from "../components/CustomerProfitability";
 import DeadStockReport from "../components/DeadStockReport";
+import SalesChannelPerformance from "../components/SalesChannelPerformance";
+import SalesForecast from "../components/SalesForecast";
 import { useAuth } from "../context/authContextValue";
 import {
   formatAnalyticsMoney,
   getAnalyticsLedger,
   getAnalyticsOverview,
   getCodReconciliation,
+  saveMonthlyRevenueTarget,
 } from "../services/analyticsService";
 import "./AnalyticsPage.css";
 
@@ -36,7 +40,7 @@ function percentage(value, total) {
 
 
 function AnalyticsPage() {
-  const { business } = useAuth();
+  const { business, membership } = useAuth();
   const [analytics, setAnalytics] = useState(null);
   const [ledger, setLedger] = useState(null);
   const [reconciliation, setReconciliation] = useState(null);
@@ -44,6 +48,12 @@ function AnalyticsPage() {
   const [ledgerError, setLedgerError] = useState(null);
   const [reconciliationError, setReconciliationError] = useState(null);
   const [activeView, setActiveView] = useState("overview");
+
+  async function handleSaveMonthlyTarget(monthlyTargetMinor) {
+    await saveMonthlyRevenueTarget(business.id, monthlyTargetMinor);
+    const refreshedAnalytics = await getAnalyticsOverview(business.id);
+    setAnalytics(refreshedAnalytics);
+  }
 
   useEffect(() => {
     let requestIsCurrent = true;
@@ -147,6 +157,8 @@ function AnalyticsPage() {
         <button type="button" className={activeView === "cod" ? "is-active" : ""} onClick={() => setActiveView("cod")}><WalletCards size={16} /> COD reconciliation</button>
         <button type="button" className={activeView === "dead-stock" ? "is-active" : ""} onClick={() => setActiveView("dead-stock")}><ArchiveX size={16} /> Dead stock</button>
         <button type="button" className={activeView === "customers" ? "is-active" : ""} onClick={() => setActiveView("customers")}><UsersRound size={16} /> Customer profit</button>
+        <button type="button" className={activeView === "channels" ? "is-active" : ""} onClick={() => setActiveView("channels")}><Store size={16} /> Sales channels</button>
+        <button type="button" className={activeView === "forecast" ? "is-active" : ""} onClick={() => setActiveView("forecast")}><TrendingUp size={16} /> Forecast</button>
       </nav>
 
       {activeView === "ledger" ? (
@@ -157,6 +169,15 @@ function AnalyticsPage() {
         <DeadStockReport report={analytics?.deadStock} isLoading={!analytics} />
       ) : activeView === "customers" ? (
         <CustomerProfitability report={analytics?.customerProfitability} isLoading={!analytics} />
+      ) : activeView === "channels" ? (
+        <SalesChannelPerformance report={analytics?.salesChannels} isLoading={!analytics} />
+      ) : activeView === "forecast" ? (
+        <SalesForecast
+          report={analytics?.salesForecast}
+          isLoading={!analytics}
+          onSaveTarget={handleSaveMonthlyTarget}
+          canManageTarget={["owner", "admin"].includes(membership?.role)}
+        />
       ) : (
         <>
 

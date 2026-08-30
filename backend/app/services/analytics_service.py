@@ -1,6 +1,9 @@
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 
+from firebase_admin import firestore
+
+from app.core.errors import ApiError
 from app.core.serialization import serialize_snapshot
 
 
@@ -400,6 +403,181 @@ def build_customer_profitability_report(customers, orders):
     }
 
 
+def build_sales_channel_report(orders, shop_sales, now=None):
+    """Compare recognized online and physical-shop sales on equal terms."""
+    now = now or datetime.now(timezone.utc)
+    selected_months = recent_months(now, count=6)
+
+    def empty_channel(channel_id, label):
+        return {
+            "id": channel_id,
+            "label": label,
+            "saleCount": 0,
+            "unitsSold": 0,
+            "productRevenueMinor": 0,
+            "discountTotalMinor": 0,
+            "costOfGoodsMinor": 0,
+            "grossProfitMinor": 0,
+            "averageSaleValueMinor": 0,
+            "grossMarginPercent": 0,
+            "monthlyRevenue": {key: 0 for key in selected_months},
+        }
+
+    channels = {
+        "online": empty_channel("online", "Online orders"),
+        "shop": empty_channel("shop", "Physical shop"),
+    }
+
+    def add_sale(channel, sale):
+        revenue, cost, profit = delivered_financials(sale)
+        channel["saleCount"] += 1
+        channel["unitsSold"] += sum(
+            max(int(item.get("quantity", 0) or 0), 0)
+            for item in sale.get("items", [])
+        )
+        channel["productRevenueMinor"] += revenue
+        channel["discountTotalMinor"] += max(
+            int(sale.get("discountTotalMinor", 0) or 0),
+            0,
+        )
+        channel["costOfGoodsMinor"] += cost
+        channel["grossProfitMinor"] += profit
+        created_at = as_datetime(sale.get("createdAt"))
+        if created_at:
+            key = month_key(created_at.year, created_at.month)
+            if key in channel["monthlyRevenue"]:
+                channel["monthlyRevenue"][key] += revenue
+
+    for order in orders:
+        if order.get("fulfilmentStatus") == "delivered":
+            add_sale(channels["online"], order)
+    for sale in shop_sales:
+        if sale.get("status", "completed") == "completed":
+            add_sale(channels["shop"], sale)
+
+    channel_rows = []
+    for channel in channels.values():
+        channel["averageSaleValueMinor"] = (
+            channel["productRevenueMinor"] // channel["saleCount"]
+            if channel["saleCount"] else 0
+        )
+        channel["grossMarginPercent"] = percentage(
+            channel["grossProfitMinor"],
+            channel["productRevenueMinor"],
+        )
+        channel["monthlyRevenue"] = [
+            {"month": key, "revenueMinor": channel["monthlyRevenue"][key]}
+            for key in selected_months
+        ]
+        channel_rows.append(channel)
+
+    total_revenue = sum(row["productRevenueMinor"] for row in channel_rows)
+    total_profit = sum(row["grossProfitMinor"] for row in channel_rows)
+    strongest = max(
+        channel_rows,
+        key=lambda row: (row["productRevenueMinor"], row["saleCount"]),
+    )
+    return {
+        "summary": {
+            "saleCount": sum(row["saleCount"] for row in channel_rows),
+            "unitsSold": sum(row["unitsSold"] for row in channel_rows),
+            "productRevenueMinor": total_revenue,
+            "grossProfitMinor": total_profit,
+            "grossMarginPercent": percentage(total_profit, total_revenue),
+            "strongestChannel": strongest["label"] if total_revenue else "No sales yet",
+        },
+        "channels": channel_rows,
+    }
+
+
+def build_sales_forecast_report(
+    orders,
+    shop_sales,
+    now=None,
+    monthly_target_minor=None,
+):
+    """Build a transparent revenue forecast from recognized sales history.
+
+    Delivered online orders and completed shop sales are combined. The next
+    month estimate is a three-month weighted average, favouring recent months.
+    This keeps the result explainable and avoids presenting an AI guess as fact.
+    """
+    now = now or datetime.now(timezone.utc)
+    history_keys = recent_months(now, count=7)
+    monthly_revenue = {key: 0 for key in history_keys}
+    monthly_sales = {key: 0 for key in history_keys}
+
+    def recognize_sale(sale):
+        created_at = as_datetime(sale.get("createdAt"))
+        if not created_at:
+            return
+        key = month_key(created_at.year, created_at.month)
+        if key not in monthly_revenue:
+            return
+        revenue, _cost, _profit = delivered_financials(sale)
+        monthly_revenue[key] += revenue
+        monthly_sales[key] += 1
+
+    for order in orders:
+        if order.get("fulfilmentStatus") == "delivered":
+            recognize_sale(order)
+    for sale in shop_sales:
+        if sale.get("status", "completed") == "completed":
+            recognize_sale(sale)
+
+    current_key = month_key(now.year, now.month)
+    completed_keys = [key for key in history_keys if key != current_key]
+    forecast_base_keys = completed_keys[-3:]
+    weights = list(range(1, len(forecast_base_keys) + 1))
+    weighted_total = sum(
+        monthly_revenue[key] * weight
+        for key, weight in zip(forecast_base_keys, weights)
+    )
+    next_month_forecast = weighted_total // sum(weights) if weights else 0
+
+    previous_revenue = monthly_revenue[completed_keys[-2]] if len(completed_keys) >= 2 else 0
+    latest_revenue = monthly_revenue[completed_keys[-1]] if completed_keys else 0
+    trend_percent = round(((latest_revenue - previous_revenue) / previous_revenue) * 100, 1) if previous_revenue else 0
+
+    elapsed_days = max(now.day, 1)
+    next_month_start = (now.replace(day=28) + timedelta(days=4)).replace(day=1)
+    days_in_month = (next_month_start - now.replace(day=1)).days
+    current_revenue = monthly_revenue.get(current_key, 0)
+    current_run_rate = current_revenue * days_in_month // elapsed_days
+    months_with_sales = sum(monthly_revenue[key] > 0 for key in completed_keys)
+    confidence = "high" if months_with_sales >= 4 else "medium" if months_with_sales >= 2 else "low"
+    suggested_target = (next_month_forecast * 110 + 99) // 100
+    saved_target = max(int(monthly_target_minor or 0), 0)
+    active_target = saved_target or suggested_target
+
+    return {
+        "summary": {
+            "nextMonthForecastMinor": next_month_forecast,
+            "suggestedTargetMinor": suggested_target,
+            "currentMonthRevenueMinor": current_revenue,
+            "currentMonthRunRateMinor": current_run_rate,
+            "trendPercent": trend_percent,
+            "confidence": confidence,
+            "historyMonthsUsed": len(forecast_base_keys),
+            "monthlyTargetMinor": saved_target,
+            "activeTargetMinor": active_target,
+            "targetSource": "seller" if saved_target else "suggested",
+            "targetProgressPercent": percentage(current_revenue, active_target),
+            "targetGapMinor": max(active_target - current_revenue, 0),
+        },
+        "history": [
+            {
+                "month": key,
+                "revenueMinor": monthly_revenue[key],
+                "saleCount": monthly_sales[key],
+                "isCurrentMonth": key == current_key,
+            }
+            for key in history_keys
+        ],
+        "method": "Weighted average of the last three completed months, with more weight given to recent sales.",
+    }
+
+
 def calculate_analytics(
     orders,
     products,
@@ -407,10 +585,13 @@ def calculate_analytics(
     unread_notification_count=0,
     now=None,
     warranty_claims=None,
+    shop_sales=None,
+    monthly_target_minor=None,
 ):
     now = now or datetime.now(timezone.utc)
     customers = customers or []
     warranty_claims = warranty_claims or []
+    shop_sales = shop_sales or []
     status_counts = {status: 0 for status in ORDER_STATUSES}
     product_revenue_minor = 0
     cost_of_goods_minor = 0
@@ -604,6 +785,17 @@ def calculate_analytics(
             customers,
             orders,
         ),
+        "salesChannels": build_sales_channel_report(
+            orders,
+            shop_sales,
+            now=now,
+        ),
+        "salesForecast": build_sales_forecast_report(
+            orders,
+            shop_sales,
+            now=now,
+            monthly_target_minor=monthly_target_minor,
+        ),
         "recentOrders": [
             recent_order_summary(order) for order in recent_orders
         ],
@@ -619,6 +811,7 @@ def calculate_analytics(
 
 def get_business_analytics(database, business_id):
     business_reference = database.collection("businesses").document(business_id)
+    business = business_reference.get().to_dict() or {}
     orders = [
         serialize_snapshot(snapshot)
         for snapshot in business_reference.collection("orders")
@@ -642,6 +835,12 @@ def get_business_analytics(database, business_id):
         serialize_snapshot(snapshot)
         for snapshot in business_reference.collection("warrantyClaims").limit(1000).stream()
     ]
+    shop_sales = [
+        serialize_snapshot(snapshot)
+        for snapshot in business_reference.collection("shopSales")
+        .limit(1000)
+        .stream()
+    ]
     return calculate_analytics(
         orders,
         products,
@@ -650,7 +849,33 @@ def get_business_analytics(database, business_id):
             not notification.get("isRead") for notification in notifications
         ),
         warranty_claims=warranty_claims,
+        shop_sales=shop_sales,
+        monthly_target_minor=business.get("monthlyRevenueTargetMinor"),
     )
+
+
+def update_monthly_revenue_target(database, business_id, payload):
+    """Persist a seller-defined monthly target without changing sales history."""
+    target = payload.get("monthlyTargetMinor")
+    if isinstance(target, bool) or not isinstance(target, int):
+        raise ApiError(
+            "validation_error",
+            "Monthly target must be provided as an integer number of cents.",
+            422,
+        )
+    if target < 0 or target > 10_000_000_000:
+        raise ApiError(
+            "validation_error",
+            "Monthly target must be between LKR 0 and LKR 100,000,000.",
+            422,
+        )
+
+    business_reference = database.collection("businesses").document(business_id)
+    business_reference.update({
+        "monthlyRevenueTargetMinor": target,
+        "updatedAt": firestore.SERVER_TIMESTAMP,
+    })
+    return target
 
 
 def _minor_units(value):

@@ -8,6 +8,7 @@ from app.core.firebase import get_firestore_client
 from app.services.analytics_service import (
     get_business_analytics,
     get_business_ledger,
+    update_monthly_revenue_target,
 )
 from app.services.cod_reconciliation_service import (
     get_cod_reconciliation,
@@ -26,6 +27,18 @@ def analytics_overview(business_id):
     return jsonify(
         {"analytics": get_business_analytics(get_firestore_client(), business_id)},
     )
+
+
+@analytics_blueprint.patch("/businesses/<business_id>/analytics/monthly-target")
+@require_firebase_user
+@require_business_member("owner", "admin")
+def analytics_monthly_target(business_id):
+    target = update_monthly_revenue_target(
+        get_firestore_client(),
+        business_id,
+        request.get_json(silent=True) or {},
+    )
+    return jsonify({"monthlyTargetMinor": target})
 
 
 @analytics_blueprint.get("/businesses/<business_id>/analytics/ledger")

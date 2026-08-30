@@ -3,10 +3,104 @@ from datetime import datetime, timezone
 from app.services.analytics_service import (
     build_customer_profitability_report,
     build_dead_stock_report,
+    build_sales_channel_report,
+    build_sales_forecast_report,
     build_transaction_ledger,
     calculate_analytics,
     recent_months,
 )
+
+
+def test_sales_forecast_uses_completed_months_and_recognized_sales_only():
+    report = build_sales_forecast_report(
+        [
+            {"fulfilmentStatus": "delivered", "createdAt": "2026-05-10T10:00:00Z", "subtotalMinor": 100000, "items": []},
+            {"fulfilmentStatus": "delivered", "createdAt": "2026-06-10T10:00:00Z", "subtotalMinor": 200000, "items": []},
+            {"fulfilmentStatus": "delivered", "createdAt": "2026-07-10T10:00:00Z", "subtotalMinor": 300000, "items": []},
+            {"fulfilmentStatus": "packed", "createdAt": "2026-07-11T10:00:00Z", "subtotalMinor": 900000, "items": []},
+            {"fulfilmentStatus": "delivered", "createdAt": "2026-08-15T10:00:00Z", "subtotalMinor": 150000, "items": []},
+        ],
+        [
+            {"status": "completed", "createdAt": "2026-07-12T10:00:00Z", "subtotalMinor": 60000, "items": []},
+            {"status": "voided", "createdAt": "2026-07-13T10:00:00Z", "subtotalMinor": 800000, "items": []},
+        ],
+        now=datetime(2026, 8, 15, 12, tzinfo=timezone.utc),
+    )
+
+    summary = report["summary"]
+    assert summary["nextMonthForecastMinor"] == 263333
+    assert summary["suggestedTargetMinor"] == 289667
+    assert summary["currentMonthRevenueMinor"] == 150000
+    assert summary["currentMonthRunRateMinor"] == 310000
+    assert summary["trendPercent"] == 80.0
+    assert summary["confidence"] == "medium"
+    assert report["history"][-1]["isCurrentMonth"] is True
+
+
+def test_sales_forecast_tracks_a_saved_monthly_target_separately():
+    report = build_sales_forecast_report(
+        [{
+            "fulfilmentStatus": "delivered",
+            "createdAt": "2026-08-15T10:00:00Z",
+            "subtotalMinor": 150000,
+            "items": [],
+        }],
+        [],
+        now=datetime(2026, 8, 15, 12, tzinfo=timezone.utc),
+        monthly_target_minor=500000,
+    )
+
+    summary = report["summary"]
+    assert summary["monthlyTargetMinor"] == 500000
+    assert summary["activeTargetMinor"] == 500000
+    assert summary["targetSource"] == "seller"
+    assert summary["targetProgressPercent"] == 30.0
+    assert summary["targetGapMinor"] == 350000
+
+
+def test_sales_channel_report_compares_recognized_online_and_shop_sales():
+    report = build_sales_channel_report(
+        [
+            {
+                "fulfilmentStatus": "delivered", "createdAt": "2026-08-10T10:00:00Z",
+                "subtotalMinor": 200000, "discountTotalMinor": 20000,
+                "items": [{"quantity": 2, "unitCostMinor": 50000}],
+            },
+            {
+                "fulfilmentStatus": "packed", "createdAt": "2026-08-11T10:00:00Z",
+                "subtotalMinor": 900000,
+            },
+        ],
+        [
+            {
+                "status": "completed", "createdAt": "2026-08-12T10:00:00Z",
+                "subtotalMinor": 100000, "discountTotalMinor": 0,
+                "items": [{"quantity": 1, "unitCostMinor": 40000}],
+            },
+            {
+                "status": "voided", "createdAt": "2026-08-13T10:00:00Z",
+                "subtotalMinor": 800000,
+            },
+        ],
+        now=datetime(2026, 8, 30, 12, tzinfo=timezone.utc),
+    )
+
+    channels = {channel["id"]: channel for channel in report["channels"]}
+    assert channels["online"]["saleCount"] == 1
+    assert channels["online"]["unitsSold"] == 2
+    assert channels["online"]["productRevenueMinor"] == 180000
+    assert channels["online"]["grossProfitMinor"] == 80000
+    assert channels["shop"]["saleCount"] == 1
+    assert channels["shop"]["productRevenueMinor"] == 100000
+    assert channels["shop"]["grossProfitMinor"] == 60000
+    assert report["summary"] == {
+        "saleCount": 2,
+        "unitsSold": 3,
+        "productRevenueMinor": 280000,
+        "grossProfitMinor": 140000,
+        "grossMarginPercent": 50.0,
+        "strongestChannel": "Online orders",
+    }
 
 
 def test_customer_profitability_uses_delivered_sales_and_tracks_returns():

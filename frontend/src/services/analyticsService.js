@@ -17,6 +17,14 @@ export async function getAnalyticsLedger(businessId) {
 }
 
 
+export async function saveMonthlyRevenueTarget(businessId, monthlyTargetMinor) {
+  return apiRequest(`/businesses/${businessId}/analytics/monthly-target`, {
+    method: "PATCH",
+    body: { monthlyTargetMinor },
+  });
+}
+
+
 export async function getCodReconciliation(businessId) {
   const response = await apiRequest(
     `/businesses/${businessId}/analytics/cod-reconciliation`,
