@@ -232,3 +232,26 @@ Example draft saved on `publicChatSessions/{sessionId}`:
 ```
 
 `create_public_chat_order` passes both phone fields to the customer service and passes `deliveryNote` into the order private note. The server validates the values again, calculates delivery and totals, and stores the final snapshot; browser values are never trusted for totals or stock.
+
+## 9. Analytics and transaction-ledger endpoints
+
+Analytics is a protected business resource. The backend verifies the Firebase ID token and confirms that the signed-in seller or staff member belongs to the requested business before reading data.
+
+```text
+GET /api/v1/businesses/{businessId}/analytics/overview
+GET /api/v1/businesses/{businessId}/analytics/ledger
+GET /api/v1/businesses/{businessId}/analytics/ledger-export.xlsx
+```
+
+The overview service derives totals from orders, shop sales, products, customers, warranty claims and notifications. It currently returns revenue, cost of goods sold, gross profit, gross margin, order-status counts, recent daily/monthly series, top products, delivery success, return rate and inventory health.
+
+The ledger combines order income, shop-sale income, warranty deductions and inventory movements into a common row shape. The list and Excel export accept the same optional query parameters:
+
+```text
+search=<reference, customer, item or note>
+type=<transaction type>
+dateFrom=YYYY-MM-DD
+dateTo=YYYY-MM-DD
+```
+
+Keep filtering and export in the backend so large businesses do not require downloading every Firestore document into the browser. Firestore is the operational source of truth; analytics is a derived read model and should not directly overwrite orders or stock.

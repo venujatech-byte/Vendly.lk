@@ -161,3 +161,25 @@ states. Commit after each working feature.
 - Write a small test when a bug is fixed.
 
 For the chatbot checkout, practise state machines: each user answer moves from one named state to the next. Learn Python validation functions, React controlled inputs, and Firestore document updates together. The optional second phone and delivery note are good examples of optional fields with a `skip` branch.
+# Current advanced topics to learn next
+
+After the basic JavaScript, React, Python, Flask and Firestore sections, study these topics in this order:
+
+1. **Asynchronous application bootstrap** — wait for Firebase authentication and the seller-account request before routing or rendering protected data.
+2. **Derived read models** — calculate analytics and ledger rows in backend services without mutating operational order and inventory documents.
+3. **Financial vocabulary** — distinguish revenue, COGS, gross profit, contribution margin and net profit.
+4. **Server-side filtering and exports** — use the same validated query parameters for the table and Excel download.
+5. **Accessible motion preferences** — disabling animation must preserve content visibility and respect reduced-motion users.
+6. **Analytics data quality** — understand why missing cost, weight, district, courier or payment data produces unreliable reports.
+
+Small practice example:
+
+```js
+// Rendering is allowed only after both independent checks finish.
+const canRenderDashboard = !isAuthLoading && !isAccountLoading;
+```
+
+```python
+# A read model derives a value; it does not overwrite the source order.
+gross_profit = product_revenue - cost_of_goods_sold
+```

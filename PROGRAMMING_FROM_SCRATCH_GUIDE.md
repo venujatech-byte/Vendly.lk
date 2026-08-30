@@ -1596,3 +1596,61 @@ pieces connect.
 ## Implementing the latest chatbot fields
 
 Add one state handler per question instead of parsing all contact details in one message. Validate the primary and optional secondary Sri Lankan numbers, then save `address.line1`, `address.city`, `address.district`, and `deliveryNote` in the session draft. Render the returned draft in React so the seller/customer can verify it before confirmation. The order POST must send both phone fields and the delivery note; Flask validates them again before writing Firestore.
+
+## 37. Build a safe first-loading sequence
+
+Do not show the dashboard, setup route or protected navigation until Firebase
+and the initial Flask account request have both completed. The important state
+is:
+
+```jsx
+const [isAuthLoading, setIsAuthLoading] = useState(true);
+const [authenticationError, setAuthenticationError] = useState(null);
+const [accountError, setAccountError] = useState(null);
+```
+
+The Firebase listener sets `isAuthLoading` before calling `loadAccount()`, and
+clears it in `finally`. `App.jsx` renders one full-screen `AppLoadingScreen`
+while it is true. If Firebase initialization or the first account request fails,
+the same component shows the relevant error and a retry button. This avoids the
+old problems where setup appeared repeatedly or pages needed a manual refresh.
+
+## 38. Analytics and transaction-ledger implementation
+
+Vendly keeps analytics as a server-derived read model:
+
+```text
+orders + products + customers + notifications + warrantyClaims
+                              -> get_business_analytics()
+orders + shopSales + warrantyClaims + inventoryTransactions
+                              -> get_business_ledger()
+```
+
+The current overview includes revenue, cost of goods, gross profit, average
+order value, gross margin, order status, daily orders, monthly revenue,
+top-selling products, inventory health and work-centre counts. The ledger shows
+money in, money out and a running movement balance and can be exported with its
+current search, type and date filters.
+
+Never calculate trusted financial results only in React. Store all currency as
+integer minor units, derive the figures in Flask, and format them in the UI.
+The current endpoints are:
+
+```text
+GET /api/v1/businesses/{businessId}/analytics/overview
+GET /api/v1/businesses/{businessId}/analytics/ledger
+GET /api/v1/businesses/{businessId}/analytics/ledger-export.xlsx
+```
+
+## 39. One animation setting for the complete application
+
+`App.jsx` stores `vendly-animations-enabled` in local storage and writes the
+choice to `html[data-animations]`. Put page entrance rules under
+`html[data-animations="enabled"]`; do not give components a hidden initial
+state outside that selector.
+
+When animations are disabled, `MotionPreferences.css` must restore the final
+visible state for any component that normally starts with `opacity: 0` or a
+transform. This includes dashboard sections, sidebar elements and the courier
+fee map. Otherwise disabling motion makes content disappear instead of merely
+stopping animation.

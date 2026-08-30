@@ -176,3 +176,29 @@ publicChatSessions/{sessionId}
 ```
 
 After confirmation, copy the same fields into the customer document and the order snapshot. `secondaryPhoneNumber` may be empty, but `phoneNumber`, `address.line1`, `address.city`, and `address.district` are required. Firestore security rules must allow a customer to update only their own public session and must prevent a public client from changing calculated totals, stock, seller ownership, or order status.
+
+## 7. Prevent the login and business-setup race
+
+Firebase Authentication only proves who the user is. The dashboard also needs
+the Flask account response containing the Vendly profile, business and
+membership. Keep the loading flag true until both steps finish:
+
+```jsx
+onAuthStateChanged(auth, async (currentUser) => {
+  setIsAuthLoading(true);
+  setUser(currentUser);
+
+  try {
+    if (currentUser) await loadAccount(currentUser);
+    else clearAccountState();
+  } finally {
+    setIsAuthLoading(false);
+  }
+});
+```
+
+Do not redirect to `/setup-business` merely because `business` is temporarily
+`null` during this request. Protected routes may choose between login, setup and
+dashboard only after `isAuthLoading === false`. Keep Firebase initialization
+errors separate from backend account errors and provide a retry that calls
+`refreshSellerProfile()`.

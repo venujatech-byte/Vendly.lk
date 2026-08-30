@@ -346,3 +346,30 @@ Every result must be restricted to the authenticated user's business and permiss
 Complete and verify one end-to-end workflow before expanding the next phase:
 
 `Share product -> customer conversation -> order -> confirmation -> stock update -> packing -> courier -> waybill -> delivery -> settlement`
+
+## Proposed analytics roadmap
+
+These items are future work unless explicitly listed as implemented in `README.md` or `docs/api-endpoints.md`.
+
+### Priority 1 — financial control
+
+- Product contribution margin after discounts, courier cost, returns and warranty cost.
+- COD reconciliation: expected collection, courier deductions, settlement received, variance and overdue settlements.
+- Operating-expense ledger for rent, salaries, utilities, marketing and tax so Vendly can calculate true net profit.
+
+### Priority 2 — stock and delivery decisions
+
+- Stock turnover, days of inventory, dead stock and projected stock-out date.
+- Reorder suggestions based on recent sales velocity and supplier lead time.
+- Courier performance by district: delivery fee, success rate, median delivery time, return rate and branch-issue count.
+
+### Priority 3 — customer and growth analytics
+
+- New versus repeat customer cohorts, lifetime value and average reorder interval.
+- Channel comparison for chatbot, storefront, manual online orders and physical-shop sales.
+- Catalogue-to-order funnel: product view, detail view, cart, checkout, confirmed and delivered.
+- Promotion and coupon attribution based on revenue and margin, not order count alone.
+
+### Data-quality requirement
+
+Warn about products without cost price, category, weight or supplier and orders without courier, district or payment status. Missing source data makes financial and operational analytics misleading.

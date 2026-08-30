@@ -370,6 +370,36 @@ The first milestone is deliberately small but production-shaped:
 
 After this milestone is verified, the chatbot will use the same product, customer, order, and stock services instead of implementing a separate order system.
 
+## 12. Authenticated application bootstrap
+
+The dashboard must not render protected pages while its identity and business
+context are unresolved. Startup follows this sequence:
+
+```text
+React mounts
+  -> Firebase onAuthStateChanged resolves
+  -> if signed in, Flask /me loads account, business and membership
+  -> AuthContext publishes one complete state
+  -> App renders login, setup, or the protected dashboard
+```
+
+`isAuthLoading` covers both the Firebase check and the first Flask account
+request. Firebase listener errors and Flask account errors are stored
+separately, because a backend outage does not invalidate a Firebase session.
+During either check, `AppLoadingScreen` owns the full viewport. An error uses
+the same screen with a retry action; do not solve bootstrap races with a forced
+browser refresh.
+
+## 13. Analytics read model
+
+Analytics is a read-only projection over operational records, not a second
+source of truth. `analytics_service.py` derives the overview from orders,
+products, customers, notifications and warranty claims. The transaction ledger
+combines online orders, shop sales, warranty deductions and inventory purchase
+transactions into a chronological balance. React obtains these through
+`/analytics/overview` and `/analytics/ledger`; workbook generation remains in
+Flask so permissions and monetary formatting are consistent.
+
 ## Public chatbot checkout state
 
 The chatbot stores its current state and contact draft in Firestore. The draft includes one required phone, an optional second phone, street address, district, nearest city, and an optional delivery note. Flask owns validation and order creation; React only sends replies and renders the returned draft. The confirmed order reuses the standard customer, order, delivery-price, fraud-warning, and stock transaction services.

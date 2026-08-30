@@ -78,11 +78,20 @@ html[data-animations="disabled"] :where(
   .stat-card,
   .stat-card2,
   .orders-table tbody > tr,
+  .sidebar,
+  .sidebar__top,
+  .sidebar__link,
+  .sidebar__footer,
+  .courier-fee-map,
+  .courier-fee-map__header,
+  .courier-fee-map__visual-card,
+  .courier-fee-map__comparison,
+  .courier-fee-map__courier-list > button,
   .overview-page *,
   .analytics-page *
 ) {
   opacity: 1 !important;
-  transform: none;
+  transform: none !important;
 }
 
 @media (prefers-reduced-motion: reduce) {

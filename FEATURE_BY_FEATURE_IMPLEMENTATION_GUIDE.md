@@ -27301,3 +27301,25 @@ When a customer checks out through the chatbot, collect these values in order:
 8. Show the complete order summary and wait for `confirm order`.
 
 The chatbot state machine uses `collecting-secondary-phone`, `collecting-address`, `collecting-district`, `collecting-nearest-city`, and `collecting-delivery-note`. Invalid phone numbers and empty location fields keep the customer in the same state and display a correction message. The final customer object contains `phoneNumber`, `secondaryPhoneNumber`, and an address with `line1`, `city`, and `district`; `deliveryNote` is saved with the order.
+
+## Latest dashboard synchronization — 30 August 2026
+
+### Safe authenticated startup
+
+Display one loading screen while Firebase restores authentication and the backend loads the seller account. Do not render protected pages or redirect to business setup until both checks finish. Keep authentication errors and seller-account errors separate, and provide Retry instead of forcing a browser refresh.
+
+Relevant files: `frontend/src/App.jsx`, `frontend/src/context/AuthContext.jsx`, `frontend/src/services/apiClient.js`, and `frontend/src/App.css`.
+
+### Global animation preference
+
+The animation switch writes one preference to the document root. When animations are disabled, CSS must remove transitions and also restore `opacity: 1` and `transform: none`. Include fixed navigation, sidebar links, stat cards and courier-map elements in the fallback.
+
+Relevant file: `frontend/src/MotionPreferences.css`.
+
+### Analytics and ledger
+
+The Analytics page contains Overview and Transaction Ledger tabs. The overview is derived from operational data; the ledger normalizes orders, shop sales, warranty costs and inventory transactions. Both the filtered table and Excel export use the same server-side search, type and date filters.
+
+Relevant files: `frontend/src/pages/AnalyticsPage.jsx`, `frontend/src/components/analytics/AnalyticsLedger.jsx`, `frontend/src/services/analyticsService.js`, `backend/app/api/analytics.py`, and `backend/app/services/analytics_service.py`.
+
+Do not label gross profit as net profit. Net profit additionally requires operating expenses such as rent, salaries, utilities, marketing and tax.

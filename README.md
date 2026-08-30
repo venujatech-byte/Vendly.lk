@@ -145,3 +145,11 @@ See [`docs/api-endpoints.md`](docs/api-endpoints.md) for the current REST API.
 ### Chatbot checkout fields
 
 The public chatbot collects a customer name, one required phone number, an optional second phone number, street address, district, nearest city, and an optional delivery note. It keeps these values in the active Firestore chat session and asks the customer to confirm before creating the order. See `FEATURE_BY_FEATURE_IMPLEMENTATION_GUIDE.md`, `BACKEND_API_FROM_SCRATCH.md`, and `FIREBASE_DATABASE_GUIDE.md` for the implementation details.
+
+## Current dashboard lifecycle and analytics
+
+Protected pages wait for both Firebase authentication restoration and backend seller-account bootstrap before rendering. This prevents temporary Viewer roles, repeated business-setup redirects and empty dashboards during login. If startup fails, the user receives a retryable loading error rather than an automatic page reload.
+
+The Analytics page currently provides business overview metrics and a filterable transaction ledger with Excel export. Revenue, COGS, gross profit, order status, delivery performance, top products and inventory health are derived from operational Firestore data through protected Flask endpoints.
+
+Detailed references: [`docs/system-architecture.md`](docs/system-architecture.md), [`docs/api-endpoints.md`](docs/api-endpoints.md), [`BACKEND_API_FROM_SCRATCH.md`](BACKEND_API_FROM_SCRATCH.md), [`FIREBASE_DATABASE_GUIDE.md`](FIREBASE_DATABASE_GUIDE.md), [`PROGRAMMING_FROM_SCRATCH_GUIDE.md`](PROGRAMMING_FROM_SCRATCH_GUIDE.md), and [`MOBILE_FRIENDLY_GUIDE.md`](MOBILE_FRIENDLY_GUIDE.md).

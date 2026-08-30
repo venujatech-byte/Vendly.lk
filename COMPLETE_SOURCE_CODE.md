@@ -6,6 +6,18 @@ Secrets, dependencies, build output, binary assets and caches are intentionally 
 
 Included files: 161
 
+> **Synchronization note — 30 August 2026:** the executable repository is the
+> source of truth. Since this appendix was generated, authenticated startup,
+> analytics/ledger documentation and animation visibility fallbacks were
+> refined in `frontend/src/App.jsx`, `frontend/src/context/AuthContext.jsx`,
+> `frontend/src/services/apiClient.js`, `frontend/src/MotionPreferences.css`,
+> `frontend/src/pages/AnalyticsPage.jsx`, `backend/app/api/analytics.py` and
+> `backend/app/services/analytics_service.py`. Study the focused current guides
+> before copying a snapshot: `PROGRAMMING_FROM_SCRATCH_GUIDE.md`,
+> `BACKEND_API_FROM_SCRATCH.md`, `FIREBASE_DATABASE_GUIDE.md`,
+> `MOBILE_FRIENDLY_GUIDE.md`, `docs/api-endpoints.md` and
+> `docs/system-architecture.md`.
+
 ## Required environment templates
 
 ### `frontend/.env.local` (replace placeholders)

@@ -565,3 +565,21 @@ This keeps one maintainable codebase while giving desktop and mobile users layou
 ## Chatbot contact form on mobile
 
 Keep each contact question as a normal chat message and input. The second phone field is optional; the customer can type `skip`. Use full-width controls for the street address, district, nearest city, and delivery note. Show the collected draft in the fixed order-summary panel and allow scrolling inside the chat panel so the checkout controls remain reachable on small screens.
+
+## 19. Animation preferences must preserve content
+
+Vendly stores the seller's animation preference on the document root. Entrance animations may begin with `opacity: 0` and a translated position, but disabling animation must immediately restore every element to its normal visible state.
+
+```css
+html[data-animations="off"] .page-animate,
+html[data-animations="off"] .sidebar__link,
+html[data-animations="off"] .courier-fee-map,
+html[data-animations="off"] .courier-fee-map__visual-card {
+  opacity: 1 !important;
+  transform: none !important;
+  animation: none !important;
+  transition: none !important;
+}
+```
+
+This matters on mobile because the sidebar becomes bottom navigation. If only the animation is removed while its hidden starting state remains, navigation icons or the courier map disappear. Test every page once with animations enabled and once with them disabled.
