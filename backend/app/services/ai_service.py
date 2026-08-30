@@ -922,37 +922,138 @@ def generate_storefront_intent(
     }
 
 
-def generate_product_description(product_details):
-    """Generate seller-editable catalogue copy from the supplied product facts."""
-    settings = current_app.config
-    provider = settings.get("AI_PROVIDER", "none")
-    name = str(product_details.get("name", "")).strip()
+PRODUCT_INFORMATION_PROMPT = """You are a product-information generator for an e-commerce system.
 
+Your task is to generate accurate, compact product descriptions and specifications from the product name, model, category, user-provided details, and image-extracted text.
+
+Rules:
+- Never invent specifications.
+- Only include information that is known or reasonably confirmed for the exact product/model.
+- If a value is unknown, use null.
+- Do not guess battery capacity, dimensions, ingredients, materials, IP rating, ANC, ENC, Bluetooth version, warranty, power, or certifications.
+- Adapt specification fields based on the product category.
+- Keep descriptions concise and suitable for an online store.
+- Do not include markdown.
+- Return valid JSON only.
+- Do not add text before or after the JSON.
+
+For electronics, consider fields such as:
+brand, model, connectivity, bluetooth_version, battery_capacity, battery_life, charging, power, voltage, dimensions, weight, water_resistance, compatibility, special_features.
+
+For earbuds/headphones, also consider:
+driver_size, playback_time, total_playback_time, anc, enc, microphone, calling, codecs, latency, app_support.
+
+For power banks, also consider:
+capacity, rated_capacity, max_output, fast_charging, charging_protocols, ports, input, output, simultaneous_charging.
+
+For smartwatches, also consider:
+display, resolution, battery_life, calling, health_features, sports_modes, sensors, water_resistance.
+
+For household items, consider:
+material, dimensions, capacity, power, voltage, operating_modes, controls, safety_features, included_accessories.
+
+For food products, consider:
+net_weight, ingredients, allergens, nutrition, flavour, storage, preparation, country_of_origin.
+
+For cosmetics, consider:
+volume, ingredients, key_ingredients, suitable_for, benefits, usage, warnings.
+
+For clothing, consider:
+material, size, fit, colour, care_instructions, target_user.
+
+For any other category, dynamically select suitable specification fields.
+
+Return this JSON structure:
+{
+  "product_name": "",
+  "brand": null,
+  "model": null,
+  "category": "",
+  "description": "",
+  "highlights": [],
+  "specifications": [{"name": "", "value": ""}],
+  "missing_information": [],
+  "confidence": "high"
+}
+
+confidence must be one of: "high", "medium", "low".
+
+If the product cannot be confidently identified, still return the JSON structure, set unknown values to null, use confidence "low", and list the information needed in missing_information."""
+
+
+def _optional_text(value, maximum=500):
+    if value is None:
+        return None
+    cleaned = str(value).strip()
+    return cleaned[:maximum] if cleaned else None
+
+
+def _normalize_product_information(result, facts):
+    if not isinstance(result, dict):
+        return None
+
+    highlights = [
+        str(value).strip()[:300]
+        for value in (result.get("highlights") or [])[:12]
+        if str(value).strip()
+    ]
+    missing_information = [
+        str(value).strip()[:200]
+        for value in (result.get("missing_information") or [])[:20]
+        if str(value).strip()
+    ]
+    specifications = []
+    for item in (result.get("specifications") or [])[:40]:
+        if not isinstance(item, dict):
+            continue
+        specification_name = _optional_text(item.get("name"), 100)
+        if not specification_name:
+            continue
+        specifications.append({
+            "name": specification_name,
+            "value": _optional_text(item.get("value"), 500),
+        })
+
+    confidence = str(result.get("confidence") or "low").strip().lower()
+    if confidence not in {"high", "medium", "low"}:
+        confidence = "low"
+
+    return {
+        "product_name": _optional_text(result.get("product_name"), 180) or facts["product_name"],
+        "brand": _optional_text(result.get("brand"), 100),
+        "model": _optional_text(result.get("model"), 100),
+        "category": _optional_text(result.get("category"), 100) or facts.get("category") or "",
+        "description": _optional_text(result.get("description"), 1600) or "",
+        "highlights": highlights,
+        "specifications": specifications,
+        "missing_information": missing_information,
+        "confidence": confidence,
+    }
+
+
+def generate_product_description(product_details):
+    """Generate structured, seller-editable catalogue information."""
+    name = str(product_details.get("name", "")).strip()
     if not name:
         return None
 
     facts = {
-        "name": name,
+        "product_name": name,
+        "model": product_details.get("model"),
         "brand": product_details.get("brand"),
-        "colour": product_details.get("colourName"),
         "category": product_details.get("categoryName"),
-        "size": product_details.get("productSize"),
-        "warrantyMonths": product_details.get("warrantyPeriodMonths"),
-        "weightKg": product_details.get("weightKg"),
-        "costPriceLkr": product_details.get("costPrice"),
-        "sellingPriceLkr": product_details.get("sellingPrice"),
-        "variants": product_details.get("variants", []),
+        "user_provided_details": {
+            "colour": product_details.get("colourName"),
+            "size": product_details.get("productSize"),
+            "warranty_months": product_details.get("warrantyPeriodMonths"),
+            "weight_kg": product_details.get("weightKg"),
+            "variants": product_details.get("variants", []),
+        },
+        "image_extracted_text": product_details.get("imageExtractedText") or [],
     }
-    prompt = (
-        "Write a clear e-commerce product description using every non-empty specification "
-        "in the supplied facts, including brand, colour, size, weight, warranty and variant "
-        "options when provided. Use only the supplied facts; do not invent specifications, materials, "
-        "compatibility, waterproof ratings, warranty terms, or benefits. Do not "
-        "Include prices only when supplied. Do not include a heading. Return only the description.\n\n"
-        f"PRODUCT FACTS:\n{json.dumps(facts, ensure_ascii=False)}"
-    )
-
-    return request_ai_text(prompt)
+    prompt = f"{PRODUCT_INFORMATION_PROMPT}\n\nINPUT DATA:\n{json.dumps(facts, ensure_ascii=False)}"
+    response_text = request_ai_text(prompt, max_tokens=2400)
+    return _normalize_product_information(parse_json_object(response_text), facts)
 
 
 BUSINESS_ASSISTANT_INTENTS = {

@@ -79,7 +79,17 @@ export async function generateProductDescription(businessId, productDetails) {
     },
   );
 
-  return response.description;
+  return response.productInfo || {
+    product_name: productDetails.name,
+    brand: productDetails.brand || null,
+    model: productDetails.model || null,
+    category: productDetails.categoryName || "",
+    description: response.description || "",
+    highlights: [],
+    specifications: [],
+    missing_information: [],
+    confidence: "low",
+  };
 }
 
 export async function uploadProductMedia(businessId, productId, files) {

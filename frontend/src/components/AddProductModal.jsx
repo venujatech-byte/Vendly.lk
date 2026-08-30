@@ -9,6 +9,7 @@ import {
   uploadVariantImage,
 } from "../services/productService";
 import ModalShell from "./ModalShell";
+import ProductDescriptionEditor from "./ProductDescriptionEditor";
 import "./InventoryForm.css";
 
 function randomCode(length = 5) {
@@ -74,12 +75,14 @@ function AddProductModal({ isOpen, businessId, categories, product = null, onClo
   const [errorMessage, setErrorMessage] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [generatedProductInfo, setGeneratedProductInfo] = useState(null);
 
   useEffect(() => {
     if (isOpen) {
       setFormData(initialFormData(product));
       setMediaFiles([]);
       setErrorMessage("");
+      setGeneratedProductInfo(null);
     }
   }, [isOpen, product]);
 
@@ -145,7 +148,7 @@ function AddProductModal({ isOpen, businessId, categories, product = null, onClo
     setErrorMessage("");
     setIsGenerating(true);
     try {
-      const description = await generateProductDescription(businessId, {
+      const productInfo = await generateProductDescription(businessId, {
         name: formData.name,
         brand: formData.brand,
         colourName: formData.colourName,
@@ -157,7 +160,7 @@ function AddProductModal({ isOpen, businessId, categories, product = null, onClo
         sellingPrice: formData.hasSizes ? undefined : formData.sellingPrice,
         variants: formData.hasSizes ? formData.variants.map(({ size, sku, barcode, stock, costPrice, sellingPrice }) => ({ size, sku, barcode, stock, costPrice, sellingPrice })) : [],
       });
-      setFormData((current) => ({ ...current, description }));
+      setGeneratedProductInfo(productInfo);
     } catch (error) {
       setErrorMessage(error.message);
     } finally {
@@ -221,7 +224,8 @@ function AddProductModal({ isOpen, businessId, categories, product = null, onClo
   }
 
   return (
-    <ModalShell isOpen={isOpen} title={product ? "Edit Product" : "Add Product"} onClose={onClose} size="wide">
+    <>
+    <ModalShell isOpen={isOpen && !generatedProductInfo} title={product ? "Edit Product" : "Add Product"} onClose={onClose} size="wide">
       <form className="stitch-product-form" onSubmit={handleSubmit}>
         <div className="stitch-product__top">
           <div className="stitch-product__details">
@@ -312,6 +316,16 @@ function AddProductModal({ isOpen, businessId, categories, product = null, onClo
         <footer className="stitch-product__footer"><button type="button" onClick={onClose}>Cancel</button><button className="stitch-product__save" type="submit" disabled={isSaving}>{isSaving ? "Saving..." : product ? "Save Product" : "Add Product"}</button></footer>
       </form>
     </ModalShell>
+    <ProductDescriptionEditor
+      productInfo={generatedProductInfo}
+      onChange={setGeneratedProductInfo}
+      onCancel={() => setGeneratedProductInfo(null)}
+      onApply={(description) => {
+        setFormData((current) => ({ ...current, description }));
+        setGeneratedProductInfo(null);
+      }}
+    />
+    </>
   );
 }
 

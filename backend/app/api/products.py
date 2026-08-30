@@ -100,17 +100,32 @@ def generate_description(business_id):
     if not name:
         return jsonify({"error": {"code": "validation_error", "message": "Enter a product name first."}}), 422
 
-    description = generate_product_description(payload)
+    product_info = generate_product_description(payload)
     generated_by = "ai"
-    if not description:
+    if not product_info:
         description = (
             f"{name} is available from this seller. Add the product's key features, "
             "materials, compatibility, usage details and important limitations here "
             "so customers can make an informed purchase."
         )
+        product_info = {
+            "product_name": name,
+            "brand": payload.get("brand") or None,
+            "model": payload.get("model") or None,
+            "category": payload.get("categoryName") or "",
+            "description": description,
+            "highlights": [],
+            "specifications": [],
+            "missing_information": ["Verified product specifications"],
+            "confidence": "low",
+        }
         generated_by = "template"
 
-    return jsonify({"description": description, "generatedBy": generated_by})
+    return jsonify({
+        "description": product_info["description"],
+        "productInfo": product_info,
+        "generatedBy": generated_by,
+    })
 
 
 @products_blueprint.get("/businesses/<business_id>/products/<product_id>")
