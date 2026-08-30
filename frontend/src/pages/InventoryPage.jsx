@@ -525,51 +525,41 @@ function InventoryPage() {
         </p>
       )}
 
-      {inventoryActionMessage && (
-        <p className="inventory-page__notice inventory-page__notice--success" role="status">
-          {inventoryActionMessage}
-        </p>
-      )}
 
-      {isInventoryLoading && (
-        <p className="inventory-page__notice" role="status">
-          Loading inventory...
-        </p>
-      )}
 
-              <nav
-          className="inventory-tabs"
-          role="tablist"
-          aria-label="Inventory sections"
+      <nav
+        className="inventory-tabs"
+        role="tablist"
+        aria-label="Inventory sections"
+      >
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === "products"}
+          className={`inventory-tabs__button ${activeTab === "products"
+            ? "inventory-tabs__button--active"
+            : ""
+            }`}
+          onClick={() => setActiveTab("products")}
         >
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === "products"}
-            className={`inventory-tabs__button ${activeTab === "products"
-              ? "inventory-tabs__button--active"
-              : ""
-              }`}
-            onClick={() => setActiveTab("products")}
-          >
-            <Package size={17} aria-hidden="true" />
-            <span>Products</span>
-          </button>
+          <Package size={17} aria-hidden="true" />
+          <span>Products</span>
+        </button>
 
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === "categories"}
-            className={`inventory-tabs__button ${activeTab === "categories"
-              ? "inventory-tabs__button--active"
-              : ""
-              }`}
-            onClick={() => setActiveTab("categories")}
-          >
-            <Tags size={17} aria-hidden="true" />
-            <span>Categories</span>
-          </button>
-        </nav>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={activeTab === "categories"}
+          className={`inventory-tabs__button ${activeTab === "categories"
+            ? "inventory-tabs__button--active"
+            : ""
+            }`}
+          onClick={() => setActiveTab("categories")}
+        >
+          <Tags size={17} aria-hidden="true" />
+          <span>Categories</span>
+        </button>
+      </nav>
 
       {/* Inventory dashboard starts here */}
 
@@ -648,6 +638,22 @@ function InventoryPage() {
           <CategoryTable categories={categories} products={products} onEditCategory={setEditingCategory} onRemoveCategory={(category) => setRemovalTarget({ type: "category", record: category })} />
         </>
       )}
+
+
+
+      {inventoryActionMessage && (
+        <p className="inventory-page__notice inventory-page__notice--success" role="status">
+          {inventoryActionMessage}
+        </p>
+      )}
+
+      {isInventoryLoading && (
+        <p className="inventory-page__notice" role="status">
+          Loading inventory...
+        </p>
+      )}
+
+
 
       <AddCategoryModal
         isOpen={isAddCategoryOpen}

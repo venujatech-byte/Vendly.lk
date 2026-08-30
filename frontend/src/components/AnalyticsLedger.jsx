@@ -177,11 +177,11 @@ function AnalyticsLedger({ businessId, ledger, isLoading, error }) {
               const displayed = displayDate(entry.createdAt);
               return (
                 <tr key={entry.id} className={`analytics-ledger__row analytics-ledger__row--${entry.direction}`}>
-                  <td data-label="Date"><strong>{displayed.date}</strong><small>{displayed.time}</small></td>
-                  <td data-label="Reference"><strong>{entry.reference}</strong><small>{entry.status?.replaceAll("-", " ")}</small></td>
-                  <td data-label="Type"><span className={`analytics-ledger__type analytics-ledger__type--${entry.direction}`}>{entry.label}</span></td>
-                  <td data-label="Details"><strong>{entry.customerName}</strong><small>{entry.description}</small></td>
-                  <td data-label="Payment"><strong>{entry.paymentMethod?.replaceAll("-", " ")}</strong><small>{entry.paymentStatus?.replaceAll("-", " ")}</small></td>
+                  <td data-label="Date"><span className="analytics-ledger__cell-value"><strong>{displayed.date}</strong><small>{displayed.time}</small></span></td>
+                  <td data-label="Reference"><span className="analytics-ledger__cell-value"><strong>{entry.reference}</strong><small>{entry.status?.replaceAll("-", " ")}</small></span></td>
+                  <td data-label="Type"><span className="analytics-ledger__cell-value"><span className={`analytics-ledger__type analytics-ledger__type--${entry.direction}`}>{entry.label}</span></span></td>
+                  <td data-label="Details"><span className="analytics-ledger__cell-value"><strong>{entry.customerName}</strong><small>{entry.description}</small></span></td>
+                  <td data-label="Payment"><span className="analytics-ledger__cell-value"><strong>{entry.paymentMethod?.replaceAll("-", " ")}</strong><small>{entry.paymentStatus?.replaceAll("-", " ")}</small></span></td>
                   <td data-label="Money in" className="analytics-ledger__money analytics-ledger__money--credit">{entry.direction === "credit" ? formatAnalyticsMoney(entry.amountMinor) : "—"}</td>
                   <td data-label="Money out" className="analytics-ledger__money analytics-ledger__money--debit">{entry.direction === "debit" ? formatAnalyticsMoney(entry.amountMinor) : "—"}</td>
                   <td data-label="Balance" className="analytics-ledger__balance">{formatAnalyticsMoney(entry.balanceMinor)}</td>

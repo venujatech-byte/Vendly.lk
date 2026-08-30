@@ -265,9 +265,6 @@ function CouriersPage() {
         </div>
       </section>
 
-      {isLoading && <p className="management-page__notice">Loading couriers...</p>}
-      {errorMessage && <p className="management-page__notice" role="alert">{errorMessage}</p>}
-
       {!isLoading && <CourierDeliveryFeeMap couriers={couriers} />}
 
       <section className="orders-table-section courier-table-card">
@@ -366,6 +363,14 @@ function CouriersPage() {
       </div>
       {!isLoading && <TablePagination pagination={pagination} label="couriers" />}
       </section>
+
+
+      {isLoading && <p className="management-page__notice">Loading couriers...</p>}
+      {errorMessage && <p className="management-page__notice" role="alert">{errorMessage}</p>}
+
+
+
+
 
       <AddCourierModal
         isOpen={isAddCourierOpen}

@@ -507,3 +507,128 @@ html[data-theme="dark"] .orders-table__details-cell {
   line-height: 1.45;
   background: color-mix(in srgb, var(--warning, #f19b16) 10%, transparent);
 }
+
+/* Final phone override. Some details (especially the customer note) receive
+   desktop grid coordinates later in this file, so a flex stack here prevents
+   those coordinates from creating phantom columns and overlapping content. */
+@media (max-width: 700px) {
+  .order-details {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    width: 100%;
+    min-width: 0;
+    margin-top: 4px;
+    padding: 10px;
+    overflow: hidden;
+  }
+
+  .order-details__warning,
+  .order-details__mobile-meta,
+  .order-details__items-section,
+  .order-details__address,
+  .order-details__summary,
+  .order-details__actions,
+  .order-details__customer-note,
+  .order-details__receipts {
+    grid-column: auto;
+    grid-row: auto;
+    width: 100%;
+    min-width: 0;
+    margin-left: 0;
+    margin-right: 0;
+    box-sizing: border-box;
+  }
+
+  .order-details__warning {
+    order: 0;
+    margin-bottom: 10px;
+  }
+
+  .order-details__mobile-meta {
+    order: 1;
+  }
+
+  .order-details__items-section {
+    order: 2;
+  }
+
+  .order-details__address {
+    order: 3;
+  }
+
+  .order-details__customer-note {
+    order: 4;
+    min-height: 0;
+    margin-top: 10px;
+    margin-bottom: 10px;
+    padding: 11px 12px;
+  }
+
+  .order-details__summary {
+    order: 5;
+  }
+
+  .order-details__receipts {
+    order: 6;
+  }
+
+  .order-details__actions {
+    order: 7;
+    gap: 8px;
+    padding-bottom: 0;
+    border-bottom: 0;
+  }
+
+  .order-details__section {
+    padding: 12px 0;
+    border-right: 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .order-details__section h3 {
+    margin-bottom: 9px;
+  }
+
+  .order-details__item {
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 9px;
+  }
+
+  .order-details__item > div,
+  .order-details__information span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .order-details__item > strong:last-child {
+    font-size: 11px;
+    white-space: nowrap;
+  }
+
+  .order-details__summary > div {
+    align-items: flex-start;
+  }
+
+  .order-details__summary > div > strong {
+    max-width: 58%;
+    text-align: right;
+    overflow-wrap: anywhere;
+  }
+
+  .order-details__waybill-editor {
+    grid-template-columns: minmax(58px, 1fr) auto;
+  }
+
+  .order-details__actions button,
+  .order-details__actions select {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .order-details__payment-hold {
+    overflow-wrap: anywhere;
+  }
+}

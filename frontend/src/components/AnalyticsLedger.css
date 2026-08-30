@@ -201,6 +201,13 @@
   display: block;
 }
 
+/* Keep compound ledger values together on phones. The table-to-card layout
+   gives each row a label column and a value column; this wrapper prevents the
+   secondary line from being auto-placed beneath the label. */
+.analytics-ledger__cell-value {
+  min-width: 0;
+}
+
 .analytics-ledger__table td strong {
   color: var(--color-text-strong);
   font-size: 10px;
@@ -404,7 +411,7 @@
 
   .analytics-ledger__table td {
     display: grid;
-    grid-template-columns: 92px minmax(0, 1fr);
+    grid-template-columns: minmax(76px, 30%) minmax(0, 1fr);
     align-items: center;
     min-height: 32px;
     padding: 6px 0;
@@ -425,18 +432,31 @@
     border-bottom: 0;
   }
 
-  .analytics-ledger__table td strong,
-  .analytics-ledger__table td small {
+  .analytics-ledger__cell-value {
+    display: grid;
+    justify-items: end;
+    gap: 2px;
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
     text-align: right;
   }
 
-  .analytics-ledger__table td small {
-    justify-self: end;
-    max-width: 210px;
+  .analytics-ledger__cell-value strong,
+  .analytics-ledger__cell-value small {
+    max-width: 100%;
+    overflow: hidden;
+    text-align: right;
+    text-overflow: ellipsis;
+  }
+
+  .analytics-ledger__cell-value small {
+    white-space: nowrap;
   }
 
   .analytics-ledger__type {
     justify-self: end;
+    max-width: 100%;
   }
 
   .analytics-ledger__empty {

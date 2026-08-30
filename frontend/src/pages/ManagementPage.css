@@ -405,3 +405,78 @@ html[data-animations="enabled"] .couriers-page .courier-stats .stat-card:nth-chi
     font-size: 10px;
   }
 }
+
+@media (max-width: 760px) {
+  .courier-table th:first-child,
+  .courier-table td:first-child {
+    width: 34px;
+    padding-left: 5px;
+    padding-right: 3px;
+  }
+
+  .courier-table th:nth-child(2),
+  .courier-table td:nth-child(2) {
+    width: auto;
+    min-width: 0;
+    padding-left: 4px;
+    padding-right: 4px;
+  }
+
+  .courier-table th:nth-child(8),
+  .courier-table td:nth-child(8) {
+    width: 68px;
+    padding-left: 3px;
+    padding-right: 3px;
+  }
+
+  .courier-table th:nth-child(9),
+  .courier-table td:nth-child(9) {
+    width: 44px;
+    padding-left: 3px;
+    padding-right: 5px;
+  }
+
+  .courier-table__name {
+    display: grid;
+    grid-template-columns: 30px minmax(0, 1fr);
+    column-gap: 7px;
+    width: 100%;
+    min-width: 0;
+    align-items: center;
+  }
+
+  .courier-table__icon {
+    grid-row: 1 / 3;
+    width: 30px;
+    height: 30px;
+  }
+
+  .courier-table__name strong,
+  .courier-table__name small {
+    grid-column: 2;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .courier-table__name strong {
+    font-size: 11px;
+  }
+
+  .courier-table .management-badge {
+    display: inline-block;
+    max-width: 100%;
+    padding: 4px 6px;
+    overflow: hidden;
+    font-size: 9px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .courier-table .orders-table__details-cell {
+    display: table-cell;
+    width: auto;
+    padding: 6px !important;
+  }
+}

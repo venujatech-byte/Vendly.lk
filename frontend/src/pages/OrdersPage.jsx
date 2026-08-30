@@ -473,11 +473,11 @@ function OrdersPage() {
         ...(selectedExportOrderIds.length > 0
           ? { orderIds: selectedExportOrderIds }
           : {
-              status: statusFilter || filters.status || routeStatus,
-              search: filters.search || routeSearch,
-              dateFrom: filters.dateFrom || routeDateFrom,
-              dateTo: filters.dateTo || routeDateTo,
-            }),
+            status: statusFilter || filters.status || routeStatus,
+            search: filters.search || routeSearch,
+            dateFrom: filters.dateFrom || routeDateFrom,
+            dateTo: filters.dateTo || routeDateTo,
+          }),
       });
       return true;
     } catch (error) {
@@ -527,45 +527,45 @@ function OrdersPage() {
           <p>View and manage all customer orders.</p>
 
           {activeTab === "onlineOrders" && <div className="page__actions">
-              <button type="button" onClick={handleScanWaybill}>
-                <ScanLine size={19} aria-hidden="true" />
-                <span>Scan Waybill</span>
-              </button>
-              <button type="button" onClick={handleCopyChatbotLink} disabled={!business?.shortCode} title="Copy the seller-specific catalogue and chatbot link">
-                {linkWasCopied ? <Check size={19} aria-hidden="true" /> : <Link2 size={19} aria-hidden="true" />}
-                <span>{linkWasCopied ? "Link Copied" : "Chatbot Link"}</span>
-              </button>
-              <button type="button" onClick={openOrdersExportModal} disabled={!business?.id}>
-                <Download size={19} strokeWidth={1.8} />
-                <span>Export Orders</span>
-              </button>
-              <button className="page__add-button" type="button" onClick={() => setIsAddOrderOpen(true)} disabled={!business?.id}>
-                <Plus size={19} aria-hidden="true" />
-                Add Order
-              </button>
-            </div>}
+            <button type="button" onClick={handleScanWaybill}>
+              <ScanLine size={19} aria-hidden="true" />
+              <span>Scan Waybill</span>
+            </button>
+            <button type="button" onClick={handleCopyChatbotLink} disabled={!business?.shortCode} title="Copy the seller-specific catalogue and chatbot link">
+              {linkWasCopied ? <Check size={19} aria-hidden="true" /> : <Link2 size={19} aria-hidden="true" />}
+              <span>{linkWasCopied ? "Link Copied" : "Chatbot Link"}</span>
+            </button>
+            <button type="button" onClick={openOrdersExportModal} disabled={!business?.id}>
+              <Download size={19} strokeWidth={1.8} />
+              <span>Export Orders</span>
+            </button>
+            <button className="page__add-button" type="button" onClick={() => setIsAddOrderOpen(true)} disabled={!business?.id}>
+              <Plus size={19} aria-hidden="true" />
+              Add Order
+            </button>
+          </div>}
 
           {activeTab === "shopOrders" && <div className="page__actions">
-              <button type="button" onClick={handleExportShopSales} disabled={!shopSales.length}>
-                <Download size={19} strokeWidth={1.8} aria-hidden="true" />
-                <span>Export Sales</span>
-              </button>
-              <button className="page__add-button" type="button" onClick={() => setIsAddShopSaleOpen(true)} disabled={!business?.id}>
-                <Plus size={19} aria-hidden="true" />
-                Add Shop Sale
-              </button>
-            </div>}
+            <button type="button" onClick={handleExportShopSales} disabled={!shopSales.length}>
+              <Download size={19} strokeWidth={1.8} aria-hidden="true" />
+              <span>Export Sales</span>
+            </button>
+            <button className="page__add-button" type="button" onClick={() => setIsAddShopSaleOpen(true)} disabled={!business?.id}>
+              <Plus size={19} aria-hidden="true" />
+              Add Shop Sale
+            </button>
+          </div>}
+
+
+          {activeTab === "warrantyClaims" && <div className="page__actions">
+            <button type="button"  disabled={!shopSales.length}>
+              <Download size={19} strokeWidth={1.8} aria-hidden="true" />
+              <span>Export warranty claims</span>
+            </button>
+          </div>}
         </div>
 
       </div>
-      {(accountError || ordersError) && (
-        <p className="orders-page__notice orders-page__notice--error" role="alert">
-          Orders could not be loaded from the Vendly API.
-        </p>
-      )}
-      {isLoading && (
-        <p className="orders-page__notice" role="status">Loading orders...</p>
-      )}
 
 
 
@@ -704,17 +704,27 @@ function OrdersPage() {
             </div>
           </section>
           <ShopSaleFilters onChange={setShopFilters} appliedFilters={assistantShopSaleFilters} />
-          <ShopSalesTable sales={shopSales.filter((sale) => sale.status !== "voided")} onPrint={printShopReceipt} onWarranty={openShopWarranty} onRemove={setShopRemovalTarget}/>
+          <ShopSalesTable sales={shopSales.filter((sale) => sale.status !== "voided")} onPrint={printShopReceipt} onWarranty={openShopWarranty} onRemove={setShopRemovalTarget} />
         </>
       )}
 
       {activeTab === "warrantyClaims" && (
         <>
           <div className="shop-sales-heading"><div><h2>Warranty claims</h2><p>Claims from online orders and physical shop sales appear together.</p></div></div>
-          <WarrantyClaimsTable claims={warrantyClaims}/>
+          <WarrantyClaimsTable claims={warrantyClaims} />
         </>
       )}
 
+
+
+      {(accountError || ordersError) && (
+        <p className="orders-page__notice orders-page__notice--error" role="alert">
+          Orders could not be loaded from the Vendly API.
+        </p>
+      )}
+      {isLoading && (
+        <p className="orders-page__notice" role="status">Loading orders...</p>
+      )}
 
 
 
@@ -728,8 +738,8 @@ function OrdersPage() {
         onClose={() => setIsAddOrderOpen(false)}
         onCreated={(order) => setOrders((current) => [order, ...current])}
       />
-      <AddShopSaleModal isOpen={isAddShopSaleOpen} businessId={business?.id} onClose={() => setIsAddShopSaleOpen(false)} onCreated={(sale) => setShopSales((current) => [sale, ...current])}/>
-      <WarrantyClaimModal source={warrantySource} businessId={business?.id} onClose={() => setWarrantySource(null)} onCreate={async (businessId, payload) => { const claim = await createWarrantyClaim(businessId, payload); setWarrantyClaims((current) => [claim, ...current]); }}/>
+      <AddShopSaleModal isOpen={isAddShopSaleOpen} businessId={business?.id} onClose={() => setIsAddShopSaleOpen(false)} onCreated={(sale) => setShopSales((current) => [sale, ...current])} />
+      <WarrantyClaimModal source={warrantySource} businessId={business?.id} onClose={() => setWarrantySource(null)} onCreate={async (businessId, payload) => { const claim = await createWarrantyClaim(businessId, payload); setWarrantyClaims((current) => [claim, ...current]); }} />
 
       <EditOrderModal isOpen={Boolean(editingOrder)} businessId={business?.id} order={editingOrder} onClose={() => setEditingOrder(null)} onUpdated={(updated) => { setOrders((current) => current.map((order) => order.id === updated.id ? updated : order)); setEditingOrder(null); }} />
       <ConfirmDialog isOpen={Boolean(removalTarget)} title="Remove order?" message={`This cancels ${removalTarget?.orderNumber ?? "this order"} and releases its reserved stock.`} isWorking={isRemoving} onCancel={() => setRemovalTarget(null)} onConfirm={confirmOrderRemoval} />
