@@ -3,6 +3,7 @@ import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import LoginPage from "./pages/LoginPage.jsx";
 import { lazy, Suspense, useEffect, useLayoutEffect, useState } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import vendlyLogo from "./assets/react.png";
 
 // Shared layout components and the individual dashboard pages.
 import "./App.css";
@@ -65,10 +66,10 @@ function AppLoadingScreen({
     >
       <div className="app-loading__content">
         <div className="app-loading__logo">
-          <span>V</span>
+          <span><img className="sidebar__logo-image" src={vendlyLogo} alt="Vendly.lk"/></span>
         </div>
 
-        <h1>Vendly</h1>
+        <h1>Vendly.lk</h1>
         <p>{errorMessage || message}</p>
 
         {!errorMessage && (

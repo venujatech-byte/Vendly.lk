@@ -161,19 +161,14 @@
   display: grid;
   place-items: center;
 
-  width: 76px;
-  height: 76px;
+  width: 120px;
+  height: 120px;
 
   margin-bottom: 18px;
 
   border-radius: 22px;
 
-  background:
-    linear-gradient(
-      135deg,
-      #168cf5,
-      #0568c7
-    );
+
 
   box-shadow:
     0 18px 38px
@@ -190,7 +185,7 @@
 }
 
 
-/* rotating ring */
+/* rotating ring
 .app-loading__logo::before {
   content: "";
 
@@ -220,7 +215,7 @@
     loadingRingSpin
     1.5s linear
     infinite;
-}
+} */
 
 
 /* Vendly V */
