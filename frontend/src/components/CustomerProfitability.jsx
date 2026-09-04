@@ -76,17 +76,23 @@ function CustomerProfitability({ report, isLoading }) {
       </div>
 
       <section className="filter-panel" aria-label="Customer profitability filters">
-        <button className="filter-panel__mobile-toggle" type="button" onClick={() => setAreMobileFiltersOpen((value) => !value)}>
+        <button
+          className="filter-panel__mobile-toggle"
+          type="button"
+          aria-expanded={areMobileFiltersOpen}
+          aria-controls="customer-profitability-filter-fields"
+          onClick={() => setAreMobileFiltersOpen((value) => !value)}
+        >
           <span><Filter size={17} /> {areMobileFiltersOpen ? "Hide filters" : "Show filters"}</span>
           <ChevronDown className={areMobileFiltersOpen ? "is-open" : ""} size={18} />
         </button>
-        <div className={`filter-panel__form customer-profitability__filter-form ${areMobileFiltersOpen ? "is-open" : ""}`}>
+        <div id="customer-profitability-filter-fields" className={`filter-panel__form customer-profitability__filter-form ${areMobileFiltersOpen ? "is-open" : ""}`}>
           <label className="filter-panel__field filter-panel__field--search">
-            <span>Search</span>
+            <span className="customer-profitability__field-label">Search</span>
             <span className="filter-panel__icon-field"><Search size={16} /><input value={filters.search} onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))} placeholder="Customer, phone or email..." /></span>
           </label>
           <label className="filter-panel__field">
-            <span>Profitability</span>
+            <span className="customer-profitability__field-label">Profitability</span>
             <select value={filters.profitability} onChange={(event) => setFilters((current) => ({ ...current, profitability: event.target.value }))}>
               <option value="all">All customers</option>
               <option value="profitable">Profitable</option>
@@ -96,7 +102,7 @@ function CustomerProfitability({ report, isLoading }) {
             </select>
           </label>
           <label className="filter-panel__field">
-            <span>Return risk</span>
+            <span className="customer-profitability__field-label">Return risk</span>
             <select value={filters.returnRisk} onChange={(event) => setFilters((current) => ({ ...current, returnRisk: event.target.value }))}>
               <option value="all">All return levels</option>
               <option value="healthy">Below 30%</option>

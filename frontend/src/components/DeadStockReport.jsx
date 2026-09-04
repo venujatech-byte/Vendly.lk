@@ -46,11 +46,20 @@ function DeadStockReport({ report, isLoading }) {
       </div>
 
       <section className="filter-panel" aria-label="Dead-stock filters">
-        <button className="filter-panel__mobile-toggle" type="button" onClick={() => setAreMobileFiltersOpen((value) => !value)}><span><Filter size={17} /> {areMobileFiltersOpen ? "Hide filters" : "Show filters"}</span><ChevronDown className={areMobileFiltersOpen ? "is-open" : ""} size={18} /></button>
-        <div className={`filter-panel__form dead-stock__filter-form ${areMobileFiltersOpen ? "is-open" : ""}`}>
-          <label className="filter-panel__field filter-panel__field--search"><span>Search</span><span className="filter-panel__icon-field"><Search size={16} /><input value={filters.search} onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))} placeholder="Product, SKU or category..." /></span></label>
-          <label className="filter-panel__field"><span>Category</span><select value={filters.category} onChange={(event) => setFilters((current) => ({ ...current, category: event.target.value }))}><option value="all">All categories</option>{categories.map((category) => <option key={category}>{category}</option>)}</select></label>
-          <label className="filter-panel__field"><span>Stock state</span><select value={filters.state} onChange={(event) => setFilters((current) => ({ ...current, state: event.target.value }))}><option value="all">All dead stock</option><option value="never-sold">Never sold</option><option value="stale">60-119 days</option><option value="critical">120+ days</option></select></label>
+        <button
+          className="filter-panel__mobile-toggle"
+          type="button"
+          aria-expanded={areMobileFiltersOpen}
+          aria-controls="dead-stock-filter-fields"
+          onClick={() => setAreMobileFiltersOpen((value) => !value)}
+        >
+          <span><Filter size={17} /> {areMobileFiltersOpen ? "Hide filters" : "Show filters"}</span>
+          <ChevronDown className={areMobileFiltersOpen ? "is-open" : ""} size={18} />
+        </button>
+        <div id="dead-stock-filter-fields" className={`filter-panel__form dead-stock__filter-form ${areMobileFiltersOpen ? "is-open" : ""}`}>
+          <label className="filter-panel__field filter-panel__field--search"><span className="dead-stock__field-label">Search</span><span className="filter-panel__icon-field"><Search size={16} /><input value={filters.search} onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))} placeholder="Product, SKU or category..." /></span></label>
+          <label className="filter-panel__field"><span className="dead-stock__field-label">Category</span><select value={filters.category} onChange={(event) => setFilters((current) => ({ ...current, category: event.target.value }))}><option value="all">All categories</option>{categories.map((category) => <option key={category}>{category}</option>)}</select></label>
+          <label className="filter-panel__field"><span className="dead-stock__field-label">Stock state</span><select value={filters.state} onChange={(event) => setFilters((current) => ({ ...current, state: event.target.value }))}><option value="all">All dead stock</option><option value="never-sold">Never sold</option><option value="stale">60-119 days</option><option value="critical">120+ days</option></select></label>
           <button className="filter-panel__apply" type="button"><Filter size={15} /> Filter</button>
           <button className="filter-panel__reset filter-panel__reset--text" type="button" onClick={resetFilters}><RotateCcw size={15} /> Reset</button>
         </div>

@@ -5,7 +5,51 @@
 .cod-reconciliation__intro p { margin:0; color:var(--color-muted); font-size:12px; }
 .cod-reconciliation__intro > svg { color:var(--color-accent); }
 .cod-reconciliation__stats { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; }
-.cod-reconciliation__filter-form { grid-template-columns:minmax(220px,2fr) repeat(2,minmax(140px,1fr)) auto auto; }
+.cod-reconciliation__filter-form.filter-panel__form {
+  display: grid;
+  align-items: end;
+  grid-template-columns: minmax(250px, 1.8fr) minmax(165px, 1fr) minmax(140px, 0.8fr) auto auto;
+  gap: 8px;
+}
+
+.cod-reconciliation__filter-form .filter-panel__field {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+}
+
+.cod-reconciliation__field-label {
+  display: block;
+  color: var(--color-text-strong);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.cod-reconciliation__filter-form .filter-panel__icon-field {
+  position: relative;
+  display: flex;
+  width: 100%;
+}
+
+.cod-reconciliation__filter-form .filter-panel__icon-field input {
+  width: 100%;
+  min-width: 0;
+  height: 40px;
+  padding: 0 11px 0 36px;
+  border: 1px solid var(--color-border);
+  border-radius: 7px;
+  outline: none;
+  color: var(--color-text);
+  background: var(--color-control);
+  font: inherit;
+}
+
+.cod-reconciliation__filter-form .filter-panel__icon-field input:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(41, 151, 255, 0.14);
+}
 .cod-reconciliation__table-shell { overflow:hidden; border:1px solid var(--color-border); border-radius:14px; background:var(--color-surface); }
 .cod-reconciliation table { width:100%; border-collapse:collapse; font-size:11px; }
 .cod-reconciliation th,.cod-reconciliation td { padding:11px 9px; border-bottom:1px solid var(--color-border); text-align:left; }
@@ -22,5 +66,22 @@
 .cod-reconciliation__dialog h3 { margin:2px 0 0; }.cod-reconciliation__dialog header span { color:var(--color-muted); font-size:10px; }.cod-reconciliation__dialog header button { border:0; color:var(--color-muted); background:transparent; }
 .cod-reconciliation__form-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; padding:18px; }.cod-reconciliation__form-grid label { display:grid; gap:5px; color:var(--color-text-strong); font-size:10px; font-weight:750; }.cod-reconciliation__form-grid .is-wide { grid-column:1/-1; }.cod-reconciliation__form-grid input,.cod-reconciliation__form-grid textarea { min-height:38px; padding:9px 11px; border:1px solid var(--color-border); border-radius:8px; color:var(--color-text); background:var(--color-surface-soft); }.cod-reconciliation__form-grid textarea { min-height:70px; resize:vertical; }.cod-reconciliation__form-grid .is-check { display:flex; grid-template-columns:auto 1fr; align-items:center; }.cod-reconciliation__form-grid .is-check input { min-height:auto; }
 .cod-reconciliation__dialog footer button { min-height:36px; padding:8px 13px; border:1px solid var(--color-border); border-radius:8px; background:transparent; }.cod-reconciliation__dialog footer button[type="submit"] { border-color:var(--color-accent); color:#fff; background:var(--color-accent); }
-@media (max-width:900px) { .cod-reconciliation__stats { grid-template-columns:repeat(2,minmax(0,1fr)); }.cod-reconciliation__filter-form { grid-template-columns:1fr 1fr; }.cod-reconciliation__table-shell { overflow-x:auto; }.cod-reconciliation table { min-width:980px; } }
-@media (max-width:600px) { .cod-reconciliation__stats { gap:8px; }.cod-reconciliation__form-grid { grid-template-columns:1fr; }.cod-reconciliation__form-grid .is-wide { grid-column:auto; } }
+@media (max-width: 1100px) {
+  .cod-reconciliation__stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cod-reconciliation__filter-form.filter-panel__form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cod-reconciliation__table-shell { overflow-x: auto; }
+  .cod-reconciliation table { min-width: 980px; }
+}
+
+@media (max-width: 700px) {
+  .cod-reconciliation__stats { gap: 8px; }
+  .cod-reconciliation__filter-form.filter-panel__form {
+    display: none;
+    grid-template-columns: 1fr;
+  }
+  .cod-reconciliation__filter-form.filter-panel__form.is-open {
+    display: grid;
+  }
+  .cod-reconciliation__form-grid { grid-template-columns: 1fr; }
+  .cod-reconciliation__form-grid .is-wide { grid-column: auto; }
+}

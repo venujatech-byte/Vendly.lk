@@ -5,7 +5,51 @@
 .customer-profitability__intro p { margin:0; color:var(--color-muted); font-size:12px; }
 .customer-profitability__intro > svg { color:var(--color-accent); }
 .customer-profitability__stats { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; }
-.customer-profitability__filter-form { grid-template-columns:minmax(230px,2fr) repeat(2,minmax(160px,1fr)) auto auto; }
+.customer-profitability__filter-form.filter-panel__form {
+  display: grid;
+  align-items: end;
+  grid-template-columns: minmax(250px, 1.8fr) minmax(165px, 1fr) minmax(160px, 0.8fr) auto auto;
+  gap: 8px;
+}
+
+.customer-profitability__filter-form .filter-panel__field {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+}
+
+.customer-profitability__field-label {
+  display: block;
+  color: var(--color-text-strong);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.customer-profitability__filter-form .filter-panel__icon-field {
+  position: relative;
+  display: flex;
+  width: 100%;
+}
+
+.customer-profitability__filter-form .filter-panel__icon-field input {
+  width: 100%;
+  min-width: 0;
+  height: 40px;
+  padding: 0 11px 0 36px;
+  border: 1px solid var(--color-border);
+  border-radius: 7px;
+  outline: none;
+  color: var(--color-text);
+  background: var(--color-control);
+  font: inherit;
+}
+
+.customer-profitability__filter-form .filter-panel__icon-field input:focus {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(41, 151, 255, 0.14);
+}
 .customer-profitability__table-shell { overflow:hidden; border:1px solid var(--color-border); border-radius:14px; background:var(--color-surface); }
 .customer-profitability table { width:100%; border-collapse:collapse; font-size:11px; }
 .customer-profitability th,.customer-profitability td { padding:11px 9px; border-bottom:1px solid var(--color-border); text-align:left; vertical-align:middle; }
@@ -22,5 +66,23 @@
 .customer-profitability__state.is-no-sales { color:var(--color-muted); background:var(--color-surface-soft); }
 .customer-profitability .is-profit { color:#087a4b; }
 .customer-profitability .is-loss,.customer-profitability .is-risk { color:#d92d20; }
-@media (max-width:1000px) { .customer-profitability__stats { grid-template-columns:repeat(2,minmax(0,1fr)); }.customer-profitability__filter-form { grid-template-columns:1fr 1fr; }.customer-profitability__table-shell { overflow-x:auto; }.customer-profitability table { min-width:1050px; } }
-@media (max-width:600px) { .customer-profitability__stats { gap:8px; }.customer-profitability__intro { align-items:flex-start; }.customer-profitability__intro > svg { width:20px; }.customer-profitability__customer { min-width:165px; } }
+@media (max-width: 1100px) {
+  .customer-profitability__stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .customer-profitability__filter-form.filter-panel__form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .customer-profitability__table-shell { overflow-x: auto; }
+  .customer-profitability table { min-width: 1050px; }
+}
+
+@media (max-width: 700px) {
+  .customer-profitability__stats { gap: 8px; }
+  .customer-profitability__intro { align-items: flex-start; }
+  .customer-profitability__intro > svg { width: 20px; }
+  .customer-profitability__customer { min-width: 165px; }
+  .customer-profitability__filter-form.filter-panel__form {
+    display: none;
+    grid-template-columns: 1fr;
+  }
+  .customer-profitability__filter-form.filter-panel__form.is-open {
+    display: grid;
+  }
+}

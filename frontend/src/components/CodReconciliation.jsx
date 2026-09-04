@@ -96,11 +96,20 @@ function CodReconciliation({ businessId, reconciliation, isLoading, error, onCha
       </div>
 
       <section className="cod-reconciliation__filters filter-panel" aria-label="COD reconciliation filters">
-        <button className="filter-panel__mobile-toggle" type="button" onClick={() => setAreMobileFiltersOpen((value) => !value)}><span><Filter size={17} /> {areMobileFiltersOpen ? "Hide filters" : "Show filters"}</span><ChevronDown className={areMobileFiltersOpen ? "is-open" : ""} size={18} /></button>
-        <div className={`filter-panel__form cod-reconciliation__filter-form ${areMobileFiltersOpen ? "is-open" : ""}`}>
-          <label className="filter-panel__field filter-panel__field--search"><span>Search</span><span className="filter-panel__icon-field"><Search size={16} /><input value={filters.search} onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))} placeholder="Order, customer, courier or reference..." /></span></label>
-          <label className="filter-panel__field"><span>Status</span><select value={filters.status} onChange={(event) => setFilters((current) => ({ ...current, status: event.target.value }))}><option value="all">All statuses</option>{["unreconciled", "pending", "partial", "reconciled", "disputed"].map((status) => <option key={status} value={status}>{status.replaceAll("-", " ")}</option>)}</select></label>
-          <label className="filter-panel__field"><span>Courier</span><select value={filters.courier} onChange={(event) => setFilters((current) => ({ ...current, courier: event.target.value }))}><option value="all">All couriers</option>{couriers.map((courier) => <option key={courier}>{courier}</option>)}</select></label>
+        <button
+          className="filter-panel__mobile-toggle"
+          type="button"
+          aria-expanded={areMobileFiltersOpen}
+          aria-controls="cod-reconciliation-filter-fields"
+          onClick={() => setAreMobileFiltersOpen((value) => !value)}
+        >
+          <span><Filter size={17} /> {areMobileFiltersOpen ? "Hide filters" : "Show filters"}</span>
+          <ChevronDown className={areMobileFiltersOpen ? "is-open" : ""} size={18} />
+        </button>
+        <div id="cod-reconciliation-filter-fields" className={`filter-panel__form cod-reconciliation__filter-form ${areMobileFiltersOpen ? "is-open" : ""}`}>
+          <label className="filter-panel__field filter-panel__field--search"><span className="cod-reconciliation__field-label">Search</span><span className="filter-panel__icon-field"><Search size={16} /><input value={filters.search} onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))} placeholder="Order, customer, courier or reference..." /></span></label>
+          <label className="filter-panel__field"><span className="cod-reconciliation__field-label">Status</span><select value={filters.status} onChange={(event) => setFilters((current) => ({ ...current, status: event.target.value }))}><option value="all">All statuses</option>{["unreconciled", "pending", "partial", "reconciled", "disputed"].map((status) => <option key={status} value={status}>{status.replaceAll("-", " ")}</option>)}</select></label>
+          <label className="filter-panel__field"><span className="cod-reconciliation__field-label">Courier</span><select value={filters.courier} onChange={(event) => setFilters((current) => ({ ...current, courier: event.target.value }))}><option value="all">All couriers</option>{couriers.map((courier) => <option key={courier}>{courier}</option>)}</select></label>
           <button className="filter-panel__apply" type="button"><Filter size={15} /> Filter</button>
           <button className="filter-panel__reset filter-panel__reset--text" type="button" onClick={() => setFilters({ search: "", status: "all", courier: "all" })}><RotateCcw size={15} /> Reset</button>
         </div>
