@@ -14,6 +14,7 @@ from app.services.order_service import (
     update_order_status,
     update_order,
 )
+from app.services.analytics_service import bump_analytics_version
 
 
 orders_blueprint = Blueprint("orders", __name__, url_prefix="/api/v1")
@@ -47,6 +48,7 @@ def add_order(business_id):
         g.current_user["uid"],
         payload,
     )
+    bump_analytics_version(get_firestore_client(), business_id)
 
     # Uploaded after the order exists, because the receipt is stored against
     # it. The same path the Record payment popup uses, so a payment entered at
@@ -133,6 +135,7 @@ def change_order_status(business_id, order_id):
         g.current_user["uid"],
         get_json_object(),
     )
+    bump_analytics_version(get_firestore_client(), business_id)
     return jsonify({"order": order})
 
 
@@ -144,6 +147,7 @@ def edit_order(business_id, order_id):
         get_firestore_client(), business_id, order_id,
         g.current_user["uid"], get_json_object(),
     )
+    bump_analytics_version(get_firestore_client(), business_id)
     return jsonify({"order": order})
 
 

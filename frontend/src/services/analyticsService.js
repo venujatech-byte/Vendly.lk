@@ -1,11 +1,14 @@
 import { apiFileRequest, apiRequest } from "./apiClient";
+import { cachedRequest } from "./readCache";
 
 
 export async function getAnalyticsOverview(businessId) {
-  const response = await apiRequest(
-    `/businesses/${businessId}/analytics/overview`,
-  );
-  return response.analytics;
+  const versionResponse = await apiRequest(`/businesses/${businessId}/analytics/version`);
+  const version = versionResponse.analyticsVersion ?? 0;
+  return cachedRequest(`analytics:${businessId}:${version}`, async () => {
+    const response = await apiRequest(`/businesses/${businessId}/analytics/overview`);
+    return response.analytics;
+  }, 30 * 60 * 1000);
 }
 
 

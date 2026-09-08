@@ -3,6 +3,20 @@ from datetime import datetime, timedelta, timezone
 
 from firebase_admin import firestore
 
+
+def bump_analytics_version(database, business_id):
+    """Mark cached analytics stale after a successful analytics-relevant write."""
+    database.collection("businesses").document(business_id).update({
+        "analyticsVersion": firestore.Increment(1),
+        "analyticsUpdatedAt": firestore.SERVER_TIMESTAMP,
+    })
+
+
+def get_analytics_version(database, business_id):
+    snapshot = database.collection("businesses").document(business_id).get()
+    data = snapshot.to_dict() or {}
+    return data.get("analyticsVersion", 0)
+
 from app.core.errors import ApiError
 from app.core.serialization import serialize_snapshot
 

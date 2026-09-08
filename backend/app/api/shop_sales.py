@@ -8,6 +8,7 @@ from app.services.shop_sale_service import (
     create_shop_sale, create_warranty_claim, delete_shop_sale,
     list_shop_sales, list_warranty_claims,
 )
+from app.services.analytics_service import bump_analytics_version
 
 shop_sales_blueprint = Blueprint("shop_sales", __name__, url_prefix="/api/v1")
 
@@ -27,6 +28,7 @@ def get_shop_sales(business_id):
 @require_business_member("owner", "admin", "order_manager", permission="orders:manage")
 def add_shop_sale(business_id):
     sale = create_shop_sale(get_firestore_client(), business_id, g.current_user["uid"], get_json_object())
+    bump_analytics_version(get_firestore_client(), business_id)
     return jsonify({"shopSale": sale}), 201
 
 
@@ -35,6 +37,7 @@ def add_shop_sale(business_id):
 @require_business_member("owner", "admin", "order_manager", permission="orders:manage")
 def remove_shop_sale(business_id, sale_id):
     sale = delete_shop_sale(get_firestore_client(), business_id, sale_id, g.current_user["uid"])
+    bump_analytics_version(get_firestore_client(), business_id)
     return jsonify({"shopSale": sale})
 
 
@@ -50,4 +53,5 @@ def get_warranty_claims(business_id):
 @require_business_member("owner", "admin", "order_manager", permission="orders:manage")
 def add_warranty_claim(business_id):
     claim = create_warranty_claim(get_firestore_client(), business_id, g.current_user["uid"], get_json_object())
+    bump_analytics_version(get_firestore_client(), business_id)
     return jsonify({"warrantyClaim": claim}), 201

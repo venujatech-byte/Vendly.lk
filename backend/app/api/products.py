@@ -15,6 +15,7 @@ from app.services.product_service import (
     list_products,
     update_product,
 )
+from app.services.analytics_service import bump_analytics_version
 from app.services.media_service import upload_product_media, upload_variant_image
 from app.services.ai_service import generate_product_description
 from app.services.spreadsheet_service import (
@@ -88,6 +89,7 @@ def add_product(business_id):
         g.current_user["uid"],
         payload,
     )
+    bump_analytics_version(get_firestore_client(), business_id)
     return jsonify({"product": product}), 201
 
 
@@ -146,6 +148,7 @@ def edit_product(business_id, product_id):
         product_id,
         get_json_object(),
     )
+    bump_analytics_version(get_firestore_client(), business_id)
     return jsonify({"product": product})
 
 
@@ -176,6 +179,7 @@ def adjust_stock(business_id, product_id, variant_id):
         g.current_user["uid"],
         get_json_object(),
     )
+    bump_analytics_version(get_firestore_client(), business_id)
     return jsonify({"product": product})
 
 
