@@ -48,7 +48,6 @@ import {
   getPublicProduct,
   getPublicProductReviews,
   getPublicStore,
-  getCustomerChats,
   getCustomerOrders,
   getPublicChatMessages,
   sendPublicChatImage,
@@ -377,27 +376,17 @@ function StorefrontPage({ linkType }) {
           chatSession.sessionId,
           chatSession.sessionToken,
         ).catch(() => ({ messages: [], nextCursor: null, hasMore: false }));
+        // These seller replies are already rendered below. Mark them before
+        // the polling effect starts so refresh does not append duplicates at
+        // the end of the conversation.
+        currentMessageResponse.messages?.forEach((message) => {
+          if (message.role === "seller" && message.id) {
+            receivedSellerMessageIds.current.add(message.id);
+          }
+        });
         setMessageCursor(currentMessageResponse.nextCursor || null);
         setHasMoreMessages(Boolean(currentMessageResponse.hasMore));
-        const historyResponse = await getCustomerChats(catalog.business.shortCode).catch(() => ({ chats: [] }));
-        // Mark messages already rendered from history so the live poller does
-        // not append them a second time.
-        historyResponse.chats?.forEach((chat) => {
-          chat.messages?.forEach((message) => {
-            if (message.role === "seller" && message.id) {
-              receivedSellerMessageIds.current.add(message.id);
-            }
-          });
-        });
-        const currentChat = historyResponse.chats?.find(
-          (chat) => chat.sessionId === chatSession.sessionId,
-        );
-        const previousChat = currentChat || historyResponse.chats?.find((chat) =>
-          chat.messages?.length > 1,
-        );
-        const previousMessages = (currentMessageResponse.messages?.length
-          ? currentMessageResponse.messages
-          : previousChat?.messages || []).map((message) => ({
+        const previousMessages = (currentMessageResponse.messages || []).map((message) => ({
           id: message.id,
           role: message.role === "seller" ? "assistant" : message.role,
           text: message.message,
@@ -465,23 +454,13 @@ function StorefrontPage({ linkType }) {
     let isCurrent = true;
     async function loadSellerReplies() {
       try {
-        // Status updates are written to the chat session that created the
-        // order, while the customer may now be viewing a newer session. Read
-        // both the current session and the customer's other store chats.
-        const [currentResponse, historyResponse] = await Promise.all([
-          getPublicChatMessages(session.sessionId, session.sessionToken),
-          business?.shortCode
-            ? getCustomerChats(business.shortCode).catch(() => ({ chats: [] }))
-            : Promise.resolve({ chats: [] }),
-        ]);
-        // The current session is also one of the customer's chats, so the
-        // same message arrives from both sources. Collapse by id first: the
-        // "unseen" set is checked before any id is recorded, so a duplicate
-        // inside one batch passed the filter twice and rendered twice.
+        const currentResponse = await getPublicChatMessages(
+          session.sessionId,
+          session.sessionToken,
+        );
         const candidates = new Map();
         [
           ...(currentResponse.messages || []),
-          ...(historyResponse.chats || []).flatMap((chat) => chat.messages || []),
         ].forEach((message) => {
           if (message.id) candidates.set(message.id, message);
         });

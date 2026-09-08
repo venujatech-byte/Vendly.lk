@@ -47,11 +47,6 @@ def list_customer_chats(database, store_code, customer_uid):
         session = serialize_snapshot(snapshot)
         if session.get("businessId") != business_id:
             continue
-        messages = [
-            serialize_snapshot(message)
-            for message in snapshot.reference.collection("messages").stream()
-        ]
-        messages.sort(key=lambda item: str(item.get("createdAt", "")))
         chats.append(
             {
                 "id": snapshot.id,
@@ -60,7 +55,10 @@ def list_customer_chats(database, store_code, customer_uid):
                 "orderId": session.get("orderId", ""),
                 "createdAt": session.get("createdAt"),
                 "updatedAt": session.get("updatedAt"),
-                "messages": messages,
+                # Message bodies are loaded only for the active session.
+                "lastMessage": session.get("lastMessage", ""),
+                "lastMessageRole": session.get("lastMessageRole", ""),
+                "unreadCount": int(session.get("unreadByCustomer") or 0),
             }
         )
     return sorted(chats, key=lambda item: str(item.get("updatedAt", "")), reverse=True)
