@@ -519,7 +519,7 @@ function StorefrontPage({ linkType }) {
     }
 
     loadSellerReplies();
-    const timer = window.setInterval(loadSellerReplies, 5000);
+    const timer = window.setInterval(loadSellerReplies, 15000);
     return () => {
       isCurrent = false;
       window.clearInterval(timer);

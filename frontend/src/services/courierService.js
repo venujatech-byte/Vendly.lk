@@ -1,8 +1,11 @@
 import { apiRequest } from "./apiClient";
+import { cachedRequest, invalidateReadCache } from "./readCache";
 
 export async function getCouriers(businessId) {
-  const response = await apiRequest(`/businesses/${businessId}/couriers`);
-  return response.couriers;
+  return cachedRequest(`couriers:${businessId}`, async () => {
+    const response = await apiRequest(`/businesses/${businessId}/couriers`);
+    return response.couriers;
+  }, 5 * 60 * 1000);
 }
 
 export async function createCourier(businessId, courierData) {
@@ -10,6 +13,7 @@ export async function createCourier(businessId, courierData) {
     method: "POST",
     body: courierData,
   });
+  invalidateReadCache(`couriers:${businessId}`);
   return response.courier;
 }
 
@@ -21,6 +25,7 @@ export async function updateCourier(businessId, courierId, courierData) {
       body: courierData,
     },
   );
+  invalidateReadCache(`couriers:${businessId}`);
   return response.courier;
 }
 

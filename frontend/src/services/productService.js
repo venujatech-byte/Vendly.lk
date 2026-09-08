@@ -1,4 +1,5 @@
 import { apiFileRequest, apiRequest } from "./apiClient";
+import { cachedRequest, invalidateReadCache } from "./readCache";
 
 function minorUnitsToAmount(value = 0) {
   return value / 100;
@@ -54,11 +55,12 @@ export async function getProducts(businessId, filters = {}) {
   }
 
   const query = searchParameters.toString();
-  const response = await apiRequest(
-    `/businesses/${businessId}/products${query ? `?${query}` : ""}`,
-  );
-
-  return response.products.map(mapProductForInventory);
+  return cachedRequest(`products:${businessId}:${query}`, async () => {
+    const response = await apiRequest(
+      `/businesses/${businessId}/products${query ? `?${query}` : ""}`,
+    );
+    return response.products.map(mapProductForInventory);
+  }, 60 * 1000);
 }
 
 export async function createProduct(businessId, productData) {
@@ -66,6 +68,7 @@ export async function createProduct(businessId, productData) {
     method: "POST",
     body: productData,
   });
+  invalidateReadCache(`products:${businessId}:`);
 
   return mapProductForInventory(response.product);
 }
@@ -78,6 +81,7 @@ export async function generateProductDescription(businessId, productDetails) {
       body: productDetails,
     },
   );
+  invalidateReadCache(`products:${businessId}:`);
 
   return response.productInfo || {
     product_name: productDetails.name,
@@ -104,6 +108,7 @@ export async function uploadProductMedia(businessId, productId, files) {
       body: formData,
     },
   );
+  invalidateReadCache(`products:${businessId}:`);
 
   return mapProductForInventory(response.product);
 }
@@ -134,6 +139,7 @@ export async function removeProduct(businessId, productId) {
   const response = await apiRequest(`/businesses/${businessId}/products/${productId}`, {
     method: "DELETE",
   });
+  invalidateReadCache(`products:${businessId}:`);
   return mapProductForInventory(response.product);
 }
 
@@ -169,6 +175,7 @@ export async function importInventoryWorkbook(businessId, file) {
     `/businesses/${businessId}/inventory-import`,
     { method: "POST", body: formData },
   );
+  invalidateReadCache(`products:${businessId}:`);
   return response.import;
 }
 

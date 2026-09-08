@@ -1,9 +1,12 @@
 import { apiRequest } from "./apiClient";
+import { cachedRequest, invalidateReadCache } from "./readCache";
 
 export async function getCustomers(businessId, search = "") {
   const query = search ? `?search=${encodeURIComponent(search)}` : "";
-  const response = await apiRequest(`/businesses/${businessId}/customers${query}`);
-  return response.customers;
+  return cachedRequest(`customers:${businessId}:${search.trim().toLowerCase()}`, async () => {
+    const response = await apiRequest(`/businesses/${businessId}/customers${query}`);
+    return response.customers;
+  }, search ? 15 * 1000 : 60 * 1000);
 }
 
 // Export the customer records already returned by the secured business API.
@@ -54,6 +57,7 @@ export async function createCustomer(businessId, customerData) {
     method: "POST",
     body: customerData,
   });
+  invalidateReadCache(`customers:${businessId}:`);
   return response.customer;
 }
 
@@ -65,6 +69,7 @@ export async function updateCustomer(businessId, customerId, changes) {
       body: changes,
     },
   );
+  invalidateReadCache(`customers:${businessId}:`);
   return response.customer;
 }
 
