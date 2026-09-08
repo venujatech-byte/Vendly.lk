@@ -119,6 +119,7 @@ def record_payment(business_id, order_id):
         g.current_user["uid"],
         payload,
     )
+    bump_analytics_version(get_firestore_client(), business_id)
     return jsonify({"order": order})
 
 
@@ -162,4 +163,5 @@ def remove_order(business_id, order_id):
         g.current_user["uid"],
         {"status": "cancelled", "note": "Removed by seller"},
     )
+    bump_analytics_version(get_firestore_client(), business_id)
     return jsonify({"order": order})
