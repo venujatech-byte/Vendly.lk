@@ -6,14 +6,21 @@ from app.core.firebase import get_firestore_client
 from app.core.requests import get_json_object
 from app.services.message_service import (
     get_chat_messages,
+    delete_chat_session,
     list_chat_sessions,
     mark_chat_read,
     set_chat_ai_paused,
     send_seller_message,
 )
 
-
 messages_blueprint = Blueprint("messages", __name__, url_prefix="/api/v1")
+
+
+@messages_blueprint.delete("/businesses/<business_id>/chat-sessions/<session_id>")
+@require_firebase_user
+@require_business_member(permission="customers:manage")
+def delete_business_chat_session(business_id, session_id):
+    return jsonify(delete_chat_session(get_firestore_client(), business_id, session_id))
 
 
 @messages_blueprint.get("/businesses/<business_id>/chat-sessions")

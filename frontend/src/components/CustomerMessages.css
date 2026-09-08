@@ -493,6 +493,14 @@
   cursor: pointer;
 }
 
+.customer-messages__delete {
+  border: 0;
+  background: transparent;
+  color: #b42318;
+  cursor: pointer;
+  font-size: 12px;
+}
+
 .customer-messages__load-more {
   display: block;
   width: calc(100% - 24px);

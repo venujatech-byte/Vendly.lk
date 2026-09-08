@@ -13,6 +13,7 @@ import {
 import {
   getChatMessages,
   getChatSessions,
+  deleteChatSession,
   markChatRead,
   sendSellerMessage,
   setChatAiPaused,
@@ -193,6 +194,21 @@ export default function CustomerMessages({
     }
   }
 
+  async function handleDeleteChat() {
+    if (!selectedId || !window.confirm("Delete this conversation and all its messages permanently?")) return;
+    try {
+      await deleteChatSession(businessId, selectedId);
+      const remaining = sessions.filter((session) => session.id !== selectedId);
+      setSessions(remaining);
+      setConversation(null);
+      setSelectedId(remaining[0]?.id || "");
+      setChatCursor(null);
+      setHasMoreChats(false);
+    } catch (requestError) {
+      setError(requestError.message);
+    }
+  }
+
   const selectedSession = sessions.find((session) => session.id === selectedId);
   const customer = conversation?.session?.customer || selectedSession?.customer;
   const isAiPaused = Boolean(
@@ -283,6 +299,13 @@ export default function CustomerMessages({
                   </a>
                 )}
                 <span className="customer-messages__channel"><MessageCircle size={15} /> Chatbot</span>
+                <button
+                  className="customer-messages__delete"
+                  type="button"
+                  onClick={handleDeleteChat}
+                >
+                  Delete chat
+                </button>
               </div>
             </header>
 

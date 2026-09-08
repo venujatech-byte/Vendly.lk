@@ -12,6 +12,12 @@ export async function getChatMessages(businessId, sessionId, { before = "", limi
   return apiRequest(`/businesses/${businessId}/chat-sessions/${sessionId}/messages?${params}`);
 }
 
+export function deleteChatSession(businessId, sessionId) {
+  return apiRequest(`/businesses/${businessId}/chat-sessions/${sessionId}`, {
+    method: "DELETE",
+  });
+}
+
 export async function sendSellerMessage(businessId, sessionId, message) {
   const response = await apiRequest(
     `/businesses/${businessId}/chat-sessions/${sessionId}/messages`,

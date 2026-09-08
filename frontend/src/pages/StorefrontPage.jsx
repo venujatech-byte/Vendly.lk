@@ -13,6 +13,7 @@ import {
   Mail,
   MapPin,
   Menu,
+  MoreVertical,
   MessageCircleQuestion,
   Mic,
   MicOff,
@@ -243,6 +244,7 @@ function StorefrontPage({ linkType }) {
   const [searchText, setSearchText] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isChatMenuOpen, setIsChatMenuOpen] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -438,6 +440,12 @@ function StorefrontPage({ linkType }) {
     } finally {
       setIsLoadingOlderMessages(false);
     }
+  }
+
+  function clearStorefrontChat() {
+    if (!session || !window.confirm("Clear this chat from this device and start a new conversation?")) return;
+    localStorage.removeItem(chatSessionStorageKey(storeCode, productCode, user));
+    window.location.reload();
   }
 
   useEffect(() => {
@@ -1339,6 +1347,27 @@ function StorefrontPage({ linkType }) {
                 and in the top bar, where the composer has room for typing. */}
             {activeView === "chatbot" && (
               <>
+                <div className="storefront-topbar__chat-menu">
+                  <button
+                    className="storefront-icon-button"
+                    type="button"
+                    aria-label="Chat actions"
+                    aria-expanded={isChatMenuOpen}
+                    onClick={() => setIsChatMenuOpen((open) => !open)}
+                  >
+                    <MoreVertical size={20} />
+                  </button>
+                  {isChatMenuOpen && (
+                    <div className="storefront-chat-menu" role="menu">
+                      <button type="button" role="menuitem" onClick={() => {
+                        setIsChatMenuOpen(false);
+                        clearStorefrontChat();
+                      }}>
+                        Clear chat
+                      </button>
+                    </div>
+                  )}
+                </div>
                 <button
                   className="storefront-icon-button storefront-topbar__language"
                   type="button"
@@ -1540,6 +1569,7 @@ function StorefrontPage({ linkType }) {
             hasMoreMessages={hasMoreMessages}
             isLoadingOlderMessages={isLoadingOlderMessages}
             onLoadOlderMessages={loadOlderChatMessages}
+            onClearChat={clearStorefrontChat}
             messageText={messageText}
             isSending={isSending}
             messagesEndRef={messagesEndRef}
@@ -2884,6 +2914,7 @@ function ChatbotView({
   hasMoreMessages,
   isLoadingOlderMessages,
   onLoadOlderMessages,
+  onClearChat,
   messageText,
   isSending,
   isListening,

@@ -141,6 +141,13 @@ def get_chat_messages(database, business_id, session_id, limit=20, before=None):
     }
 
 
+def delete_chat_session(database, business_id, session_id):
+    """Permanently delete a seller-owned chat and its message subcollection."""
+    reference, _session = _session_reference(database, business_id, session_id)
+    database.recursive_delete(reference)
+    return {"sessionId": session_id, "deleted": True}
+
+
 def send_seller_message(database, business_id, session_id, seller_uid, payload):
     try:
         message = required_text(payload.get("message"), "Message", 2000)
