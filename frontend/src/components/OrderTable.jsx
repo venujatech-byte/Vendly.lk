@@ -207,7 +207,10 @@ function OrderTable({
             aria-label="Change status for selected orders"
             onChange={(event) => {
               if (event.target.value) {
-                onBulkStatusChange?.(selectedOrderIds, event.target.value);
+                Promise.resolve(onBulkStatusChange?.(selectedOrderIds, event.target.value))
+                  .then((updatedOrders) => {
+                    if (updatedOrders) setSelectedOrderIds([]);
+                  });
                 event.target.value = "";
               }
             }}

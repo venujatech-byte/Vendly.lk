@@ -1,15 +1,23 @@
 from collections import defaultdict
+import logging
 from datetime import datetime, timedelta, timezone
 
 from firebase_admin import firestore
 
+LOGGER = logging.getLogger(__name__)
+
 
 def bump_analytics_version(database, business_id):
     """Mark cached analytics stale after a successful analytics-relevant write."""
-    database.collection("businesses").document(business_id).update({
-        "analyticsVersion": firestore.Increment(1),
-        "analyticsUpdatedAt": firestore.SERVER_TIMESTAMP,
-    })
+    try:
+        database.collection("businesses").document(business_id).update({
+            "analyticsVersion": firestore.Increment(1),
+            "analyticsUpdatedAt": firestore.SERVER_TIMESTAMP,
+        })
+    except Exception:
+        # This marker only invalidates a browser cache. Never turn a completed
+        # order/product/sale write into a failed business operation.
+        LOGGER.exception("Could not invalidate analytics cache for %s", business_id)
 
 
 def get_analytics_version(database, business_id):

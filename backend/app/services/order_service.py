@@ -341,7 +341,10 @@ def create_order(database, business_id, uid, payload):
         database,
         customer.get("normalizedPhone", ""),
     )
-    transaction = database.transaction()
+    # Status changes can contend when several orders contain the same variant.
+    # Firestore retries optimistic transactions, but the default five attempts
+    # is too small for a busy dashboard batch update.
+    transaction = database.transaction(max_attempts=10)
 
     @google_firestore.transactional
     def create_in_transaction(current_transaction):
@@ -1094,7 +1097,16 @@ def update_order_status(database, business_id, order_id, uid, payload):
                 },
             )
 
-    update_in_transaction(transaction)
+    try:
+        update_in_transaction(transaction)
+    except ValueError as error:
+        if "Failed to commit transaction" in str(error):
+            raise ApiError(
+                "order_update_busy",
+                "This order or one of its stock items is being updated at the same time. Please try again.",
+                409,
+            ) from error
+        raise
     # The order update is already committed; chat delivery is a separate
     # best-effort event so a temporary chat problem cannot roll back stock.
     try:

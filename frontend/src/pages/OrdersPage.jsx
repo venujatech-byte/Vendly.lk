@@ -363,14 +363,20 @@ function OrdersPage() {
   async function handleBulkStatusChange(selectedIds, status) {
     if (!business?.id) return;
     try {
-      const updatedOrders = await Promise.all(
-        selectedIds.map((orderId) => updateOrderStatus(business.id, orderId, status)),
-      );
+      // These requests can touch the same product/variant stock documents.
+      // Sending them concurrently causes Firestore transaction lock timeouts.
+      // Process them in order so each stock transaction commits before the
+      // next one starts.
+      const updatedOrders = [];
+      for (const orderId of selectedIds) {
+        updatedOrders.push(await updateOrderStatus(business.id, orderId, status));
+      }
       setOrders((currentOrders) =>
         currentOrders.map((order) =>
           updatedOrders.find((updated) => updated.id === order.id) ?? order,
         ),
       );
+      return updatedOrders;
     } catch (error) {
       setOrdersError(error);
     }
