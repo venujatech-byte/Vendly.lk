@@ -220,6 +220,7 @@ function StorefrontPage({ linkType }) {
   const [hasMoreMessages, setHasMoreMessages] = useState(false);
   const [isLoadingOlderMessages, setIsLoadingOlderMessages] = useState(false);
   const receivedSellerMessageIds = useRef(new Set());
+  const activeChatUpdatedAtRef = useRef("");
   const [messageText, setMessageText] = useState("");
   const [isListening, setIsListening] = useState(false);
   const [speechEnabled, setSpeechEnabled] = useState(
@@ -386,6 +387,7 @@ function StorefrontPage({ linkType }) {
         });
         setMessageCursor(currentMessageResponse.nextCursor || null);
         setHasMoreMessages(Boolean(currentMessageResponse.hasMore));
+        activeChatUpdatedAtRef.current = currentMessageResponse.updatedAt || "";
         const previousMessages = (currentMessageResponse.messages || []).map((message) => ({
           id: message.id,
           role: message.role === "seller" ? "assistant" : message.role,
@@ -457,7 +459,12 @@ function StorefrontPage({ linkType }) {
         const currentResponse = await getPublicChatMessages(
           session.sessionId,
           session.sessionToken,
+          { since: activeChatUpdatedAtRef.current },
         );
+        if (currentResponse.updatedAt) {
+          activeChatUpdatedAtRef.current = currentResponse.updatedAt;
+        }
+        if (currentResponse.changed === false) return;
         const candidates = new Map();
         [
           ...(currentResponse.messages || []),

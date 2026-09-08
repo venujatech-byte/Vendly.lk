@@ -2597,7 +2597,7 @@ def authorize_public_chat_session(
     return snapshot, session
 
 
-def get_public_chat_messages(database, session_id, provided_token, limit=20, before=None):
+def get_public_chat_messages(database, session_id, provided_token, limit=20, before=None, since=None):
     """Return one customer's own chat messages after token verification."""
     snapshot, _session = authorize_public_chat_session(
         database,
@@ -2605,6 +2605,17 @@ def get_public_chat_messages(database, session_id, provided_token, limit=20, bef
         provided_token,
         allow_closed=True,
     )
+    session_updated_at = _session.get("updatedAt")
+    session_updated_iso = session_updated_at.isoformat() if session_updated_at else ""
+    if since and session_updated_iso and since == session_updated_iso and not before:
+        return {
+            "messages": [],
+            "nextCursor": None,
+            "hasMore": False,
+            "changed": False,
+            "updatedAt": session_updated_iso,
+        }
+
     query = snapshot.reference.collection("messages").order_by(
         "createdAt", direction="DESCENDING"
     )
@@ -2620,6 +2631,8 @@ def get_public_chat_messages(database, session_id, provided_token, limit=20, bef
         "messages": [serialize_snapshot(item) for item in rows],
         "nextCursor": rows[0].id if has_more and rows else None,
         "hasMore": has_more,
+        "changed": True,
+        "updatedAt": session_updated_iso,
     }
 
 

@@ -82,6 +82,7 @@ def public_chat_messages(session_id):
         request.headers.get("X-Chat-Session-Token", ""),
         limit=min(max(request.args.get("limit", 20, type=int), 1), 50),
         before=request.args.get("before"),
+        since=request.args.get("since"),
     )
     return jsonify(messages)
 
