@@ -483,3 +483,29 @@
   width: 100%;
   height: auto;
 }
+.customer-messages__load-more,
+.customer-messages__load-history {
+  border: 1px solid var(--border-color, #d9dee8);
+  background: var(--surface, #fff);
+  color: var(--primary, #2563eb);
+  border-radius: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.customer-messages__load-more {
+  display: block;
+  width: calc(100% - 24px);
+  margin: 12px;
+}
+
+.customer-messages__load-history {
+  display: block;
+  margin: 0 auto 12px;
+}
+
+.customer-messages__load-more:disabled,
+.customer-messages__load-history:disabled {
+  opacity: .6;
+  cursor: wait;
+}

@@ -14,9 +14,20 @@ def _session_reference(database, business_id, session_id):
     return reference, snapshot.to_dict()
 
 
-def _message_rows(reference):
-    messages = [serialize_snapshot(item) for item in reference.collection("messages").stream()]
-    return sorted(messages, key=lambda item: item.get("createdAt") or "")
+def _message_rows(reference, limit=20, before=None):
+    query = reference.collection("messages").order_by(
+        "createdAt", direction="DESCENDING"
+    )
+    if before:
+        cursor = reference.collection("messages").document(before).get()
+        if cursor.exists:
+            query = query.start_after(cursor)
+    snapshots = list(query.limit(limit + 1).stream())
+    has_more = len(snapshots) > limit
+    rows = snapshots[:limit]
+    next_cursor = rows[-1].id if has_more and rows else None
+    rows.reverse()
+    return [serialize_snapshot(item) for item in rows], has_more, next_cursor
 
 
 def _customer_details(database, session):
@@ -62,19 +73,26 @@ def _customer_details(database, session):
     }
 
 
-def list_chat_sessions(database, business_id):
-    snapshots = (
+def list_chat_sessions(database, business_id, limit=10, before=None):
+    query = (
         database.collection("publicChatSessions")
         .where("businessId", "==", business_id)
-        .stream()
+        .order_by("updatedAt", direction="DESCENDING")
     )
+    if before:
+        cursor = database.collection("publicChatSessions").document(before).get()
+        if cursor.exists:
+            query = query.start_after(cursor)
+    snapshots = list(query.limit(limit + 1).stream())
+    has_more = len(snapshots) > limit
+    snapshots = snapshots[:limit]
     sessions = []
     for snapshot in snapshots:
         session = serialize_snapshot(snapshot)
         last_message = {}
         if not session.get("lastMessage"):
             # Compatibility for chats created before parent summaries existed.
-            legacy_messages = _message_rows(snapshot.reference)
+            legacy_messages, _, _ = _message_rows(snapshot.reference, limit=1)
             if not legacy_messages:
                 continue
             last_message = legacy_messages[-1]
@@ -95,11 +113,16 @@ def list_chat_sessions(database, business_id):
                 ),
             }
         )
-    return sorted(sessions, key=lambda item: item.get("lastMessageAt") or "", reverse=True)
+    return {
+        "sessions": sessions,
+        "nextCursor": snapshots[-1].id if has_more and snapshots else None,
+        "hasMore": has_more,
+    }
 
 
-def get_chat_messages(database, business_id, session_id):
+def get_chat_messages(database, business_id, session_id, limit=20, before=None):
     reference, session = _session_reference(database, business_id, session_id)
+    messages, has_more, next_cursor = _message_rows(reference, limit=limit, before=before)
     return {
         "session": {
             "id": session_id,
@@ -112,7 +135,9 @@ def get_chat_messages(database, business_id, session_id):
                 session.get("needsSellerAttention", False)
             ),
         },
-        "messages": _message_rows(reference),
+        "messages": messages,
+        "nextCursor": next_cursor,
+        "hasMore": has_more,
     }
 
 

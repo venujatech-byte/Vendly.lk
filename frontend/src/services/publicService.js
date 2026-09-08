@@ -44,8 +44,10 @@ export function sendPublicChatMessage(sessionId, sessionToken, message, orderDra
   });
 }
 
-export function getPublicChatMessages(sessionId, sessionToken) {
-  return apiRequest(`/public/chat/sessions/${sessionId}/messages`, {
+export function getPublicChatMessages(sessionId, sessionToken, { before = "", limit = 20 } = {}) {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (before) params.set("before", before);
+  return apiRequest(`/public/chat/sessions/${sessionId}/messages?${params}`, {
     headers: { "X-Chat-Session-Token": sessionToken },
     requiresAuthentication: false,
   });

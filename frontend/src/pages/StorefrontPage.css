@@ -4963,3 +4963,18 @@ body:has(.storefront-chat-page) {
   color: var(--sf-muted);
   font-weight: 700;
 }
+.storefront-chat-history-button {
+  display: block;
+  margin: 0 auto 12px;
+  border: 1px solid rgba(37, 99, 235, .25);
+  background: #fff;
+  color: #2563eb;
+  border-radius: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.storefront-chat-history-button:disabled {
+  opacity: .6;
+  cursor: wait;
+}

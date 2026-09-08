@@ -80,8 +80,10 @@ def public_chat_messages(session_id):
         get_firestore_client(),
         session_id,
         request.headers.get("X-Chat-Session-Token", ""),
+        limit=min(max(request.args.get("limit", 20, type=int), 1), 50),
+        before=request.args.get("before"),
     )
-    return jsonify({"messages": messages})
+    return jsonify(messages)
 
 
 @public_blueprint.post("/chat/sessions/<session_id>/orders")

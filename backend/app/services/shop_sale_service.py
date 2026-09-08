@@ -1,6 +1,6 @@
 from collections import defaultdict
 from datetime import datetime, timezone
-
+ 
 from firebase_admin import firestore
 from google.cloud import firestore as google_firestore
 

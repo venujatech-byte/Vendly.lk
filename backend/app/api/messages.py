@@ -1,4 +1,4 @@
-from flask import Blueprint, g, jsonify
+from flask import Blueprint, g, jsonify, request
 
 from app.core.auth import require_firebase_user
 from app.core.authorization import require_business_member
@@ -20,15 +20,23 @@ messages_blueprint = Blueprint("messages", __name__, url_prefix="/api/v1")
 @require_firebase_user
 @require_business_member(permission="customers:read")
 def get_business_chat_sessions(business_id):
-    sessions = list_chat_sessions(get_firestore_client(), business_id)
-    return jsonify({"sessions": sessions})
+    result = list_chat_sessions(
+        get_firestore_client(), business_id,
+        limit=min(max(request.args.get("limit", 10, type=int), 1), 50),
+        before=request.args.get("before"),
+    )
+    return jsonify(result)
 
 
 @messages_blueprint.get("/businesses/<business_id>/chat-sessions/<session_id>/messages")
 @require_firebase_user
 @require_business_member(permission="customers:read")
 def get_business_chat_messages(business_id, session_id):
-    return jsonify(get_chat_messages(get_firestore_client(), business_id, session_id))
+    return jsonify(get_chat_messages(
+        get_firestore_client(), business_id, session_id,
+        limit=min(max(request.args.get("limit", 20, type=int), 1), 50),
+        before=request.args.get("before"),
+    ))
 
 
 @messages_blueprint.post("/businesses/<business_id>/chat-sessions/<session_id>/messages")

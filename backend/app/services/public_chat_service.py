@@ -2597,7 +2597,7 @@ def authorize_public_chat_session(
     return snapshot, session
 
 
-def get_public_chat_messages(database, session_id, provided_token):
+def get_public_chat_messages(database, session_id, provided_token, limit=20, before=None):
     """Return one customer's own chat messages after token verification."""
     snapshot, _session = authorize_public_chat_session(
         database,
@@ -2605,11 +2605,22 @@ def get_public_chat_messages(database, session_id, provided_token):
         provided_token,
         allow_closed=True,
     )
-    messages = [
-        serialize_snapshot(item)
-        for item in snapshot.reference.collection("messages").stream()
-    ]
-    return sorted(messages, key=lambda item: item.get("createdAt") or "")
+    query = snapshot.reference.collection("messages").order_by(
+        "createdAt", direction="DESCENDING"
+    )
+    if before:
+        cursor = snapshot.reference.collection("messages").document(before).get()
+        if cursor.exists:
+            query = query.start_after(cursor)
+    rows = list(query.limit(limit + 1).stream())
+    has_more = len(rows) > limit
+    rows = rows[:limit]
+    rows.reverse()
+    return {
+        "messages": [serialize_snapshot(item) for item in rows],
+        "nextCursor": rows[0].id if has_more and rows else None,
+        "hasMore": has_more,
+    }
 
 
 # How much of the conversation the model is shown. Sent as real chat turns, so

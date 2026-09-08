@@ -217,6 +217,9 @@ function StorefrontPage({ linkType }) {
   const [products, setProducts] = useState([]);
   const [session, setSession] = useState(null);
   const [messages, setMessages] = useState([]);
+  const [messageCursor, setMessageCursor] = useState(null);
+  const [hasMoreMessages, setHasMoreMessages] = useState(false);
+  const [isLoadingOlderMessages, setIsLoadingOlderMessages] = useState(false);
   const receivedSellerMessageIds = useRef(new Set());
   const [messageText, setMessageText] = useState("");
   const [isListening, setIsListening] = useState(false);
@@ -370,6 +373,12 @@ function StorefrontPage({ linkType }) {
         );
         setSession(chatSession);
         localStorage.setItem(sessionKey, JSON.stringify(chatSession));
+        const currentMessageResponse = await getPublicChatMessages(
+          chatSession.sessionId,
+          chatSession.sessionToken,
+        ).catch(() => ({ messages: [], nextCursor: null, hasMore: false }));
+        setMessageCursor(currentMessageResponse.nextCursor || null);
+        setHasMoreMessages(Boolean(currentMessageResponse.hasMore));
         const historyResponse = await getCustomerChats(catalog.business.shortCode).catch(() => ({ chats: [] }));
         // Mark messages already rendered from history so the live poller does
         // not append them a second time.
@@ -386,7 +395,10 @@ function StorefrontPage({ linkType }) {
         const previousChat = currentChat || historyResponse.chats?.find((chat) =>
           chat.messages?.length > 1,
         );
-        const previousMessages = previousChat?.messages?.map((message) => ({
+        const previousMessages = (currentMessageResponse.messages?.length
+          ? currentMessageResponse.messages
+          : previousChat?.messages || []).map((message) => ({
+          id: message.id,
           role: message.role === "seller" ? "assistant" : message.role,
           text: message.message,
           action: message.metadata?.action,
@@ -413,6 +425,29 @@ function StorefrontPage({ linkType }) {
       requestIsCurrent = false;
     };
   }, [isAuthLoading, linkType, productCode, storeCode, user]);
+
+  async function loadOlderChatMessages() {
+    if (!session?.sessionId || !session?.sessionToken || !messageCursor || isLoadingOlderMessages) return;
+    setIsLoadingOlderMessages(true);
+    try {
+      const result = await getPublicChatMessages(session.sessionId, session.sessionToken, {
+        before: messageCursor,
+      });
+      const olderMessages = (result.messages || []).map((message) => ({
+        id: message.id,
+        role: message.role === "seller" ? "assistant" : message.role,
+        text: message.message,
+        action: message.metadata?.action,
+      }));
+      setMessages((current) => [...olderMessages, ...current]);
+      setMessageCursor(result.nextCursor || null);
+      setHasMoreMessages(Boolean(result.hasMore));
+    } catch (error) {
+      setErrorMessage(error.message);
+    } finally {
+      setIsLoadingOlderMessages(false);
+    }
+  }
 
   useEffect(() => {
     if (!user || !session?.sessionId || !session?.sessionToken) return;
@@ -1516,6 +1551,9 @@ function StorefrontPage({ linkType }) {
             chatState={session?.state || "browsing"}
             chatLanguage={chatLanguage}
             messages={messages}
+            hasMoreMessages={hasMoreMessages}
+            isLoadingOlderMessages={isLoadingOlderMessages}
+            onLoadOlderMessages={loadOlderChatMessages}
             messageText={messageText}
             isSending={isSending}
             messagesEndRef={messagesEndRef}
@@ -2857,6 +2895,9 @@ function ChatbotView({
   chatState,
   chatLanguage,
   messages,
+  hasMoreMessages,
+  isLoadingOlderMessages,
+  onLoadOlderMessages,
   messageText,
   isSending,
   isListening,
@@ -2916,6 +2957,16 @@ function ChatbotView({
           ref={listRef}
           onScroll={trackScrollPosition}
         >
+          {hasMoreMessages && (
+            <button
+              className="storefront-chat-history-button"
+              type="button"
+              onClick={onLoadOlderMessages}
+              disabled={isLoadingOlderMessages}
+            >
+              {isLoadingOlderMessages ? "Loading..." : "Show more history"}
+            </button>
+          )}
           {messages.map((message, index) => (
             <div
               className={`storefront-chat-message storefront-chat-message--${message.role}`}

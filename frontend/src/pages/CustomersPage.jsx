@@ -275,7 +275,7 @@ function CustomersPage() {
   useEffect(() => {
     if (!business?.id) return;
     getChatSessions(business.id)
-      .then((sessions) =>
+      .then(({ sessions = [] }) =>
         setChatSummary({
           count: sessions.length,
           unread: sessions.reduce(

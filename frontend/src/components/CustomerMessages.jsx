@@ -47,6 +47,9 @@ export default function CustomerMessages({
   initialSessionId = "",
 }) {
   const [sessions, setSessions] = useState([]);
+  const [chatCursor, setChatCursor] = useState(null);
+  const [hasMoreChats, setHasMoreChats] = useState(false);
+  const [isLoadingMoreChats, setIsLoadingMoreChats] = useState(false);
   const [selectedId, setSelectedId] = useState("");
   const [conversation, setConversation] = useState(null);
   const [search, setSearch] = useState("");
@@ -59,8 +62,11 @@ export default function CustomerMessages({
   const loadSessions = useCallback(async () => {
     if (!businessId) return;
     try {
-      const rows = await getChatSessions(businessId);
+      const result = await getChatSessions(businessId);
+      const rows = result.sessions;
       setSessions(rows);
+      setChatCursor(result.nextCursor || null);
+      setHasMoreChats(Boolean(result.hasMore));
       onSummaryChange?.({
         count: rows.length,
         unread: rows.reduce((sum, row) => sum + (row.unreadCount || 0), 0),
@@ -78,14 +84,28 @@ export default function CustomerMessages({
     }
   }, [businessId, initialSessionId, onSummaryChange]);
 
+  async function loadMoreChats() {
+    if (!chatCursor || isLoadingMoreChats) return;
+    setIsLoadingMoreChats(true);
+    try {
+      const result = await getChatSessions(businessId, { before: chatCursor });
+      setSessions((current) => [...current, ...(result.sessions || [])]);
+      setChatCursor(result.nextCursor || null);
+      setHasMoreChats(Boolean(result.hasMore));
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setIsLoadingMoreChats(false);
+    }
+  }
+
   useEffect(() => {
     if (initialSessionId) setSelectedId(initialSessionId);
   }, [initialSessionId]);
 
   useEffect(() => {
     loadSessions();
-    const timer = window.setInterval(loadSessions, 8000);
-    return () => window.clearInterval(timer);
+    return undefined;
   }, [loadSessions]);
 
   useEffect(() => {
@@ -111,10 +131,8 @@ export default function CustomerMessages({
       }
     }
     loadConversation();
-    const timer = window.setInterval(loadConversation, 5000);
     return () => {
       isCurrent = false;
-      window.clearInterval(timer);
     };
   }, [businessId, selectedId]);
 
@@ -217,6 +235,16 @@ export default function CustomerMessages({
           {!isLoading && visibleSessions.length === 0 && (
             <p className="customer-messages__empty">No chatbot conversations yet.</p>
           )}
+          {hasMoreChats && !search.trim() && (
+            <button
+              className="customer-messages__load-more"
+              type="button"
+              onClick={loadMoreChats}
+              disabled={isLoadingMoreChats}
+            >
+              {isLoadingMoreChats ? "Loading..." : "Show more chats"}
+            </button>
+          )}
         </div>
       </aside>
 
@@ -259,6 +287,25 @@ export default function CustomerMessages({
             </header>
 
             <div className="customer-messages__messages" aria-live="polite">
+              {conversation?.hasMore && (
+                <button
+                  className="customer-messages__load-history"
+                  type="button"
+                  onClick={async () => {
+                    const older = await getChatMessages(businessId, selectedId, {
+                      before: conversation.nextCursor,
+                    });
+                    setConversation((current) => ({
+                      ...current,
+                      messages: [...older.messages, ...(current?.messages || [])],
+                      nextCursor: older.nextCursor,
+                      hasMore: older.hasMore,
+                    }));
+                  }}
+                >
+                  Show more history
+                </button>
+              )}
               {(conversation?.messages || []).map((message) => {
                 const outgoing = ["seller", "assistant"].includes(message.role);
                 return (

@@ -1,14 +1,15 @@
 import { apiRequest } from "./apiClient";
 
-export async function getChatSessions(businessId) {
-  const response = await apiRequest(`/businesses/${businessId}/chat-sessions`);
-  return response.sessions;
+export async function getChatSessions(businessId, { before = "", limit = 10 } = {}) {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (before) params.set("before", before);
+  return apiRequest(`/businesses/${businessId}/chat-sessions?${params}`);
 }
 
-export async function getChatMessages(businessId, sessionId) {
-  return apiRequest(
-    `/businesses/${businessId}/chat-sessions/${sessionId}/messages`,
-  );
+export async function getChatMessages(businessId, sessionId, { before = "", limit = 20 } = {}) {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (before) params.set("before", before);
+  return apiRequest(`/businesses/${businessId}/chat-sessions/${sessionId}/messages?${params}`);
 }
 
 export async function sendSellerMessage(businessId, sessionId, message) {
