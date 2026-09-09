@@ -445,11 +445,11 @@ function InventoryPage() {
         {activeTab === "products" && (
           <div className="page__actions">
             <button type="button" onClick={() => setIsBarcodeScannerOpen(true)}>
-              <ScanBarcode size={18} aria-hidden="true" />
+              <ScanBarcode size={14} aria-hidden="true" />
               Scan Barcode
             </button>
             <button type="button" onClick={handleExportInventory} disabled={isExporting}>
-              <Download size={18} aria-hidden="true" />
+              <Download size={14} aria-hidden="true" />
               {isExporting ? "Exporting..." : "Export Inventory"}
             </button>
             <input
@@ -464,7 +464,7 @@ function InventoryPage() {
               onClick={() => inventoryFileInputRef.current?.click()}
               disabled={!business?.id || isImporting}
             >
-              <Upload size={18} aria-hidden="true" />
+              <Upload size={14} aria-hidden="true" />
               {isImporting ? "Importing..." : "Import Inventory"}
             </button>
             <button
@@ -473,7 +473,7 @@ function InventoryPage() {
               onClick={() => setIsAddProductOpen(true)}
               disabled={!business?.id}
             >
-              <Plus size={18} aria-hidden="true" />
+              <Plus size={14} aria-hidden="true" />
               Add Product
             </button>
           </div>
@@ -490,7 +490,7 @@ function InventoryPage() {
               onClick={() => setIsAddCategoryOpen(true)}
               disabled={!business?.id}
             >
-              <Plus size={18} aria-hidden="true" />
+              <Plus size={14} aria-hidden="true" />
               Add Category
             </button>
           </div>

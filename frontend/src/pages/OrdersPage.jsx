@@ -536,30 +536,30 @@ function OrdersPage() {
 
           {activeTab === "onlineOrders" && <div className="page__actions">
             <button type="button" onClick={handleScanWaybill}>
-              <ScanLine size={19} aria-hidden="true" />
+              <ScanLine size={14} aria-hidden="true" />
               <span>Scan Waybill</span>
             </button>
             <button type="button" onClick={handleCopyChatbotLink} disabled={!business?.shortCode} title="Copy the seller-specific catalogue and chatbot link">
-              {linkWasCopied ? <Check size={19} aria-hidden="true" /> : <Link2 size={19} aria-hidden="true" />}
+              {linkWasCopied ? <Check size={14} aria-hidden="true" /> : <Link2 size={14} aria-hidden="true" />}
               <span>{linkWasCopied ? "Link Copied" : "Chatbot Link"}</span>
             </button>
             <button type="button" onClick={openOrdersExportModal} disabled={!business?.id}>
-              <Download size={19} strokeWidth={1.8} />
+              <Download size={14} />
               <span>Export Orders</span>
             </button>
             <button className="page__add-button" type="button" onClick={() => setIsAddOrderOpen(true)} disabled={!business?.id}>
-              <Plus size={19} aria-hidden="true" />
+              <Plus size={14} aria-hidden="true" />
               Add Order
             </button>
           </div>}
 
           {activeTab === "shopOrders" && <div className="page__actions">
             <button type="button" onClick={handleExportShopSales} disabled={!shopSales.length}>
-              <Download size={19} strokeWidth={1.8} aria-hidden="true" />
+              <Download size={14} aria-hidden="true" />
               <span>Export Sales</span>
             </button>
             <button className="page__add-button" type="button" onClick={() => setIsAddShopSaleOpen(true)} disabled={!business?.id}>
-              <Plus size={19} aria-hidden="true" />
+              <Plus size={14} aria-hidden="true" />
               Add Shop Sale
             </button>
           </div>}
@@ -567,7 +567,7 @@ function OrdersPage() {
 
           {activeTab === "warrantyClaims" && <div className="page__actions">
             <button type="button"  disabled={!shopSales.length}>
-              <Download size={19} strokeWidth={1.8} aria-hidden="true" />
+              <Download size={14} aria-hidden="true" />
               <span>Export warranty claims</span>
             </button>
           </div>}
