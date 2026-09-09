@@ -1,4 +1,4 @@
-import { ChevronDown, Funnel, RotateCcw, X } from "lucide-react";
+import { ChevronDown, Funnel, RotateCcw, Search, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import DateRangePicker from "./DateRangePicker";
 import "./ShopSales.css";
@@ -59,10 +59,11 @@ export default function ShopSaleFilters({ onChange, appliedFilters }) {
       </button>
       <form className={`shop-sale-filters__fields filter-panel__form ${open ? "is-open" : ""}`} onSubmit={submit}>
         <div className="filter-panel__field filter-panel__field--search">
+          <Search size={15} className="filter-panel__search-icon" aria-hidden="true" />
           <input type="search" value={filters.search} onChange={(e) => update("search", e.target.value)} placeholder="Search sale number, item or customer..." />
           {filters.search && (
             <button type="button" className="filter-panel__clear" onClick={() => update("search", "")} aria-label="Clear search">
-              <X size={15} />
+              <X size={14} />
             </button>
           )}
         </div>
@@ -73,13 +74,15 @@ export default function ShopSaleFilters({ onChange, appliedFilters }) {
             onChange={handleDateRangeChange}
           />
         </div>
-        <button className="filter-panel__apply" type="submit">
-          <Funnel size={18} aria-hidden="true" />
-          <span>Filter</span>
-        </button>
-        <button className="filter-panel__reset" type="button" onClick={reset} aria-label="Reset shop sale filters" title="Reset filters">
-          <RotateCcw className="order-filters__resetbt" size={21} aria-hidden="true" />
-        </button>
+        <div className="filter-panel__actions">
+          <button className="filter-panel__apply" type="submit">
+            <Funnel size={15} aria-hidden="true" />
+            <span>Filter</span>
+          </button>
+          <button className="filter-panel__reset" type="button" onClick={reset} aria-label="Reset shop sale filters" title="Reset filters">
+            <RotateCcw className="order-filters__resetbt" size={17} aria-hidden="true" />
+          </button>
+        </div>
       </form>
     </section>
   );

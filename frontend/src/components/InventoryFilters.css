@@ -1,35 +1,23 @@
 /* Outer card containing all inventory filter controls. */
 .inventory-filters {
+  position: relative;
+  z-index: 40;
   margin-top: 10px;
-  padding: 10px;
-  padding-left: 10px;
-  padding-right: 10px;
-
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
-
-  background: var(--color-surface);
-
-  box-shadow: 0 4px 14px rgba(15, 59, 110, 0.06);
-
-  transition:
-    background 250ms ease,
-    border-color 250ms ease,
-    box-shadow 250ms ease;
+  margin-bottom: 2px;
+  padding: 0;
+  border: none;
+  background: transparent !important;
+  box-shadow: none !important;
 }
 
-/* Responsive grid that arranges search, selects, and buttons. */
+/* Flex layout left-aligned */
 .inventory-filters__form {
-  display: grid;
-
-grid-template-columns:
-  minmax(220px, 1.6fr)
-  repeat(2, minmax(105px, 1fr))
-  auto
-  auto;
-
-  align-items: end;
-  gap: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  width: 100%;
+  flex-wrap: wrap;
 }
 
 /* Shared label and control layout for each inventory filter. */
@@ -182,23 +170,9 @@ grid-template-columns:
 
 /* Dark-theme filter card, inputs, selects, and reset button. */
 html[data-theme="dark"] .inventory-filters {
-  border-color: rgba(78, 111, 145, 0.45);
-
-  background:
-    radial-gradient(
-      circle at 10% 0%,
-      rgba(41, 151, 255, 0.09),
-      transparent 35%
-    ),
-    linear-gradient(
-      145deg,
-      rgba(17, 31, 46, 0.96),
-      rgba(10, 21, 34, 0.96)
-    );
-
-  box-shadow:
-    0 12px 28px rgba(0, 0, 0, 0.22),
-    inset 0 1px 0 rgba(255, 255, 255, 0.025);
+  border: none;
+  background: transparent !important;
+  box-shadow: none !important;
 }
 
 html[data-theme="dark"] .inventory-filters__field label {

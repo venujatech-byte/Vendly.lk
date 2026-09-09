@@ -3,6 +3,7 @@ import {
   ChevronDown,
   Funnel,
   RotateCcw,
+  Search,
   X,
 } from "lucide-react";
 import DateRangePicker from "./DateRangePicker";
@@ -114,8 +115,31 @@ function OrderFilters({ couriers = [], onApply, onReset, onStatusChange, applied
         className={`order-filters__form filter-panel__form ${areMobileFiltersOpen ? "is-open" : ""}`}
         onSubmit={handleSubmit}
       >
-        {/* Start and end date range. */}
-        <div className="order-filters__field order-filters__date-field filter-panel__field filter-panel__field--date">
+        {/* Live search with search icon */}
+        <div className="filter-panel__field filter-panel__field--search">
+          <Search size={15} className="filter-panel__search-icon" aria-hidden="true" />
+          <input
+            id="order-search"
+            name="search"
+            type="search"
+            placeholder="Search orders, customers, phone, items..."
+            value={filters.search}
+            onChange={handleInputChange}
+          />
+          {filters.search && (
+            <button
+              type="button"
+              className="filter-panel__clear"
+              onClick={() => handleInputChange({ target: { name: "search", value: "" } })}
+              aria-label="Clear order search"
+            >
+              <X size={14} />
+            </button>
+          )}
+        </div>
+
+        {/* Date range picker */}
+        <div className="filter-panel__field filter-panel__field--date">
           <DateRangePicker
             startDate={filters.dateFrom}
             endDate={filters.dateTo}
@@ -123,16 +147,8 @@ function OrderFilters({ couriers = [], onApply, onReset, onStatusChange, applied
           />
         </div>
 
-        {/* One live search covers order number, waybill, item, customer and phone. */}
-        <div className="order-filters__field filter-panel__field filter-panel__field--search">
-          <input id="order-search" name="search" type="search" placeholder="Search orders, customers, phone, items or waybill..." value={filters.search} onChange={handleInputChange} />
-          {filters.search && <button type="button" className="order-filters__clear filter-panel__clear" onClick={() => handleInputChange({ target: { name: "search", value: "" } })} aria-label="Clear order search"><X size={15} /></button>}
-        </div>
-
         {/* Restrict results to a selected courier. */}
-        <div className="order-filters__field filter-panel__field">
-
-
+        <div className="filter-panel__field filter-panel__field--select">
           <select
             id="courier"
             name="courier"
@@ -147,7 +163,7 @@ function OrderFilters({ couriers = [], onApply, onReset, onStatusChange, applied
         </div>
 
         {/* Filter orders by how the customer paid. */}
-        <div className="order-filters__field filter-panel__field">
+        <div className="filter-panel__field filter-panel__field--select">
           <select id="order-payment" name="payment" value={filters.payment} onChange={handleInputChange}>
             <option value="">All payments</option>
             <option value="cod">COD</option>
@@ -156,9 +172,8 @@ function OrderFilters({ couriers = [], onApply, onReset, onStatusChange, applied
           </select>
         </div>
 
-        {/* Status remains a normal dropdown as well as being available from the
-            summary cards, which is useful for assistant-applied filters. */}
-        <div className="order-filters__field filter-panel__field">
+        {/* Status dropdown */}
+        <div className="filter-panel__field filter-panel__field--select">
           <select
             id="order-status"
             name="status"
@@ -176,21 +191,23 @@ function OrderFilters({ couriers = [], onApply, onReset, onStatusChange, applied
           </select>
         </div>
 
-        {/* Apply or reset the completed filter form. */}
-        <button className="order-filters__apply filter-panel__apply" type="submit">
-          <Funnel size={18} aria-hidden="true" />
-          <span>Filter</span>
-        </button>
+        {/* Apply and reset action buttons */}
+        <div className="filter-panel__actions">
+          <button className="filter-panel__apply" type="submit">
+            <Funnel size={15} aria-hidden="true" />
+            <span>Filter</span>
+          </button>
 
-        <button
-          className="order-filters__reset filter-panel__reset"
-          type="button"
-          onClick={handleReset}
-          aria-label="Reset order filters"
-          title="Reset filters"
-        >
-          <RotateCcw className="order-filters__resetbt" size={21} aria-hidden="true" />
-        </button>
+          <button
+            className="filter-panel__reset"
+            type="button"
+            onClick={handleReset}
+            aria-label="Reset order filters"
+            title="Reset filters"
+          >
+            <RotateCcw className="order-filters__resetbt" size={17} aria-hidden="true" />
+          </button>
+        </div>
       </form>
     </section>
   );

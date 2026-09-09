@@ -6,6 +6,7 @@ import {
   Funnel,
   ReceiptText,
   RotateCcw,
+  Search,
   WalletCards,
   X,
 } from "lucide-react";
@@ -144,6 +145,7 @@ function AnalyticsLedger({ businessId, ledger, isLoading, error }) {
         </button>
         <div id="ledger-filter-fields" className={`analytics-ledger__filter-form filter-panel__form ${areMobileFiltersOpen ? "is-open" : ""}`}>
           <div className="filter-panel__field filter-panel__field--search">
+            <Search size={15} className="filter-panel__search-icon" aria-hidden="true" />
             <input
               type="search"
               value={filters.search}
@@ -157,14 +159,9 @@ function AnalyticsLedger({ businessId, ledger, isLoading, error }) {
                 onClick={() => setFilters((current) => ({ ...current, search: "" }))}
                 aria-label="Clear search"
               >
-                <X size={15} />
+                <X size={14} />
               </button>
             )}
-          </div>
-          <div className="filter-panel__field">
-            <select value={filters.type} onChange={(event) => setFilters((current) => ({ ...current, type: event.target.value }))}>
-              {TRANSACTION_TYPES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-            </select>
           </div>
           <div className="filter-panel__field filter-panel__field--date">
             <DateRangePicker
@@ -179,19 +176,26 @@ function AnalyticsLedger({ businessId, ledger, isLoading, error }) {
               }
             />
           </div>
-          <button className="filter-panel__apply" type="button" onClick={() => setAreMobileFiltersOpen(false)}>
-            <Funnel size={18} aria-hidden="true" />
-            <span>Filter</span>
-          </button>
-          <button
-            className="filter-panel__reset"
-            type="button"
-            onClick={resetFilters}
-            aria-label="Reset ledger filters"
-            title="Reset filters"
-          >
-            <RotateCcw className="order-filters__resetbt" size={21} aria-hidden="true" />
-          </button>
+          <div className="filter-panel__field filter-panel__field--select">
+            <select value={filters.type} onChange={(event) => setFilters((current) => ({ ...current, type: event.target.value }))}>
+              {TRANSACTION_TYPES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            </select>
+          </div>
+          <div className="filter-panel__actions">
+            <button className="filter-panel__apply" type="button" onClick={() => setAreMobileFiltersOpen(false)}>
+              <Funnel size={15} aria-hidden="true" />
+              <span>Filter</span>
+            </button>
+            <button
+              className="filter-panel__reset"
+              type="button"
+              onClick={resetFilters}
+              aria-label="Reset ledger filters"
+              title="Reset filters"
+            >
+              <RotateCcw className="order-filters__resetbt" size={17} aria-hidden="true" />
+            </button>
+          </div>
         </div>
       </section>
 
