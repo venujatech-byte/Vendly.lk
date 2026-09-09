@@ -1,7 +1,6 @@
 import {
   BanknoteArrowDown,
   BanknoteArrowUp,
-  CalendarDays,
   ChevronDown,
   Download,
   Funnel,
@@ -12,6 +11,7 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 
+import DateRangePicker from "./DateRangePicker";
 import useTablePagination from "../hooks/useTablePagination";
 import { downloadAnalyticsLedger, formatAnalyticsMoney } from "../services/analyticsService";
 import StatCard from "./StatCard";
@@ -167,12 +167,17 @@ function AnalyticsLedger({ businessId, ledger, isLoading, error }) {
             </select>
           </div>
           <div className="filter-panel__field filter-panel__field--date">
-            <div className="filter-panel__date-control">
-              <CalendarDays size={17} aria-hidden="true" />
-              <input type="date" value={filters.dateFrom} onChange={(event) => setFilters((current) => ({ ...current, dateFrom: event.target.value }))} />
-              <span>to</span>
-              <input type="date" value={filters.dateTo} onChange={(event) => setFilters((current) => ({ ...current, dateTo: event.target.value }))} />
-            </div>
+            <DateRangePicker
+              startDate={filters.dateFrom}
+              endDate={filters.dateTo}
+              onChange={({ startDate, endDate }) =>
+                setFilters((current) => ({
+                  ...current,
+                  dateFrom: startDate,
+                  dateTo: endDate,
+                }))
+              }
+            />
           </div>
           <button className="filter-panel__apply" type="button" onClick={() => setAreMobileFiltersOpen(false)}>
             <Funnel size={18} aria-hidden="true" />

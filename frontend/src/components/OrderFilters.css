@@ -1,5 +1,7 @@
 /* Outer card containing all order filter controls. */
 .order-filters {
+  position: relative;
+  z-index: 40;
   margin-top: 10px;
   padding: 10px;
   padding-left: 8px;
@@ -407,12 +409,19 @@ html[data-theme="dark"] .order-filters__mobile-toggle {
  * class contract for one consistent card, control, button and mobile layout.
  */
 .filter-panel.filter-panel {
+  position: relative;
+  z-index: 40;
   margin-top: 10px;
   padding: 10px;
   border: 1px solid var(--color-border);
   border-radius: 12px;
   background: var(--color-surface);
   box-shadow: 0 4px 14px rgba(15, 59, 110, 0.06);
+}
+
+.order-filters:has(.date-range-picker.is-open),
+.filter-panel:has(.date-range-picker.is-open) {
+  z-index: 1000;
 }
 
 .filter-panel .filter-panel__form {

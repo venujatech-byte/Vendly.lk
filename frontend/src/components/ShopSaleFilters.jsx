@@ -1,5 +1,6 @@
-import { CalendarDays, ChevronDown, Funnel, RotateCcw, X } from "lucide-react";
+import { ChevronDown, Funnel, RotateCcw, X } from "lucide-react";
 import { useEffect, useState } from "react";
+import DateRangePicker from "./DateRangePicker";
 import "./ShopSales.css";
 import "./OrderFilters.css";
 
@@ -32,6 +33,12 @@ export default function ShopSaleFilters({ onChange, appliedFilters }) {
     onChange?.(next);
   }
 
+  function handleDateRangeChange({ startDate, endDate }) {
+    const next = { ...filters, dateFrom: startDate, dateTo: endDate };
+    setFilters(next);
+    onChange?.(next);
+  }
+
   function reset() {
     setFilters(empty);
     onChange?.(empty);
@@ -60,12 +67,11 @@ export default function ShopSaleFilters({ onChange, appliedFilters }) {
           )}
         </div>
         <div className="shop-sale-filters__dates filter-panel__field filter-panel__field--date">
-          <div className="filter-panel__date-control">
-            <CalendarDays size={17} aria-hidden="true" />
-            <input type="date" value={filters.dateFrom} onChange={(e) => update("dateFrom", e.target.value)} />
-            <span>to</span>
-            <input type="date" value={filters.dateTo} onChange={(e) => update("dateTo", e.target.value)} />
-          </div>
+          <DateRangePicker
+            startDate={filters.dateFrom}
+            endDate={filters.dateTo}
+            onChange={handleDateRangeChange}
+          />
         </div>
         <button className="filter-panel__apply" type="submit">
           <Funnel size={18} aria-hidden="true" />

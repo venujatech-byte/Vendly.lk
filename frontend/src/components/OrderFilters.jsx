@@ -1,12 +1,11 @@
-// React state stores the filter form; icons improve the form controls visually.
 import { useEffect, useState } from "react";
 import {
-  CalendarDays,
   ChevronDown,
   Funnel,
   RotateCcw,
   X,
 } from "lucide-react";
+import DateRangePicker from "./DateRangePicker";
 
 import "./OrderFilters.css";
 
@@ -72,6 +71,16 @@ function OrderFilters({ couriers = [], onApply, onReset, onStatusChange, applied
     setAreMobileFiltersOpen(false);
   }
 
+  function handleDateRangeChange({ startDate, endDate }) {
+    const nextFilters = {
+      ...filters,
+      dateFrom: startDate,
+      dateTo: endDate,
+    };
+    setFilters(nextFilters);
+    onApply?.(nextFilters);
+  }
+
   // Clear all filters at once.
   function handleReset() {
     setFilters(initialFilters);
@@ -107,29 +116,11 @@ function OrderFilters({ couriers = [], onApply, onReset, onStatusChange, applied
       >
         {/* Start and end date range. */}
         <div className="order-filters__field order-filters__date-field filter-panel__field filter-panel__field--date">
-
-
-          <div className="order-filters__date-control filter-panel__date-control">
-            <CalendarDays size={17} aria-hidden="true" />
-
-            <input
-              id="date-from"
-              name="dateFrom"
-              type="date"
-              value={filters.dateFrom}
-              onChange={handleInputChange}
-            />
-
-            <span>to</span>
-
-            <input
-              id="date-to"
-              name="dateTo"
-              type="date"
-              value={filters.dateTo}
-              onChange={handleInputChange}
-            />
-          </div>
+          <DateRangePicker
+            startDate={filters.dateFrom}
+            endDate={filters.dateTo}
+            onChange={handleDateRangeChange}
+          />
         </div>
 
         {/* One live search covers order number, waybill, item, customer and phone. */}
