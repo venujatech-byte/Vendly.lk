@@ -1,9 +1,9 @@
-// React state stores the current filter values entered by the user.
 import { useEffect, useState } from "react";
 import {
   ChevronDown,
   Funnel,
   RotateCcw,
+  Search,
   X,
 } from "lucide-react";
 
@@ -99,12 +99,9 @@ function InventoryFilters({ categories = [], onApply, onReset, appliedFilters })
         className={`inventory-filters__form filter-panel__form ${areMobileFiltersOpen ? "is-open" : ""}`}
         onSubmit={handleSubmit}
       >
-    
-
-
         {/* Product name, SKU, or barcode search. */}
         <div className="inventory-filters__field filter-panel__field filter-panel__field--search">
-
+          <Search size={15} className="filter-panel__search-icon" aria-hidden="true" />
           <input
             id="searchProduct"
             name="searchProduct"
@@ -114,13 +111,20 @@ function InventoryFilters({ categories = [], onApply, onReset, appliedFilters })
             value={filters.searchProduct}
             onChange={handleInputChange}
           />
-          {filters.searchProduct && <button type="button" className="inventory-filters__clear filter-panel__clear" onClick={() => handleInputChange({ target: { name: "searchProduct", value: "" } })} aria-label="Clear product search"><X size={15} /></button>}
+          {filters.searchProduct && (
+            <button
+              type="button"
+              className="inventory-filters__clear filter-panel__clear"
+              onClick={() => handleInputChange({ target: { name: "searchProduct", value: "" } })}
+              aria-label="Clear product search"
+            >
+              <X size={15} />
+            </button>
+          )}
         </div>
 
-
         {/* Category selector. */}
-        <div className="inventory-filters__field filter-panel__field">
-
+        <div className="inventory-filters__field filter-panel__field filter-panel__field--select">
           <select
             id="category"
             name="category"
@@ -134,11 +138,8 @@ function InventoryFilters({ categories = [], onApply, onReset, appliedFilters })
           </select>
         </div>
 
-
-
         {/* Stock-status selector. */}
-        <div className="inventory-filters__field filter-panel__field">
-
+        <div className="inventory-filters__field filter-panel__field filter-panel__field--select">
           <select
             id="stockStatus"
             name="stockStatus"
@@ -152,21 +153,23 @@ function InventoryFilters({ categories = [], onApply, onReset, appliedFilters })
           </select>
         </div>
 
-        {/* Submit and reset controls. */}
-        <button className="inventory-filters__apply filter-panel__apply" type="submit">
-          <Funnel size={18} aria-hidden="true" />
-          <span>Filter</span>
-        </button>
+        {/* Submit and reset controls wrapped in filter-panel__actions. */}
+        <div className="filter-panel__actions">
+          <button className="inventory-filters__apply filter-panel__apply" type="submit">
+            <Funnel size={15} aria-hidden="true" />
+            <span>Filter</span>
+          </button>
 
-        <button
-          className="inventory-filters__reset filter-panel__reset"
-          type="button"
-          onClick={handleReset}
-          aria-label="Reset inventory filters"
-          title="Reset filters"
-        >
-          <RotateCcw className="inventory-filters__resetbt" size={21} aria-hidden="true" />
-        </button>
+          <button
+            className="inventory-filters__reset filter-panel__reset"
+            type="button"
+            onClick={handleReset}
+            aria-label="Reset inventory filters"
+            title="Reset filters"
+          >
+            <RotateCcw className="inventory-filters__resetbt" size={17} aria-hidden="true" />
+          </button>
+        </div>
       </form>
     </section>
   );

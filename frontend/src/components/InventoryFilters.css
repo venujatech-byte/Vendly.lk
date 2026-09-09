@@ -1,7 +1,7 @@
 /* Outer card containing all inventory filter controls. */
 .inventory-filters {
   position: relative;
-  z-index: 40;
+  z-index: 5;
   margin-top: 10px;
   margin-bottom: 2px;
   padding: 0;

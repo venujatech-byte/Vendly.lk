@@ -1,4 +1,4 @@
-import { ArchiveX, Boxes, ChevronDown, CircleDollarSign, Funnel, PackageSearch, RotateCcw, X } from "lucide-react";
+import { ArchiveX, Boxes, ChevronDown, CircleDollarSign, Funnel, PackageSearch, RotateCcw, Search, X } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import useTablePagination from "../hooks/useTablePagination";
@@ -58,6 +58,7 @@ function DeadStockReport({ report, isLoading }) {
         </button>
         <div id="dead-stock-filter-fields" className={`filter-panel__form dead-stock__filter-form ${areMobileFiltersOpen ? "is-open" : ""}`}>
           <div className="filter-panel__field filter-panel__field--search">
+            <Search size={15} className="filter-panel__search-icon" aria-hidden="true" />
             <input
               type="search"
               value={filters.search}
@@ -75,13 +76,13 @@ function DeadStockReport({ report, isLoading }) {
               </button>
             )}
           </div>
-          <div className="filter-panel__field">
+          <div className="filter-panel__field filter-panel__field--select">
             <select value={filters.category} onChange={(event) => setFilters((current) => ({ ...current, category: event.target.value }))}>
               <option value="all">All categories</option>
               {categories.map((category) => <option key={category}>{category}</option>)}
             </select>
           </div>
-          <div className="filter-panel__field">
+          <div className="filter-panel__field filter-panel__field--select">
             <select value={filters.state} onChange={(event) => setFilters((current) => ({ ...current, state: event.target.value }))}>
               <option value="all">All dead stock</option>
               <option value="never-sold">Never sold</option>
@@ -89,19 +90,21 @@ function DeadStockReport({ report, isLoading }) {
               <option value="critical">120+ days</option>
             </select>
           </div>
-          <button className="filter-panel__apply" type="button" onClick={() => setAreMobileFiltersOpen(false)}>
-            <Funnel size={18} aria-hidden="true" />
-            <span>Filter</span>
-          </button>
-          <button
-            className="filter-panel__reset"
-            type="button"
-            onClick={resetFilters}
-            aria-label="Reset dead-stock filters"
-            title="Reset filters"
-          >
-            <RotateCcw className="order-filters__resetbt" size={21} aria-hidden="true" />
-          </button>
+          <div className="filter-panel__actions">
+            <button className="filter-panel__apply" type="button" onClick={() => setAreMobileFiltersOpen(false)}>
+              <Funnel size={15} aria-hidden="true" />
+              <span>Filter</span>
+            </button>
+            <button
+              className="filter-panel__reset"
+              type="button"
+              onClick={resetFilters}
+              aria-label="Reset dead-stock filters"
+              title="Reset filters"
+            >
+              <RotateCcw className="order-filters__resetbt" size={17} aria-hidden="true" />
+            </button>
+          </div>
         </div>
       </section>
 

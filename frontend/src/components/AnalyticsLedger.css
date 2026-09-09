@@ -277,10 +277,6 @@
   .analytics-ledger__stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-
-  .analytics-ledger__filter-form.filter-panel__form {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
 }
 
 @media (max-width: 700px) {

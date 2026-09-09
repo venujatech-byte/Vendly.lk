@@ -342,6 +342,15 @@ export default function DateRangePicker({
         )}
       </button>
 
+      {/* Popover Backdrop on Mobile */}
+      {isOpen && (
+        <div
+          className="date-range-picker__backdrop"
+          onClick={handleCancel}
+          aria-hidden="true"
+        />
+      )}
+
       {/* Popover Card */}
       {isOpen && (
         <div
@@ -349,6 +358,22 @@ export default function DateRangePicker({
           role="dialog"
           aria-label="Date range selector"
         >
+          {/* Mobile Bottom-Sheet Header */}
+          <div className="date-range-picker__mobile-header">
+            <div className="date-range-picker__drag-handle" />
+            <div className="date-range-picker__mobile-title-bar">
+              <span className="date-range-picker__mobile-title">Select Date Range</span>
+              <button
+                type="button"
+                className="date-range-picker__mobile-close"
+                onClick={handleCancel}
+                aria-label="Close date range picker"
+              >
+                <X size={18} />
+              </button>
+            </div>
+          </div>
+
           <div className="date-range-picker__body">
             {/* Sidebar Presets */}
             <aside className="date-range-picker__presets" aria-label="Date range shortcuts">
@@ -383,7 +408,15 @@ export default function DateRangePicker({
                   <span className="date-range-picker__month-title">
                     {MONTH_NAMES[leftViewDate.getMonth()]} {leftViewDate.getFullYear()}
                   </span>
-                  <div className="date-range-picker__nav-spacer" />
+                  <button
+                    type="button"
+                    className="date-range-picker__nav-btn date-range-picker__nav-btn--mobile-only"
+                    onClick={nextMonth}
+                    aria-label="Next month"
+                  >
+                    <ChevronRight size={16} />
+                  </button>
+                  <div className="date-range-picker__nav-spacer date-range-picker__nav-spacer--desktop-only" />
                 </header>
 
                 <div className="date-range-picker__weekdays">
@@ -434,7 +467,15 @@ export default function DateRangePicker({
               {/* Right Calendar */}
               <div className="date-range-picker__calendar">
                 <header className="date-range-picker__calendar-header">
-                  <div className="date-range-picker__nav-spacer" />
+                  <button
+                    type="button"
+                    className="date-range-picker__nav-btn date-range-picker__nav-btn--mobile-only"
+                    onClick={prevMonth}
+                    aria-label="Previous month"
+                  >
+                    <ChevronLeft size={16} />
+                  </button>
+                  <div className="date-range-picker__nav-spacer date-range-picker__nav-spacer--desktop-only" />
                   <span className="date-range-picker__month-title">
                     {MONTH_NAMES[rightViewDate.getMonth()]} {rightViewDate.getFullYear()}
                   </span>

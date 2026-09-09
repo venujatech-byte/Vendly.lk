@@ -5,17 +5,17 @@
 }
 
 .date-range-picker.is-open {
-  z-index: 1001;
+  z-index: 35;
 }
 
 /* Integration inside .filter-panel */
 .filter-panel .filter-panel__field--date {
   position: relative;
-  z-index: 50;
+  z-index: 15;
 }
 
 .filter-panel .filter-panel__field--date:has(.date-range-picker.is-open) {
-  z-index: 1001;
+  z-index: 35;
 }
 
 .filter-panel .date-range-picker {
@@ -105,7 +105,7 @@ html[data-theme="dark"] .filter-panel .date-range-picker__trigger {
 .date-range-picker__popover {
   position: absolute;
   top: calc(100% + 6px);
-  z-index: 1050;
+  z-index: 40;
   width: max-content;
   max-width: 95vw;
   background-color: var(--color-surface, #ffffff);
@@ -507,45 +507,302 @@ html[data-theme="dark"] .date-range-picker__btn-cancel:hover,
   color: #ffffff;
 }
 
-/* Responsive */
-@media (max-width: 720px) {
-  .date-range-picker__popover {
+/* Desktop / Base Header Controls */
+.date-range-picker__backdrop {
+  display: none;
+}
+
+.date-range-picker__mobile-header {
+  display: none;
+}
+
+.date-range-picker__nav-btn--mobile-only {
+  display: none;
+}
+
+.date-range-picker__nav-spacer--desktop-only {
+  display: block;
+  width: 28px;
+  height: 28px;
+}
+
+/* Integration inside .filter-panel on tablet and mobile */
+@media (max-width: 768px) {
+  .filter-panel .date-range-picker {
+    width: 100% !important;
+    display: flex !important;
+  }
+
+  .filter-panel .date-range-picker__trigger {
+    width: 100% !important;
+    max-width: none !important;
+    min-height: 42px !important;
+    justify-content: flex-start !important;
+  }
+
+  .filter-panel .date-range-picker__trigger-label {
+    max-width: none !important;
+    flex: 1 !important;
+    text-align: left !important;
+  }
+}
+
+/* Responsive Mobile Bottom Sheet (<= 680px) */
+@media (max-width: 680px) {
+  .date-range-picker__backdrop {
+    display: block;
     position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 96vw;
-    max-height: 90vh;
-    overflow-y: auto;
+    inset: 0;
+    z-index: 1050;
+    background: rgba(10, 18, 30, 0.65);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    animation: datePickerBackdropFade 180ms ease forwards;
   }
 
-  .date-range-picker__body {
+  @keyframes datePickerBackdropFade {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  .date-range-picker__nav-btn--mobile-only {
+    display: inline-flex;
+  }
+
+  .date-range-picker__nav-spacer--desktop-only {
+    display: none;
+  }
+
+  /* Popover becomes an elevated bottom sheet */
+  .date-range-picker__popover {
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    top: auto !important;
+    transform: none !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+    max-height: 90dvh !important;
+    border-radius: 20px 20px 0 0 !important;
+    border-bottom: none !important;
+    border-left: none !important;
+    border-right: none !important;
+    z-index: 1100 !important;
+    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.35) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    animation: datePickerSheetSlideUp 240ms cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+    margin: 0 !important;
+  }
+
+  @keyframes datePickerSheetSlideUp {
+    from {
+      transform: translateY(100%);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
+
+  /* Mobile Drag Header */
+  .date-range-picker__mobile-header {
+    display: flex;
     flex-direction: column;
+    align-items: center;
+    padding: 10px 16px 8px;
+    background: var(--color-surface, #ffffff);
+    border-bottom: 1px solid var(--color-border, #e2e8f0);
+    flex-shrink: 0;
   }
 
+  .date-range-picker__drag-handle {
+    width: 38px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--color-border, #cbd5e1);
+    margin-bottom: 8px;
+  }
+
+  .date-range-picker__mobile-title-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .date-range-picker__mobile-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--color-text, #0f172a);
+  }
+
+  .date-range-picker__mobile-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 50%;
+    background: var(--color-surface-soft, #f1f5f9);
+    color: var(--color-text-muted, #64748b);
+    cursor: pointer;
+    transition: all 150ms ease;
+  }
+
+  .date-range-picker__mobile-close:hover {
+    background: var(--color-border, #e2e8f0);
+    color: var(--color-text, #0f172a);
+  }
+
+  /* Body stacks vertically and scrolls */
+  .date-range-picker__body {
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    flex: 1 1 auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Horizontal chips for presets */
   .date-range-picker__presets {
     width: 100%;
     flex-direction: row;
     overflow-x: auto;
     border-right: none;
     border-bottom: 1px solid var(--color-border, #f1f5f9);
-    padding: 8px 10px;
+    padding: 8px 12px;
+    gap: 6px;
+    background: var(--color-surface-soft, #fafbfd);
+    flex-shrink: 0;
+    scrollbar-width: none;
+  }
+
+  .date-range-picker__presets::-webkit-scrollbar {
+    display: none;
   }
 
   .date-range-picker__preset-btn {
     white-space: nowrap;
     width: auto;
+    padding: 6px 13px;
+    font-size: 12px;
+    font-weight: 500;
+    border-radius: 20px;
+    background: var(--color-surface, #ffffff);
+    border: 1px solid var(--color-border, #e2e8f0);
+    flex-shrink: 0;
   }
 
+  .date-range-picker__preset-btn.is-active {
+    background: var(--color-primary, #2563eb);
+    color: #ffffff;
+    border-color: var(--color-primary, #2563eb);
+  }
+
+  /* Calendar area */
   .date-range-picker__calendars {
     flex-direction: column;
-    gap: 16px;
+    gap: 18px;
     align-items: center;
-    padding: 12px;
+    padding: 14px 12px 20px;
+    width: 100%;
   }
 
   .date-range-picker__calendar {
     width: 100%;
-    max-width: 280px;
+    max-width: 320px;
   }
+
+  .date-range-picker__cell-wrap {
+    height: 38px;
+  }
+
+  .date-range-picker__day-btn {
+    width: 36px;
+    height: 36px;
+    font-size: 14px;
+  }
+
+  /* Action footer sticky to bottom of sheet */
+  .date-range-picker__footer {
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid var(--color-border, #e2e8f0);
+    background-color: var(--color-surface, #ffffff);
+    flex-shrink: 0;
+  }
+
+  .date-range-picker__badges {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .date-range-picker__badge {
+    flex: 1;
+    text-align: center;
+  }
+
+  .date-range-picker__actions {
+    width: 100%;
+    display: flex;
+    gap: 8px;
+  }
+
+  .date-range-picker__btn-cancel,
+  .date-range-picker__btn-apply {
+    flex: 1;
+    height: 42px;
+    font-size: 14px;
+    justify-content: center;
+  }
+}
+
+/* Dark mode overrides for mobile header & backdrop */
+html[data-theme="dark"] .date-range-picker__mobile-header,
+[data-theme="dark"] .date-range-picker__mobile-header {
+  background-color: #0f172a;
+  border-color: #334155;
+}
+
+html[data-theme="dark"] .date-range-picker__drag-handle,
+[data-theme="dark"] .date-range-picker__drag-handle {
+  background-color: #334155;
+}
+
+html[data-theme="dark"] .date-range-picker__mobile-title,
+[data-theme="dark"] .date-range-picker__mobile-title {
+  color: #f8fafc;
+}
+
+html[data-theme="dark"] .date-range-picker__mobile-close,
+[data-theme="dark"] .date-range-picker__mobile-close {
+  background-color: #1e293b;
+  color: #94a3b8;
+}
+
+html[data-theme="dark"] .date-range-picker__mobile-close:hover,
+[data-theme="dark"] .date-range-picker__mobile-close:hover {
+  background-color: #334155;
+  color: #f8fafc;
+}
+
+html[data-theme="dark"] .date-range-picker__preset-btn,
+[data-theme="dark"] .date-range-picker__preset-btn {
+  background-color: #1e293b;
+  border-color: #334155;
+  color: #94a3b8;
+}
+
+html[data-theme="dark"] .date-range-picker__preset-btn.is-active,
+[data-theme="dark"] .date-range-picker__preset-btn.is-active {
+  background-color: #2563eb;
+  color: #ffffff;
+  border-color: #2563eb;
 }
