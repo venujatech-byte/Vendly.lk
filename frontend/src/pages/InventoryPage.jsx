@@ -439,7 +439,7 @@ function InventoryPage() {
 
   return (
     <main className="dashboard">
-      <div className="inventory-page__heading">
+      <div className="dashboard-header">
         <p>Manage products, sizes, stock levels, SKUs and barcodes.</p>
 
         {activeTab === "products" && (

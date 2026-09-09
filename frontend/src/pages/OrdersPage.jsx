@@ -528,8 +528,7 @@ function OrdersPage() {
   return (
     <main className="dashboard orders-page">
       {/* Page title, description, and order export action. */}
-      <div className="dashboard__intro">
-        <div className="inventory-page__heading">
+      <header className="dashboard-header">
           <p>View and manage all customer orders.</p>
 
           {activeTab === "onlineOrders" && <div className="page__actions">
@@ -569,9 +568,7 @@ function OrdersPage() {
               <span>Export warranty claims</span>
             </button>
           </div>}
-        </div>
-
-      </div>
+      </header>
 
 
 
@@ -724,12 +721,12 @@ function OrdersPage() {
 
 
       {(accountError || ordersError) && (
-        <p className="orders-page__notice orders-page__notice--error" role="alert">
+        <p className="dashboard-notice dashboard-notice--error" role="alert">
           Orders could not be loaded from the Vendly API.
         </p>
       )}
       {isLoading && (
-        <p className="orders-page__notice" role="status">Loading orders...</p>
+        <p className="dashboard-notice" role="status">Loading orders...</p>
       )}
 
 

@@ -240,8 +240,8 @@ function CouriersPage() {
 
   return (
     <main className="dashboard couriers-page">
-      <div className="management-page__heading">
-        <div className="dashboard__intro">
+      <header className="dashboard-header">
+        <div>
           <h2>Couriers & Delivery</h2>
           <p>Manage courier services, weight pricing and delivery quality.</p>
         </div>
@@ -255,8 +255,7 @@ function CouriersPage() {
           hidden
           onChange={handleTemplateSelected}
         />
-      </div>
-
+      </header>
       <section className="courier-stats" aria-label="Courier summary">
         <div className="stats-grid">
           {courierStats.map((stat) => (

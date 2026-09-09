@@ -26,7 +26,7 @@ import {
   formatAnalyticsMoney,
   getAnalyticsOverview,
 } from "../services/analyticsService";
-import "./OrdersPage.css";
+
 import "./OverviewPage.css";
 
 
@@ -149,7 +149,7 @@ function OverviewPage() {
       </section>
 
       {analyticsError && (
-        <p className="orders-page__notice orders-page__notice--error" role="alert">
+        <p className="dashboard-notice dashboard-notice--error" role="alert">
           The current business summary could not be loaded.
         </p>
       )}

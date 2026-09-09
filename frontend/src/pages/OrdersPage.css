@@ -107,25 +107,7 @@ html[data-theme="dark"] .orders-page__share-button:hover svg {
   color: white;
 }
 
-.orders-page__notice {
-  margin: 12px 0;
-  padding: 11px 13px;
-  border: 1px solid var(--color-border);
-  border-radius: 9px;
-  color: var(--color-text-muted);
-  background: var(--color-surface);
-}
 
-.orders-page__notice--error {
-  border-color: rgba(220, 38, 38, 0.35);
-  color: #b91c1c;
-  background: rgba(254, 226, 226, 0.55);
-}
-
-[data-theme="dark"] .orders-page__notice--error {
-  color: #fca5a5;
-  background: rgba(127, 29, 29, 0.2);
-}
 .orders-page__heading-actions {
   display: flex;
   align-items: center;
