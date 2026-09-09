@@ -1,4 +1,4 @@
-import { AlertTriangle, Banknote, ChevronDown, CircleDollarSign, Filter, RotateCcw, Search, WalletCards, X } from "lucide-react";
+import { AlertTriangle, Banknote, ChevronDown, CircleDollarSign, Funnel, RotateCcw, WalletCards, X } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import useTablePagination from "../hooks/useTablePagination";
@@ -103,15 +103,53 @@ function CodReconciliation({ businessId, reconciliation, isLoading, error, onCha
           aria-controls="cod-reconciliation-filter-fields"
           onClick={() => setAreMobileFiltersOpen((value) => !value)}
         >
-          <span><Filter size={17} /> {areMobileFiltersOpen ? "Hide filters" : "Show filters"}</span>
-          <ChevronDown className={areMobileFiltersOpen ? "is-open" : ""} size={18} />
+          <span><Funnel size={17} aria-hidden="true" /> {areMobileFiltersOpen ? "Hide filters" : "Show filters"}</span>
+          <ChevronDown className={areMobileFiltersOpen ? "is-open" : ""} size={18} aria-hidden="true" />
         </button>
         <div id="cod-reconciliation-filter-fields" className={`filter-panel__form cod-reconciliation__filter-form ${areMobileFiltersOpen ? "is-open" : ""}`}>
-          <label className="filter-panel__field filter-panel__field--search"><span className="cod-reconciliation__field-label">Search</span><span className="filter-panel__icon-field"><Search size={16} /><input value={filters.search} onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))} placeholder="Order, customer, courier or reference..." /></span></label>
-          <label className="filter-panel__field"><span className="cod-reconciliation__field-label">Status</span><select value={filters.status} onChange={(event) => setFilters((current) => ({ ...current, status: event.target.value }))}><option value="all">All statuses</option>{["unreconciled", "pending", "partial", "reconciled", "disputed"].map((status) => <option key={status} value={status}>{status.replaceAll("-", " ")}</option>)}</select></label>
-          <label className="filter-panel__field"><span className="cod-reconciliation__field-label">Courier</span><select value={filters.courier} onChange={(event) => setFilters((current) => ({ ...current, courier: event.target.value }))}><option value="all">All couriers</option>{couriers.map((courier) => <option key={courier}>{courier}</option>)}</select></label>
-          <button className="filter-panel__apply" type="button"><Filter size={15} /> Filter</button>
-          <button className="filter-panel__reset filter-panel__reset--text" type="button" onClick={() => setFilters({ search: "", status: "all", courier: "all" })}><RotateCcw size={15} /> Reset</button>
+          <div className="filter-panel__field filter-panel__field--search">
+            <input
+              type="search"
+              value={filters.search}
+              onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
+              placeholder="Search order, customer, courier or reference..."
+            />
+            {filters.search && (
+              <button
+                type="button"
+                className="filter-panel__clear"
+                onClick={() => setFilters((current) => ({ ...current, search: "" }))}
+                aria-label="Clear search"
+              >
+                <X size={15} />
+              </button>
+            )}
+          </div>
+          <div className="filter-panel__field">
+            <select value={filters.status} onChange={(event) => setFilters((current) => ({ ...current, status: event.target.value }))}>
+              <option value="all">All statuses</option>
+              {["unreconciled", "pending", "partial", "reconciled", "disputed"].map((status) => <option key={status} value={status}>{status.replaceAll("-", " ")}</option>)}
+            </select>
+          </div>
+          <div className="filter-panel__field">
+            <select value={filters.courier} onChange={(event) => setFilters((current) => ({ ...current, courier: event.target.value }))}>
+              <option value="all">All couriers</option>
+              {couriers.map((courier) => <option key={courier}>{courier}</option>)}
+            </select>
+          </div>
+          <button className="filter-panel__apply" type="button" onClick={() => setAreMobileFiltersOpen(false)}>
+            <Funnel size={18} aria-hidden="true" />
+            <span>Filter</span>
+          </button>
+          <button
+            className="filter-panel__reset"
+            type="button"
+            onClick={() => setFilters({ search: "", status: "all", courier: "all" })}
+            aria-label="Reset reconciliation filters"
+            title="Reset filters"
+          >
+            <RotateCcw className="order-filters__resetbt" size={21} aria-hidden="true" />
+          </button>
         </div>
       </section>
 

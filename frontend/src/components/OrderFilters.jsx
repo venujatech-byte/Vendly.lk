@@ -135,7 +135,7 @@ function OrderFilters({ couriers = [], onApply, onReset, onStatusChange, applied
         {/* One live search covers order number, waybill, item, customer and phone. */}
         <div className="order-filters__field filter-panel__field filter-panel__field--search">
           <input id="order-search" name="search" type="search" placeholder="Search orders, customers, phone, items or waybill..." value={filters.search} onChange={handleInputChange} />
-          {filters.search && <button type="button" className="order-filters__clear" onClick={() => handleInputChange({ target: { name: "search", value: "" } })} aria-label="Clear order search"><X size={15} /></button>}
+          {filters.search && <button type="button" className="order-filters__clear filter-panel__clear" onClick={() => handleInputChange({ target: { name: "search", value: "" } })} aria-label="Clear order search"><X size={15} /></button>}
         </div>
 
         {/* Restrict results to a selected courier. */}

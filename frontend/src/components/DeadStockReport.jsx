@@ -1,4 +1,4 @@
-import { ArchiveX, Boxes, ChevronDown, CircleDollarSign, Filter, PackageSearch, RotateCcw, Search } from "lucide-react";
+import { ArchiveX, Boxes, ChevronDown, CircleDollarSign, Funnel, PackageSearch, RotateCcw, X } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import useTablePagination from "../hooks/useTablePagination";
@@ -53,15 +53,55 @@ function DeadStockReport({ report, isLoading }) {
           aria-controls="dead-stock-filter-fields"
           onClick={() => setAreMobileFiltersOpen((value) => !value)}
         >
-          <span><Filter size={17} /> {areMobileFiltersOpen ? "Hide filters" : "Show filters"}</span>
-          <ChevronDown className={areMobileFiltersOpen ? "is-open" : ""} size={18} />
+          <span><Funnel size={17} aria-hidden="true" /> {areMobileFiltersOpen ? "Hide filters" : "Show filters"}</span>
+          <ChevronDown className={areMobileFiltersOpen ? "is-open" : ""} size={18} aria-hidden="true" />
         </button>
         <div id="dead-stock-filter-fields" className={`filter-panel__form dead-stock__filter-form ${areMobileFiltersOpen ? "is-open" : ""}`}>
-          <label className="filter-panel__field filter-panel__field--search"><span className="dead-stock__field-label">Search</span><span className="filter-panel__icon-field"><Search size={16} /><input value={filters.search} onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))} placeholder="Product, SKU or category..." /></span></label>
-          <label className="filter-panel__field"><span className="dead-stock__field-label">Category</span><select value={filters.category} onChange={(event) => setFilters((current) => ({ ...current, category: event.target.value }))}><option value="all">All categories</option>{categories.map((category) => <option key={category}>{category}</option>)}</select></label>
-          <label className="filter-panel__field"><span className="dead-stock__field-label">Stock state</span><select value={filters.state} onChange={(event) => setFilters((current) => ({ ...current, state: event.target.value }))}><option value="all">All dead stock</option><option value="never-sold">Never sold</option><option value="stale">60-119 days</option><option value="critical">120+ days</option></select></label>
-          <button className="filter-panel__apply" type="button"><Filter size={15} /> Filter</button>
-          <button className="filter-panel__reset filter-panel__reset--text" type="button" onClick={resetFilters}><RotateCcw size={15} /> Reset</button>
+          <div className="filter-panel__field filter-panel__field--search">
+            <input
+              type="search"
+              value={filters.search}
+              onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
+              placeholder="Search product, SKU or category..."
+            />
+            {filters.search && (
+              <button
+                type="button"
+                className="filter-panel__clear"
+                onClick={() => setFilters((current) => ({ ...current, search: "" }))}
+                aria-label="Clear search"
+              >
+                <X size={15} />
+              </button>
+            )}
+          </div>
+          <div className="filter-panel__field">
+            <select value={filters.category} onChange={(event) => setFilters((current) => ({ ...current, category: event.target.value }))}>
+              <option value="all">All categories</option>
+              {categories.map((category) => <option key={category}>{category}</option>)}
+            </select>
+          </div>
+          <div className="filter-panel__field">
+            <select value={filters.state} onChange={(event) => setFilters((current) => ({ ...current, state: event.target.value }))}>
+              <option value="all">All dead stock</option>
+              <option value="never-sold">Never sold</option>
+              <option value="stale">60-119 days</option>
+              <option value="critical">120+ days</option>
+            </select>
+          </div>
+          <button className="filter-panel__apply" type="button" onClick={() => setAreMobileFiltersOpen(false)}>
+            <Funnel size={18} aria-hidden="true" />
+            <span>Filter</span>
+          </button>
+          <button
+            className="filter-panel__reset"
+            type="button"
+            onClick={resetFilters}
+            aria-label="Reset dead-stock filters"
+            title="Reset filters"
+          >
+            <RotateCcw className="order-filters__resetbt" size={21} aria-hidden="true" />
+          </button>
         </div>
       </section>
 

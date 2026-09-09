@@ -2,11 +2,11 @@ import {
   BadgeDollarSign,
   ChevronDown,
   CircleDollarSign,
-  Filter,
+  Funnel,
   RotateCcw,
-  Search,
   TriangleAlert,
   UsersRound,
+  X,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 
@@ -83,34 +83,57 @@ function CustomerProfitability({ report, isLoading }) {
           aria-controls="customer-profitability-filter-fields"
           onClick={() => setAreMobileFiltersOpen((value) => !value)}
         >
-          <span><Filter size={17} /> {areMobileFiltersOpen ? "Hide filters" : "Show filters"}</span>
-          <ChevronDown className={areMobileFiltersOpen ? "is-open" : ""} size={18} />
+          <span><Funnel size={17} aria-hidden="true" /> {areMobileFiltersOpen ? "Hide filters" : "Show filters"}</span>
+          <ChevronDown className={areMobileFiltersOpen ? "is-open" : ""} size={18} aria-hidden="true" />
         </button>
         <div id="customer-profitability-filter-fields" className={`filter-panel__form customer-profitability__filter-form ${areMobileFiltersOpen ? "is-open" : ""}`}>
-          <label className="filter-panel__field filter-panel__field--search">
-            <span className="customer-profitability__field-label">Search</span>
-            <span className="filter-panel__icon-field"><Search size={16} /><input value={filters.search} onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))} placeholder="Customer, phone or email..." /></span>
-          </label>
-          <label className="filter-panel__field">
-            <span className="customer-profitability__field-label">Profitability</span>
+          <div className="filter-panel__field filter-panel__field--search">
+            <input
+              type="search"
+              value={filters.search}
+              onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
+              placeholder="Search customer, phone or email..."
+            />
+            {filters.search && (
+              <button
+                type="button"
+                className="filter-panel__clear"
+                onClick={() => setFilters((current) => ({ ...current, search: "" }))}
+                aria-label="Clear search"
+              >
+                <X size={15} />
+              </button>
+            )}
+          </div>
+          <div className="filter-panel__field">
             <select value={filters.profitability} onChange={(event) => setFilters((current) => ({ ...current, profitability: event.target.value }))}>
-              <option value="all">All customers</option>
+              <option value="all">All profitability</option>
               <option value="profitable">Profitable</option>
               <option value="low-margin">Low margin</option>
               <option value="loss">Loss making</option>
               <option value="no-sales">No delivered sales</option>
             </select>
-          </label>
-          <label className="filter-panel__field">
-            <span className="customer-profitability__field-label">Return risk</span>
+          </div>
+          <div className="filter-panel__field">
             <select value={filters.returnRisk} onChange={(event) => setFilters((current) => ({ ...current, returnRisk: event.target.value }))}>
               <option value="all">All return levels</option>
               <option value="healthy">Below 30%</option>
               <option value="high">30% or higher</option>
             </select>
-          </label>
-          <button className="filter-panel__apply" type="button"><Filter size={15} /> Filter</button>
-          <button className="filter-panel__reset filter-panel__reset--text" type="button" onClick={() => setFilters(EMPTY_FILTERS)}><RotateCcw size={15} /> Reset</button>
+          </div>
+          <button className="filter-panel__apply" type="button" onClick={() => setAreMobileFiltersOpen(false)}>
+            <Funnel size={18} aria-hidden="true" />
+            <span>Filter</span>
+          </button>
+          <button
+            className="filter-panel__reset"
+            type="button"
+            onClick={() => setFilters(EMPTY_FILTERS)}
+            aria-label="Reset customer profitability filters"
+            title="Reset filters"
+          >
+            <RotateCcw className="order-filters__resetbt" size={21} aria-hidden="true" />
+          </button>
         </div>
       </section>
 

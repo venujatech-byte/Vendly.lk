@@ -529,7 +529,10 @@ function OrdersPage() {
     <main className="dashboard orders-page">
       {/* Page title, description, and order export action. */}
       <header className="dashboard-header">
+        <div>
+          <h2>Orders</h2>
           <p>View and manage all customer orders.</p>
+        </div>
 
           {activeTab === "onlineOrders" && <div className="page__actions">
             <button type="button" onClick={handleScanWaybill}>

@@ -114,7 +114,7 @@ function InventoryFilters({ categories = [], onApply, onReset, appliedFilters })
             value={filters.searchProduct}
             onChange={handleInputChange}
           />
-          {filters.searchProduct && <button type="button" className="inventory-filters__clear" onClick={() => handleInputChange({ target: { name: "searchProduct", value: "" } })} aria-label="Clear product search"><X size={15} /></button>}
+          {filters.searchProduct && <button type="button" className="inventory-filters__clear filter-panel__clear" onClick={() => handleInputChange({ target: { name: "searchProduct", value: "" } })} aria-label="Clear product search"><X size={15} /></button>}
         </div>
 
 

@@ -1,13 +1,14 @@
 import {
   BanknoteArrowDown,
   BanknoteArrowUp,
+  CalendarDays,
   ChevronDown,
   Download,
-  Filter,
+  Funnel,
   ReceiptText,
   RotateCcw,
-  Search,
   WalletCards,
+  X,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 
@@ -138,30 +139,54 @@ function AnalyticsLedger({ businessId, ledger, isLoading, error }) {
           aria-controls="ledger-filter-fields"
           onClick={() => setAreMobileFiltersOpen((isOpen) => !isOpen)}
         >
-          <span><Filter size={17} /> {areMobileFiltersOpen ? "Hide filters" : "Show filters"}</span>
-          <ChevronDown className={areMobileFiltersOpen ? "is-open" : ""} size={18} />
+          <span><Funnel size={17} aria-hidden="true" /> {areMobileFiltersOpen ? "Hide filters" : "Show filters"}</span>
+          <ChevronDown className={areMobileFiltersOpen ? "is-open" : ""} size={18} aria-hidden="true" />
         </button>
         <div id="ledger-filter-fields" className={`analytics-ledger__filter-form filter-panel__form ${areMobileFiltersOpen ? "is-open" : ""}`}>
-          <label className="filter-panel__field filter-panel__field--search">
-            <span className="analytics-ledger__field-label">Search</span>
-            <span className="filter-panel__icon-field"><Search size={16} /><input value={filters.search} onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))} placeholder="Reference, customer, item or payment..." /></span>
-          </label>
-          <label className="filter-panel__field">
-            <span className="analytics-ledger__field-label">Transaction type</span>
+          <div className="filter-panel__field filter-panel__field--search">
+            <input
+              type="search"
+              value={filters.search}
+              onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
+              placeholder="Search reference, customer, item or payment..."
+            />
+            {filters.search && (
+              <button
+                type="button"
+                className="filter-panel__clear"
+                onClick={() => setFilters((current) => ({ ...current, search: "" }))}
+                aria-label="Clear search"
+              >
+                <X size={15} />
+              </button>
+            )}
+          </div>
+          <div className="filter-panel__field">
             <select value={filters.type} onChange={(event) => setFilters((current) => ({ ...current, type: event.target.value }))}>
               {TRANSACTION_TYPES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </select>
-          </label>
-          <label className="filter-panel__field">
-            <span className="analytics-ledger__field-label">From</span>
-            <input type="date" value={filters.dateFrom} onChange={(event) => setFilters((current) => ({ ...current, dateFrom: event.target.value }))} />
-          </label>
-          <label className="filter-panel__field">
-            <span className="analytics-ledger__field-label">To</span>
-            <input type="date" value={filters.dateTo} onChange={(event) => setFilters((current) => ({ ...current, dateTo: event.target.value }))} />
-          </label>
-          <button className="filter-panel__apply" type="button"><Filter size={15} /> Filter</button>
-          <button className="filter-panel__reset filter-panel__reset--text" type="button" onClick={resetFilters}><RotateCcw size={15} /> Reset</button>
+          </div>
+          <div className="filter-panel__field filter-panel__field--date">
+            <div className="filter-panel__date-control">
+              <CalendarDays size={17} aria-hidden="true" />
+              <input type="date" value={filters.dateFrom} onChange={(event) => setFilters((current) => ({ ...current, dateFrom: event.target.value }))} />
+              <span>to</span>
+              <input type="date" value={filters.dateTo} onChange={(event) => setFilters((current) => ({ ...current, dateTo: event.target.value }))} />
+            </div>
+          </div>
+          <button className="filter-panel__apply" type="button" onClick={() => setAreMobileFiltersOpen(false)}>
+            <Funnel size={18} aria-hidden="true" />
+            <span>Filter</span>
+          </button>
+          <button
+            className="filter-panel__reset"
+            type="button"
+            onClick={resetFilters}
+            aria-label="Reset ledger filters"
+            title="Reset filters"
+          >
+            <RotateCcw className="order-filters__resetbt" size={21} aria-hidden="true" />
+          </button>
         </div>
       </section>
 
