@@ -5,16 +5,22 @@ import { logoutUser } from "../services/authService";
 
 import {
   Bell,
+  Boxes,
+  CheckCheck,
   ChevronDown,
+  CreditCard,
+  LogOut,
+  MessageSquare,
   Moon,
   Search,
   Settings,
+  ShieldAlert,
+  ShoppingBag,
+  Sparkles,
   Sun,
-  LogOut,
+  Truck,
   UserRound,
   UsersRound,
-  CreditCard,
-  Sparkles,
 } from "lucide-react";
 
 import "./Header.css";
@@ -24,6 +30,108 @@ import {
   markNotificationRead,
 } from "../services/notificationService";
 import { searchBusiness } from "../services/searchService";
+
+
+function formatRelativeTime(timestamp) {
+  if (!timestamp) return "";
+  try {
+    const date = new Date(timestamp);
+    if (Number.isNaN(date.getTime())) return "";
+    const now = new Date();
+    const diffSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+    if (diffSeconds < 45) return "Just now";
+    const diffMinutes = Math.floor(diffSeconds / 60);
+    if (diffMinutes < 60) return `${diffMinutes}m ago`;
+    const diffHours = Math.floor(diffMinutes / 60);
+    if (diffHours < 24) return `${diffHours}h ago`;
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffDays === 1) return "Yesterday";
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString("en-LK", { month: "short", day: "numeric" });
+  } catch {
+    return "";
+  }
+}
+
+
+function getNotificationVisuals(notification) {
+  const type = notification.type || "";
+  const title = (notification.title || "").toLowerCase();
+
+  // 1. Order related (VD-xxxx, new-order, placed order)
+  if (
+    type === "new-order" ||
+    notification.orderId ||
+    title.includes("order") ||
+    title.includes("placed") ||
+    title.includes("vd-")
+  ) {
+    return {
+      icon: ShoppingBag,
+      tone: "order",
+    };
+  }
+
+  // 2. Customer inquiry / chat / question
+  if (
+    type === "chat-needs-attention" ||
+    notification.chatSessionId ||
+    title.includes("question") ||
+    title.includes("chat") ||
+    title.includes("message") ||
+    title.includes("customer") ||
+    title.includes("help")
+  ) {
+    return {
+      icon: MessageSquare,
+      tone: "chat",
+    };
+  }
+
+  // 3. Fraud / Risk alert
+  if (
+    type === "fraud-report" ||
+    title.includes("fraud") ||
+    title.includes("risk") ||
+    title.includes("alert")
+  ) {
+    return {
+      icon: ShieldAlert,
+      tone: "danger",
+    };
+  }
+
+  // 4. Inventory / Stock
+  if (
+    type.includes("stock") ||
+    notification.productId ||
+    title.includes("stock") ||
+    title.includes("inventory")
+  ) {
+    return {
+      icon: Boxes,
+      tone: "warning",
+    };
+  }
+
+  // 5. Courier / Delivery
+  if (
+    type.includes("courier") ||
+    notification.courierId ||
+    title.includes("courier") ||
+    title.includes("delivery")
+  ) {
+    return {
+      icon: Truck,
+      tone: "success",
+    };
+  }
+
+  return {
+    icon: Bell,
+    tone: "neutral",
+  };
+}
 
 function getNotificationPath(notification) {
   if (notification.chatSessionId || notification.type === "chat-needs-attention") {
@@ -77,6 +185,7 @@ function Header({ title, theme, onToggleTheme, onOpenProfile, onOpenSettings }) 
   //Notification panel
   const [isNotiPanelOpen, setIsNotiPanelOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
+  const [notificationFilter, setNotificationFilter] = useState("all");
   const [searchText, setSearchText] = useState("");
   const [searchResults, setSearchResults] = useState({
     orders: [],
@@ -233,6 +342,29 @@ function Header({ title, theme, onToggleTheme, onOpenProfile, onOpenSettings }) 
   const unreadNotificationCount = notifications.filter(
     (notification) => !notification.isRead,
   ).length;
+
+  async function handleMarkAllRead() {
+    if (!business?.id) return;
+    const unreadList = notifications.filter((item) => !item.isRead);
+    if (unreadList.length === 0) return;
+
+    setNotifications((current) =>
+      current.map((item) => ({ ...item, isRead: true })),
+    );
+
+    try {
+      await Promise.all(
+        unreadList.map((item) => markNotificationRead(business.id, item.id)),
+      );
+    } catch (error) {
+      console.error("Could not mark all notifications as read:", error);
+    }
+  }
+
+  const visibleNotifications = notifications.filter((notification) => {
+    if (notificationFilter === "unread") return !notification.isRead;
+    return true;
+  });
 
   async function handleNotificationClick(notification) {
     if (!business?.id) return;
@@ -391,30 +523,115 @@ function Header({ title, theme, onToggleTheme, onOpenProfile, onOpenSettings }) 
           {isNotiPanelOpen && (
             <div className="header__notification-dropdown" role="menu">
               <div className="header__notification-heading">
-                <strong>Notifications</strong>
-                <span>{unreadNotificationCount} unread</span>
+                <div className="header__notification-heading-left">
+                  <strong>Notifications</strong>
+                  {unreadNotificationCount > 0 && (
+                    <span className="header__notification-unread-badge">
+                      {unreadNotificationCount} unread
+                    </span>
+                  )}
+                </div>
+                {unreadNotificationCount > 0 && (
+                  <button
+                    type="button"
+                    className="header__notification-mark-all"
+                    onClick={handleMarkAllRead}
+                    title="Mark all notifications as read"
+                  >
+                    <CheckCheck size={14} aria-hidden="true" />
+                    <span>Mark all read</span>
+                  </button>
+                )}
+              </div>
+
+              <div className="header__notification-filter-tabs">
+                <button
+                  type="button"
+                  className={`header__notification-filter-btn ${
+                    notificationFilter === "all" ? "is-active" : ""
+                  }`}
+                  onClick={() => setNotificationFilter("all")}
+                >
+                  All ({notifications.length})
+                </button>
+                <button
+                  type="button"
+                  className={`header__notification-filter-btn ${
+                    notificationFilter === "unread" ? "is-active" : ""
+                  }`}
+                  onClick={() => setNotificationFilter("unread")}
+                >
+                  Unread ({unreadNotificationCount})
+                </button>
               </div>
 
               <div className="header__notification-list">
-                {notifications.length === 0 ? (
-                  <p className="header__notification-empty">No notifications yet.</p>
+                {visibleNotifications.length === 0 ? (
+                  <div className="header__notification-empty">
+                    <div className="header__notification-empty-icon">
+                      <Bell size={24} strokeWidth={1.8} aria-hidden="true" />
+                    </div>
+                    <strong>
+                      {notificationFilter === "unread"
+                        ? "No unread notifications"
+                        : "No notifications yet"}
+                    </strong>
+                    <p>
+                      {notificationFilter === "unread"
+                        ? "You are all caught up with your store activity."
+                        : "New orders, customer messages and updates will appear here."}
+                    </p>
+                  </div>
                 ) : (
-                  notifications.slice(0, 8).map((notification) => (
-                    <button
-                      className={`header__notification-item ${
-                        notification.isRead
-                          ? ""
-                          : "header__notification-item--unread"
-                      }`}
-                      key={notification.id}
-                      type="button"
-                      role="menuitem"
-                      onClick={() => handleNotificationClick(notification)}
-                    >
-                      <strong>{notification.title}</strong>
-                      <span>{notification.message}</span>
-                    </button>
-                  ))
+                  visibleNotifications.slice(0, 25).map((notification) => {
+                    const visuals = getNotificationVisuals(notification);
+                    const VisualIcon = visuals.icon;
+                    const relativeTime = formatRelativeTime(notification.createdAt);
+
+                    return (
+                      <button
+                        className={`header__notification-item ${
+                          notification.isRead
+                            ? "header__notification-item--read"
+                            : "header__notification-item--unread"
+                        }`}
+                        key={notification.id}
+                        type="button"
+                        role="menuitem"
+                        onClick={() => handleNotificationClick(notification)}
+                      >
+                        <div
+                          className={`header__notification-item-icon header__notification-item-icon--${visuals.tone}`}
+                          aria-hidden="true"
+                        >
+                          <VisualIcon size={18} strokeWidth={2.2} />
+                        </div>
+
+                        <div className="header__notification-item-body">
+                          <div className="header__notification-item-header">
+                            <strong className="header__notification-item-title">
+                              {notification.title}
+                            </strong>
+                            {relativeTime && (
+                              <span className="header__notification-item-time">
+                                {relativeTime}
+                              </span>
+                            )}
+                          </div>
+                          <p className="header__notification-item-msg">
+                            {notification.message}
+                          </p>
+                        </div>
+
+                        {!notification.isRead && (
+                          <span
+                            className="header__notification-unread-dot"
+                            aria-label="Unread notification"
+                          />
+                        )}
+                      </button>
+                    );
+                  })
                 )}
               </div>
             </div>
