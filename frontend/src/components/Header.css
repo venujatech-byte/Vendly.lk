@@ -15,8 +15,8 @@
   background-color: var(--color-header);
   border-bottom: 1px solid var(--color-border);
 
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px) saturate(180%);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
 
   transition:
     background-color 250ms ease,
