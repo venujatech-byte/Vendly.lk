@@ -93,6 +93,17 @@ def list_members(database, business_id):
 def add_member(database, business_id, invited_by, payload):
     member_data = validate_member_payload(payload)
 
+    business_reference = database.collection("businesses").document(business_id)
+    business_snapshot = business_reference.get()
+    owner_uid = business_snapshot.to_dict().get("ownerUid") if business_snapshot.exists else None
+
+    if member_data["role"] == "admin" and owner_uid and invited_by != owner_uid:
+        raise ApiError(
+            "forbidden",
+            "Only the business owner can invite staff with the admin role.",
+            403,
+        )
+
     try:
         firebase_user = auth.get_user_by_email(member_data["email"])
     except auth.UserNotFoundError as error:
@@ -102,7 +113,6 @@ def add_member(database, business_id, invited_by, payload):
             404,
         ) from error
 
-    business_reference = database.collection("businesses").document(business_id)
     member_reference = business_reference.collection("members").document(
         firebase_user.uid,
     )
@@ -126,19 +136,25 @@ def add_member(database, business_id, invited_by, payload):
             "updatedAt": timestamp,
         },
     )
-    database.collection("users").document(firebase_user.uid).set(
-        {
-            "uid": firebase_user.uid,
-            "displayName": firebase_user.display_name or member_data["email"],
-            "email": member_data["email"],
-            "photoUrl": firebase_user.photo_url or "",
-            "defaultBusinessId": business_id,
-            "businessIds": firestore.ArrayUnion([business_id]),
-            "status": "active",
-            "updatedAt": timestamp,
-        },
-        merge=True,
-    )
+
+    user_reference = database.collection("users").document(firebase_user.uid)
+    user_snapshot = user_reference.get()
+    user_dict = user_snapshot.to_dict() if user_snapshot.exists else {}
+
+    user_payload = {
+        "uid": firebase_user.uid,
+        "displayName": firebase_user.display_name or member_data["email"],
+        "email": member_data["email"],
+        "photoUrl": firebase_user.photo_url or "",
+        "businessIds": firestore.ArrayUnion([business_id]),
+        "status": "active",
+        "updatedAt": timestamp,
+    }
+    if not user_dict.get("defaultBusinessId"):
+        user_payload["defaultBusinessId"] = business_id
+
+    user_reference.set(user_payload, merge=True)
+
     return next(
         member
         for member in list_members(database, business_id)
@@ -146,11 +162,12 @@ def add_member(database, business_id, invited_by, payload):
     )
 
 
-def update_member(database, business_id, member_uid, payload):
+def update_member(database, business_id, member_uid, payload, updated_by=None):
     business_reference = database.collection("businesses").document(business_id)
     business_snapshot = business_reference.get()
+    owner_uid = business_snapshot.to_dict().get("ownerUid") if business_snapshot.exists else None
 
-    if business_snapshot.exists and business_snapshot.to_dict().get("ownerUid") == member_uid:
+    if owner_uid and owner_uid == member_uid:
         raise ApiError(
             "owner_membership_protected",
             "The business owner role cannot be changed or disabled.",
@@ -158,9 +175,28 @@ def update_member(database, business_id, member_uid, payload):
         )
 
     member_reference = business_reference.collection("members").document(member_uid)
+    member_snapshot = member_reference.get()
 
-    if not member_reference.get().exists:
+    if not member_snapshot.exists:
         raise ApiError("staff_member_not_found", "Staff member not found.", 404)
+
+    target_member = member_snapshot.to_dict()
+    is_target_admin = target_member.get("role") == "admin"
+
+    # Only store owner can modify an admin or assign the admin role
+    if updated_by and owner_uid and updated_by != owner_uid:
+        if is_target_admin:
+            raise ApiError(
+                "forbidden",
+                "Only the business owner can modify an admin member.",
+                403,
+            )
+        if payload.get("role") == "admin":
+            raise ApiError(
+                "forbidden",
+                "Only the business owner can assign the admin role.",
+                403,
+            )
 
     changes = {"updatedAt": firestore.SERVER_TIMESTAMP}
 

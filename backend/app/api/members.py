@@ -41,5 +41,6 @@ def edit_member(business_id, member_uid):
         business_id,
         member_uid,
         get_json_object(),
+        updated_by=g.current_user["uid"],
     )
     return jsonify({"member": member})

@@ -33,6 +33,45 @@ REVIEW_DATA_URL = re.compile(
 )
 
 
+DANGEROUS_SCRIPT_SIGNATURES = (
+    b"<script",
+    b"<?php",
+    b"<% ",
+    b"<html",
+    b"<svg",
+    b"javascript:",
+    b"data:text/html",
+    b"#!/",
+)
+
+
+def validate_magic_bytes(header: bytes, claimed_mimetype: str) -> bool:
+    """Verify that binary header matches the claimed mimetype and is not a script."""
+    if not header:
+        return False
+
+    sample = header[:1024].lower()
+    if any(sig in sample for sig in DANGEROUS_SCRIPT_SIGNATURES):
+        return False
+
+    if claimed_mimetype == "image/jpeg":
+        return header.startswith(b"\xff\xd8\xff")
+    if claimed_mimetype == "image/png":
+        return header.startswith(b"\x89PNG\r\n\x1a\n")
+    if claimed_mimetype == "image/webp":
+        return len(header) >= 12 and header.startswith(b"RIFF") and header[8:12] == b"WEBP"
+    if claimed_mimetype == "image/gif":
+        return header.startswith(b"GIF87a") or header.startswith(b"GIF89a")
+    if claimed_mimetype == "video/mp4":
+        return len(header) >= 8 and header[4:8] in (b"ftyp", b"moov", b"wide", b"mdat")
+    if claimed_mimetype == "video/quicktime":
+        return len(header) >= 8 and header[4:8] in (b"ftyp", b"moov", b"wide", b"mdat", b"free")
+    if claimed_mimetype == "video/webm":
+        return header.startswith(b"\x1a\x45\xdf\xa3")
+
+    return False
+
+
 def file_size(upload: FileStorage):
     current_position = upload.stream.tell()
     upload.stream.seek(0, 2)
@@ -63,6 +102,19 @@ def validate_media(upload: FileStorage):
             "media_file_too_large",
             f"{upload.filename} must be {maximum_megabytes} MB or smaller.",
             413,
+        )
+
+    # Verify binary magic bytes to prevent spoofed MIME types or embedded scripts
+    current_position = upload.stream.tell()
+    upload.stream.seek(0)
+    header = upload.stream.read(1024)
+    upload.stream.seek(current_position)
+
+    if not validate_magic_bytes(header, upload.mimetype):
+        raise ApiError(
+            "malicious_or_corrupted_file",
+            f"{upload.filename or 'File'} contents do not match the expected format or contain invalid script signatures.",
+            422,
         )
 
     return media_type, size
@@ -207,6 +259,14 @@ def upload_review_data_url(
             "review_image_too_large",
             "Each review image must be 10 MB or smaller.",
             413,
+        )
+
+    claimed_mimetype = match.group(1)
+    if not validate_magic_bytes(image_bytes[:1024], claimed_mimetype):
+        raise ApiError(
+            "malicious_or_corrupted_file",
+            "The review image contents do not match the expected image format.",
+            422,
         )
 
     public_id = f"businesses/{business_id}/{folder}/{review_id}/{uuid4().hex}"

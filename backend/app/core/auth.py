@@ -35,12 +35,20 @@ def require_firebase_user(view_function):
             return authentication_error("A Firebase bearer token is required.")
 
         try:
-            g.current_user = firebase_auth.verify_id_token(id_token)
+            g.current_user = firebase_auth.verify_id_token(id_token, check_revoked=True)
+        except firebase_auth.RevokedIdTokenError:
+            return authentication_error(
+                "Your session has been revoked. Please sign in again.",
+                code="revoked_authentication_token",
+            )
+        except firebase_auth.UserDisabledError:
+            return authentication_error(
+                "This account has been disabled.",
+                code="user_disabled",
+            )
         except (
             firebase_auth.InvalidIdTokenError,
             firebase_auth.ExpiredIdTokenError,
-            firebase_auth.RevokedIdTokenError,
-            firebase_auth.UserDisabledError,
             ValueError,
         ):
             return authentication_error(
@@ -78,12 +86,20 @@ def optional_firebase_user(view_function):
         if authorization.startswith("Bearer "):
             id_token = authorization.removeprefix("Bearer ").strip()
             try:
-                g.current_user = firebase_auth.verify_id_token(id_token)
+                g.current_user = firebase_auth.verify_id_token(id_token, check_revoked=True)
+            except firebase_auth.RevokedIdTokenError:
+                return authentication_error(
+                    "Your session has been revoked. Please sign in again.",
+                    code="revoked_authentication_token",
+                )
+            except firebase_auth.UserDisabledError:
+                return authentication_error(
+                    "This account has been disabled.",
+                    code="user_disabled",
+                )
             except (
                 firebase_auth.InvalidIdTokenError,
                 firebase_auth.ExpiredIdTokenError,
-                firebase_auth.RevokedIdTokenError,
-                firebase_auth.UserDisabledError,
                 ValueError,
             ):
                 return authentication_error(
