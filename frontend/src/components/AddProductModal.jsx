@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Image as ImageIcon, Plus, Trash2, Upload, WandSparkles } from "lucide-react";
+import { Image as ImageIcon, Package, Plus, Trash2, Upload, WandSparkles } from "lucide-react";
 
 import {
   createProduct,
@@ -225,7 +225,15 @@ function AddProductModal({ isOpen, businessId, categories, product = null, onClo
 
   return (
     <>
-    <ModalShell isOpen={isOpen && !generatedProductInfo} title={product ? "Edit Product" : "Add Product"} onClose={onClose} size="wide">
+    <ModalShell
+      isOpen={isOpen && !generatedProductInfo}
+      title={product ? "Edit Product" : "Add Product"}
+      description="Manage product details, pricing, variants, and inventory tracking."
+      icon={Package}
+      iconTone="product"
+      onClose={onClose}
+      size="wide"
+    >
       <form className="stitch-product-form" onSubmit={handleSubmit}>
         <div className="stitch-product__top">
           <div className="stitch-product__details">

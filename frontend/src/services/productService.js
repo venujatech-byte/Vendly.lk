@@ -26,21 +26,35 @@ export function mapProductForInventory(product) {
     images: (product.media ?? [])
       .map((mediaItem) => mediaItem.url)
       .filter(Boolean),
-    sizes: variants.map((variant) => ({
-      id: variant.id,
-      size: variant.size,
-      sku: variant.sku,
-      barcode: variant.barcode,
-      // Tables show sellable stock, while the edit form must preserve the
-      // complete on-hand quantity (including units reserved by open orders).
-      stock: variant.stockAvailable,
-      stockOnHand: variant.stockOnHand ?? variant.stockAvailable ?? 0,
-      stockReserved: variant.stockReserved ?? 0,
-      stockAvailable: variant.stockAvailable ?? 0,
-      costPrice: minorUnitsToAmount(variant.costPriceMinor ?? product.costPriceMinor),
-      sellingPrice: minorUnitsToAmount(variant.sellingPriceMinor ?? product.sellingPriceMinor),
-      imageUrl: variant.imageUrl ?? "",
-    })),
+    sizes: variants.length > 0
+      ? variants.map((variant, index) => ({
+          id: variant.id || variant.variantId || variant.sku || `${product.id}-${index}`,
+          size: variant.size,
+          sku: variant.sku ?? "",
+          barcode: variant.barcode ?? "",
+          stock: variant.stockAvailable ?? variant.stock ?? 0,
+          stockOnHand: variant.stockOnHand ?? variant.stockAvailable ?? 0,
+          stockReserved: variant.stockReserved ?? 0,
+          stockAvailable: variant.stockAvailable ?? 0,
+          costPrice: minorUnitsToAmount(variant.costPriceMinor ?? product.costPriceMinor),
+          sellingPrice: minorUnitsToAmount(variant.sellingPriceMinor ?? product.sellingPriceMinor),
+          imageUrl: variant.imageUrl ?? "",
+        }))
+      : [
+          {
+            id: `${product.id}-default`,
+            size: "",
+            sku: product.skuPrefix || firstVariant.sku || "",
+            barcode: firstVariant.barcode || "",
+            stock: product.availableStock ?? 0,
+            stockOnHand: product.availableStock ?? 0,
+            stockReserved: 0,
+            stockAvailable: product.availableStock ?? 0,
+            costPrice: minorUnitsToAmount(product.costPriceMinor),
+            sellingPrice: minorUnitsToAmount(product.sellingPriceMinor),
+            imageUrl: (product.media ?? [])[0]?.url || "",
+          },
+        ],
   };
 }
 
