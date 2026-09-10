@@ -10,6 +10,25 @@
   box-shadow: 0 5px 18px rgba(15, 59, 110, 0.06);
 }
 
+.orders-table__filters-wrapper {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.orders-table__filters-wrapper .order-filters,
+.orders-table__filters-wrapper .shop-sale-filters,
+.orders-table__filters-wrapper .inventory-filters,
+.orders-table__filters-wrapper .customers-filters,
+.orders-table__filters-wrapper .fraud-filters,
+.orders-table__filters-wrapper .filter-panel {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
 /* Horizontal scrolling prevents wide tables from breaking the page. */
 .orders-table__scroll {
   overflow-x: auto;

@@ -208,7 +208,7 @@ html[data-theme="dark"] .orders-page__share-button:hover svg {
   justify-self: start;
   max-width: 100%;
   gap: 4px;
-  margin: 12px 0 16px;
+  margin: 18px 0 16px;
   padding: 4px;
   overflow-x: auto;
   border: 1px solid var(--color-border);

@@ -236,7 +236,18 @@ function SimpleProductDetails({ product, onViewReviews, onAdjustStock, onEditPro
   );
 }
 
-function InventoryTable({ products = [], categories = [], onViewReviews, onAdjustStock, onEditProduct, onRemoveProduct, onChangeStatus, onChangeCategory, onExportSelected }) {
+function InventoryTable({
+  products = [],
+  filterControls,
+  categories = [],
+  onViewReviews,
+  onAdjustStock,
+  onEditProduct,
+  onRemoveProduct,
+  onChangeStatus,
+  onChangeCategory,
+  onExportSelected,
+}) {
   // Track the one expanded row and all checkbox-selected products.
   const [expandedProductId, setExpandedProductId] = useState(
     null,
@@ -282,6 +293,11 @@ function InventoryTable({ products = [], categories = [], onViewReviews, onAdjus
       className="orders-table-section inventory-table-section"
       aria-label="Inventory products"
     >
+      {filterControls && (
+        <div className="orders-table__filters-wrapper">
+          {filterControls}
+        </div>
+      )}
       {/* Bulk actions appear only after one or more products are selected. */}
       {selectedProductIds.length > 0 && (
         <div className="inventory-table__bulk-actions">

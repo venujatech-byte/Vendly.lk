@@ -16,7 +16,7 @@ const initialFilters = {
   stockStatus: "",
 };
 
-function InventoryFilters({ categories = [], onApply, onReset, appliedFilters }) {
+function InventoryFilters({ categories = [], onApply, onReset, appliedFilters, actions }) {
   // All inventory filter fields are stored together in one state object.
   const [filters, setFilters] = useState(initialFilters);
   const [areMobileFiltersOpen, setAreMobileFiltersOpen] = useState(false);
@@ -155,9 +155,13 @@ function InventoryFilters({ categories = [], onApply, onReset, appliedFilters })
 
         {/* Submit and reset controls wrapped in filter-panel__actions. */}
         <div className="filter-panel__actions">
-          <button className="inventory-filters__apply filter-panel__apply" type="submit">
+          <button
+            className="inventory-filters__apply filter-panel__apply"
+            type="submit"
+            aria-label="Filter"
+            title="Filter"
+          >
             <Funnel size={15} aria-hidden="true" />
-            <span>Filter</span>
           </button>
 
           <button
@@ -170,6 +174,12 @@ function InventoryFilters({ categories = [], onApply, onReset, appliedFilters })
             <RotateCcw className="inventory-filters__resetbt" size={17} aria-hidden="true" />
           </button>
         </div>
+
+        {actions && (
+          <div className="filter-panel__extra-actions">
+            {actions}
+          </div>
+        )}
       </form>
     </section>
   );

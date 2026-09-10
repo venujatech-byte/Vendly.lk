@@ -439,93 +439,14 @@ function InventoryPage() {
 
   return (
     <main className="dashboard">
-      <div className="dashboard-header">
-        <p>Manage products, sizes, stock levels, SKUs and barcodes.</p>
-
-        {activeTab === "products" && (
-          <div className="page__actions">
-            <button type="button" onClick={() => setIsBarcodeScannerOpen(true)}>
-              <ScanBarcode size={14} aria-hidden="true" />
-              Scan Barcode
-            </button>
-            <button type="button" onClick={handleExportInventory} disabled={isExporting}>
-              <Download size={14} aria-hidden="true" />
-              {isExporting ? "Exporting..." : "Export Inventory"}
-            </button>
-            <input
-              ref={inventoryFileInputRef}
-              className="inventory-page__file-input"
-              type="file"
-              accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-              onChange={handleInventoryFileSelected}
-            />
-            <button
-              type="button"
-              onClick={() => inventoryFileInputRef.current?.click()}
-              disabled={!business?.id || isImporting}
-            >
-              <Upload size={14} aria-hidden="true" />
-              {isImporting ? "Importing..." : "Import Inventory"}
-            </button>
-            <button
-              className="page__add-button"
-              type="button"
-              onClick={() => setIsAddProductOpen(true)}
-              disabled={!business?.id}
-            >
-              <Plus size={14} aria-hidden="true" />
-              Add Product
-            </button>
-          </div>
-
-        )}
-
-
-
-        {activeTab === "categories" && (
-          <div className="page__actions">
-            <button
-              className="page__add-button"
-              type="button"
-              onClick={() => setIsAddCategoryOpen(true)}
-              disabled={!business?.id}
-            >
-              <Plus size={14} aria-hidden="true" />
-              Add Category
-            </button>
-          </div>
-
-        )}
-
-
-
-
-
-
-
-        {/* inventory page buttons starts here*/}
-
-
-
-
-        {/* inventory page buttons ends here*/}
-
-      </div>
-
-      {(accountError || inventoryError) && (
-        <p className="inventory-page__notice inventory-page__notice--error" role="alert">
-          Inventory data could not be loaded from the Vendly API. Start the
-          Flask server and check its Firebase Admin configuration.
-        </p>
-      )}
-
-      {inventoryActionError && (
-        <p className="inventory-page__notice inventory-page__notice--error" role="alert">
-          {inventoryActionError}
-        </p>
-      )}
-
-
+      <input
+        ref={inventoryFileInputRef}
+        className="inventory-page__file-input"
+        type="file"
+        accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        onChange={handleInventoryFileSelected}
+        style={{ display: "none" }}
+      />
 
       <nav
         className="inventory-tabs"
@@ -561,22 +482,22 @@ function InventoryPage() {
         </button>
       </nav>
 
-      {/* Inventory dashboard starts here */}
+      {(accountError || inventoryError) && (
+        <p className="inventory-page__notice inventory-page__notice--error" role="alert">
+          Inventory data could not be loaded from the Vendly API. Start the
+          Flask server and check its Firebase Admin configuration.
+        </p>
+      )}
 
-
-
-      {/* Inventory dashboard ends here */}
-
-      {/* Tabs allow the same Inventory page to switch between two sections. */}
-
-
+      {inventoryActionError && (
+        <p className="inventory-page__notice inventory-page__notice--error" role="alert">
+          {inventoryActionError}
+        </p>
+      )}
 
       {/* Product filters and table are rendered only while Products is active. */}
       {activeTab === "products" && (
         <>
-
-
-
           <section aria-label="Inventory dashboard">
             <div className="stats-grid">
               {inventoryStats.map((stat) => (
@@ -591,15 +512,47 @@ function InventoryPage() {
             </div>
           </section>
 
-
-          <InventoryFilters
-            categories={categories}
-            onApply={setInventoryFilters}
-            onReset={resetInventoryFilters}
-            appliedFilters={assistantInventoryFilters}
-          />
           <InventoryTable
             products={visibleProducts}
+            filterControls={
+              <InventoryFilters
+                categories={categories}
+                onApply={setInventoryFilters}
+                onReset={resetInventoryFilters}
+                appliedFilters={assistantInventoryFilters}
+                actions={
+                  <div className="page__actions">
+                    <button type="button" onClick={() => setIsBarcodeScannerOpen(true)} title="Scan Barcode">
+                      <ScanBarcode size={14} aria-hidden="true" />
+                      <span>Scan Barcode</span>
+                    </button>
+                    <button type="button" onClick={handleExportInventory} disabled={isExporting} title="Export Inventory">
+                      <Download size={14} aria-hidden="true" />
+                      <span>{isExporting ? "Exporting..." : "Export Inventory"}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => inventoryFileInputRef.current?.click()}
+                      disabled={!business?.id || isImporting}
+                      title="Import Inventory"
+                    >
+                      <Upload size={14} aria-hidden="true" />
+                      <span>{isImporting ? "Importing..." : "Import Inventory"}</span>
+                    </button>
+                    <button
+                      className="page__add-button"
+                      type="button"
+                      onClick={() => setIsAddProductOpen(true)}
+                      disabled={!business?.id}
+                      title="Add Product"
+                    >
+                      <Plus size={14} aria-hidden="true" />
+                      <span>Add Product</span>
+                    </button>
+                  </div>
+                }
+              />
+            }
             onViewReviews={setReviewProduct}
             onEditProduct={setEditingProduct}
             onRemoveProduct={(product) => setRemovalTarget({ type: "product", record: product })}
@@ -617,9 +570,6 @@ function InventoryPage() {
       {/* Temporary category content shown while Categories is active. */}
       {activeTab === "categories" && (
         <>
-
-
-
           <section aria-label="Inventory dashboard">
             <div className="stats-grid">
               {categoryStats.map((stat) => (
@@ -634,8 +584,26 @@ function InventoryPage() {
             </div>
           </section>
 
-
-          <CategoryTable categories={categories} products={products} onEditCategory={setEditingCategory} onRemoveCategory={(category) => setRemovalTarget({ type: "category", record: category })} />
+          <CategoryTable
+            categories={categories}
+            products={products}
+            onEditCategory={setEditingCategory}
+            onRemoveCategory={(category) => setRemovalTarget({ type: "category", record: category })}
+            headerActions={
+              <div className="page__actions">
+                <button
+                  className="page__add-button"
+                  type="button"
+                  onClick={() => setIsAddCategoryOpen(true)}
+                  disabled={!business?.id}
+                  title="Add Category"
+                >
+                  <Plus size={14} aria-hidden="true" />
+                  <span>Add Category</span>
+                </button>
+              </div>
+            }
+          />
         </>
       )}
 

@@ -492,9 +492,14 @@ function CustomersPage() {
                 </select>
               </div>
               <div className="filter-panel__actions">
-                <button type="button" className="filter-panel__apply" onClick={() => setAreMobileFiltersOpen(false)}>
+                <button
+                  type="button"
+                  className="filter-panel__apply"
+                  onClick={() => setAreMobileFiltersOpen(false)}
+                  aria-label="Filter"
+                  title="Filter"
+                >
                   <Funnel size={15} aria-hidden="true" />
-                  <span>Filter</span>
                 </button>
                 <button
                   type="button"
@@ -895,9 +900,14 @@ function FraudFilters({ filters, setFilters }) {
           </select>
         </div>
         <div className="filter-panel__actions">
-          <button type="button" className="filter-panel__apply" onClick={() => setAreMobileFiltersOpen(false)}>
+          <button
+            type="button"
+            className="filter-panel__apply"
+            onClick={() => setAreMobileFiltersOpen(false)}
+            aria-label="Filter"
+            title="Filter"
+          >
             <Funnel size={15} aria-hidden="true" />
-            <span>Filter</span>
           </button>
           <button
             type="button"

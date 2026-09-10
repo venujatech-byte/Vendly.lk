@@ -18,11 +18,12 @@ const shopSaleSortAccessors = {
   date: (sale) => new Date(`${sale.date ?? ""} ${sale.time ?? ""}`),
 };
 
-export default function ShopSalesTable({ sales, onPrint, onWarranty, onRemove }) {
+export default function ShopSalesTable({ sales, filterControls, onPrint, onWarranty, onRemove }) {
   const [expanded, setExpanded] = useState(null);
   const sorting = useTableSort(sales, shopSaleSortAccessors);
   const pagination = useTablePagination(sorting.sortedItems);
   return <section className="orders-table-section shop-sales-table">
+    {filterControls && <div className="orders-table__filters-wrapper">{filterControls}</div>}
     <div className="orders-table__scroll"><table className="orders-table"><thead><tr>
       <th></th><SortableHeader columnKey="sale" label="Sale number" sorting={sorting} /><SortableHeader columnKey="items" label="Items" sorting={sorting} /><SortableHeader columnKey="total" label="Total" sorting={sorting} /><SortableHeader columnKey="date" label="Date" sorting={sorting} /><th>Actions</th>
     </tr></thead><tbody>

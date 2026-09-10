@@ -6,7 +6,7 @@ import "./OrderFilters.css";
 
 const empty = { search: "", dateFrom: "", dateTo: "" };
 
-export default function ShopSaleFilters({ onChange, appliedFilters }) {
+export default function ShopSaleFilters({ onChange, appliedFilters, actions }) {
   const [filters, setFilters] = useState(empty);
   const [open, setOpen] = useState(false);
 
@@ -75,14 +75,18 @@ export default function ShopSaleFilters({ onChange, appliedFilters }) {
           />
         </div>
         <div className="filter-panel__actions">
-          <button className="filter-panel__apply" type="submit">
+          <button className="filter-panel__apply" type="submit" aria-label="Filter" title="Filter">
             <Funnel size={15} aria-hidden="true" />
-            <span>Filter</span>
           </button>
           <button className="filter-panel__reset" type="button" onClick={reset} aria-label="Reset shop sale filters" title="Reset filters">
             <RotateCcw className="order-filters__resetbt" size={17} aria-hidden="true" />
           </button>
         </div>
+        {actions && (
+          <div className="filter-panel__extra-actions">
+            {actions}
+          </div>
+        )}
       </form>
     </section>
   );

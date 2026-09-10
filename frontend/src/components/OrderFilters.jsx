@@ -20,7 +20,7 @@ const initialFilters = {
   payment: "",
 };
 
-function OrderFilters({ couriers = [], onApply, onReset, onStatusChange, appliedFilters }) {
+function OrderFilters({ couriers = [], onApply, onReset, onStatusChange, appliedFilters, actions }) {
   // One state object keeps all order-filter values together.
   const [filters, setFilters] = useState(initialFilters);
   const [areMobileFiltersOpen, setAreMobileFiltersOpen] = useState(false);
@@ -172,30 +172,10 @@ function OrderFilters({ couriers = [], onApply, onReset, onStatusChange, applied
           </select>
         </div>
 
-        {/* Status dropdown */}
-        <div className="filter-panel__field filter-panel__field--select">
-          <select
-            id="order-status"
-            name="status"
-            value={filters.status}
-            onChange={handleInputChange}
-          >
-            <option value="">All statuses</option>
-            <option value="pending">Pending</option>
-            <option value="confirmed">Confirmed</option>
-            <option value="packed">Packed</option>
-            <option value="shipped">Shipped</option>
-            <option value="delivered">Delivered</option>
-            <option value="returned">Returned</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
-        </div>
-
         {/* Apply and reset action buttons */}
         <div className="filter-panel__actions">
-          <button className="filter-panel__apply" type="submit">
+          <button className="filter-panel__apply" type="submit" aria-label="Filter" title="Filter">
             <Funnel size={15} aria-hidden="true" />
-            <span>Filter</span>
           </button>
 
           <button
@@ -208,6 +188,12 @@ function OrderFilters({ couriers = [], onApply, onReset, onStatusChange, applied
             <RotateCcw className="order-filters__resetbt" size={17} aria-hidden="true" />
           </button>
         </div>
+
+        {actions && (
+          <div className="filter-panel__extra-actions">
+            {actions}
+          </div>
+        )}
       </form>
     </section>
   );
