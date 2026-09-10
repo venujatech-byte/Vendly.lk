@@ -276,7 +276,6 @@ function App() {
           <div className="app">
             <Sidebar
               isCollapsed={isSidebarCollapsed}
-              onToggleSidebar={toggleSidebar}
               onOpenProfile={() => setIsProfileModalOpen(true)}
               onOpenSettings={openSettings}
             />
@@ -293,6 +292,8 @@ function App() {
                         onToggleTheme={toggleTheme}
                         onOpenProfile={() => setIsProfileModalOpen(true)}
                         onOpenSettings={openSettings}
+                        isSidebarCollapsed={isSidebarCollapsed}
+                        onToggleSidebar={toggleSidebar}
                       />
 
                       <OverviewPage />
@@ -310,6 +311,8 @@ function App() {
                         onToggleTheme={toggleTheme}
                         onOpenProfile={() => setIsProfileModalOpen(true)}
                         onOpenSettings={openSettings}
+                        isSidebarCollapsed={isSidebarCollapsed}
+                        onToggleSidebar={toggleSidebar}
                       />
 
                       <OrdersPage />
@@ -327,6 +330,8 @@ function App() {
                         onToggleTheme={toggleTheme}
                         onOpenProfile={() => setIsProfileModalOpen(true)}
                         onOpenSettings={openSettings}
+                        isSidebarCollapsed={isSidebarCollapsed}
+                        onToggleSidebar={toggleSidebar}
                       />
 
                       <InventoryPage />
@@ -344,6 +349,8 @@ function App() {
                         onToggleTheme={toggleTheme}
                         onOpenProfile={() => setIsProfileModalOpen(true)}
                         onOpenSettings={openSettings}
+                        isSidebarCollapsed={isSidebarCollapsed}
+                        onToggleSidebar={toggleSidebar}
                       />
 
                       <CouriersPage />
@@ -361,6 +368,8 @@ function App() {
                         onToggleTheme={toggleTheme}
                         onOpenProfile={() => setIsProfileModalOpen(true)}
                         onOpenSettings={openSettings}
+                        isSidebarCollapsed={isSidebarCollapsed}
+                        onToggleSidebar={toggleSidebar}
                       />
 
                       <CustomersPage />
@@ -378,6 +387,8 @@ function App() {
                         onToggleTheme={toggleTheme}
                         onOpenProfile={() => setIsProfileModalOpen(true)}
                         onOpenSettings={openSettings}
+                        isSidebarCollapsed={isSidebarCollapsed}
+                        onToggleSidebar={toggleSidebar}
                       />
 
                       <AnalyticsPage />

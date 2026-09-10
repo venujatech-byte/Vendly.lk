@@ -12,6 +12,8 @@ import {
   LogOut,
   MessageSquare,
   Moon,
+  PanelLeftClose,
+  PanelLeftOpen,
   Search,
   Settings,
   ShieldAlert,
@@ -159,7 +161,15 @@ function getNotificationPath(notification) {
   return "/";
 }
 
-function Header({ title, theme, onToggleTheme, onOpenProfile, onOpenSettings }) {
+function Header({
+  title,
+  theme,
+  onToggleTheme,
+  onOpenProfile,
+  onOpenSettings,
+  isSidebarCollapsed = false,
+  onToggleSidebar,
+}) {
   const navigate = useNavigate();
   const location = useLocation();
   const searchInputReference = useRef(null);
@@ -393,8 +403,25 @@ function Header({ title, theme, onToggleTheme, onOpenProfile, onOpenSettings }) 
 
   return (
     <header className="header">
-      {/* The title is supplied by the page route in App.jsx. */}
-      <h1 className="header__title">{title}</h1>
+      {/* The title and sidebar collapse toggle on the left */}
+      <div className="header__left">
+        {onToggleSidebar && (
+          <button
+            className="header__sidebar-toggle"
+            type="button"
+            onClick={onToggleSidebar}
+            aria-label={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            title={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          >
+            {isSidebarCollapsed ? (
+              <PanelLeftOpen size={20} aria-hidden="true" />
+            ) : (
+              <PanelLeftClose size={20} aria-hidden="true" />
+            )}
+          </button>
+        )}
+        <h1 className="header__title">{title}</h1>
+      </div>
 
       {/* Global search layout; the search behaviour will be connected later. */}
       <div className="header__search">
