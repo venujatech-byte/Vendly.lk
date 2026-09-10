@@ -23,11 +23,51 @@
     border-color 250ms ease;
 }
 
+.header__left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.header__sidebar-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 9px;
+  background-color: var(--color-control);
+  color: var(--color-text);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    transform 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.header__sidebar-toggle:hover {
+  background-color: var(--color-surface-soft);
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+  transform: scale(1.05);
+}
+
+.header__sidebar-toggle:active {
+  transform: scale(0.95);
+}
+
 .header__title {
   margin: 0;
   color: var(--color-text);
   font-size: 20px;
   font-weight: 700;
+  white-space: nowrap;
 }
 
 /* Global search input and keyboard-shortcut badge. */

@@ -1,4 +1,9 @@
-/* Full-width sidebar with the Vendly blue gradient. */
+/* ==========================================================================
+   Vendly.lk Seller Dashboard Sidebar
+   Previous Sidebar Colors (No Shadow) + Storefront Texts, Icons & Behaviors
+   ========================================================================== */
+
+/* Full-width sidebar with the previous Vendly blue gradient (no shadow) */
 .sidebar {
   display: flex;
   flex-direction: column;
@@ -10,244 +15,25 @@
   height: 100dvh;
   min-height: 0;
   max-height: 100dvh;
-  padding: 4px 14px 24px;
-  color: white;
+  padding: 16px 14px 20px;
+  color: #ffffff;
   background: linear-gradient(
-  to bottom right,
-  #002d52 0%,
-  #063b6a 50%,
-  #00315c 100%
-);
-  overflow: hidden;
+    to bottom right,
+    #002d52 0%,
+    #063b6a 50%,
+    #00315c 100%
+  );
+  box-shadow: none;
+  overflow-x: hidden;
+  overflow-y: auto;
   transition:
     width 240ms cubic-bezier(0.22, 1, 0.36, 1),
     padding 240ms cubic-bezier(0.22, 1, 0.36, 1);
+  z-index: 90;
+  animation: sidebarSlideIn 650ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-/* Narrow sidebar state used after pressing the toggle button. */
-.sidebar--collapsed {
-  width: 68px;
-  flex-basis: 76px;
-  padding-right: 10px;
-  padding-left: 10px;
-}
-
-.sidebar--collapsed .sidebar__logo {
-  height: 72px;
-  margin-bottom: 12px;
-}
-
-.sidebar--collapsed .sidebar__logo-image {
-  opacity: 0;
-}
-
-.sidebar--collapsed .sidebar__link,
-.sidebar--collapsed .sidebar__assistant {
-  justify-content: center;
-  gap: 0;
-}
-
-.sidebar--collapsed .sidebar__label {
-  display: none;
-}
-
-/* Logo sizing in expanded and collapsed states. */
-.sidebar__logo {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100px;
-  margin-bottom: 4px;
-  padding: 0;
-  overflow: hidden;
-}
-
-.sidebar__logo-image {
-  display: block;
-  width: 120px;
-  max-width: none;
-  height: auto;
-  object-fit: contain;
-  margin-bottom: 15px;
-}
-
-/* Main navigation link layout and spacing. */
-.sidebar__navigation {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.sidebar__link,
-.sidebar__assistant {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  border: 0;
-  border-radius: 8px;
-  padding: 12px;
-  color: white;
-  background: transparent;
-  text-align: left;
-  text-decoration: none;
-}
-
-/* Hover and active-page link styles. */
-.sidebar__link:hover {
-  background-color: rgba(255, 255, 255, 0.1);
-}
-
-.sidebar__link--active {
-  background:
-    linear-gradient(
-      135deg,
-      #0879dd 0%,
-      #075da9 100%
-    );
-
-
-}
-
-.sidebar__assistant {
-  margin-top: 0;
-  border: 1px solid var(--color-accent);
-  justify-content: center;
-}
-/* Bottom area containing the assistant and current business. */
-.sidebar__footer {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-
-  margin-top: auto;
-}
-
-.sidebar__footer:empty {
-  display: none;
-}
-
-/* Current business/store button. */
-.sidebar__business {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-
-  width: 100%;
-  padding: 12px 6px 0;
-
-  border: 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.14);
-
-  color: white;
-  background-color: transparent;
-
-  text-align: left;
-}
-
-.sidebar__business-icon {
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-
-  width: 32px;
-  height: 32px;
-
-  border: 1px solid rgba(255, 255, 255, 0.13);
-  border-radius: 9px;
-
-  background-color: rgba(255, 255, 255, 0.08);
-}
-
-.sidebar__business-details {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.sidebar__business-details strong {
-  overflow: hidden;
-  font-size: 11px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.sidebar__business-details small {
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 9px;
-}
-
-.sidebar__business-arrow {
-  flex-shrink: 0;
-}
-
-.sidebar__business:hover {
-  color: #7fc5ff;
-}
-
-.sidebar--collapsed .sidebar__business {
-  justify-content: center;
-  padding-right: 0;
-  padding-left: 0;
-}
-
-.sidebar--collapsed .sidebar__business-arrow {
-  display: none;
-}
-
-/* Top logo-and-toggle row. */
-.sidebar__top {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 60px;
-  margin-bottom: 12px;
-}
-
-.sidebar__top .sidebar__logo {
-  flex: 1;
-  height: auto;
-  margin: 0;
-}
-
-/* Button used to expand or collapse the sidebar. */
-.sidebar__toggle {
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  width: 38px;
-  height: 38px;
-  padding: 0;
-  border: 0;
-  border-radius: 10px;
-  color: white;
-  background-color: rgba(59, 138, 202, 0);
-  transition:
-    background-color 180ms ease,
-    transform 180ms ease;
-}
-
-.Panel_icon{
-border-radius: 15px;
-}
-
-.sidebar__toggle:hover {
-  transform: scale(1.2);
-}
-
-.sidebar--collapsed .sidebar__top {
-  justify-content: center;
-  min-height: 60px;
-}
-
-.sidebar--collapsed .sidebar__logo {
-  display: none;
-}
-
-/* Dark-theme sidebar background and active-link adjustment. */
+/* Dark-theme sidebar background (previous gradient, no shadow) */
 html[data-theme="dark"] .sidebar {
   background:
     radial-gradient(
@@ -261,83 +47,222 @@ html[data-theme="dark"] .sidebar {
       #073d6d 52%,
       #031e37 100%
     );
-
-  box-shadow: 8px 0 28px rgba(0, 0, 0, 0.22);
+  box-shadow: none;
 }
 
-html[data-theme="dark"] .sidebar__link--active {
-  background:
-    linear-gradient(
-      135deg,
-      #075fae 0%,
-      #064b89 100%
-    );
+/* --------------------------------------------------------------------------
+   Narrow / Collapsed Sidebar State
+   -------------------------------------------------------------------------- */
+.sidebar--collapsed {
+  width: 68px;
+  flex: 0 0 68px;
+  padding: 16px 8px 20px;
 }
 
+.sidebar--collapsed .sidebar__top {
+  margin-bottom: 20px;
+  align-items: center;
+  padding: 0;
+}
 
+.sidebar--collapsed .sidebar__subtitle {
+  display: none;
+}
 
+.sidebar--collapsed .sidebar__logo-image {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+}
 
+.sidebar--collapsed .sidebar__link {
+  justify-content: center;
+  padding: 0;
+  min-height: 48px;
+  border-radius: 9px;
+  gap: 0;
+}
 
+.sidebar--collapsed .sidebar__label {
+  display: none;
+}
 
+/* --------------------------------------------------------------------------
+   Logo & Subtitle Area
+   -------------------------------------------------------------------------- */
+.sidebar__top {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-bottom: 24px;
+  padding: 0;
+  opacity: 0;
+  animation: sidebarItemIn 450ms cubic-bezier(0.22, 1, 0.36, 1) 350ms forwards;
+}
 
+.sidebar__logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
 
+.sidebar__logo-image {
+  display: block;
+  width: 120px;
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
+}
 
-
-
-
-
-
-/* Navigation text */
-.sidebar__link {
-  font-family: "Inter", sans-serif;
-  font-size: 15px;
+.sidebar__subtitle {
+  display: block;
+  color: #adc2d6;
+  font-size: 12px;
   font-weight: 500;
   letter-spacing: -0.01em;
+  margin-top: 6px;
+  white-space: nowrap;
 }
 
-/* Active navigation text */
-.sidebar__link--active {
-  font-weight: 650;
-}
-
-/* Navigation icons */
-.sidebar__link svg {
-  width: 22px;
-  height: 22px;
-  stroke-width: 1.8;
-}
-
-/* Navigation item dimensions */
-.sidebar__link {
-  min-height: 44px;
-  padding: 0 13px;
-  gap: 13px;
-  border-radius: 9px;
-}
-
-/* Space between items */
-.sidebar__nav {
+/* --------------------------------------------------------------------------
+   Navigation Links — Storefront Typography, Colors & Behaviors
+   -------------------------------------------------------------------------- */
+.sidebar__navigation {
+  display: flex;
+  flex-direction: column;
   gap: 7px;
 }
 
-/* Business name */
-.sidebar__business strong {
-  font-size: 12px;
+.sidebar__link {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  width: 100%;
+  min-height: 48px;
+  padding: 0 15px;
+  border: 0;
+  border-radius: 9px;
+  color: #c4d5e6;
+  background: transparent;
+  font-family: "Inter Variable", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 0.9rem;
   font-weight: 650;
-  line-height: 1.25;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  opacity: 0;
+  animation: sidebarItemIn 420ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  transition:
+    color 160ms ease,
+    background 160ms ease,
+    transform 160ms ease;
 }
 
-/* Owner label */
-.sidebar__business small {
-  font-size: 9px;
-  font-weight: 500;
-  opacity: 0.78;
+.sidebar__link svg {
+  width: 20px;
+  height: 20px;
+  stroke: currentColor;
+  stroke-width: 2;
+  flex-shrink: 0;
+  color: inherit;
 }
 
-/* Business/store icon */
+.sidebar__label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: inherit;
+}
+
+/* Inactive Link Hover: bright white text with subtle highlight and gentle translate */
+.sidebar__link:hover:not(.sidebar__link--active) {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
+  transform: translateX(2px);
+}
+
+/* Active Page Link: Storefront sky-blue pill with deep blue text/icon */
+.sidebar__link--active {
+  color: #032c50 !important;
+  background: linear-gradient(135deg, #56a8ff, #3d91ec) !important;
+  box-shadow: 0 9px 20px rgba(0, 105, 208, 0.22);
+  font-weight: 650;
+}
+
+.sidebar__link--active svg {
+  color: #032c50 !important;
+  stroke: #032c50 !important;
+  stroke-width: 2;
+}
+
+.sidebar__link--active .sidebar__label {
+  color: #032c50 !important;
+}
+
+.sidebar__link--active:hover {
+  color: #032c50 !important;
+  background: linear-gradient(135deg, #56a8ff, #3d91ec) !important;
+  transform: none;
+  box-shadow: 0 9px 20px rgba(0, 105, 208, 0.22);
+}
+
+/* Staggered entrance animation */
+.sidebar__link:nth-child(1) { animation-delay: 420ms; }
+.sidebar__link:nth-child(2) { animation-delay: 480ms; }
+.sidebar__link:nth-child(3) { animation-delay: 540ms; }
+.sidebar__link:nth-child(4) { animation-delay: 600ms; }
+.sidebar__link:nth-child(5) { animation-delay: 660ms; }
+.sidebar__link:nth-child(6) { animation-delay: 720ms; }
+
+/* --------------------------------------------------------------------------
+   Footer / Current Business Selector
+   -------------------------------------------------------------------------- */
+.sidebar__footer {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 12px;
+  opacity: 0;
+  animation: sidebarItemIn 450ms cubic-bezier(0.22, 1, 0.36, 1) 800ms forwards;
+}
+
+.sidebar__footer:empty {
+  display: none;
+}
+
+.sidebar__business {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 12px 6px 0;
+  border: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+  background-color: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: color 160ms ease;
+}
+
+.sidebar__business:hover {
+  color: #7fc5ff;
+}
+
 .sidebar__business-icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
   width: 32px;
   height: 32px;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 9px;
+  background-color: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
 }
 
 .sidebar__business-icon svg {
@@ -345,20 +270,60 @@ html[data-theme="dark"] .sidebar__link--active {
   height: 17px;
 }
 
-.sidebar__nav {
-  margin-top: 22px;
+.sidebar__business-details {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
 }
 
-.sidebar__link svg {
-  transform: translateY(1px);
+.sidebar__business-details strong {
+  overflow: hidden;
+  font-size: 11px;
+  font-weight: 650;
+  color: #ffffff;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
+.sidebar__business-details small {
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 500;
+}
+
+.sidebar__business-arrow {
+  color: rgba(255, 255, 255, 0.7);
+  flex-shrink: 0;
+  transition: transform 160ms ease;
+}
+
+.sidebar__business-arrow.is-open {
+  transform: rotate(-90deg);
+}
+
+.sidebar--collapsed .sidebar__business {
+  justify-content: center;
+  padding-right: 0;
+  padding-left: 0;
+  border-top-color: transparent;
+}
+
+.sidebar--collapsed .sidebar__business-details,
+.sidebar--collapsed .sidebar__business-arrow {
+  display: none;
+}
+
+/* --------------------------------------------------------------------------
+   Profile & Settings Popup Menu
+   -------------------------------------------------------------------------- */
 .sidebar__profile-menu {
   position: absolute;
   right: 0;
   bottom: calc(100% + 10px);
   left: 0;
-  z-index: 80;
+  z-index: 100;
   display: grid;
   gap: 3px;
   padding: 7px;
@@ -366,8 +331,8 @@ html[data-theme="dark"] .sidebar__link--active {
   border-radius: 11px;
   color: var(--color-text);
   background: var(--color-surface);
-  box-shadow: 0 18px 42px rgba(0, 19, 43, .3);
-  animation: sidebar-profile-open 180ms cubic-bezier(.22, 1, .36, 1);
+  box-shadow: 0 18px 42px rgba(0, 19, 43, 0.3);
+  animation: sidebar-profile-open 180ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .sidebar__profile-menu button {
@@ -386,6 +351,7 @@ html[data-theme="dark"] .sidebar__link--active {
   font-size: 10px;
   font-weight: 650;
   text-align: left;
+  transition: background-color 140ms ease, color 140ms ease;
 }
 
 .sidebar__profile-menu button:hover {
@@ -400,8 +366,10 @@ html[data-theme="dark"] .sidebar__link--active {
   color: #dc2626;
 }
 
-.sidebar__business-arrow { transition: transform 160ms ease; }
-.sidebar__business-arrow.is-open { transform: rotate(-90deg); }
+.sidebar__profile-menu .sidebar__profile-menu-danger:hover {
+  color: #b91c1c;
+  background: rgba(220, 38, 38, 0.08);
+}
 
 .sidebar--collapsed .sidebar__profile-menu {
   right: auto;
@@ -411,102 +379,41 @@ html[data-theme="dark"] .sidebar__link--active {
 }
 
 @keyframes sidebar-profile-open {
-  from { opacity: 0; transform: translateY(7px) scale(.97); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+  from {
+    opacity: 0;
+    transform: translateY(7px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
-
-
-/* ========================================
-   SIDEBAR PAGE-LOAD ANIMATION
-   ======================================== */
-
-/* Whole sidebar slides in first */
-.sidebar {
-  animation: sidebarSlideIn
-    650ms cubic-bezier(0.22, 1, 0.36, 1)
-    both;
-}
-
+/* --------------------------------------------------------------------------
+   Animations & Keyframes
+   -------------------------------------------------------------------------- */
 @keyframes sidebarSlideIn {
   from {
     opacity: 0;
     transform: translateX(-40px);
   }
-
   to {
     opacity: 1;
     transform: translateX(0);
   }
 }
 
-
-/* Logo + collapse button */
-.sidebar__top {
-  opacity: 0;
-  animation: sidebarItemIn
-    450ms cubic-bezier(0.22, 1, 0.36, 1)
-    350ms forwards;
-}
-
-
-/* Navigation links */
-.sidebar__link {
-  opacity: 0;
-  animation: sidebarItemIn
-    420ms cubic-bezier(0.22, 1, 0.36, 1)
-    forwards;
-}
-
-.sidebar__link:nth-child(1) {
-  animation-delay: 420ms;
-}
-
-.sidebar__link:nth-child(2) {
-  animation-delay: 480ms;
-}
-
-.sidebar__link:nth-child(3) {
-  animation-delay: 540ms;
-}
-
-.sidebar__link:nth-child(4) {
-  animation-delay: 600ms;
-}
-
-.sidebar__link:nth-child(5) {
-  animation-delay: 660ms;
-}
-
-.sidebar__link:nth-child(6) {
-  animation-delay: 720ms;
-}
-
-
-/* Bottom business/profile section */
-.sidebar__footer {
-  opacity: 0;
-  animation: sidebarItemIn
-    450ms cubic-bezier(0.22, 1, 0.36, 1)
-    800ms forwards;
-}
-
-
-/* Shared inner-item animation */
 @keyframes sidebarItemIn {
   from {
     opacity: 0;
     transform: translateX(-18px);
   }
-
   to {
     opacity: 1;
     transform: translateX(0);
   }
 }
 
-
-/* Accessibility */
 @media (prefers-reduced-motion: reduce) {
   .sidebar,
   .sidebar__top,

@@ -1,6 +1,6 @@
-// Sidebar styles, Vendly logo, and React Router navigation component.
 import "./Sidebar.css";
 import vendlyLogo from "../assets/vendly-logo.png";
+import vendlyCollapsedLogo from "../assets/Vendlylogofinal.png";
 import { NavLink } from "react-router-dom";
 import { useAuth } from "../context/authContextValue";
 import { useEffect, useRef, useState } from "react";
@@ -14,10 +14,8 @@ import {
   Users,
   ChartNoAxesCombined,
   Box,
-  ChevronsRight,
   ChevronRight,
   Store,
-  ChevronsLeft,
   CreditCard,
   LogOut,
   Settings,
@@ -47,7 +45,7 @@ function readableRole(role = "viewer") {
   return role.split("_").map((word) => word[0].toUpperCase() + word.slice(1)).join(" ");
 }
 
-function Sidebar({ isCollapsed, onToggleSidebar, onOpenProfile, onOpenSettings }) {
+function Sidebar({ isCollapsed, onOpenProfile, onOpenSettings }) {
   const { sellerProfile, membership } = useAuth();
   const businessName = sellerProfile?.businessName ?? "Your Business";
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
@@ -70,27 +68,17 @@ function Sidebar({ isCollapsed, onToggleSidebar, onOpenProfile, onOpenSettings }
 
   return (
     <aside id="sidebar-navigation" className={`sidebar ${isCollapsed ? "sidebar--collapsed" : ""}`} >
-{/* Logo and button that expands or collapses the sidebar. */}
-<div className="sidebar__top">
-  <div className="sidebar__logo">
-    <img
-      className="sidebar__logo-image"
-      src={vendlyLogo}
-      alt="Vendly.lk"
-    />
-  </div>
-
-  <button
-    className="sidebar__toggle"
-    type="button"
-    onClick={onToggleSidebar}
-    aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-    aria-expanded={!isCollapsed}
-    title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-  >
-    {isCollapsed ? <ChevronsRight size={20} /> : < ChevronsLeft className="Panel_icon" size={20} />}
-  </button>
-</div>
+      {/* Brand logo and dashboard subtitle matching customer storefront style */}
+      <div className="sidebar__top">
+        <div className="sidebar__logo">
+          <img
+            className="sidebar__logo-image"
+            src={isCollapsed ? vendlyCollapsedLogo : vendlyLogo}
+            alt="Vendly.lk"
+          />
+        </div>
+        <small className="sidebar__subtitle">Seller Dashboard</small>
+      </div>
       {/* Main navigation links. NavLink reports which route is active. */}
       <nav className="sidebar__navigation">
         {navigationItems.filter((item) => hasPermission(membership, item.permission)).map((item) => {
@@ -107,9 +95,9 @@ function Sidebar({ isCollapsed, onToggleSidebar, onOpenProfile, onOpenSettings }
   to={item.path}
   title={isCollapsed ? item.label : undefined}
 >
-  <Icon size={22} />
-  <span className="sidebar__label">{item.label}</span>
-</NavLink>
+              <Icon size={20} strokeWidth={2} />
+              <span className="sidebar__label">{item.label}</span>
+            </NavLink>
           );
         })}
       </nav>

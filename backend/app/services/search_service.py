@@ -1,6 +1,33 @@
+import re
+
 from app.services.customer_service import list_customers
 from app.services.order_service import list_orders
 from app.services.product_service import list_products
+
+MAX_SEARCH_QUERY_LENGTH = 80
+CONTROL_CHARS_PATTERN = re.compile(r"[\x00-\x1f\x7f-\x9f]")
+HTML_TAG_PATTERN = re.compile(r"<[^>]*>")
+
+
+def sanitize_search_query(query: str) -> str:
+    """Sanitize search input: strip control characters, HTML tags, and clamp length."""
+    if not query:
+        return ""
+
+    # Strip control characters & null bytes
+    cleaned = CONTROL_CHARS_PATTERN.sub("", str(query))
+
+    # Strip HTML / script tags
+    cleaned = HTML_TAG_PATTERN.sub("", cleaned)
+
+    # Normalize spaces
+    cleaned = " ".join(cleaned.split())
+
+    # Enforce max length
+    if len(cleaned) > MAX_SEARCH_QUERY_LENGTH:
+        cleaned = cleaned[:MAX_SEARCH_QUERY_LENGTH].strip()
+
+    return cleaned
 
 
 def contains_query(values, query):
@@ -8,7 +35,8 @@ def contains_query(values, query):
 
 
 def search_records(orders, products, customers, query, limit_per_type=8):
-    query_text = str(query or "").strip().casefold()
+    sanitized_query = sanitize_search_query(query)
+    query_text = sanitized_query.casefold()
 
     if len(query_text) < 2:
         return {"orders": [], "products": [], "customers": []}

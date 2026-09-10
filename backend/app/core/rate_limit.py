@@ -16,4 +16,7 @@ def public_chat_key():
     return f"ip:{get_remote_address()}"
 
 
-limiter = Limiter(key_func=get_remote_address)
+limiter = Limiter(
+    key_func=get_remote_address,
+    default_limits=["120 per minute", "2000 per hour"],
+)

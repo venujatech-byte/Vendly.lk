@@ -114,6 +114,21 @@ def create_app(test_config=None):
     app.register_blueprint(search_blueprint)
     app.register_blueprint(shop_sales_blueprint)
 
+    @app.after_request
+    def apply_security_headers(response):
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault(
+            "Strict-Transport-Security",
+            "max-age=31536000; includeSubDomains",
+        )
+        response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+        response.headers.setdefault(
+            "Permissions-Policy",
+            "camera=(), microphone=(), geolocation=()",
+        )
+        return response
+
     @app.errorhandler(ApiError)
     def handle_api_error(error):
         return jsonify(api_error_payload(error)), error.status_code
