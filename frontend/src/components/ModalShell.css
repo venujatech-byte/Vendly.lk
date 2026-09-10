@@ -12,6 +12,8 @@
   background: rgba(15, 23, 42, 0.65);
   backdrop-filter: blur(8px);
   animation: modal-backdrop-in 160ms ease-out;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .modal-shell {
@@ -63,14 +65,18 @@
 }
 
 .modal-shell--full .modal-shell__content {
-  flex: 1;
+  flex: 1 1 0%;
   min-height: 0;
+  height: 100%;
   padding: 0;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .modal-shell--full .modal-shell__header {
   padding: 14px 24px;
+  flex-shrink: 0;
 }
 
 .modal-shell__header {
@@ -84,6 +90,7 @@
   padding: 18px 24px;
   border-bottom: 1px solid color-mix(in srgb, var(--color-border) 65%, transparent);
   background: var(--color-surface, #ffffff);
+  flex-shrink: 0;
 }
 
 .modal-shell__header-main {
@@ -294,6 +301,10 @@ html[data-theme="dark"] .modal-shell__close-btn:hover {
 
   .modal-shell__content {
     padding: 14px 16px;
+  }
+
+  .modal-shell--full .modal-shell__content {
+    padding: 0 !important;
   }
 }
 
