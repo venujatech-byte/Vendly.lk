@@ -164,7 +164,7 @@ html[data-theme="dark"] .sidebar {
   width: 20px;
   height: 20px;
   stroke: currentColor;
-  stroke-width: 2;
+  stroke-width: 2.4;
   flex-shrink: 0;
   color: inherit;
 }
@@ -194,7 +194,7 @@ html[data-theme="dark"] .sidebar {
 .sidebar__link--active svg {
   color: #032c50 !important;
   stroke: #032c50 !important;
-  stroke-width: 2;
+  stroke-width: 2.4;
 }
 
 .sidebar__link--active .sidebar__label {
@@ -268,6 +268,7 @@ html[data-theme="dark"] .sidebar {
 .sidebar__business-icon svg {
   width: 17px;
   height: 17px;
+  stroke-width: 2.3;
 }
 
 .sidebar__business-details {

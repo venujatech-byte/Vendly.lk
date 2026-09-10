@@ -29,6 +29,7 @@ import {
   ShoppingBag,
   ShoppingCart,
   SlidersHorizontal,
+  Sparkles,
   Star,
   Store,
   Sun,
@@ -1329,16 +1330,24 @@ function StorefrontPage({ linkType }) {
             >
               <Menu size={21} />
             </button>
-            <div>
-              <strong>
-                {activeView === "catalog" && "Catalog"}
-                {activeView === "chatbot" &&
-                  `${business.name} – AI Ordering Assistant`}
-                {activeView === "reviews" && "Reviews"}
-                {activeView === "orders" && text.myOrders}
-                {activeView === "contact" && "Contact"}
+            <div className="storefront-topbar__title-wrapper">
+              <strong className="storefront-topbar__store-title">
+                {business.name}
               </strong>
-              <small>{business.name}</small>
+              {activeView === "chatbot" ? (
+                <span className="storefront-topbar__ai-pill">
+                  <span className="storefront-topbar__ai-dot" />
+                  <Sparkles size={12} className="storefront-topbar__ai-sparkle" />
+                  AI Ordering Assistant
+                </span>
+              ) : (
+                <span className="storefront-topbar__view-pill">
+                  {activeView === "catalog" && "Catalog"}
+                  {activeView === "reviews" && "Reviews"}
+                  {activeView === "orders" && text.myOrders}
+                  {activeView === "contact" && "Contact"}
+                </span>
+              )}
             </div>
           </div>
 
@@ -3034,6 +3043,47 @@ function ChatbotView({
                 )}
 
                 {message.role === "assistant" &&
+                  index === messages.length - 1 &&
+                  (message.suggestions || []).length === 0 && (
+                    <div className="storefront-chat-starter-prompts">
+                      <span className="storefront-chat-starter-prompts__title">
+                        <Sparkles size={13} />
+                        Suggested questions:
+                      </span>
+                      <div className="storefront-chat-starter-prompts__list">
+                        <button
+                          type="button"
+                          disabled={isSending}
+                          onClick={() => onQuickMessage("Show all available products")}
+                        >
+                          🛍️ Browse Catalog
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isSending}
+                          onClick={() => onQuickMessage("What are your best selling products?")}
+                        >
+                          🔥 Best Sellers
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isSending}
+                          onClick={() => onQuickMessage("How does delivery and payment work?")}
+                        >
+                          🚚 Delivery & Payment
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isSending}
+                          onClick={() => onQuickMessage("Show me customer reviews")}
+                        >
+                          ⭐ Customer Reviews
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                {message.role === "assistant" &&
                   [
                     "show-catalog",
                     "start-order",
@@ -3409,8 +3459,17 @@ function ChatbotView({
           <X size={18} />
         </button>
 
+        <div className="storefront-draft__header">
+          <div className="storefront-draft__header-title">
+            <ShoppingBag size={17} />
+            <h2>{text.orderSummary || "Order Summary"}</h2>
+          </div>
+          <span className="storefront-draft__live-pill">
+            <span className="storefront-draft__live-dot" /> Live
+          </span>
+        </div>
 
-        <section>
+        <section className="storefront-draft__products-section">
           <h3>{text.productsAndQuantity}</h3>
           <div className="storefront-draft__items">
             {cart.map((item) => (
@@ -3439,21 +3498,29 @@ function ChatbotView({
                 </button>
               </article>
             ))}
-            {cart.length === 0 && <p>{text.noProductsSelected}</p>}
+            {cart.length === 0 && (
+              <div className="storefront-draft__empty-cart">
+                <ShoppingBag size={24} className="storefront-draft__empty-icon" />
+                <p>{text.noProductsSelected}</p>
+                <small>Products you ask for or select will appear here live.</small>
+              </div>
+            )}
           </div>
         </section>
 
-        <section>
+        <section className="storefront-draft__customer-section">
           <h3>{text.customerDetails}</h3>
-          <DraftField label={text.customerName} value={customer.name} />
-          <DraftField label={text.phoneNo} value={customer.phoneNumber} />
+          <DraftField icon={UserRound} label={text.customerName} value={customer.name} />
+          <DraftField icon={Phone} label={text.phoneNo} value={customer.phoneNumber} />
           {customer.secondaryPhoneNumber && (
             <DraftField
+              icon={Phone}
               label={text.secondPhoneNo}
               value={customer.secondaryPhoneNumber}
             />
           )}
           <DraftField
+            icon={MapPin}
             label={text.address}
             value={[
               customer.address.line1,
@@ -3466,27 +3533,31 @@ function ChatbotView({
         </section>
 
         <div className="storefront-draft__bottom">
-          <section>
+          <section className="storefront-draft__status-section">
             <h3>{text.status}</h3>
             <div
               className={`storefront-draft__status ${cart.length ? "is-active" : ""}`}
             >
-              <span />{" "}
-              {chatState === "awaiting-confirmation"
-                ? text.awaitingConfirmation
-                : chatState.startsWith("collecting-")
-                  ? text.collectingDetails
-                  : cart.length
-                    ? text.readyToOrder
-                    : text.waitingForSelection}
+              <span className="storefront-draft__status-dot" />
+              <span className="storefront-draft__status-text">
+                {chatState === "awaiting-confirmation"
+                  ? text.awaitingConfirmation
+                  : chatState.startsWith("collecting-")
+                    ? text.collectingDetails
+                    : cart.length
+                      ? text.readyToOrder
+                      : text.waitingForSelection}
+              </span>
             </div>
           </section>
           <button
             type="button"
+            className={`storefront-draft__checkout-btn ${cart.length > 0 ? "is-active" : ""}`}
             disabled={cart.length === 0}
             onClick={onOpenCheckout}
           >
-            Continue to checkout <Check size={17} />
+            <span>Continue to checkout</span>
+            <Check size={17} />
           </button>
           <small>{text.orderingFrom} {business.name}</small>
         </div>
@@ -3495,11 +3566,14 @@ function ChatbotView({
   );
 }
 
-function DraftField({ label, value }) {
+function DraftField({ icon: FieldIcon, label, value }) {
   return (
     <div className="storefront-draft__field">
-      <span>{label}</span>
-      <strong className={value ? "" : "is-empty"}>
+      <span className="storefront-draft__field-label">
+        {FieldIcon && <FieldIcon size={12} className="storefront-draft__field-icon" />}
+        {label}
+      </span>
+      <strong className={value ? "is-filled" : "is-empty"}>
         {value || "Awaiting input…"}
       </strong>
     </div>

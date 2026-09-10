@@ -95,7 +95,7 @@ function Sidebar({ isCollapsed, onOpenProfile, onOpenSettings }) {
   to={item.path}
   title={isCollapsed ? item.label : undefined}
 >
-              <Icon size={20} strokeWidth={2} />
+              <Icon size={20} strokeWidth={2.4} />
               <span className="sidebar__label">{item.label}</span>
             </NavLink>
           );
