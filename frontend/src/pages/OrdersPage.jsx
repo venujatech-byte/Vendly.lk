@@ -15,10 +15,11 @@ import {
   Store,
   GlobeCheck,
   ShieldCheck,
-  Banknote,
-  ShoppingBasket,
-  Trophy,
-  ReceiptText,
+  ShoppingBag,
+  PackageCheck,
+  CircleDollarSign,
+  Crown,
+  CircleX,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
@@ -252,7 +253,8 @@ function OrdersPage() {
 
   const visibleOrders = useMemo(() => {
     return orders.filter((order) => {
-      if (statusFilter && order.status !== statusFilter) return false;
+      const orderStatus = order.status || order.fulfilmentStatus;
+      if (statusFilter && orderStatus !== statusFilter) return false;
       if (!filters.payment) return true;
       return paymentCategory(order) === filters.payment;
     });
@@ -271,39 +273,48 @@ function OrdersPage() {
       { label: "All", value: orders.length, icon: Package, tone: "blue" },
       {
         label: "Pending",
-        value: orders.filter((order) => order.status === "pending").length,
+        value: orders.filter((order) => {
+          const s = order.status || order.fulfilmentStatus;
+          return s === "pending" || s === "needs-confirmation";
+        }).length,
         icon: Clock3,
         tone: "orange",
       },
       {
         label: "Confirmed",
-        value: orders.filter((order) => order.status === "confirmed").length,
+        value: orders.filter((order) => (order.status || order.fulfilmentStatus) === "confirmed").length,
         icon: SquareCheckBig,
         tone: "green",
       },
       {
         label: "Packed",
-        value: orders.filter((order) => order.status === "packed").length,
+        value: orders.filter((order) => (order.status || order.fulfilmentStatus) === "packed").length,
         icon: Package2,
         tone: "blue",
       },
       {
         label: "Shipped",
-        value: orders.filter((order) => order.status === "shipped").length,
+        value: orders.filter((order) => (order.status || order.fulfilmentStatus) === "shipped").length,
         icon: Truck,
         tone: "purple",
       },
       {
         label: "Delivered",
-        value: orders.filter((order) => order.status === "delivered").length,
+        value: orders.filter((order) => (order.status || order.fulfilmentStatus) === "delivered").length,
         icon: CircleCheck,
         tone: "green",
       },
       {
         label: "Returned",
-        value: orders.filter((order) => order.status === "returned").length,
+        value: orders.filter((order) => (order.status || order.fulfilmentStatus) === "returned").length,
         icon: Undo2,
         tone: "red",
+      },
+      {
+        label: "Cancelled",
+        value: orders.filter((order) => (order.status || order.fulfilmentStatus) === "cancelled").length,
+        icon: CircleX,
+        tone: "gray",
       },
     ],
     [orders],
@@ -319,10 +330,10 @@ function OrdersPage() {
     activeSales.forEach((sale) => sale.items.forEach((item) => itemCounts.set(item.name, (itemCounts.get(item.name) ?? 0) + item.quantity)));
     const topItem = [...itemCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "—";
     return [
-      { label: "Total sales", value: activeSales.length, icon: ReceiptText, tone: "blue" },
-      { label: "Sold items", value: activeSales.reduce((sum, sale) => sum + sale.itemCount, 0), icon: ShoppingBasket, tone: "green" },
-      { label: "Revenue", value: `LKR ${((activeSales.reduce((sum, sale) => sum + sale.totalAmountMinor, 0) - shopWarrantyDeductions) / 100).toLocaleString("en-LK")}`, icon: Banknote, tone: "orange" },
-      { label: "Top item", value: topItem, icon: Trophy, tone: "purple" },
+      { label: "Total sales", value: activeSales.length, icon: ShoppingBag, tone: "blue" },
+      { label: "Sold items", value: activeSales.reduce((sum, sale) => sum + sale.itemCount, 0), icon: PackageCheck, tone: "green" },
+      { label: "Revenue", value: `LKR ${((activeSales.reduce((sum, sale) => sum + sale.totalAmountMinor, 0) - shopWarrantyDeductions) / 100).toLocaleString("en-LK")}`, icon: CircleDollarSign, tone: "orange" },
+      { label: "Top item", value: topItem, icon: Crown, tone: "purple" },
     ];
   }, [shopSales, warrantyClaims]);
 
@@ -633,7 +644,10 @@ function OrdersPage() {
                   icon={stat.icon}
                   tone={stat.tone}
                   isActive={(statusFilter === "" && stat.label === "All") || statusFilter === stat.label.toLowerCase()}
-                  onClick={() => setStatusFilter(stat.label === "All" ? "" : stat.label.toLowerCase())}
+                  onClick={() => {
+                    const target = stat.label === "All" ? "" : stat.label.toLowerCase();
+                    setStatusFilter((current) => (current === target ? "" : target));
+                  }}
                 />
               ))}
             </div>

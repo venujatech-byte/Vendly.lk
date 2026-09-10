@@ -1,12 +1,12 @@
 /* Single-row grid used by the compact order statistic cards. */
 .order-stats-grid {
   display: grid;
-  grid-template-columns: repeat(7, minmax(135px, 1fr));
+  grid-template-columns: repeat(8, minmax(118px, 1fr));
   gap: 10px;
   overflow-x: auto;
   /* Keep mobile swipe scrolling without showing a browser scrollbar. */
   scrollbar-width: none;
-  padding: 6px 3px;
+  padding: 8px 4px 10px;
 }
 
 .order-stats-grid::-webkit-scrollbar {
@@ -60,12 +60,22 @@
 
 .stat-card2--active::before {
   border: none !important;
-  box-shadow: 0 4px 18px rgba(22, 124, 240, 0.22) !important;
+  box-shadow:
+    0 0 0 1.5px var(--tone-color, #168cf5),
+    0 4px 16px color-mix(in srgb, var(--tone-color, #168cf5) 24%, transparent) !important;
 }
 
 .stat-card2--active .stat-card2__label {
-  color: var(--color-accent, #168cf5);
-  font-weight: 600;
+  color: var(--tone-color, var(--color-accent, #168cf5));
+  font-weight: 650;
+}
+
+.stat-card2--active .stat-card2__value {
+  color: var(--tone-color, var(--color-accent, #168cf5));
+}
+
+.stat-card2--active .stat-card2__icon {
+  transform: scale(1.08);
 }
 
 .stat-card2:focus-visible::before {
@@ -187,6 +197,12 @@ html[data-theme="dark"] .stat-card2__label {
   --tone-bg: #fef2f2;
 }
 
+.stat-card2--gray,
+.stat-card2--slate {
+  --tone-color: #64748b;
+  --tone-bg: #f1f5f9;
+}
+
 /* Dark-theme icon tone colors and backgrounds */
 html[data-theme="dark"] .stat-card2--blue {
   --tone-color: #60a5fa;
@@ -213,6 +229,17 @@ html[data-theme="dark"] .stat-card2--red {
   --tone-bg: rgba(239, 68, 68, 0.18);
 }
 
+html[data-theme="dark"] .stat-card2--gray,
+html[data-theme="dark"] .stat-card2--slate {
+  --tone-color: #94a3b8;
+  --tone-bg: rgba(148, 163, 184, 0.18);
+}
+
+html[data-theme="dark"] .stat-card2--active::before {
+  box-shadow:
+    0 0 0 1.5px var(--tone-color, #60a5fa),
+    0 4px 18px color-mix(in srgb, var(--tone-color, #60a5fa) 35%, transparent) !important;
+}
 
 /* Loading animations */
 .stat-card2 {
@@ -246,6 +273,10 @@ html[data-theme="dark"] .stat-card2--red {
 
 .stat-card2:nth-child(7) {
   animation-delay: 470ms;
+}
+
+.stat-card2:nth-child(8) {
+  animation-delay: 540ms;
 }
 
 @keyframes statCard2FlyIn {
