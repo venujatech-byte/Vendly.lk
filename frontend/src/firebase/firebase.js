@@ -7,10 +7,7 @@ import {
   getStorage,
   connectStorageEmulator,
 } from "firebase/storage";
-//
-
-
-
+import { getDatabase } from "firebase/database";
 
 // Firebase application setup.
 import { initializeApp } from "firebase/app";
@@ -30,6 +27,7 @@ const firebaseConfig = {
   messagingSenderId:
     import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL,
 };
 
 // Initialize the Firebase application.
@@ -45,25 +43,25 @@ googleProvider.setCustomParameters({
   prompt: "select_account",
 });
 
-
-
-//emulator
+// Services
 const db = getFirestore(firebaseApp);
 const storage = getStorage(firebaseApp);
+const rtdb = getDatabase(
+  firebaseApp,
+  import.meta.env.VITE_FIREBASE_DATABASE_URL || undefined,
+);
 
 if (import.meta.env.DEV) {
   connectFirestoreEmulator(db, "127.0.0.1", 8080);
   connectStorageEmulator(storage, "127.0.0.1", 9199);
 }
-//
 
-
-
-// Export these objects so authentication components can use them.remove db and storage
+// Export these objects
 export {
   firebaseApp,
   auth,
   db,
   storage,
+  rtdb,
   googleProvider,
 };

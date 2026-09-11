@@ -1,6 +1,10 @@
+from datetime import datetime, timezone
+
 from firebase_admin import firestore
+from flask import current_app
 
 from app.core.errors import ApiError
+from app.core.firebase import get_rtdb_reference
 from app.core.serialization import serialize_snapshot
 from app.services.ai_service import translate_chat_message
 from app.services.text import required_text
@@ -14,7 +18,31 @@ def _session_reference(database, business_id, session_id):
     return reference, snapshot.to_dict()
 
 
-def _message_rows(reference, limit=20, before=None):
+def _message_rows(reference, limit=10, before=None):
+    session_id = reference.id
+    rtdb_ref = get_rtdb_reference(f"chatMessages/{session_id}")
+    rtdb_data = None
+    if rtdb_ref is not None:
+        try:
+            rtdb_data = rtdb_ref.get()
+        except Exception as err:
+            current_app.logger.warning("Failed to fetch messages from RTDB: %s", err)
+
+    if rtdb_data and isinstance(rtdb_data, dict):
+        all_msgs = []
+        for msg_id, val in rtdb_data.items():
+            if isinstance(val, dict):
+                all_msgs.append({"id": msg_id, **val})
+        all_msgs.sort(key=lambda m: str(m.get("createdAt") or m.get("id") or ""))
+        if before:
+            idx = next((i for i, m in enumerate(all_msgs) if m.get("id") == before), None)
+            if idx is not None:
+                all_msgs = all_msgs[:idx]
+        has_more = len(all_msgs) > limit
+        rows = all_msgs[-limit:] if has_more else all_msgs
+        next_cursor = rows[0].get("id") if has_more and rows else None
+        return rows, has_more, next_cursor
+
     query = reference.collection("messages").order_by(
         "createdAt", direction="DESCENDING"
     )
@@ -145,6 +173,12 @@ def delete_chat_session(database, business_id, session_id):
     """Permanently delete a seller-owned chat and its message subcollection."""
     reference, _session = _session_reference(database, business_id, session_id)
     database.recursive_delete(reference)
+    rtdb_ref = get_rtdb_reference(f"chatMessages/{session_id}")
+    if rtdb_ref is not None:
+        try:
+            rtdb_ref.delete()
+        except Exception as err:
+            current_app.logger.warning("Failed to delete RTDB messages for session %s: %s", session_id, err)
     return {"sessionId": session_id, "deleted": True}
 
 
@@ -167,22 +201,46 @@ def send_seller_message(database, business_id, session_id, seller_uid, payload):
     customer_message = translate_chat_message(message, language)
     was_translated = customer_message != message
 
-    message_reference = reference.collection("messages").document()
-    message_reference.set(
-        {
-            "role": "seller",
-            # What the customer reads.
-            "message": customer_message,
-            # What the seller typed, so their own inbox shows their words back.
-            "sellerMessage": message,
-            "metadata": {
-                "sellerUid": seller_uid,
-                "language": language,
-                "translated": was_translated,
-            },
-            "createdAt": firestore.SERVER_TIMESTAMP,
-        }
-    )
+    now_iso = datetime.now(timezone.utc).isoformat()
+    msg_data = {
+        "role": "seller",
+        # What the customer reads.
+        "message": customer_message,
+        # What the seller typed, so their own inbox shows their words back.
+        "sellerMessage": message,
+        "metadata": {
+            "sellerUid": seller_uid,
+            "language": language,
+            "translated": was_translated,
+        },
+        "createdAt": now_iso,
+    }
+
+    message_id = None
+    rtdb_ref = get_rtdb_reference(f"chatMessages/{session_id}")
+    if rtdb_ref is not None:
+        try:
+            pushed = rtdb_ref.push(msg_data)
+            message_id = pushed.key
+        except Exception as err:
+            current_app.logger.warning("Failed to write seller message to RTDB: %s", err)
+
+    if not message_id:
+        # Fallback to Firestore subcollection if RTDB is unavailable
+        message_reference = reference.collection("messages").document()
+        message_reference.set(
+            {
+                **msg_data,
+                "createdAt": firestore.SERVER_TIMESTAMP,
+            }
+        )
+        message_id = getattr(message_reference, "id", None)
+        if not message_id:
+            try:
+                message_id = message_reference.get().id
+            except Exception:
+                message_id = "message-id"
+
     reference.set(
         {
             "lastMessage": customer_message,
@@ -191,7 +249,10 @@ def send_seller_message(database, business_id, session_id, seller_uid, payload):
         },
         merge=True,
     )
-    return serialize_snapshot(message_reference.get())
+    return {
+        "id": message_id,
+        **msg_data,
+    }
 
 
 def mark_chat_read(database, business_id, session_id):

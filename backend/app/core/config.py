@@ -27,6 +27,7 @@ class Settings:
     firebase_project_id: str | None
     firebase_storage_bucket: str | None
     firebase_service_account_path: str | None
+    firebase_database_url: str | None
     cloudinary_cloud_name: str | None
     cloudinary_api_key: str | None
     cloudinary_api_secret: str | None
@@ -72,6 +73,7 @@ class Settings:
             firebase_service_account_path=(
                 os.getenv("FIREBASE_SERVICE_ACCOUNT_PATH") or None
             ),
+            firebase_database_url=os.getenv("FIREBASE_DATABASE_URL") or None,
             cloudinary_cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME") or None,
             cloudinary_api_key=os.getenv("CLOUDINARY_API_KEY") or None,
             cloudinary_api_secret=os.getenv("CLOUDINARY_API_SECRET") or None,

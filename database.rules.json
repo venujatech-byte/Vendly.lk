@@ -1,0 +1,10 @@
+{
+  "rules": {
+    "chatMessages": {
+      "$sessionId": {
+        ".read": true,
+        ".write": false
+      }
+    }
+  }
+}

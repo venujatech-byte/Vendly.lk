@@ -21,6 +21,8 @@ import {
   sendSellerMessage,
   setChatAiPaused,
 } from "../services/messageService";
+import { ref, onValue, query, limitToLast } from "firebase/database";
+import { rtdb } from "../firebase/firebase";
 
 import "./CustomerMessages.css";
 
@@ -91,7 +93,14 @@ export default function CustomerMessages({
   const [isUpdatingAi, setIsUpdatingAi] = useState(false);
   const [error, setError] = useState("");
 
-  const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
+  const sessionsRef = useRef(sessions);
+  sessionsRef.current = sessions;
+  const isUserNearBottomRef = useRef(true);
+  const lastSelectedIdRef = useRef(selectedId);
+  const previousMessagesCountRef = useRef(0);
+  const isLoadingOlderRef = useRef(false);
+  const conversationCacheRef = useRef(new Map());
 
   const loadSessions = useCallback(async () => {
     if (!businessId) return;
@@ -139,7 +148,8 @@ export default function CustomerMessages({
 
   useEffect(() => {
     loadSessions();
-    return undefined;
+    const interval = setInterval(loadSessions, 20000);
+    return () => clearInterval(interval);
   }, [loadSessions]);
 
   useEffect(() => {
@@ -147,31 +157,174 @@ export default function CustomerMessages({
       setConversation(null);
       return;
     }
-    let isCurrent = true;
-    async function loadConversation() {
-      try {
-        const result = await getChatMessages(businessId, selectedId);
-        if (!isCurrent) return;
-        setConversation(result);
-        await markChatRead(businessId, selectedId);
-        if (!isCurrent) return;
-        setSessions((current) =>
-          current.map((item) =>
-            item.id === selectedId ? { ...item, unreadCount: 0 } : item,
-          ),
-        );
-      } catch (requestError) {
-        if (isCurrent) setError(requestError.message);
-      }
+    // Restore from in-memory cache immediately if available
+    if (conversationCacheRef.current.has(selectedId)) {
+      setConversation(conversationCacheRef.current.get(selectedId));
     }
-    loadConversation();
-    return () => {
-      isCurrent = false;
-    };
+    markChatRead(businessId, selectedId).catch(() => {});
+    setSessions((current) =>
+      current.map((item) =>
+        item.id === selectedId ? { ...item, unreadCount: 0 } : item,
+      ),
+    );
   }, [businessId, selectedId]);
 
+  function handleScroll(event) {
+    const element = event.currentTarget;
+    const distanceToBottom = element.scrollHeight - element.scrollTop - element.clientHeight;
+    isUserNearBottomRef.current = distanceToBottom < 80;
+  }
+
+  // Real-time listener on RTDB for instant message sync with 0 Firestore reads
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (!selectedId) return undefined;
+
+    const chatQuery = query(
+      ref(rtdb, `chatMessages/${selectedId}`),
+      limitToLast(10),
+    );
+    const unsubscribe = onValue(
+      chatQuery,
+      (snapshot) => {
+        const val = snapshot.val();
+        if (!val) {
+          setConversation((current) => {
+            if (current) return current;
+            const sessionMeta = sessionsRef.current.find((s) => s.id === selectedId);
+            const emptyConv = {
+              session: {
+                id: selectedId,
+                customer: sessionMeta?.customer,
+                orderId: sessionMeta?.orderId,
+                state: sessionMeta?.state || "browsing",
+                status: sessionMeta?.status || "active",
+                aiPaused: sessionMeta?.aiPaused || false,
+                needsSellerAttention: sessionMeta?.needsSellerAttention || false,
+              },
+              messages: [],
+              hasMore: false,
+            };
+            conversationCacheRef.current.set(selectedId, emptyConv);
+            return emptyConv;
+          });
+          return;
+        }
+
+        const rtdbMessages = Object.entries(val).map(([id, item]) => ({
+          id,
+          ...item,
+        }));
+        rtdbMessages.sort(
+          (a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0),
+        );
+
+        setConversation((current) => {
+          const prev = current?.messages || [];
+          // Preserve older messages if user paginated backwards
+          const rtdbIds = new Set(rtdbMessages.map((m) => m.id));
+          const olderLoaded = prev.filter((m) => !rtdbIds.has(m.id));
+          const combined = [...olderLoaded, ...rtdbMessages];
+          combined.sort(
+            (a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0),
+          );
+
+          // If identical messages are already rendered, bail out to avoid re-render and scroll triggers
+          if (
+            prev.length === combined.length &&
+            prev[prev.length - 1]?.id === combined[combined.length - 1]?.id &&
+            prev[0]?.id === combined[0]?.id
+          ) {
+            return current;
+          }
+
+          const sessionMeta = sessionsRef.current.find((s) => s.id === selectedId);
+          const updated = {
+            session: current?.session || {
+              id: selectedId,
+              customer: sessionMeta?.customer,
+              orderId: sessionMeta?.orderId,
+              state: sessionMeta?.state || "browsing",
+              status: sessionMeta?.status || "active",
+              aiPaused: sessionMeta?.aiPaused || false,
+              needsSellerAttention: sessionMeta?.needsSellerAttention || false,
+            },
+            messages: combined,
+            hasMore: current?.hasMore ?? (rtdbMessages.length >= 10),
+          };
+          conversationCacheRef.current.set(selectedId, updated);
+          return updated;
+        });
+
+        if (rtdbMessages.length > 0) {
+          const last = rtdbMessages[rtdbMessages.length - 1];
+          setSessions((current) =>
+            current.map((item) =>
+              item.id === selectedId
+                ? {
+                    ...item,
+                    lastMessage: last.message || last.sellerMessage || item.lastMessage,
+                    lastMessageRole: last.role || item.lastMessageRole,
+                    lastMessageAt: last.createdAt || item.lastMessageAt,
+                  }
+                : item,
+            ),
+          );
+        }
+      },
+      (err) => {
+        console.error("RTDB onValue error in CustomerMessages:", err);
+      },
+    );
+
+    return () => {
+      unsubscribe();
+    };
+  }, [selectedId]);
+
+  // Reset scroll tracker whenever user switches to a different conversation
+  useEffect(() => {
+    if (selectedId !== lastSelectedIdRef.current) {
+      lastSelectedIdRef.current = selectedId;
+      isUserNearBottomRef.current = true;
+      previousMessagesCountRef.current = 0;
+    }
+  }, [selectedId]);
+
+  // User-friendly scrolling: never force-scroll if the user scrolled up to read history
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    const currentCount = conversation?.messages?.length || 0;
+    const prevCount = previousMessagesCountRef.current;
+    previousMessagesCountRef.current = currentCount;
+
+    if (isLoadingOlderRef.current) {
+      isLoadingOlderRef.current = false;
+      return;
+    }
+
+    // Initial conversation open: scroll down to the newest message
+    if (prevCount === 0 && currentCount > 0) {
+      requestAnimationFrame(() => {
+        if (messagesContainerRef.current) {
+          messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+        }
+      });
+      return;
+    }
+
+    // New incoming message: only auto-scroll if the user is already near the bottom
+    if (currentCount > prevCount && isUserNearBottomRef.current) {
+      requestAnimationFrame(() => {
+        if (messagesContainerRef.current) {
+          messagesContainerRef.current.scrollTo({
+            top: messagesContainerRef.current.scrollHeight,
+            behavior: "smooth",
+          });
+        }
+      });
+    }
   }, [conversation?.messages]);
 
   const visibleSessions = useMemo(() => {
@@ -191,11 +344,22 @@ export default function CustomerMessages({
     setError("");
     try {
       const savedMessage = await sendSellerMessage(businessId, selectedId, message);
-      setConversation((current) => ({
-        ...current,
-        messages: [...(current?.messages || []), savedMessage],
-      }));
+      isUserNearBottomRef.current = true;
+      setConversation((current) => {
+        if (!current) return current;
+        const exists = (current.messages || []).some((m) => m.id === savedMessage.id);
+        return {
+          ...current,
+          messages: exists ? current.messages : [...(current.messages || []), savedMessage],
+        };
+      });
       setReply("");
+      requestAnimationFrame(() => {
+        const container = messagesContainerRef.current;
+        if (container) {
+          container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
+        }
+      });
       await loadSessions();
     } catch (requestError) {
       setError(requestError.message);
@@ -388,21 +552,49 @@ export default function CustomerMessages({
               </div>
             </header>
 
-            <div className="customer-messages__messages" aria-live="polite">
+            <div
+              ref={messagesContainerRef}
+              onScroll={handleScroll}
+              className="customer-messages__messages"
+              aria-live="polite"
+            >
               {conversation?.hasMore && (
                 <button
                   className="customer-messages__load-history"
                   type="button"
                   onClick={async () => {
-                    const older = await getChatMessages(businessId, selectedId, {
-                      before: conversation.nextCursor,
-                    });
-                    setConversation((current) => ({
-                      ...current,
-                      messages: [...older.messages, ...(current?.messages || [])],
-                      nextCursor: older.nextCursor,
-                      hasMore: older.hasMore,
-                    }));
+                    const container = messagesContainerRef.current;
+                    const prevScrollHeight = container ? container.scrollHeight : 0;
+                    const prevScrollTop = container ? container.scrollTop : 0;
+                    isLoadingOlderRef.current = true;
+                    try {
+                      const earliestId = conversation?.messages?.[0]?.id;
+                      const older = await getChatMessages(businessId, selectedId, {
+                        before: earliestId || conversation?.nextCursor,
+                        limit: 10,
+                      });
+                      setConversation((current) => {
+                        const prev = current?.messages || [];
+                        const existingIds = new Set(prev.map((m) => m.id));
+                        const newOlder = (older.messages || []).filter((m) => !existingIds.has(m.id));
+                        const updated = {
+                          ...current,
+                          messages: [...newOlder, ...prev],
+                          nextCursor: older.nextCursor,
+                          hasMore: Boolean(older.hasMore),
+                        };
+                        conversationCacheRef.current.set(selectedId, updated);
+                        return updated;
+                      });
+                      requestAnimationFrame(() => {
+                        if (container) {
+                          const delta = container.scrollHeight - prevScrollHeight;
+                          container.scrollTop = prevScrollTop + delta;
+                        }
+                      });
+                    } catch (e) {
+                      isLoadingOlderRef.current = false;
+                    }
                   }}
                 >
                   Load older messages
@@ -460,7 +652,6 @@ export default function CustomerMessages({
                   </div>
                 );
               })}
-              <div ref={messagesEndRef} />
             </div>
 
             <footer className="customer-messages__composer-footer">
