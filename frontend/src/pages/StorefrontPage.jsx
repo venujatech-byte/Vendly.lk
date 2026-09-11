@@ -10,6 +10,7 @@ import {
   ClipboardList,
   Copy,
   Headset,
+  HelpCircle,
   Mail,
   MapPin,
   Menu,
@@ -59,6 +60,7 @@ import {
 } from "../services/publicService";
 import OrderReceipt from "../components/OrderReceipt";
 import CustomerAccountModal from "../components/CustomerAccountModal";
+import StorefrontInstructionsModal from "../components/StorefrontInstructionsModal";
 import { useAuth } from "../context/authContextValue";
 import { claimPublicChatSession } from "../services/publicService";
 
@@ -314,6 +316,7 @@ function StorefrontPage({ linkType }) {
   });
   const [reviewMessage, setReviewMessage] = useState("");
   const [isAccountOpen, setIsAccountOpen] = useState(false);
+  const [isInstructionsOpen, setIsInstructionsOpen] = useState(false);
   const messagesEndRef = useRef(null);
   const latestMessageRef = useRef(null);
   const recognitionRef = useRef(null);
@@ -408,6 +411,23 @@ function StorefrontPage({ linkType }) {
       requestIsCurrent = false;
     };
   }, [isAuthLoading, linkType, productCode, storeCode, user]);
+
+  useEffect(() => {
+    if (!isLoading && business && !errorMessage) {
+      try {
+        const isDismissed = localStorage.getItem("vendly_storefront_guide_dismissed");
+        const hasShownSession = sessionStorage.getItem("vendly_storefront_guide_session");
+        if (!isDismissed && !hasShownSession) {
+          const timer = setTimeout(() => {
+            setIsInstructionsOpen(true);
+          }, 600);
+          return () => clearTimeout(timer);
+        }
+      } catch {
+        // ignore
+      }
+    }
+  }, [isLoading, business, errorMessage]);
 
   async function loadOlderChatMessages() {
     if (!session?.sessionId || !session?.sessionToken || isLoadingOlderMessages) return;
@@ -1457,6 +1477,15 @@ function StorefrontPage({ linkType }) {
             <button
               className="storefront-icon-button"
               type="button"
+              aria-label="How to use storefront"
+              title="Customer Guide"
+              onClick={() => setIsInstructionsOpen(true)}
+            >
+              <HelpCircle size={20} />
+            </button>
+            <button
+              className="storefront-icon-button"
+              type="button"
               aria-label="Customer account"
               onClick={() => setIsAccountOpen(true)}
             >
@@ -1710,6 +1739,17 @@ function StorefrontPage({ linkType }) {
         onClose={() => setIsAccountOpen(false)}
         user={user}
         storeCode={business.shortCode}
+        onOpenChat={() => {
+          setIsAccountOpen(false);
+          changeView("chatbot");
+        }}
+      />
+
+      <StorefrontInstructionsModal
+        isOpen={isInstructionsOpen}
+        onClose={() => setIsInstructionsOpen(false)}
+        businessName={business?.name}
+        onOpenChat={() => changeView("chatbot")}
       />
     </main>
   );

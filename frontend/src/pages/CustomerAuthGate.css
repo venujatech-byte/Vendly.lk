@@ -1,1 +1,544 @@
-.customer-auth-gate{min-height:100vh;display:grid;place-items:center;padding:24px;background:linear-gradient(135deg,#eef6ff,#f8fbff);color:#0b3159}.customer-auth-gate__loading{min-height:100vh;display:grid;place-items:center;color:#0b3159;background:#f6f9fd}.customer-auth-card{width:min(430px,100%);padding:34px;border:1px solid #dce8f5;border-radius:24px;background:#fff;box-shadow:0 24px 70px #0b3b6e22}.customer-auth-card__brand{font-size:28px;font-weight:800;color:#073a68}.customer-auth-card__brand span{color:#1188e8}.customer-auth-card__eyebrow{margin:5px 0 34px;color:#6d8299;font-size:13px}.customer-auth-card h1{margin:0;font-size:28px}.customer-auth-card__hint{color:#64778b;line-height:1.5}.customer-auth-form{display:grid;gap:14px;margin-top:22px}.customer-auth-form label{display:grid;gap:7px;font-size:13px;font-weight:700}.customer-auth-form input{box-sizing:border-box;width:100%;padding:12px 13px;border:1px solid #cbdbea;border-radius:10px;font:inherit;font-weight:400;color:#18324d;background:#fbfdff}.customer-auth-password{position:relative}.customer-auth-password input{padding-right:42px}.customer-auth-password button{position:absolute;right:8px;top:7px;border:0;background:transparent;color:#66809a;cursor:pointer}.customer-auth-primary,.customer-auth-secondary,.customer-auth-guest{width:100%;min-height:44px;border-radius:10px;border:0;font:inherit;font-weight:700;cursor:pointer}.customer-auth-primary{margin-top:3px;color:#fff;background:#087fea}.customer-auth-secondary{display:flex;align-items:center;justify-content:center;gap:9px;color:#173858;background:#fff;border:1px solid #c6d9ed}.customer-auth-guest{display:flex;align-items:center;justify-content:center;gap:9px;color:#0b5790;background:#eaf5ff}.customer-auth-divider{display:flex;align-items:center;gap:10px;margin:20px 0;color:#8293a5;font-size:12px}.customer-auth-divider:before,.customer-auth-divider:after{content:"";height:1px;flex:1;background:#dbe5ef}.customer-auth-switch{margin:16px auto 0;border:0;background:transparent;color:#0674d7;cursor:pointer}.customer-auth-note{margin:15px 0 0;color:#8190a0;text-align:center;font-size:11px;line-height:1.45}.customer-auth-error{margin:0;padding:10px;border-radius:8px;color:#a62b2b;background:#fff0f0;font-size:13px}
+/* ==========================================================================
+   Vendly.lk - Modern Customer Storefront Authentication Gate
+   ========================================================================== */
+
+/* Full-page atmospheric backdrop */
+.customer-auth-gate {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  padding: 32px 16px;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% -10%, rgba(37, 99, 235, 0.2), transparent 70%),
+    radial-gradient(circle at 85% 90%, rgba(14, 165, 233, 0.15), transparent 45%),
+    linear-gradient(150deg, #021124 0%, #061d36 45%, #030f1e 100%);
+  font-family: inherit;
+  color: #0f172a;
+}
+
+/* Loading state */
+.customer-auth-gate__loading {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(150deg, #021124 0%, #061d36 45%, #030f1e 100%);
+  color: #ffffff;
+}
+
+.customer-auth-gate__loading-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.customer-auth-gate__loading-spinner {
+  color: #38bdf8;
+  animation: customer-gate-spin 900ms linear infinite;
+}
+
+/* Ambient glow orbs */
+.customer-auth-gate__ambient {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.65;
+}
+
+.customer-auth-gate__ambient--1 {
+  width: 440px;
+  height: 440px;
+  top: -100px;
+  right: -60px;
+  background: radial-gradient(circle, rgba(14, 165, 233, 0.32) 0%, rgba(37, 99, 235, 0.05) 70%);
+  animation: customer-ambient-1 20s ease-in-out infinite alternate;
+}
+
+.customer-auth-gate__ambient--2 {
+  width: 400px;
+  height: 400px;
+  bottom: -100px;
+  left: -80px;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.28) 0%, rgba(14, 165, 233, 0.05) 70%);
+  animation: customer-ambient-2 24s ease-in-out infinite alternate;
+}
+
+@keyframes customer-ambient-1 {
+  0% { transform: translate(0, 0) scale(1); }
+  100% { transform: translate(-35px, 30px) scale(1.1); }
+}
+
+@keyframes customer-ambient-2 {
+  0% { transform: translate(0, 0) scale(1); }
+  100% { transform: translate(35px, -25px) scale(1.08); }
+}
+
+/* Main card */
+.customer-auth-card {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 460px);
+  padding: 36px 32px 28px;
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  box-shadow:
+    0 24px 70px rgba(0, 10, 28, 0.45),
+    0 4px 18px rgba(0, 0, 0, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  animation: customer-card-in 320ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes customer-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Header section */
+.customer-auth-card__heading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.customer-auth-card__logo-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.customer-auth-card__logo {
+  object-fit: contain;
+  filter: drop-shadow(0 4px 10px rgba(0, 40, 90, 0.12));
+}
+
+.customer-auth-card__badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #0284c7;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 999px;
+}
+
+.customer-auth-card__title {
+  margin: 0 0 6px;
+  font-size: 1.45rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #0f172a;
+}
+
+.customer-auth-card__subtitle {
+  margin: 0;
+  font-size: 0.86rem;
+  line-height: 1.45;
+  color: #64748b;
+  max-width: 340px;
+}
+
+/* Mode tabs */
+.customer-auth-card__tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  padding: 5px;
+  gap: 4px;
+  margin-bottom: 20px;
+  border-radius: 12px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+}
+
+.customer-auth-card__tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 9px;
+  font-family: inherit;
+  font-size: 0.86rem;
+  font-weight: 650;
+  color: #64748b;
+  background: transparent;
+  cursor: pointer;
+  transition: all 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.customer-auth-card__tab:hover {
+  color: #0f172a;
+}
+
+.customer-auth-card__tab--active {
+  color: #0f172a !important;
+  background: #ffffff !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+/* Form structure */
+.customer-auth-card__form {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.customer-auth-card__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.customer-auth-card__field label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #334155;
+  letter-spacing: -0.01em;
+}
+
+/* Input container with icon */
+.customer-auth-card__input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.customer-auth-card__input-icon {
+  position: absolute;
+  left: 14px;
+  color: #94a3b8;
+  pointer-events: none;
+  transition: color 180ms ease;
+}
+
+.customer-auth-card__input-wrap input {
+  width: 100%;
+  min-height: 46px;
+  padding: 0 14px 0 42px;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 11px;
+  outline: none;
+  font-family: inherit;
+  font-size: 0.88rem;
+  color: #0f172a;
+  background: #ffffff;
+  transition: border-color 180ms ease, box-shadow 180ms ease, background-color 180ms ease;
+}
+
+.customer-auth-card__input-wrap input:hover {
+  border-color: #94a3b8;
+}
+
+.customer-auth-card__input-wrap input:focus {
+  border-color: #0284c7;
+  box-shadow: 0 0 0 3.5px rgba(2, 132, 199, 0.16);
+  background: #ffffff;
+}
+
+.customer-auth-card__input-wrap:focus-within .customer-auth-card__input-icon {
+  color: #0284c7;
+}
+
+.customer-auth-card__input-wrap input::placeholder {
+  color: #94a3b8;
+  font-size: 0.84rem;
+}
+
+/* Password eye button */
+.customer-auth-card__toggle-pwd {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+
+.customer-auth-card__toggle-pwd:hover {
+  color: #334155;
+  background: #f1f5f9;
+}
+
+/* Alert notifications */
+.customer-auth-card__alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 14px;
+  border-radius: 10px;
+  font-size: 0.83rem;
+  line-height: 1.4;
+  animation: customer-alert-in 180ms ease-out;
+}
+
+@keyframes customer-alert-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.customer-auth-card__alert-icon {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.customer-auth-card__alert--error {
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.customer-auth-card__alert--success {
+  border: 1px solid #bbf7d0;
+  background: #f0fdf4;
+  color: #15803d;
+}
+
+/* Submit primary button */
+.customer-auth-card__primary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  margin-top: 4px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 11px;
+  font-family: inherit;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #ffffff;
+  background: linear-gradient(135deg, #0284c7 0%, #2563eb 100%);
+  box-shadow: 0 8px 24px rgba(37, 99, 235, 0.28);
+  cursor: pointer;
+  transition: all 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.customer-auth-card__primary:hover:not(:disabled) {
+  transform: translateY(-1.5px);
+  box-shadow: 0 10px 28px rgba(37, 99, 235, 0.38);
+  background: linear-gradient(135deg, #0369a1 0%, #1d4ed8 100%);
+}
+
+.customer-auth-card__primary:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.customer-auth-card__primary:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.customer-auth-card__spinner {
+  animation: customer-gate-spin 900ms linear infinite;
+}
+
+@keyframes customer-gate-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Divider */
+.customer-auth-card__divider {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 20px 0 16px;
+  color: #94a3b8;
+  font-size: 0.74rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.customer-auth-card__divider::before,
+.customer-auth-card__divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: #e2e8f0;
+}
+
+.customer-auth-card__divider span {
+  padding: 0 12px;
+}
+
+/* Social & Guest actions */
+.customer-auth-card__social-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Google button */
+.customer-auth-card__google {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 11px;
+  width: 100%;
+  min-height: 46px;
+  padding: 0 18px;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 11px;
+  font-family: inherit;
+  font-size: 0.88rem;
+  font-weight: 650;
+  color: #1e293b;
+  background: #ffffff;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+  transition: all 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.customer-auth-card__google:hover:not(:disabled) {
+  background: #f8fafc;
+  border-color: #94a3b8;
+  color: #0f172a;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transform: translateY(-1px);
+}
+
+.customer-auth-card__google:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+/* Guest button */
+.customer-auth-card__guest {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 46px;
+  padding: 0 18px;
+  border: 1.5px solid #bae6fd;
+  border-radius: 11px;
+  font-family: inherit;
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: #0369a1;
+  background: #f0f9ff;
+  cursor: pointer;
+  transition: all 180ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.customer-auth-card__guest:hover:not(:disabled) {
+  background: #e0f2fe;
+  border-color: #7dd3fc;
+  color: #0284c7;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.12);
+}
+
+.customer-auth-card__guest:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.customer-auth-card__guest-icon {
+  color: #0284c7;
+}
+
+.customer-auth-card__google:disabled,
+.customer-auth-card__guest:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+/* Informational note */
+.customer-auth-card__note {
+  margin: 18px 0 0;
+  color: #64748b;
+  text-align: center;
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+/* Security footer */
+.customer-auth-card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #f1f5f9;
+  font-size: 0.74rem;
+  color: #94a3b8;
+}
+
+.customer-auth-card__footer svg {
+  color: #10b981;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 520px) {
+  .customer-auth-gate {
+    padding: 16px 12px;
+  }
+
+  .customer-auth-card {
+    padding: 26px 20px 22px;
+    border-radius: 18px;
+  }
+
+  .customer-auth-card__title {
+    font-size: 1.25rem;
+  }
+
+  .customer-auth-card__subtitle {
+    font-size: 0.82rem;
+  }
+
+  .customer-auth-card__logo {
+    height: 65px;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .customer-auth-card,
+  .customer-auth-gate__ambient,
+  .customer-auth-card__alert {
+    animation: none;
+  }
+
+  .customer-auth-card__primary:hover:not(:disabled),
+  .customer-auth-card__google:hover:not(:disabled),
+  .customer-auth-card__guest:hover:not(:disabled) {
+    transform: none;
+  }
+}
