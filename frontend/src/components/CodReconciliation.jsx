@@ -6,6 +6,7 @@ import { formatAnalyticsMoney, saveCodSettlement } from "../services/analyticsSe
 import StatCard from "./StatCard";
 import TablePagination from "./TablePagination";
 import "./OrderFilters.css";
+import "./OrderTable.css";
 import "./CodReconciliation.css";
 
 
@@ -83,93 +84,97 @@ function CodReconciliation({ businessId, reconciliation, isLoading, error, onCha
 
   return (
     <section className="cod-reconciliation" aria-labelledby="cod-title">
-      <header className="cod-reconciliation__intro">
-        <div><span>Courier collections</span><h3 id="cod-title">COD reconciliation</h3><p>Compare delivered COD balances with courier charges and settlements received.</p></div>
-        <WalletCards aria-hidden="true" />
-      </header>
-
-      <div className="cod-reconciliation__stats">
+      <div className="cod-reconciliation__stats stats-grid">
         <StatCard label="Expected settlement" value={formatAnalyticsMoney(summary.expectedSettlementMinor)} icon={CircleDollarSign} tone="blue" />
         <StatCard label="Received" value={formatAnalyticsMoney(summary.receivedSettlementMinor)} icon={Banknote} tone="green" />
         <StatCard label="Variance" value={formatAnalyticsMoney(summary.varianceMinor)} icon={WalletCards} tone="purple" />
         <StatCard label="Overdue" value={String(summary.overdueCount ?? 0)} icon={AlertTriangle} tone="red" />
       </div>
 
-      <section className="cod-reconciliation__filters filter-panel" aria-label="COD reconciliation filters">
-        <button
-          className="filter-panel__mobile-toggle"
-          type="button"
-          aria-expanded={areMobileFiltersOpen}
-          aria-controls="cod-reconciliation-filter-fields"
-          onClick={() => setAreMobileFiltersOpen((value) => !value)}
-        >
-          <span><Funnel size={17} aria-hidden="true" /> {areMobileFiltersOpen ? "Hide filters" : "Show filters"}</span>
-          <ChevronDown className={areMobileFiltersOpen ? "is-open" : ""} size={18} aria-hidden="true" />
-        </button>
-        <div id="cod-reconciliation-filter-fields" className={`filter-panel__form cod-reconciliation__filter-form ${areMobileFiltersOpen ? "is-open" : ""}`}>
-          <div className="filter-panel__field filter-panel__field--search">
-            <Search size={15} className="filter-panel__search-icon" aria-hidden="true" />
-            <input
-              type="search"
-              value={filters.search}
-              onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
-              placeholder="Search order, customer, courier or reference..."
-            />
-            {filters.search && (
-              <button
-                type="button"
-                className="filter-panel__clear"
-                onClick={() => setFilters((current) => ({ ...current, search: "" }))}
-                aria-label="Clear search"
-              >
-                <X size={15} />
-              </button>
-            )}
-          </div>
-          <div className="filter-panel__field filter-panel__field--select">
-            <select value={filters.status} onChange={(event) => setFilters((current) => ({ ...current, status: event.target.value }))}>
-              <option value="all">All statuses</option>
-              {["unreconciled", "pending", "partial", "reconciled", "disputed"].map((status) => <option key={status} value={status}>{status.replaceAll("-", " ")}</option>)}
-            </select>
-          </div>
-          <div className="filter-panel__field filter-panel__field--select">
-            <select value={filters.courier} onChange={(event) => setFilters((current) => ({ ...current, courier: event.target.value }))}>
-              <option value="all">All couriers</option>
-              {couriers.map((courier) => <option key={courier}>{courier}</option>)}
-            </select>
-          </div>
-          <div className="filter-panel__actions">
-            <button className="filter-panel__apply" type="button" onClick={() => setAreMobileFiltersOpen(false)}>
-              <Funnel size={15} aria-hidden="true" />
-              <span>Filter</span>
-            </button>
+      <section className="orders-table-section cod-reconciliation__table-card">
+        <div className="orders-table__filters-wrapper">
+          <section className="cod-reconciliation__filters filter-panel" aria-label="COD reconciliation filters">
             <button
-              className="filter-panel__reset"
+              className="filter-panel__mobile-toggle"
               type="button"
-              onClick={() => setFilters({ search: "", status: "all", courier: "all" })}
-              aria-label="Reset reconciliation filters"
-              title="Reset filters"
+              aria-expanded={areMobileFiltersOpen}
+              aria-controls="cod-reconciliation-filter-fields"
+              onClick={() => setAreMobileFiltersOpen((value) => !value)}
             >
-              <RotateCcw className="order-filters__resetbt" size={17} aria-hidden="true" />
+              <span><Funnel size={17} aria-hidden="true" /> {areMobileFiltersOpen ? "Hide filters" : "Show filters"}</span>
+              <ChevronDown className={areMobileFiltersOpen ? "is-open" : ""} size={18} aria-hidden="true" />
             </button>
-          </div>
+            <div id="cod-reconciliation-filter-fields" className={`filter-panel__form cod-reconciliation__filter-form ${areMobileFiltersOpen ? "is-open" : ""}`}>
+              <div className="filter-panel__field filter-panel__field--search">
+                <Search size={15} className="filter-panel__search-icon" aria-hidden="true" />
+                <input
+                  type="search"
+                  value={filters.search}
+                  onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
+                  placeholder="Search order, customer, courier or reference..."
+                />
+                {filters.search && (
+                  <button
+                    type="button"
+                    className="filter-panel__clear"
+                    onClick={() => setFilters((current) => ({ ...current, search: "" }))}
+                    aria-label="Clear search"
+                  >
+                    <X size={15} />
+                  </button>
+                )}
+              </div>
+              <div className="filter-panel__field filter-panel__field--select">
+                <select value={filters.status} onChange={(event) => setFilters((current) => ({ ...current, status: event.target.value }))}>
+                  <option value="all">All statuses</option>
+                  {["unreconciled", "pending", "partial", "reconciled", "disputed"].map((status) => <option key={status} value={status}>{status.replaceAll("-", " ")}</option>)}
+                </select>
+              </div>
+              <div className="filter-panel__field filter-panel__field--select">
+                <select value={filters.courier} onChange={(event) => setFilters((current) => ({ ...current, courier: event.target.value }))}>
+                  <option value="all">All couriers</option>
+                  {couriers.map((courier) => <option key={courier}>{courier}</option>)}
+                </select>
+              </div>
+              <div className="filter-panel__actions">
+                <button
+                  className="filter-panel__apply"
+                  type="button"
+                  onClick={() => setAreMobileFiltersOpen(false)}
+                  aria-label="Filter"
+                  title="Filter"
+                >
+                  <Funnel size={15} aria-hidden="true" />
+                </button>
+                <button
+                  className="filter-panel__reset"
+                  type="button"
+                  onClick={() => setFilters({ search: "", status: "all", courier: "all" })}
+                  aria-label="Reset reconciliation filters"
+                  title="Reset filters"
+                >
+                  <RotateCcw className="order-filters__resetbt" size={17} aria-hidden="true" />
+                </button>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <div className="orders-table__scroll cod-reconciliation__table-shell">
+          <table><thead><tr><th>Order</th><th>Customer</th><th>Courier</th><th>COD due</th><th>Courier fee</th><th>Expected</th><th>Received</th><th>Variance</th><th>Status</th><th>Action</th></tr></thead>
+            <tbody>{isLoading ? <tr><td colSpan="10">Loading reconciliation...</td></tr> : pagination.pageItems.length === 0 ? <tr><td colSpan="10">No delivered COD orders match these filters.</td></tr> : pagination.pageItems.map((entry) => (
+              <tr key={entry.orderId} className={entry.isOverdue ? "is-overdue" : ""}>
+                <td data-label="Order"><strong>{entry.orderNumber}</strong><small>{entry.deliveredAt ? new Date(entry.deliveredAt).toLocaleDateString("en-LK") : "Delivered"}</small></td>
+                <td data-label="Customer">{entry.customerName}</td><td data-label="Courier">{entry.courierName}</td>
+                <td data-label="COD due">{formatAnalyticsMoney(entry.expectedCollectionMinor)}</td><td data-label="Courier fee">{formatAnalyticsMoney(entry.courierChargeMinor)}</td>
+                <td data-label="Expected">{formatAnalyticsMoney(entry.expectedSettlementMinor)}</td><td data-label="Received">{formatAnalyticsMoney(entry.receivedSettlementMinor)}</td>
+                <td data-label="Variance" className={entry.varianceMinor < 0 ? "is-negative" : ""}>{formatAnalyticsMoney(entry.varianceMinor)}</td>
+                <td data-label="Status"><span className={`cod-reconciliation__status is-${entry.status}`}>{entry.isOverdue ? "overdue" : entry.status}</span></td>
+                <td data-label="Action"><button className="cod-reconciliation__record" type="button" onClick={() => openSettlement(entry)}>Record</button></td>
+              </tr>))}</tbody></table>
+          {!isLoading && <TablePagination pagination={pagination} label="COD orders" />}
         </div>
       </section>
-
-      <div className="cod-reconciliation__table-shell">
-        <table><thead><tr><th>Order</th><th>Customer</th><th>Courier</th><th>COD due</th><th>Courier fee</th><th>Expected</th><th>Received</th><th>Variance</th><th>Status</th><th>Action</th></tr></thead>
-          <tbody>{isLoading ? <tr><td colSpan="10">Loading reconciliation...</td></tr> : pagination.pageItems.length === 0 ? <tr><td colSpan="10">No delivered COD orders match these filters.</td></tr> : pagination.pageItems.map((entry) => (
-            <tr key={entry.orderId} className={entry.isOverdue ? "is-overdue" : ""}>
-              <td data-label="Order"><strong>{entry.orderNumber}</strong><small>{entry.deliveredAt ? new Date(entry.deliveredAt).toLocaleDateString("en-LK") : "Delivered"}</small></td>
-              <td data-label="Customer">{entry.customerName}</td><td data-label="Courier">{entry.courierName}</td>
-              <td data-label="COD due">{formatAnalyticsMoney(entry.expectedCollectionMinor)}</td><td data-label="Courier fee">{formatAnalyticsMoney(entry.courierChargeMinor)}</td>
-              <td data-label="Expected">{formatAnalyticsMoney(entry.expectedSettlementMinor)}</td><td data-label="Received">{formatAnalyticsMoney(entry.receivedSettlementMinor)}</td>
-              <td data-label="Variance" className={entry.varianceMinor < 0 ? "is-negative" : ""}>{formatAnalyticsMoney(entry.varianceMinor)}</td>
-              <td data-label="Status"><span className={`cod-reconciliation__status is-${entry.status}`}>{entry.isOverdue ? "overdue" : entry.status}</span></td>
-              <td data-label="Action"><button className="cod-reconciliation__record" type="button" onClick={() => openSettlement(entry)}>Record</button></td>
-            </tr>))}</tbody></table>
-        {!isLoading && <TablePagination pagination={pagination} label="COD orders" />}
-      </div>
 
       {editing && <div className="cod-reconciliation__overlay" role="presentation"><form className="cod-reconciliation__dialog" onSubmit={save}><header><div><span>Courier settlement</span><h3>{editing.orderNumber}</h3></div><button type="button" onClick={() => setEditing(null)} aria-label="Close"><X /></button></header>
         <div className="cod-reconciliation__form-grid">

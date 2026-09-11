@@ -31,16 +31,7 @@ function SalesChannelPerformance({ report, isLoading }) {
 
   return (
     <section className="sales-channel-report" aria-labelledby="sales-channel-title">
-      <header className="sales-channel-report__intro">
-        <div>
-          <span>Channel intelligence</span>
-          <h3 id="sales-channel-title">Online vs physical-shop sales</h3>
-          <p>Compare recognized revenue and product profit using delivered online orders and completed counter sales.</p>
-        </div>
-        <Store aria-hidden="true" />
-      </header>
-
-      <div className="sales-channel-report__stats">
+      <div className="sales-channel-report__stats stats-grid">
         <StatCard label="Recognized sales" value={String(summary.saleCount ?? 0)} icon={PackageCheck} tone="blue" />
         <StatCard label="Units sold" value={String(summary.unitsSold ?? 0)} icon={Store} tone="orange" />
         <StatCard label="Combined revenue" value={formatAnalyticsMoney(summary.productRevenueMinor)} icon={CircleDollarSign} tone="purple" />

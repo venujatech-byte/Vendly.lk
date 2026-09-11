@@ -188,21 +188,6 @@ function AnalyticsPage() {
 
   return (
     <main className="dashboard analytics-page">
-      <section className="analytics-hero" aria-labelledby="analytics-title">
-        <div>
-          <span>Business intelligence</span>
-          <h2 id="analytics-title">Analytics &amp; insights</h2>
-          <p>Understand sales, profitability, fulfilment and inventory from one place.</p>
-        </div>
-        <div className="analytics-hero__signals">
-          <span><ShoppingBag size={16} /><b>{performance.currentWeekOrders ?? 0}</b> orders this week</span>
-          <span className={(performance.weeklyOrderChangePercent ?? 0) < 0 ? "is-negative" : ""}>
-            <TrendingUp size={16} /><b>{performance.weeklyOrderChangePercent ?? 0}%</b> vs previous week
-          </span>
-          <span><CircleCheck size={16} /><b>{performance.deliverySuccessPercent ?? 0}%</b> delivery success</span>
-        </div>
-      </section>
-
       <nav className="analytics-view-tabs" aria-label="Analytics views">
         <button type="button" className={activeView === "overview" ? "is-active" : ""} onClick={() => setActiveView("overview")}><LayoutDashboard size={16} /><span>Overview</span></button>
         <button type="button" className={activeView === "ledger" ? "is-active" : ""} onClick={() => setActiveView("ledger")}><ReceiptText size={16} /><span>Transaction ledger</span></button>

@@ -16,8 +16,9 @@ import DateRangePicker from "./DateRangePicker";
 import useTablePagination from "../hooks/useTablePagination";
 import { downloadAnalyticsLedger, formatAnalyticsMoney } from "../services/analyticsService";
 import StatCard from "./StatCard";
-import TablePagination from "./TablePagination";
 import "./OrderFilters.css";
+import "./OrderTable.css";
+import "../pages/Buttons.css";
 import "./AnalyticsLedger.css";
 
 
@@ -108,98 +109,105 @@ function AnalyticsLedger({ businessId, ledger, isLoading, error }) {
 
   return (
     <section className="analytics-ledger" aria-labelledby="ledger-title">
-      <header className="analytics-ledger__intro">
-        <div>
-          <span>Sales and adjustments</span>
-          <h3 id="ledger-title">Transaction ledger</h3>
-          <p>Trace sales, reversals, warranty deductions and inventory purchases in one place.</p>
-        </div>
-        <div className="analytics-ledger__intro-actions">
-          <button type="button" onClick={exportLedger} disabled={!businessId || isExporting}>
-            <Download size={16} aria-hidden="true" />
-            {isExporting ? "Exporting..." : "Export ledger"}
-          </button>
-          <ReceiptText aria-hidden="true" />
-        </div>
-      </header>
-
       {exportError && <p className="analytics-ledger__export-error" role="alert">{exportError}</p>}
 
-      <div className="analytics-ledger__stats" aria-label="Filtered ledger totals">
+      <div className="analytics-ledger__stats stats-grid" aria-label="Filtered ledger totals">
         <StatCard label="Transactions" value={String(filteredEntries.length)} icon={ReceiptText} tone="blue" />
         <StatCard label="Money in" value={formatAnalyticsMoney(filteredSummary.creditMinor)} icon={BanknoteArrowUp} tone="green" />
         <StatCard label="Money out" value={formatAnalyticsMoney(filteredSummary.debitMinor)} icon={BanknoteArrowDown} tone="red" />
         <StatCard label="Net movement" value={formatAnalyticsMoney(filteredSummary.netMinor)} icon={WalletCards} tone="purple" />
       </div>
 
-      <section className="analytics-ledger__filters filter-panel" aria-label="Ledger filters">
-        <button
-          className="filter-panel__mobile-toggle"
-          type="button"
-          aria-expanded={areMobileFiltersOpen}
-          aria-controls="ledger-filter-fields"
-          onClick={() => setAreMobileFiltersOpen((isOpen) => !isOpen)}
-        >
-          <span><Funnel size={17} aria-hidden="true" /> {areMobileFiltersOpen ? "Hide filters" : "Show filters"}</span>
-          <ChevronDown className={areMobileFiltersOpen ? "is-open" : ""} size={18} aria-hidden="true" />
-        </button>
-        <div id="ledger-filter-fields" className={`analytics-ledger__filter-form filter-panel__form ${areMobileFiltersOpen ? "is-open" : ""}`}>
-          <div className="filter-panel__field filter-panel__field--search">
-            <Search size={15} className="filter-panel__search-icon" aria-hidden="true" />
-            <input
-              type="search"
-              value={filters.search}
-              onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
-              placeholder="Search reference, customer, item or payment..."
-            />
-            {filters.search && (
-              <button
-                type="button"
-                className="filter-panel__clear"
-                onClick={() => setFilters((current) => ({ ...current, search: "" }))}
-                aria-label="Clear search"
-              >
-                <X size={14} />
-              </button>
-            )}
-          </div>
-          <div className="filter-panel__field filter-panel__field--date">
-            <DateRangePicker
-              startDate={filters.dateFrom}
-              endDate={filters.dateTo}
-              onChange={({ startDate, endDate }) =>
-                setFilters((current) => ({
-                  ...current,
-                  dateFrom: startDate,
-                  dateTo: endDate,
-                }))
-              }
-            />
-          </div>
-          <div className="filter-panel__field filter-panel__field--select">
-            <select value={filters.type} onChange={(event) => setFilters((current) => ({ ...current, type: event.target.value }))}>
-              {TRANSACTION_TYPES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-            </select>
-          </div>
-          <div className="filter-panel__actions">
-            <button className="filter-panel__apply" type="button" onClick={() => setAreMobileFiltersOpen(false)}>
-              <Funnel size={15} aria-hidden="true" />
-              <span>Filter</span>
-            </button>
+      <section className="orders-table-section analytics-ledger__table-card">
+        <div className="orders-table__filters-wrapper">
+          <section className="analytics-ledger__filters filter-panel" aria-label="Ledger filters">
             <button
-              className="filter-panel__reset"
+              className="filter-panel__mobile-toggle"
               type="button"
-              onClick={resetFilters}
-              aria-label="Reset ledger filters"
-              title="Reset filters"
+              aria-expanded={areMobileFiltersOpen}
+              aria-controls="ledger-filter-fields"
+              onClick={() => setAreMobileFiltersOpen((isOpen) => !isOpen)}
             >
-              <RotateCcw className="order-filters__resetbt" size={17} aria-hidden="true" />
+              <span><Funnel size={17} aria-hidden="true" /> {areMobileFiltersOpen ? "Hide filters" : "Show filters"}</span>
+              <ChevronDown className={areMobileFiltersOpen ? "is-open" : ""} size={18} aria-hidden="true" />
             </button>
-          </div>
-        </div>
-      </section>
+            <div id="ledger-filter-fields" className={`analytics-ledger__filter-form filter-panel__form ${areMobileFiltersOpen ? "is-open" : ""}`}>
+              <div className="filter-panel__field filter-panel__field--search">
+                <Search size={15} className="filter-panel__search-icon" aria-hidden="true" />
+                <input
+                  type="search"
+                  value={filters.search}
+                  onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
+                  placeholder="Search reference, customer, item or payment..."
+                />
+                {filters.search && (
+                  <button
+                    type="button"
+                    className="filter-panel__clear"
+                    onClick={() => setFilters((current) => ({ ...current, search: "" }))}
+                    aria-label="Clear search"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+              <div className="filter-panel__field filter-panel__field--date">
+                <DateRangePicker
+                  startDate={filters.dateFrom}
+                  endDate={filters.dateTo}
+                  onChange={({ startDate, endDate }) =>
+                    setFilters((current) => ({
+                      ...current,
+                      dateFrom: startDate,
+                      dateTo: endDate,
+                    }))
+                  }
+                />
+              </div>
+              <div className="filter-panel__field filter-panel__field--select">
+                <select value={filters.type} onChange={(event) => setFilters((current) => ({ ...current, type: event.target.value }))}>
+                  {TRANSACTION_TYPES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                </select>
+              </div>
+              <div className="filter-panel__actions">
+                <button
+                  className="filter-panel__apply"
+                  type="button"
+                  onClick={() => setAreMobileFiltersOpen(false)}
+                  aria-label="Filter"
+                  title="Filter"
+                >
+                  <Funnel size={15} aria-hidden="true" />
+                </button>
+                <button
+                  className="filter-panel__reset"
+                  type="button"
+                  onClick={resetFilters}
+                  aria-label="Reset ledger filters"
+                  title="Reset filters"
+                >
+                  <RotateCcw className="order-filters__resetbt" size={17} aria-hidden="true" />
+                </button>
+              </div>
 
-      <div className="analytics-ledger__table-shell">
+              <div className="filter-panel__extra-actions">
+                <div className="page__actions">
+                  <button
+                    type="button"
+                    onClick={exportLedger}
+                    disabled={!businessId || isExporting}
+                    title="Export ledger"
+                  >
+                    <Download size={14} aria-hidden="true" />
+                    <span>{isExporting ? "Exporting..." : "Export ledger"}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <div className="orders-table__scroll analytics-ledger__table-shell">
         <table className="analytics-ledger__table">
           <thead><tr><th>Date</th><th>Reference</th><th>Type</th><th>Customer &amp; details</th><th>Payment</th><th>Money in</th><th>Money out</th><th>Balance</th></tr></thead>
           <tbody>
@@ -225,12 +233,12 @@ function AnalyticsLedger({ businessId, ledger, isLoading, error }) {
           </tbody>
         </table>
         {!isLoading && <TablePagination pagination={pagination} label="transactions" />}
-      </div>
+        </div>
+      </section>
 
       <p className="analytics-ledger__note">This activity ledger is derived from Vendly sales, warranty and stock-in records. It is not a bank statement or a double-entry accounting report.</p>
     </section>
   );
 }
-
 
 export default AnalyticsLedger;
