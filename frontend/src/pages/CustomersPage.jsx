@@ -238,27 +238,25 @@ function CustomersPage() {
   const customerTabs = [
     {
       id: "all",
-      label: "All Customers",
+      label: "Customers",
       icon: UsersRound,
-      count: customers.length,
     },
     {
       id: "messages",
       label: "Messages",
       icon: MessageSquare,
-      count: chatSummary.unread,
+      count: chatSummary.unread > 0 ? chatSummary.unread : undefined,
     },
     {
       id: "reviews",
       label: "Reviews",
       icon: Mail,
-      count: reviews.length,
     },
     {
       id: "fraud",
-      label: "Fraud Reports",
+      label: "Fraud",
       icon: ShieldAlert,
-      count: fraudCustomers.length,
+      count: fraudCustomers.length > 0 ? fraudCustomers.length : undefined,
     },
   ];
 

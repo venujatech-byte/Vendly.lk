@@ -438,7 +438,7 @@ function InventoryPage() {
   }
 
   return (
-    <main className="dashboard">
+    <main className="dashboard inventory-page">
       <input
         ref={inventoryFileInputRef}
         className="inventory-page__file-input"

@@ -13,6 +13,7 @@ import {
 import { useMemo, useState } from "react";
 
 import DateRangePicker from "./DateRangePicker";
+import TablePagination from "./TablePagination";
 import useTablePagination from "../hooks/useTablePagination";
 import { downloadAnalyticsLedger, formatAnalyticsMoney } from "../services/analyticsService";
 import StatCard from "./StatCard";

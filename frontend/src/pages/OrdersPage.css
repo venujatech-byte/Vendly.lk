@@ -212,7 +212,7 @@ html[data-theme="dark"] .orders-page__share-button:hover svg {
   padding: 4px;
   overflow-x: auto;
   border: 1px solid var(--color-border);
-  border-radius: 11px;
+  border-radius: 10px;
   background: var(--color-surface);
   scrollbar-width: none;
 }
@@ -225,16 +225,16 @@ html[data-theme="dark"] .orders-page__share-button:hover svg {
   display: inline-flex;
   align-items: center;
   flex: 0 0 auto;
-  gap: 7px;
-  min-height: 34px;
-  padding: 7px 12px;
+  gap: 6px;
+  min-height: 32px;
+  padding: 6px 12px;
   border: 0;
-  border-radius: 8px;
+  border-radius: 7px;
   color: var(--color-muted);
   background: transparent;
   font: inherit;
-  font-size: 10px;
-  font-weight: 750;
+  font-size: 12px;
+  font-weight: 700;
   white-space: nowrap;
   cursor: pointer;
 }
