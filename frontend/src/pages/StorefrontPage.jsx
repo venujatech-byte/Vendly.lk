@@ -34,6 +34,7 @@ import {
   Store,
   Sun,
   Trash2,
+  Truck,
   UserRound,
   Volume2,
   VolumeX,
@@ -2030,9 +2031,22 @@ function CatalogView({
         ))}
         {products.length === 0 && (
           <div className="storefront-empty-state">
-            <Search size={34} />
+            <Search size={38} />
             <h2>{text.noMatchingProducts}</h2>
             <p>{text.tryDifferentSearch}</p>
+            {(searchText || activeCategory !== "All" || activeFilterCount > 0) && (
+              <button
+                type="button"
+                className="storefront-empty-state__reset"
+                onClick={() => {
+                  onSearchChange("");
+                  onCategoryChange("All");
+                  onClearFilters();
+                }}
+              >
+                Reset all filters
+              </button>
+            )}
           </div>
         )}
       </section>
@@ -2279,8 +2293,21 @@ function ProductCard({
     variantImageUrl(firstVariant) ||
     publicMediaUrl(product.media?.[0]);
 
+  const hasDiscount =
+    Number(product.compareAtPriceMinor) > Number(product.sellingPriceMinor);
+  const discountPercent = hasDiscount
+    ? Math.round(
+        ((product.compareAtPriceMinor - product.sellingPriceMinor) /
+          product.compareAtPriceMinor) *
+          100,
+      )
+    : 0;
+
+  const isOutOfStock = (product.availableStock ?? 0) <= 0;
+  const isLowStock = !isOutOfStock && (product.availableStock ?? 0) <= 5;
+
   return (
-    <article className="storefront-product-card">
+    <article className={`storefront-product-card ${isOutOfStock ? "is-out-of-stock" : ""}`}>
       <div className="storefront-product-card__media">
         <button
           type="button"
@@ -2289,81 +2316,104 @@ function ProductCard({
           aria-label={`View details for ${product.name}`}
         >
           {productImage ? (
-            <img src={productImage} alt={product.name} />
+            <img src={productImage} alt={product.name} loading="lazy" />
           ) : (
             <Package size={52} />
           )}
         </button>
-        <strong>{money(product.sellingPriceMinor)}</strong>
-        {product.compareAtPriceMinor > product.sellingPriceMinor && (
-          <small>{money(product.compareAtPriceMinor)}</small>
-        )}
+
+        <div className="storefront-product-card__badges">
+          {hasDiscount && (
+            <span className="storefront-product-card__discount">
+              -{discountPercent}%
+            </span>
+          )}
+          {isOutOfStock ? (
+            <span className="storefront-product-card__stock-badge is-out">
+              Out of stock
+            </span>
+          ) : isLowStock ? (
+            <span className="storefront-product-card__stock-badge is-low">
+              Only {product.availableStock} left
+            </span>
+          ) : null}
+        </div>
+
+        <button
+          type="button"
+          className="storefront-product-card__quick-view"
+          onClick={() => onOpenDetails(product)}
+          title={text.viewDetails || "Quick view"}
+          aria-label={`Quick view ${product.name}`}
+        >
+          <Search size={15} />
+        </button>
       </div>
 
       <div className="storefront-product-card__body">
-        <span>{product.categoryName || product.brand || "Product"}</span>
-        <h2>
-          <button type="button" onClick={() => onOpenDetails(product)}>
-            {product.name}
-          </button>
-        </h2>
-        <p>
-          {product.description ||
-            product.aiDescription ||
-            "Ask our chatbot for more information."}
-        </p>
-        {cartQuantity > 0 && (
-          <span className="storefront-product-card__added">
-            <Check size={14} /> {text.addedToCart} ({cartQuantity})
+        <div className="storefront-product-card__header">
+          <span className="storefront-product-card__category">
+            {product.categoryName || product.brand || "Product"}
           </span>
-        )}
-
-        <div className="storefront-product-card__stock">
-          <CheckCircle2 size={15} /> {product.availableStock} available
-          {product.approvedReviewCount > 0 && (
-            <span>
-              <Star size={14} fill="currentColor" />{" "}
-              {product.approvedReviewCount} reviews
+          {product.approvedReviewCount > 0 ? (
+            <span className="storefront-product-card__rating">
+              <Star size={13} fill="currentColor" /> {product.approvedReviewCount}
+            </span>
+          ) : (
+            <span className="storefront-product-card__stock-tag">
+              <CheckCircle2 size={12} /> In stock
             </span>
           )}
         </div>
 
-        {hasMultipleVariants && (
-          <div className="storefront-product-card__variants">
-            {product.variants.map((variant) => (
-              <button
-                type="button"
-                key={variant.id}
-                onClick={() => onAddToCart(product, variant)}
-                title={`${text.addToCart}: ${variant.size || variant.sku}`}
-              >
-                {variant.size || variant.sku}
-              </button>
-            ))}
-          </div>
-        )}
+        <h2 className="storefront-product-card__title">
+          <button type="button" onClick={() => onOpenDetails(product)}>
+            {product.name}
+          </button>
+        </h2>
+
+        <div className="storefront-product-card__pricing">
+          <strong className="storefront-product-card__price">
+            {money(product.sellingPriceMinor)}
+          </strong>
+          {hasDiscount && (
+            <small className="storefront-product-card__compare-price">
+              {money(product.compareAtPriceMinor)}
+            </small>
+          )}
+        </div>
 
         <div className="storefront-product-card__actions">
           <button
             type="button"
-            disabled={!firstVariant}
+            className={`storefront-product-card__cart-btn ${cartQuantity > 0 ? "is-added" : ""}`}
+            disabled={!firstVariant || isOutOfStock}
             onClick={() =>
-              // With options to choose from, adding "the first" picks for the
-              // customer - the popup asks instead.
               hasMultipleVariants
                 ? onOpenDetails(product)
                 : onAddToCart(product, firstVariant)
             }
           >
-            <ShoppingCart size={17} />
-            {text.addToCart}
+            {cartQuantity > 0 ? (
+              <>
+                <Check size={16} />
+                <span>{text.addedToCart} ({cartQuantity})</span>
+              </>
+            ) : (
+              <>
+                <ShoppingCart size={16} />
+                <span>{hasMultipleVariants ? (text.chooseOption || "Select Option") : text.addToCart}</span>
+              </>
+            )}
           </button>
           <button
             type="button"
+            className="storefront-product-card__chat-btn"
             onClick={onOpenChat}
-            aria-label={`Ask about ${product.name}`}
+            aria-label={`Ask AI about ${product.name}`}
+            title="Ask AI Shopping Assistant"
           >
-            <Bot size={17} />
+            <Sparkles size={16} />
           </button>
         </div>
       </div>

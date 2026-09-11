@@ -424,6 +424,7 @@
   color: var(--sf-muted);
 }
 
+/* Search and Refine Controls */
 .storefront-search {
   display: flex;
   width: min(570px, 100%);
@@ -456,17 +457,218 @@
   color: var(--sf-muted);
 }
 
+/* Search, sort and filter share a row: they are three ways of narrowing the
+   same list, so separating them would read as unrelated controls. */
+.storefront-search-row {
+  display: flex;
+  /* Capped and centred. Letting the row run the full page width stretched the
+     search field across a desktop, which reads as a page-wide banner rather
+     than a control. */
+  width: min(640px, 100%);
+  margin: 26px auto 14px;
+  gap: 9px;
+  align-items: center;
+  justify-content: center;
+}
+
+.storefront-search-row .storefront-search {
+  flex: 1 1 auto;
+  max-width: 520px;
+  margin: 0;
+}
+
+.storefront-refine-button {
+  display: inline-grid;
+  position: relative;
+  flex: 0 0 auto;
+  /* The same height and shape as the search field beside it. At 44px against
+     its 50px the two sat on different baselines and read as unrelated. */
+  width: 50px;
+  height: 50px;
+  place-items: center;
+  border: 1px solid var(--sf-border);
+  border-radius: 999px;
+  color: var(--sf-text);
+  background: var(--sf-surface);
+  cursor: pointer;
+}
+
+.storefront-refine-button.is-active {
+  border-color: var(--sf-primary);
+  color: var(--sf-primary);
+}
+
+.storefront-refine-button span {
+  display: grid;
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 18px;
+  height: 18px;
+  place-items: center;
+  border-radius: 999px;
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 800;
+  background: var(--sf-primary);
+}
+
+.storefront-refine {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 16px;
+  padding: 15px;
+  border: 1px solid var(--sf-border);
+  border-radius: 15px;
+  background: var(--sf-surface);
+  box-shadow: 0 10px 30px rgba(9, 32, 56, 0.07);
+}
+
+.storefront-refine__group {
+  display: grid;
+  gap: 7px;
+}
+
+.storefront-refine__group > small {
+  color: var(--sf-muted);
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.storefront-refine__options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.storefront-refine__options button {
+  padding: 7px 13px;
+  border: 1px solid var(--sf-border);
+  border-radius: 999px;
+  color: var(--sf-text);
+  font-size: 0.78rem;
+  font-weight: 600;
+  background: transparent;
+  cursor: pointer;
+}
+
+.storefront-refine__options button.is-selected {
+  border-color: var(--sf-primary);
+  color: #fff;
+  background: var(--sf-primary);
+}
+
+.storefront-refine__fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: end;
+}
+
+.storefront-refine__fields label {
+  display: grid;
+  gap: 4px;
+  font-size: 0.78rem;
+}
+
+.storefront-refine__fields span {
+  color: var(--sf-muted);
+  font-size: 0.66rem;
+  font-weight: 700;
+}
+
+.storefront-refine__toggle {
+  display: inline-flex !important;
+  gap: 7px;
+  align-items: center;
+  height: 36px;
+  font-weight: 600;
+}
+
+.storefront-refine__toggle input {
+  width: 17px;
+  height: 17px;
+  accent-color: var(--sf-primary);
+}
+
+.storefront-refine select,
+.storefront-refine input[type="number"] {
+  height: 36px;
+  min-width: 138px;
+  padding: 0 10px;
+  border: 1px solid var(--sf-border);
+  border-radius: 9px;
+  color: var(--sf-text);
+  background: var(--sf-bg);
+}
+
+.storefront-refine footer {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding-top: 12px;
+  border-top: 1px solid var(--sf-border);
+}
+
+.storefront-refine footer button {
+  height: 36px;
+  padding: 0 16px;
+  border: 1px solid var(--sf-border);
+  border-radius: 9px;
+  color: var(--sf-muted);
+  font-weight: 600;
+  background: transparent;
+  cursor: pointer;
+}
+
+.storefront-refine__done {
+  border-color: var(--sf-primary) !important;
+  color: #fff !important;
+  background: var(--sf-primary) !important;
+}
+
+@media (max-width: 640px) {
+  .storefront-search-row {
+    margin-top: 16px;
+  }
+
+  .storefront-search-row .storefront-search {
+    flex: 1 1 auto;
+    max-width: none;
+  }
+
+  .storefront-refine-button {
+    width: 46px;
+    height: 46px;
+  }
+
+  .storefront-search-row .storefront-search {
+    height: 46px;
+  }
+
+  .storefront-refine select,
+  .storefront-refine input[type="number"] {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .storefront-refine__fields label {
+    flex: 1 1 130px;
+  }
+}
+
+/* Category Tabs */
 .storefront-categories {
   display: flex;
-  margin-bottom: 28px;
-  /* Centred while they fit, packed from the left once they overflow. Centring
-     an overflowing row pushes its first chip off the left edge, where it
-     cannot be scrolled back to. */
+  margin-bottom: 22px;
   justify-content: center;
   justify-content: safe center;
   gap: 8px;
   overflow-x: auto;
   scrollbar-width: none;
+  padding: 4px 0;
 }
 
 .storefront-categories::-webkit-scrollbar {
@@ -474,208 +676,381 @@
 }
 
 .storefront-categories button {
-  /* Flex items shrink by default, so in a scrolling row they were squeezed
-     narrower than their own text - "PowerBanks" rendered as "PowerBa". The row
-     scrolls; the chips must keep their natural width. */
   flex: 0 0 auto;
-  min-width: 72px;
-  padding: 8px 17px;
+  min-width: 76px;
+  padding: 9px 20px;
   border: 1px solid var(--sf-border);
   border-radius: 999px;
   color: var(--sf-muted);
   background: var(--sf-surface);
+  font-weight: 650;
+  font-size: 0.86rem;
   cursor: pointer;
   white-space: nowrap;
+  box-shadow: 0 1px 4px rgba(18, 38, 63, 0.02);
+  transition: all 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-.storefront-categories button:hover,
+.storefront-categories button:hover {
+  border-color: var(--sf-primary);
+  color: var(--sf-primary);
+  background: color-mix(in srgb, var(--sf-primary) 6%, var(--sf-surface));
+}
+
 .storefront-categories button.is-active {
   border-color: var(--sf-primary);
   color: #fff;
   background: var(--sf-primary);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--sf-primary) 30%, transparent);
 }
 
+/* Product Grid */
 .storefront-product-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 22px;
 }
 
+/* Modern Product Card */
 .storefront-product-card {
+  display: flex;
+  flex-direction: column;
+  position: relative;
   overflow: hidden;
   border: 1px solid var(--sf-border);
-  border-radius: 14px;
+  border-radius: 18px;
   background: var(--sf-surface);
-  box-shadow: 0 5px 15px rgba(27, 49, 76, 0.04);
-  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 220ms ease;
+  box-shadow: 0 4px 16px rgba(18, 38, 63, 0.04);
+  transition: transform 240ms cubic-bezier(0.2, 0.9, 0.3, 1), box-shadow 240ms ease, border-color 240ms ease;
 }
 
 .storefront-product-card:hover {
-  box-shadow: var(--sf-shadow);
-  transform: translateY(-4px);
+  box-shadow: 0 16px 36px rgba(18, 38, 63, 0.1);
+  transform: translateY(-5px);
+  border-color: color-mix(in srgb, var(--sf-primary) 38%, var(--sf-border));
 }
 
+.storefront-product-card.is-out-of-stock {
+  opacity: 0.78;
+}
+
+/* Card Media */
 .storefront-product-card__media {
   position: relative;
-  display: grid;
-  height: 185px;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  aspect-ratio: 1 / 1;
   overflow: hidden;
   color: var(--sf-primary);
   background: var(--sf-soft);
+}
+
+.storefront-product-card__open {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .storefront-product-card__media img {
   width: 100%;
   height: 100%;
-  /* Sellers upload whatever their phone took - tall, square, wide. `cover`
-     filled the frame by cropping, which cut the top and bottom off the
-     product itself. `contain` shows all of it whatever the shape. */
+  max-width: 100%;
+  max-height: 100%;
   object-fit: contain;
-  padding: 10px;
-  transition: transform 350ms ease;
+  padding: 6px;
+  transition: transform 350ms cubic-bezier(0.2, 0.9, 0.3, 1);
 }
 
 .storefront-product-card:hover .storefront-product-card__media img {
-  transform: scale(1.045);
+  transform: scale(1.04);
 }
 
-.storefront-product-card__media strong,
-.storefront-product-card__media small {
+/* Media Badges */
+.storefront-product-card__badges {
   position: absolute;
   top: 12px;
+  left: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.storefront-product-card__discount {
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 0.73rem;
+  font-weight: 800;
+  background: #e24848;
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(226, 72, 72, 0.35);
+  letter-spacing: 0.02em;
+}
+
+.storefront-product-card__stock-badge {
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 0.71rem;
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+}
+
+.storefront-product-card__stock-badge.is-out {
+  background: #556575;
+  color: #fff;
+}
+
+.storefront-product-card__stock-badge.is-low {
+  background: #f59e0b;
+  color: #1e1e1e;
+}
+
+/* Quick View floating action */
+.storefront-product-card__quick-view {
+  position: absolute;
+  bottom: 12px;
   right: 12px;
-  padding: 6px 10px;
-  border-radius: 999px;
-  /* The pill floats over a photo, so it carries its own surface rather than
-     the card's - and both halves must flip together. Theming only the text
-     left it white-on-white; theming only the pill leaves it dark-on-dark. */
-  color: var(--sf-heading);
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 0;
   background: var(--sf-badge-surface);
-  box-shadow: 0 4px 12px rgba(19, 40, 64, 0.1);
-}
-
-.storefront-product-card__media small {
-  top: 48px;
-  color: #7a8796;
-  text-decoration: line-through;
-}
-
-.storefront-product-card__body {
+  color: var(--sf-text);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.14);
   display: grid;
-  gap: 8px;
-  padding: 17px;
+  place-items: center;
+  cursor: pointer;
+  opacity: 0;
+  transform: scale(0.85);
+  transition: all 200ms ease;
+  z-index: 3;
 }
 
-.storefront-product-card__body > span {
+.storefront-product-card:hover .storefront-product-card__quick-view {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.storefront-product-card__quick-view:hover {
+  background: var(--sf-primary);
+  color: #fff;
+  transform: scale(1.08);
+}
+
+/* Card Body */
+.storefront-product-card__body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 8px;
+  padding: 16px;
+}
+
+.storefront-product-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.storefront-product-card__category {
   color: var(--sf-primary);
   font-size: 0.72rem;
   font-weight: 750;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-}
-
-.storefront-product-card__body h2 {
-  min-height: 48px;
-  font-size: 1.15rem;
-  line-height: 1.28;
-}
-
-.storefront-product-card__body > p {
-  display: -webkit-box;
-  min-height: 44px;
+  white-space: nowrap;
   overflow: hidden;
-  color: var(--sf-muted);
-  font-size: 0.83rem;
-  line-height: 1.55;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  text-overflow: ellipsis;
 }
 
-.storefront-product-card__stock {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  color: var(--sf-success);
-  font-size: 0.76rem;
-}
-
-.storefront-product-card__stock > span {
+.storefront-product-card__rating {
   display: inline-flex;
-  margin-left: auto;
+  align-items: center;
+  gap: 3px;
+  color: #f0a10c;
+  font-size: 0.75rem;
+  font-weight: 750;
+}
+
+.storefront-product-card__stock-tag {
+  display: inline-flex;
   align-items: center;
   gap: 4px;
-  color: #f0a10c;
+  color: var(--sf-success);
+  font-size: 0.72rem;
+  font-weight: 650;
 }
 
-.storefront-product-card__variants {
-  display: flex;
-  gap: 5px;
-  overflow-x: auto;
+.storefront-product-card__title {
+  margin: 0;
+  font-size: 1.05rem;
+  line-height: 1.35;
+  font-weight: 700;
+  min-height: 42px;
 }
 
-.storefront-product-card__variants button {
-  padding: 5px 8px;
-  border: 1px solid var(--sf-border);
-  border-radius: 6px;
-  color: var(--sf-muted);
-  background: var(--sf-soft);
+.storefront-product-card__title button {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+  color: var(--sf-text);
+  font: inherit;
+  font-size: inherit;
   cursor: pointer;
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  transition: color 150ms ease;
 }
 
-.storefront-product-card__variants button:hover {
-  border-color: var(--sf-primary);
+.storefront-product-card__title button:hover {
   color: var(--sf-primary);
 }
 
+/* Pricing layout */
+.storefront-product-card__pricing {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 4px;
+}
+
+.storefront-product-card__price {
+  color: var(--sf-heading);
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.storefront-product-card__compare-price {
+  color: var(--sf-muted);
+  font-size: 0.86rem;
+  text-decoration: line-through;
+}
+
+/* Actions */
 .storefront-product-card__actions {
   display: grid;
   grid-template-columns: 1fr 42px;
-  gap: 7px;
-  margin-top: 3px;
+  gap: 8px;
+  margin-top: 6px;
 }
 
-.storefront-product-card__actions button {
+.storefront-product-card__cart-btn {
   display: flex;
-  height: 40px;
+  height: 42px;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  border: 1px solid var(--sf-primary);
-  border-radius: 8px;
+  gap: 7px;
+  border: 0;
+  border-radius: 10px;
   color: #fff;
-  font-size: 0.82rem;
+  font-size: 0.84rem;
   font-weight: 750;
   background: var(--sf-primary);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--sf-primary) 28%, transparent);
   cursor: pointer;
+  transition: all 180ms ease;
 }
 
-.storefront-product-card__actions button:last-child {
-  color: var(--sf-primary);
-  background: transparent;
+.storefront-product-card__cart-btn:hover {
+  background: var(--sf-primary-dark);
+  transform: translateY(-1px);
 }
 
-.storefront-product-card__actions button:disabled {
-  border-color: var(--sf-border);
+.storefront-product-card__cart-btn:active {
+  transform: translateY(0);
+}
+
+.storefront-product-card__cart-btn.is-added {
+  background: var(--sf-success);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--sf-success) 30%, transparent);
+}
+
+.storefront-product-card__cart-btn:disabled {
+  border: 1px solid var(--sf-border);
   color: var(--sf-muted);
   background: var(--sf-soft);
+  box-shadow: none;
   cursor: not-allowed;
+  transform: none;
 }
 
+.storefront-product-card__chat-btn {
+  display: flex;
+  height: 42px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--sf-border);
+  border-radius: 10px;
+  background: var(--sf-soft);
+  color: var(--sf-primary);
+  cursor: pointer;
+  transition: all 180ms ease;
+}
+
+.storefront-product-card__chat-btn:hover {
+  background: color-mix(in srgb, var(--sf-primary) 12%, var(--sf-surface));
+  border-color: var(--sf-primary);
+  transform: translateY(-1px);
+}
+
+/* Empty State */
 .storefront-empty-state {
   display: grid;
-  min-height: 250px;
+  min-height: 280px;
   grid-column: 1 / -1;
   place-items: center;
   align-content: center;
-  gap: 8px;
+  gap: 10px;
+  padding: 40px 20px;
   color: var(--sf-muted);
   text-align: center;
 }
 
 .storefront-empty-state h2 {
+  margin: 0;
   color: var(--sf-text);
+  font-size: 1.25rem;
+}
+
+.storefront-empty-state p {
+  margin: 0;
+  color: var(--sf-muted);
+  font-size: 0.9rem;
+  max-width: 360px;
+}
+
+.storefront-empty-state__reset {
+  margin-top: 6px;
+  padding: 9px 22px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--sf-primary);
+  color: #fff;
+  font-size: 0.86rem;
+  font-weight: 750;
+  cursor: pointer;
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--sf-primary) 28%, transparent);
+  transition: all 160ms ease;
+}
+
+.storefront-empty-state__reset:hover {
+  background: var(--sf-primary-dark);
 }
 
 /* Chat */
