@@ -107,3 +107,68 @@ def test_non_owner_cannot_update_admin_member():
             updated_by="admin-peer",
         )
     assert error.value.code == "forbidden"
+
+
+def test_custom_role_with_specific_permissions():
+    member = validate_member_payload(
+        {
+            "email": "customstaff@example.com",
+            "role": "custom",
+            "permissions": ["orders:read", "messages:manage"],
+        },
+    )
+    assert member["role"] == "custom"
+    assert "orders:read" in member["permissions"]
+    assert "messages:manage" in member["permissions"]
+    assert "analytics:read" not in member["permissions"]
+
+
+def test_preregistered_user_cannot_be_added_as_staff(monkeypatch):
+    from firebase_admin import auth
+    from app.services.member_service import add_member
+
+    class MockUser:
+        uid = "existing-user-123"
+        email = "existing@example.com"
+
+    monkeypatch.setattr(auth, "get_user_by_email", lambda email: MockUser())
+
+    class MockBusinessDoc:
+        exists = True
+        def to_dict(self):
+            return {"ownerUid": "owner-1"}
+
+    class MockDb:
+        def collection(self, _id):
+            class Ref:
+                def document(self, _):
+                    return self
+                def get(self):
+                    return MockBusinessDoc()
+            return Ref()
+
+    with pytest.raises(ApiError) as error:
+        add_member(
+            MockDb(),
+            "biz-1",
+            invited_by="owner-1",
+            payload={"email": "existing@example.com", "role": "viewer"},
+        )
+    assert error.value.code == "preregistered_user_cannot_be_staff"
+
+
+def test_update_member_custom_permissions():
+    validated = validate_member_payload(
+        {"role": "custom", "permissions": ["orders", "inventory"]},
+        require_email=False,
+    )
+    assert validated["role"] == "custom"
+    assert "orders" in validated["permissions"]
+    assert "orders:*" in validated["permissions"]
+    assert "inventory" in validated["permissions"]
+    assert "inventory:*" in validated["permissions"]
+    assert membership_has_permission({"role": "custom", "permissions": validated["permissions"]}, "orders:read")
+    assert membership_has_permission({"role": "custom", "permissions": validated["permissions"]}, "inventory:manage")
+    assert not membership_has_permission({"role": "custom", "permissions": validated["permissions"]}, "analytics:read")
+
+

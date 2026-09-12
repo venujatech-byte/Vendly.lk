@@ -22,6 +22,7 @@ const OrdersPage = lazy(() => import("./pages/OrdersPage.jsx"));
 const OverviewPage = lazy(() => import("./pages/OverviewPage.jsx"));
 const BusinessSetupPage = lazy(() => import("./pages/BusinessSetupPage.jsx"));
 const CustomerAuthGate = lazy(() => import("./pages/CustomerAuthGate.jsx"));
+const JoinInvitePage = lazy(() => import("./pages/JoinInvitePage.jsx"));
 
 // Choose a starting theme from local storage or the user's device preference.
 function getInitialTheme() {
@@ -246,6 +247,12 @@ function App() {
     <Route
       path="/login"
       element={<LoginPage />}
+    />
+
+    {/* Staff invite joining onboarding */}
+    <Route
+      path="/join"
+      element={<JoinInvitePage />}
     />
 
     <Route

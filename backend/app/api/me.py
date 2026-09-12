@@ -1,9 +1,11 @@
 from flask import Blueprint, g, jsonify
+from firebase_admin import auth
 
 from app.core.auth import require_firebase_user
 from app.core.firebase import get_firestore_client
 from app.core.serialization import serialize_snapshot
 from app.services.business_service import create_or_get_business
+from app.services.member_service import claim_pending_invitations_for_user
 
 
 me_blueprint = Blueprint("me", __name__, url_prefix="/api/v1")
@@ -15,6 +17,9 @@ def get_current_user():
     """Return the verified Firebase identity and current legacy seller profile."""
     uid = g.current_user["uid"]
     database = get_firestore_client()
+
+    # Automatically claim any pending staff invitations sent to this email
+    claim_pending_invitations_for_user(database, g.current_user)
 
     user_snapshot = database.collection("users").document(uid).get()
     seller_snapshot = database.collection("sellers").document(uid).get()
@@ -145,3 +150,38 @@ def get_current_user():
             "membership": membership,
         },
     )
+
+
+@me_blueprint.delete("/me")
+@require_firebase_user
+def delete_current_user():
+    """Permanently delete user profile, business memberships, and auth account."""
+    uid = g.current_user["uid"]
+    database = get_firestore_client()
+
+    user_ref = database.collection("users").document(uid)
+    user_snapshot = user_ref.get()
+    if user_snapshot.exists:
+        user_dict = user_snapshot.to_dict() or {}
+        business_ids = user_dict.get("businessIds") or []
+        for bid in business_ids:
+            try:
+                mem_ref = database.collection("businesses").document(bid).collection("members").document(uid)
+                if mem_ref.get().exists:
+                    mem_ref.delete()
+            except Exception:
+                pass
+        user_ref.delete()
+
+    try:
+        database.collection("sellers").document(uid).delete()
+    except Exception:
+        pass
+
+    try:
+        auth.delete_user(uid)
+    except Exception:
+        pass
+
+    return jsonify({"deleted": True})
+

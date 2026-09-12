@@ -17,6 +17,7 @@ from app.api.operations import operations_blueprint
 from app.api.products import products_blueprint
 from app.api.public import public_blueprint
 from app.api.reviews import reviews_blueprint
+from app.api.invitations import invitations_blueprint
 from app.api.search import search_blueprint
 from app.api.shop_sales import shop_sales_blueprint
 from app.core.config import Settings
@@ -113,6 +114,7 @@ def create_app(test_config=None):
     app.register_blueprint(reviews_blueprint)
     app.register_blueprint(search_blueprint)
     app.register_blueprint(shop_sales_blueprint)
+    app.register_blueprint(invitations_blueprint)
 
     @app.after_request
     def apply_security_headers(response):

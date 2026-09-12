@@ -18,7 +18,7 @@ def membership_has_permission(membership, required_permission):
         return True
 
     resource = required_permission.split(":", 1)[0]
-    return f"{resource}:*" in permissions
+    return f"{resource}:*" in permissions or resource in permissions
 
 
 def require_business_member(*allowed_roles, permission=None):
