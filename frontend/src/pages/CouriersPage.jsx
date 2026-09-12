@@ -18,6 +18,7 @@ import { useSearchParams } from "react-router-dom";
 import AddCourierModal from "../components/AddCourierModal";
 import ActionMenu from "../components/ActionMenu";
 import CourierDeliveryFeeMap from "../components/CourierDeliveryFeeMap";
+import PageLoadingScreen from "../components/PageLoadingScreen";
 import StatCard from "../components/StatCard";
 import TablePagination from "../components/TablePagination";
 import SortableHeader from "../components/SortableHeader";
@@ -239,6 +240,14 @@ function CouriersPage() {
       .catch((error) => setErrorMessage(error.message))
       .finally(() => setIsLoading(false));
   }, [business?.id]);
+
+  if (isLoading && couriers.length === 0 && !errorMessage) {
+    return (
+      <main className="dashboard couriers-page">
+        <PageLoadingScreen message="Loading couriers & delivery rates..." />
+      </main>
+    );
+  }
 
   return (
     <main className="dashboard couriers-page">

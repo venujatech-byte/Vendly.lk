@@ -51,7 +51,7 @@ function StatCard({
                 {isDown ? (
                   <ArrowBigDown size={14} fill="currentColor" stroke="currentColor" strokeWidth={1} aria-hidden="true" />
                 ) : (
-                  <ArrowBigUp size={14} fill="currentColor" stroke="currentColor" strokeWidth={1}} aria-hidden="true" />
+                  <ArrowBigUp size={14} fill="currentColor" stroke="currentColor" strokeWidth={1} aria-hidden="true" />
                 )}
                 {trend}
               </span>

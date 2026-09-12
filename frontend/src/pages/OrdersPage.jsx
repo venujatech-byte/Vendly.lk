@@ -23,7 +23,7 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
-// Reusable components that build the Orders page.
+import PageLoadingScreen from "../components/PageLoadingScreen";
 import StatCard2 from "../components/StatCard2";
 import StatCard from "../components/StatCard";
 import OrderFilters from "../components/OrderFilters";
@@ -524,10 +524,16 @@ function OrdersPage() {
     // A waybill scan is an exact search intent. Remove any previous local or
     // status filters so they cannot hide the matching order.
     setFilters({});
-    setStatusFilter("");
-    setSearchParameters({ search: value }, { replace: true });
     setIsWaybillScannerOpen(false);
   }, [setSearchParameters]);
+
+  if (isLoading && orders.length === 0 && !ordersError) {
+    return (
+      <main className="dashboard orders-page">
+        <PageLoadingScreen message="Loading orders..." />
+      </main>
+    );
+  }
 
   return (
     <main className="dashboard orders-page">

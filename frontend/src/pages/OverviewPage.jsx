@@ -28,6 +28,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
+import PageLoadingScreen from "../components/PageLoadingScreen";
 import StatCard from "../components/StatCard";
 import { useAuth } from "../context/authContextValue";
 import {
@@ -66,11 +67,16 @@ function OverviewPage() {
   const businessName = sellerProfile?.businessName ?? "Your Business";
   const [analytics, setAnalytics] = useState(null);
   const [analyticsError, setAnalyticsError] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     let requestIsCurrent = true;
-    if (!business?.id) return undefined;
+    if (!business?.id) {
+      setIsLoading(false);
+      return undefined;
+    }
 
+    setIsLoading(true);
     setAnalyticsError(null);
     getAnalyticsOverview(business.id)
       .then((data) => {
@@ -78,6 +84,9 @@ function OverviewPage() {
       })
       .catch((error) => {
         if (requestIsCurrent) setAnalyticsError(error);
+      })
+      .finally(() => {
+        if (requestIsCurrent) setIsLoading(false);
       });
 
     return () => {
@@ -194,6 +203,14 @@ function OverviewPage() {
       },
     ];
   }, [analytics]);
+
+  if (isLoading && !analytics && !analyticsError) {
+    return (
+      <main className="dashboard overview-page">
+        <PageLoadingScreen message="Loading business overview..." />
+      </main>
+    );
+  }
 
   return (
     <main className="dashboard overview-page">

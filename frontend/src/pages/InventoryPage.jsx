@@ -15,7 +15,7 @@ import {
   Tags,
 } from "lucide-react";
 
-// Reusable inventory components, temporary data, and stock calculations.
+import PageLoadingScreen from "../components/PageLoadingScreen";
 import StatCard from "../components/StatCard";
 import InventoryFilters from "../components/InventoryFilters";
 import InventoryTable from "../components/InventoryTable";
@@ -435,6 +435,14 @@ function InventoryPage() {
     } catch (error) {
       setInventoryError(error);
     }
+  }
+
+  if (isInventoryLoading && products.length === 0 && !inventoryError && !accountError) {
+    return (
+      <main className="dashboard inventory-page">
+        <PageLoadingScreen message="Loading inventory & categories..." />
+      </main>
+    );
   }
 
   return (

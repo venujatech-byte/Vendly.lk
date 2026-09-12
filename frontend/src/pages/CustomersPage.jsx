@@ -34,6 +34,7 @@ import {
   XCircle,
 } from "lucide-react";
 
+import PageLoadingScreen from "../components/PageLoadingScreen";
 import StatCard from "../components/StatCard";
 import CustomerMessages from "../components/CustomerMessages";
 import ActionMenu from "../components/ActionMenu";
@@ -382,6 +383,14 @@ function CustomersPage() {
     } finally {
       setIsFraudActionWorking(false);
     }
+  }
+
+  if (isLoading && customers.length === 0 && !errorMessage) {
+    return (
+      <main className="dashboard customers-page">
+        <PageLoadingScreen message="Loading customers & reviews..." />
+      </main>
+    );
   }
 
   return (

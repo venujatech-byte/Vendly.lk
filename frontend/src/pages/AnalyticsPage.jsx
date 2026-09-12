@@ -23,6 +23,7 @@ import CustomerProfitability from "../components/CustomerProfitability";
 import DailyOrdersChart from "../components/DailyOrdersChart";
 import DeadStockReport from "../components/DeadStockReport";
 import MonthlyRevenueChart from "../components/MonthlyRevenueChart";
+import PageLoadingScreen from "../components/PageLoadingScreen";
 import SalesChannelPerformance from "../components/SalesChannelPerformance";
 import SalesForecast from "../components/SalesForecast";
 import StatCard from "../components/StatCard";
@@ -117,6 +118,14 @@ function AnalyticsPage() {
   }, [business?.id]);
 
   const visibleMonths = analytics?.monthlyRevenue?.slice(-6) ?? [];
+
+  if (!analytics && !error) {
+    return (
+      <main className="dashboard analytics-page">
+        <PageLoadingScreen message="Loading business analytics & reports..." />
+      </main>
+    );
+  }
 
   if (error) {
     return (
