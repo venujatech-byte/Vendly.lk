@@ -1228,3 +1228,52 @@ html[data-theme="dark"] .stitch-product__photo-add { color: var(--color-text); b
     max-height: 220px;
   }
 }
+
+.stitch-product__description,
+.inventory-form__desc-group {
+  display: grid;
+  gap: 8px;
+}
+
+.stitch-product__description > div,
+.inventory-form__desc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.stitch-product__description > div strong,
+.inventory-form__desc-header label {
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--color-text-strong);
+}
+
+.stitch-product__description button,
+.inventory-form__ai-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-accent);
+  background: rgba(22, 140, 245, 0.08);
+  border: 1px solid rgba(22, 140, 245, 0.25);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.stitch-product__description button:hover,
+.inventory-form__ai-btn:hover {
+  background: var(--color-accent);
+  color: #ffffff;
+}
+
+.stitch-product__description button:disabled,
+.inventory-form__ai-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+

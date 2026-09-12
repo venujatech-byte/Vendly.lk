@@ -1,7 +1,13 @@
 import { useEffect, useState } from "react";
-import { updateProduct, uploadProductMedia } from "../services/productService";
+import { WandSparkles } from "lucide-react";
+import {
+  generateProductDescription,
+  updateProduct,
+  uploadProductMedia,
+} from "../services/productService";
 import ModalShell from "./ModalShell";
 import CustomSelect from "./CustomSelect";
+import ProductDescriptionEditor from "./ProductDescriptionEditor";
 import "./InventoryForm.css";
 
 const emptyForm = {
@@ -27,6 +33,8 @@ function EditProductModal({ isOpen, businessId, product, categories = [], onClos
   const [mediaFiles, setMediaFiles] = useState([]);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [generatedProductInfo, setGeneratedProductInfo] = useState(null);
 
   useEffect(() => {
     if (!isOpen || !product) return;
@@ -50,11 +58,40 @@ function EditProductModal({ isOpen, businessId, product, categories = [], onClos
     });
     setMediaFiles([]);
     setError("");
+    setGeneratedProductInfo(null);
   }, [isOpen, product]);
 
   function change(event) {
     const { name, value } = event.target;
     setForm((current) => ({ ...current, [name]: value }));
+  }
+
+  async function handleGenerateDescription() {
+    if (!form.name?.trim()) {
+      setError("Enter the product name before generating a description.");
+      return;
+    }
+    setError("");
+    setGenerating(true);
+    try {
+      const activeCat = categories.find((c) => c.id === form.categoryId);
+      const productInfo = await generateProductDescription(businessId, {
+        name: form.name,
+        brand: form.brand,
+        colourName: form.colourName,
+        productSize: product?.productSize || "",
+        categoryName: activeCat?.name || "",
+        warrantyPeriodMonths: Number(product?.warrantyPeriodMonths || 0),
+        weightKg: form.weightKg,
+        costPrice: form.costPrice,
+        sellingPrice: form.sellingPrice,
+      });
+      setGeneratedProductInfo(productInfo);
+    } catch (requestError) {
+      setError(requestError.message);
+    } finally {
+      setGenerating(false);
+    }
   }
 
   async function submit(event) {
@@ -75,6 +112,7 @@ function EditProductModal({ isOpen, businessId, product, categories = [], onClos
   }
 
   return (
+    <>
     <ModalShell isOpen={isOpen} title="Edit Product" description="Update every catalogue field. Stock quantities remain in Adjust stock so each change is audited." onClose={onClose} size="wide">
       <form className="inventory-form" onSubmit={submit}>
         <div className="inventory-form__two-columns">
@@ -104,8 +142,29 @@ function EditProductModal({ isOpen, businessId, product, categories = [], onClos
             </CustomSelect>
           </label>
         </div>
-        <label>Description for chatbot<textarea name="description" value={form.description} onChange={change} rows={4} /></label>
-        <label>AI description<textarea name="aiDescription" value={form.aiDescription} onChange={change} rows={3} /></label>
+        <div className="inventory-form__desc-group">
+          <div className="inventory-form__desc-header">
+            <label htmlFor="edit-product-desc">Description for customers & chat</label>
+            <button
+              type="button"
+              className="inventory-form__ai-btn"
+              onClick={handleGenerateDescription}
+              disabled={generating}
+            >
+              <WandSparkles size={14} />
+              <span>{generating ? "Researching..." : "Generate with AI"}</span>
+            </button>
+          </div>
+          <textarea
+            id="edit-product-desc"
+            name="description"
+            value={form.description}
+            onChange={change}
+            rows={4}
+            placeholder="Detailed description shown to customers..."
+          />
+        </div>
+        <label>AI description (internal reference)<textarea name="aiDescription" value={form.aiDescription} onChange={change} rows={3} /></label>
         <div className="inventory-form__three-columns">
           <label>Cost price (LKR)<input name="costPrice" type="number" min="0" step="0.01" value={form.costPrice} onChange={change} required /></label>
           <label>Selling price (LKR)<input name="sellingPrice" type="number" min="0.01" step="0.01" value={form.sellingPrice} onChange={change} required /></label>
@@ -120,6 +179,16 @@ function EditProductModal({ isOpen, businessId, product, categories = [], onClos
         <footer className="inventory-form__footer"><button type="button" onClick={onClose}>Cancel</button><button className="inventory-form__primary" type="submit" disabled={saving}>{saving ? "Saving..." : "Save product"}</button></footer>
       </form>
     </ModalShell>
+    <ProductDescriptionEditor
+      productInfo={generatedProductInfo}
+      onChange={setGeneratedProductInfo}
+      onCancel={() => setGeneratedProductInfo(null)}
+      onApply={(description) => {
+        setForm((current) => ({ ...current, description }));
+        setGeneratedProductInfo(null);
+      }}
+    />
+    </>
   );
 }
 

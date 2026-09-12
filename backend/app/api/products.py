@@ -120,6 +120,16 @@ def generate_description(business_id):
             "specifications": [],
             "missing_information": ["Verified product specifications"],
             "confidence": "low",
+            "source": "template",
+            "original_found_details": {
+                "product_name": name,
+                "brand": payload.get("brand") or None,
+                "model": payload.get("model") or None,
+                "category": payload.get("categoryName") or "",
+                "description": description,
+                "highlights": [],
+                "specifications": [],
+            },
         }
         generated_by = "template"
 

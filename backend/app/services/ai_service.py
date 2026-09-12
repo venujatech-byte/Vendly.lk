@@ -922,17 +922,18 @@ def generate_storefront_intent(
     }
 
 
-PRODUCT_INFORMATION_PROMPT = """You are a product-information generator for an e-commerce system.
+PRODUCT_INFORMATION_PROMPT = """You are an expert e-commerce product researcher and catalogue generator.
 
-Your task is to generate accurate, compact product descriptions and specifications from the product name, model, category, user-provided details, and image-extracted text.
+Your task is to gather comprehensive product information, specifications, and key selling highlights for the given product from your vast knowledge of products on the internet.
 
-Rules:
-- Never invent specifications.
-- Only include information that is known or reasonably confirmed for the exact product/model.
-- If a value is unknown, use null.
-- Do not guess battery capacity, dimensions, ingredients, materials, IP rating, ANC, ENC, Bluetooth version, warranty, power, or certifications.
-- Adapt specification fields based on the product category.
-- Keep descriptions concise and suitable for an online store.
+Important Rules:
+- Actively gather and populate the specifications and highlights from the internet for this exact product or model.
+- Gather all relevant technical specifications (such as connectivity, bluetooth_version, battery_life, battery_capacity, charging, dimensions, weight, ANC, ENC, driver_size, material, power, water_resistance, compatibility, etc.) EVEN IF they are unconfirmed, standard, or typical for this model. The seller will review and exchange them according to their exact stock.
+- Never leave standard specification fields empty or in missing_information if standard or typical internet values exist for this product.
+- Populate the specifications list with clear, human-readable names and values (e.g., name: "Battery Life", value: "Up to 30 Hours (ANC ON)").
+- Populate highlights with the top 4-8 compelling selling features with key details.
+- Adapt fields to the product's category.
+- Keep descriptions concise, engaging, and suitable for an online store.
 - Do not include markdown.
 - Return valid JSON only.
 - Do not add text before or after the JSON.
@@ -978,7 +979,8 @@ Return this JSON structure:
 
 confidence must be one of: "high", "medium", "low".
 
-If the product cannot be confidently identified, still return the JSON structure, set unknown values to null, use confidence "low", and list the information needed in missing_information."""
+If specific details cannot be 100% verified, still gather the best known or standard specifications for the product/model, set confidence to "medium" or "low", and note unconfirmed assumptions in missing_information."""
+
 
 
 def _optional_text(value, maximum=500):
@@ -1028,6 +1030,16 @@ def _normalize_product_information(result, facts):
         "specifications": specifications,
         "missing_information": missing_information,
         "confidence": confidence,
+        "source": "internet_ai_research",
+        "original_found_details": {
+            "product_name": _optional_text(result.get("product_name"), 180) or facts["product_name"],
+            "brand": _optional_text(result.get("brand"), 100),
+            "model": _optional_text(result.get("model"), 100),
+            "category": _optional_text(result.get("category"), 100) or facts.get("category") or "",
+            "description": _optional_text(result.get("description"), 1600) or "",
+            "highlights": list(highlights),
+            "specifications": [dict(s) for s in specifications],
+        },
     }
 
 
