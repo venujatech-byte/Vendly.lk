@@ -690,13 +690,19 @@ def dispatch_notification(database, business_id, notification_id, notification_d
                         frontend_url = (Settings.from_environment().frontend_public_url or frontend_url).rstrip("/")
                 except Exception:
                     pass
+                notif_type = notification_data.get("type", "notification")
+                if notif_type in {"new-order", "order-cancelled", "fraud-warning", "fraud-report"}:
+                    action_url = f"{frontend_url}/orders"
+                else:
+                    action_url = f"{frontend_url}/"
+
                 send_notification_email(
                     recipient_email=email,
                     recipient_name=name or "Vendly Seller",
-                    notification_type=notification_data.get("type", "notification"),
+                    notification_type=notif_type,
                     title=notification_data.get("title", "New Notification"),
                     message=notification_data.get("message", ""),
-                    action_url=f"{frontend_url}/dashboard",
+                    action_url=action_url,
                 )
         except Exception as err:
             LOGGER.warning("Failed to dispatch email for notification %s: %s", notification_id, err)

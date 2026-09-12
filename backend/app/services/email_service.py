@@ -99,6 +99,9 @@ def _base_email_template(title, body_content, button_text=None, button_url=None)
             <a href="{button_url}" style="background-color: #168cf5; color: #ffffff; padding: 12px 26px; font-weight: bold; text-decoration: none; border-radius: 8px; display: inline-block;">
                 {button_text}
             </a>
+            <div style="margin-top: 12px; font-size: 12px; color: #64748b;">
+                <a href="{button_url}" style="color: #168cf5; text-decoration: underline; word-break: break-all;">{button_url}</a>
+            </div>
         </div>
         """
 
@@ -202,9 +205,9 @@ def send_order_confirmation_email(order, business, recipient_email=None):
     </div>
     """
 
-    short_code = business.get("shortCode", "")
+    short_code = (business or {}).get("shortCode") or (order or {}).get("shortCode") or ""
     _, _, _, _, frontend_url = _get_brevo_config()
-    tracking_url = f"{frontend_url}/stores/{short_code}" if short_code else None
+    tracking_url = f"{frontend_url}/s/{short_code}" if short_code else frontend_url
 
     html = _base_email_template(
         title=f"Order Confirmed: #{order_number}",
@@ -243,9 +246,9 @@ def send_customer_order_status_email(order, business, new_status, note=None, rec
     </div>
     """
 
-    short_code = business.get("shortCode", "")
+    short_code = (business or {}).get("shortCode") or (order or {}).get("shortCode") or ""
     _, _, _, _, frontend_url = _get_brevo_config()
-    tracking_url = f"{frontend_url}/stores/{short_code}" if short_code else None
+    tracking_url = f"{frontend_url}/s/{short_code}" if short_code else frontend_url
 
     html = _base_email_template(
         title=f"Order Update: #{order_number} is {friendly_status}",
@@ -260,3 +263,4 @@ def send_customer_order_status_email(order, business, new_status, note=None, rec
         subject=f"Update on Order #{order_number}: {friendly_status}",
         html_content=html,
     )
+

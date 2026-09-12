@@ -261,6 +261,11 @@ function App() {
     />
 
     <Route
+      path="/stores/:storeCode"
+      element={<CustomerAuthGate linkType="store" />}
+    />
+
+    <Route
       path="/p/:productCode"
       element={<CustomerAuthGate linkType="product" />}
     />
