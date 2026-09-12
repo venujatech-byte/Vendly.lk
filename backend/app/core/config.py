@@ -54,6 +54,10 @@ class Settings:
     payhere_merchant_secret: str | None
     frontend_public_url: str
     backend_public_url: str
+    use_brevo: bool
+    brevo_api_key: str | None
+    brevo_sender_email: str | None
+    brevo_sender_name: str | None
 
     @classmethod
     def from_environment(cls):
@@ -125,4 +129,9 @@ class Settings:
             backend_public_url=(
                 os.getenv("BACKEND_PUBLIC_URL", "http://127.0.0.1:5000").rstrip("/")
             ),
+            use_brevo=parse_boolean(os.getenv("USE_BREVO"), default=False),
+            brevo_api_key=os.getenv("BREVO_API_KEY") or None,
+            brevo_sender_email=os.getenv("BREVO_SENDER_EMAIL") or None,
+            brevo_sender_name=os.getenv("BREVO_SENDER_NAME") or "Vendly",
         )
+

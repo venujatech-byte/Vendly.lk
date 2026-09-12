@@ -63,6 +63,8 @@ import CustomerAccountModal from "../components/CustomerAccountModal";
 import StorefrontInstructionsModal from "../components/StorefrontInstructionsModal";
 import { useAuth } from "../context/authContextValue";
 import { claimPublicChatSession } from "../services/publicService";
+import { ref as dbRef, onValue } from "firebase/database";
+import { rtdb } from "../firebase/firebase";
 
 import "./StorefrontPage.css";
 
@@ -492,53 +494,80 @@ function StorefrontPage({ linkType }) {
     if (!business?.shortCode) return undefined;
 
     let isCurrent = true;
+    let unsubscribeRtdb = null;
 
-    async function pollOrders() {
+    async function loadCustomerOrders() {
+      if (!user) return;
       try {
         const response = await getCustomerOrders(business.shortCode);
-
         if (!isCurrent) return;
 
         const orders = response.orders || [];
-        const changes = orders.filter((order) => {
-          const previous = orderStatusRef.current.get(order.id);
-          return previous && previous !== order.fulfilmentStatus;
-        });
-        const isFirstLoad = orderStatusRef.current.size === 0;
-
         orders.forEach((order) =>
           orderStatusRef.current.set(order.id, order.fulfilmentStatus),
         );
         setCustomerOrders(orders);
-
-        // On the first poll every order looks new. Recording the statuses
-        // without announcing them avoids a burst of notifications for things
-        // the customer already knows.
-        if (isFirstLoad || changes.length === 0) return;
-
-        setNotifications((current) => [
-          ...changes.map((order) => ({
-            id: `${order.id}-${order.fulfilmentStatus}`,
-            kind: "order",
-            title: order.orderNumber || "Your order",
-            body: `Status: ${String(order.fulfilmentStatus || "").replace(/-/g, " ")}`,
-          })),
-          ...current,
-        ].slice(0, 20));
       } catch {
-        // Silent: the customer has not asked for this, and a failed poll must
-        // not cover the storefront in errors.
+        // Silent: initial order load failure must not break the storefront
       }
     }
 
-    pollOrders();
-    const timer = window.setInterval(pollOrders, 30000);
+    loadCustomerOrders();
+
+    try {
+      const customerKey = user?.uid || session?.sessionId;
+      if (customerKey) {
+        const orderUpdatesRef = dbRef(
+          rtdb,
+          `customerOrderUpdates/${business.shortCode}/${customerKey}`,
+        );
+        unsubscribeRtdb = onValue(orderUpdatesRef, (snapshot) => {
+          if (!isCurrent || !snapshot.exists()) return;
+          const val = snapshot.val();
+          if (!val) return;
+
+          const updates = val.orderId ? [val] : Object.values(val);
+          updates.forEach((update) => {
+            if (!update?.orderId) return;
+
+            const previous = orderStatusRef.current.get(update.orderId);
+            if (previous && previous !== update.fulfilmentStatus) {
+              setNotifications((current) => [
+                {
+                  id: `${update.orderId}-${update.fulfilmentStatus}-${Date.now()}`,
+                  kind: "order",
+                  title: update.orderNumber || "Your order",
+                  body: `Status: ${String(update.fulfilmentStatus || "").replace(/-/g, " ")}`,
+                },
+                ...current,
+              ].slice(0, 20));
+            }
+
+            orderStatusRef.current.set(update.orderId, update.fulfilmentStatus);
+
+            setCustomerOrders((current) =>
+              current.map((o) =>
+                o.id === update.orderId
+                  ? { ...o, fulfilmentStatus: update.fulfilmentStatus, note: update.note || o.note }
+                  : o,
+              ),
+            );
+          });
+        }, (err) => {
+          console.error("RTDB order subscription error:", err);
+        });
+      }
+    } catch (err) {
+      console.warn("RTDB order subscription could not be established:", err);
+    }
 
     return () => {
       isCurrent = false;
-      window.clearInterval(timer);
+      if (typeof unsubscribeRtdb === "function") {
+        unsubscribeRtdb();
+      }
     };
-  }, [business?.shortCode]);
+  }, [business?.shortCode, user?.uid, session?.sessionId]);
   useEffect(() => {
     localStorage.setItem("vendly-storefront-theme", theme);
   }, [theme]);

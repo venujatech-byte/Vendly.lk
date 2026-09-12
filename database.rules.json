@@ -5,6 +5,22 @@
         ".read": true,
         ".write": false
       }
+    },
+    "businesses": {
+      "$businessId": {
+        "notifications": {
+          ".read": true,
+          ".write": false
+        }
+      }
+    },
+    "customerOrderUpdates": {
+      "$shortCode": {
+        "$customerKey": {
+          ".read": true,
+          ".write": false
+        }
+      }
     }
   }
 }

@@ -1,19 +1,27 @@
 from io import BytesIO
+import logging
+import time
 
-from firebase_admin import firestore
+from firebase_admin import auth as firebase_auth, firestore
+from flask import current_app
 from google.cloud import firestore as google_firestore
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import Font, PatternFill
 
 from app.core.errors import ApiError
+from app.core.firebase import get_rtdb_reference
 from app.core.serialization import serialize_snapshot
 from app.services.order_service import get_order, list_orders
 from app.services.courier_service import get_courier_export_template
+from app.services.email_service import send_notification_email
 from app.services.fraud_service import (
     global_fraud_reference,
     global_registry_increment,
 )
 from app.services.text import optional_text, required_text
+
+LOGGER = logging.getLogger(__name__)
+
 
 
 FRAUD_REASONS = {
@@ -156,7 +164,21 @@ def create_fraud_report(database, business_id, order_id, uid, payload):
         )
 
     create_in_transaction(transaction)
+    dispatch_notification(
+        database=None,
+        business_id=business_id,
+        notification_id=notification_reference.id,
+        notification_data={
+            "type": "fraud-report",
+            "title": f"Fraud report for order",
+            "message": f"Reason: {reason.replace('-', ' ')}.",
+            "orderId": order_id,
+            "isRead": False,
+        },
+        send_email=True,
+    )
     return serialize_snapshot(report_reference.get())
+
 
 
 def record_courier_issue(database, business_id, order_id, uid, payload):
@@ -568,6 +590,116 @@ def sync_ai_failure_notification(database, business_id, status):
             "createdAt": firestore.SERVER_TIMESTAMP,
         },
     )
+    push_rtdb_business_notification(
+        business_id,
+        AI_STATUS_NOTIFICATION_ID,
+        {
+            "type": "ai-status",
+            "title": title,
+            "message": f"{message} Provider: {failure.get('provider', '')}, model: {failure.get('model', '')}.",
+            "isRead": False,
+        },
+    )
+
+
+def push_rtdb_business_notification(business_id, notification_id, notification_data):
+    """Write an active notification to RTDB for real-time delivery with 0 Firestore reads."""
+    rtdb_ref = get_rtdb_reference(f"businesses/{business_id}/notifications")
+    if rtdb_ref is None:
+        return
+    try:
+        created_at_ms = int(time.time() * 1000)
+        data = {
+            "id": notification_id,
+            "title": str(notification_data.get("title") or "").strip(),
+            "message": str(notification_data.get("message") or "").strip(),
+            "type": str(notification_data.get("type") or "notification").strip(),
+            "isRead": bool(notification_data.get("isRead", False)),
+            "createdAt": created_at_ms,
+            "chatSessionId": str(notification_data.get("chatSessionId") or "").strip(),
+            "orderId": str(notification_data.get("orderId") or "").strip(),
+        }
+        rtdb_ref.child(notification_id).set(data)
+    except Exception as err:
+        LOGGER.warning("Could not push notification to RTDB for business %s: %s", business_id, err)
+
+
+def remove_rtdb_business_notification(business_id, notification_id):
+    """Remove a notification from RTDB when dismissed or recovered."""
+    rtdb_ref = get_rtdb_reference(f"businesses/{business_id}/notifications/{notification_id}")
+    if rtdb_ref is not None:
+        try:
+            rtdb_ref.delete()
+        except Exception:
+            pass
+
+
+def get_business_owner_email(database, business_id):
+    """Get the email of the business owner for notification emails."""
+    try:
+        if database is None:
+            from app.core.firebase import get_firestore_client
+            database = get_firestore_client()
+        b_snap = database.collection("businesses").document(business_id).get()
+        if not b_snap.exists:
+            return None, None
+        b_data = b_snap.to_dict() or {}
+        owner_uid = b_data.get("ownerUid")
+        contact_email = (
+            b_data.get("contactEmail")
+            or b_data.get("email")
+            or b_data.get("publicEmail")
+        )
+        if contact_email:
+            return contact_email, b_data.get("name")
+        if owner_uid:
+            user = firebase_auth.get_user(owner_uid)
+            return user.email, user.display_name or b_data.get("name")
+    except Exception as err:
+        LOGGER.warning("Could not resolve owner email for business %s: %s", business_id, err)
+    return None, None
+
+
+def dispatch_notification(database, business_id, notification_id, notification_data, send_email=True):
+    """Save to Firestore, push to RTDB for real-time delivery, and send Brevo email if enabled."""
+    if database is not None and notification_id:
+        try:
+            database.collection("businesses").document(business_id).collection("notifications").document(notification_id).set(
+                {
+                    **notification_data,
+                    "createdAt": firestore.SERVER_TIMESTAMP,
+                },
+                merge=True,
+            )
+        except Exception as err:
+            LOGGER.warning("Could not persist notification to Firestore: %s", err)
+
+    push_rtdb_business_notification(business_id, notification_id, notification_data)
+
+    if send_email:
+        try:
+            email, name = get_business_owner_email(database, business_id)
+            if email:
+                frontend_url = "http://localhost:5173"
+                try:
+                    from flask import has_app_context
+                    if has_app_context():
+                        frontend_url = (current_app.config.get("FRONTEND_PUBLIC_URL") or frontend_url).rstrip("/")
+                    else:
+                        from app.core.config import Settings
+                        frontend_url = (Settings.from_environment().frontend_public_url or frontend_url).rstrip("/")
+                except Exception:
+                    pass
+                send_notification_email(
+                    recipient_email=email,
+                    recipient_name=name or "Vendly Seller",
+                    notification_type=notification_data.get("type", "notification"),
+                    title=notification_data.get("title", "New Notification"),
+                    message=notification_data.get("message", ""),
+                    action_url=f"{frontend_url}/dashboard",
+                )
+        except Exception as err:
+            LOGGER.warning("Failed to dispatch email for notification %s: %s", notification_id, err)
 
 
 def list_notifications(database, business_id, unread_only=False):
@@ -599,4 +731,14 @@ def mark_notification_read(database, business_id, notification_id):
         raise ApiError("notification_not_found", "Notification not found.", 404)
 
     reference.update({"isRead": True, "readAt": firestore.SERVER_TIMESTAMP})
+
+    # Sync read status to RTDB so connected browsers update immediately without polling
+    rtdb_ref = get_rtdb_reference(f"businesses/{business_id}/notifications/{notification_id}")
+    if rtdb_ref is not None:
+        try:
+            rtdb_ref.update({"isRead": True, "readAt": int(time.time() * 1000)})
+        except Exception:
+            pass
+
     return serialize_snapshot(reference.get())
+

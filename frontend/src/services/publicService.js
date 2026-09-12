@@ -87,3 +87,12 @@ export function sendPublicChatImage(sessionId, sessionToken, image, caption = ""
     requiresAuthentication: false,
   });
 }
+
+export function submitGuestOrderEmail(storeCode, orderId, email) {
+  return apiRequest(`/public/stores/${storeCode}/orders/${orderId}/email`, {
+    method: "POST",
+    body: { email },
+    requiresAuthentication: false,
+  });
+}
+

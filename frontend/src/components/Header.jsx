@@ -32,6 +32,8 @@ import {
   markNotificationRead,
 } from "../services/notificationService";
 import { searchBusiness } from "../services/searchService";
+import { ref as dbRef, onValue } from "firebase/database";
+import { rtdb } from "../firebase/firebase";
 
 
 function formatRelativeTime(timestamp) {
@@ -242,10 +244,12 @@ function Header({
 
   useEffect(() => {
     let requestIsCurrent = true;
-    let refreshTimer;
+    let unsubscribeRtdb = null;
 
     if (!business?.id) {
       setNotifications([]);
+      knownNotificationIdsReference.current = new Set();
+      notificationsLoadedReference.current = false;
       return undefined;
     }
 
@@ -263,20 +267,10 @@ function Header({
       };
     }
 
-    async function refreshNotifications() {
+    async function loadInitialNotifications() {
       try {
         const records = await getNotifications(business.id);
         if (!requestIsCurrent) return;
-
-        if (notificationsLoadedReference.current) {
-          records
-            .filter(
-              (notification) =>
-                !notification.isRead &&
-                !knownNotificationIdsReference.current.has(notification.id),
-            )
-            .forEach(showDeviceNotification);
-        }
 
         knownNotificationIdsReference.current = new Set(
           records.map((notification) => notification.id),
@@ -288,12 +282,57 @@ function Header({
       }
     }
 
-    refreshNotifications();
-    refreshTimer = window.setInterval(refreshNotifications, 30000);
+    loadInitialNotifications();
+
+    try {
+      const businessNotifRef = dbRef(rtdb, `businesses/${business.id}/notifications`);
+      unsubscribeRtdb = onValue(businessNotifRef, (snapshot) => {
+        if (!requestIsCurrent) return;
+        if (!snapshot.exists()) return;
+        const data = snapshot.val();
+        if (!data || typeof data !== "object") return;
+
+        const liveList = Object.values(data);
+        if (liveList.length === 0) return;
+
+        if (notificationsLoadedReference.current) {
+          liveList
+            .filter(
+              (notification) =>
+                !notification.isRead &&
+                !knownNotificationIdsReference.current.has(notification.id),
+            )
+            .forEach(showDeviceNotification);
+        }
+
+        liveList.forEach((notification) => {
+          if (notification.id) {
+            knownNotificationIdsReference.current.add(notification.id);
+          }
+        });
+
+        setNotifications((current) => {
+          const map = new Map();
+          current.forEach((n) => map.set(n.id, n));
+          liveList.forEach((n) => {
+            const existing = map.get(n.id) || {};
+            map.set(n.id, { ...existing, ...n });
+          });
+          const merged = Array.from(map.values());
+          return merged.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+        });
+      }, (err) => {
+        console.error("RTDB notification subscription error:", err);
+      });
+    } catch (rtdbErr) {
+      console.warn("RTDB notification subscription could not be established:", rtdbErr);
+    }
 
     return () => {
       requestIsCurrent = false;
-      window.clearInterval(refreshTimer);
+      if (typeof unsubscribeRtdb === "function") {
+        unsubscribeRtdb();
+      }
     };
   }, [business?.id, navigate]);
 

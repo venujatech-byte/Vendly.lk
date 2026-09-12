@@ -67,7 +67,37 @@ def notify_seller_attention(
         )
         return True
 
-    return create_in_transaction(transaction)
+    created = create_in_transaction(transaction)
+    if created:
+        try:
+            from app.services.operations_service import push_rtdb_business_notification, get_business_owner_email
+            from app.services.email_service import send_notification_email
+            from flask import current_app
+
+            notif_data = {
+                "id": notification_reference.id,
+                "type": "chat-needs-attention",
+                "title": "Customer question needs your help",
+                "message": f"Customer: {customer_message[:180]}",
+                "chatSessionId": session_reference.id,
+                "isRead": False,
+            }
+            push_rtdb_business_notification(business_id, notification_reference.id, notif_data)
+
+            email, name = get_business_owner_email(database, business_id)
+            if email:
+                frontend_url = current_app.config.get("FRONTEND_PUBLIC_URL", "http://localhost:5173").rstrip("/")
+                send_notification_email(
+                    recipient_email=email,
+                    recipient_name=name or "Vendly Seller",
+                    notification_type="chat-needs-attention",
+                    title="Customer question needs your help",
+                    message=f"A customer asked: {customer_message[:180]}",
+                    action_url=f"{frontend_url}/dashboard",
+                )
+        except Exception:
+            pass
+    return created
 
 
 def send_chat_message_to_order_sessions(

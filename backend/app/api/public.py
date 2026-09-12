@@ -17,6 +17,7 @@ from app.services.customer_portal_service import (
     get_customer_order,
     list_customer_chats,
     list_customer_orders,
+    update_order_guest_email,
 )
 
 
@@ -142,3 +143,17 @@ def customer_chats(store_code):
     return jsonify(
         {"chats": list_customer_chats(get_firestore_client(), store_code, g.current_user["uid"])}
     )
+
+
+@public_blueprint.post("/stores/<store_code>/orders/<order_id>/email")
+@limiter.limit("10 per minute")
+def submit_guest_order_email(store_code, order_id):
+    payload = get_json_object()
+    email = payload.get("email")
+    result = update_order_guest_email(
+        get_firestore_client(),
+        store_code,
+        order_id,
+        email,
+    )
+    return jsonify(result), 200

@@ -80,3 +80,44 @@ def list_customer_chats(database, store_code, customer_uid):
         return sorted(chats, key=lambda item: str(item.get("updatedAt", "")), reverse=True)
     except Exception:
         return []
+
+
+def update_order_guest_email(database, store_code, order_id, email):
+    email = str(email or "").strip().lower()
+    if not email or "@" not in email or "." not in email:
+        raise ApiError("validation_error", "Please provide a valid email address.", 422)
+
+    business_id = resolve_store_business_id(database, store_code)
+    business_ref = database.collection("businesses").document(business_id)
+    order_ref = business_ref.collection("orders").document(order_id)
+    order_snap = order_ref.get()
+    if not order_snap.exists:
+        raise ApiError("order_not_found", "Order not found.", 404)
+
+    order_data = order_snap.to_dict()
+    customer_snapshot = dict(order_data.get("customerSnapshot") or {})
+    customer_snapshot["email"] = email
+
+    order_ref.update({"customerSnapshot": customer_snapshot})
+
+    # If customerId exists on order, also update customer doc if email is empty
+    customer_id = order_data.get("customerId")
+    if customer_id:
+        cust_ref = business_ref.collection("customers").document(customer_id)
+        cust_snap = cust_ref.get()
+        if cust_snap.exists and not cust_snap.to_dict().get("email"):
+            cust_ref.update({"email": email})
+
+    # Send order confirmation and receipt email to the newly provided guest email
+    try:
+        from app.services.email_service import send_order_confirmation_email
+        biz_snap = business_ref.get()
+        biz_data = biz_snap.to_dict() if biz_snap.exists else {}
+        order_data["customerSnapshot"] = customer_snapshot
+        order_data["id"] = order_id
+        send_order_confirmation_email(order_data, biz_data, recipient_email=email)
+    except Exception:
+        pass
+
+    return {"success": True, "email": email}
+

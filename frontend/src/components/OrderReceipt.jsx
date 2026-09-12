@@ -1,5 +1,7 @@
-import { Check, CircleHelp, Download, Home, Info, Package, Truck } from "lucide-react";
+import { useState } from "react";
+import { Check, CircleHelp, Download, Home, Info, Mail, Package, Truck } from "lucide-react";
 import { downloadReceiptPdf } from "../services/receiptService";
+import { submitGuestOrderEmail } from "../services/publicService";
 import { storefrontText } from "../data/storefrontText";
 import "./OrderReceipt.css";
 
@@ -18,11 +20,67 @@ export default function OrderReceipt({ business, order, onClose, closeLabel = "R
   const customer = order.customerSnapshot || {};
   const payment = order.paymentMethod === "deposit" ? "Deposit / balance due" : order.paymentMethod === "paid" ? "Paid" : "Cash on delivery";
 
+  const initialEmail = customer.email || order.customerEmail || order.email || "";
+  const [emailInput, setEmailInput] = useState("");
+  const [emailSubmitting, setEmailSubmitting] = useState(false);
+  const [emailSubmitted, setEmailSubmitted] = useState(false);
+  const [emailError, setEmailError] = useState("");
+
+  const hasEmail = Boolean(initialEmail || emailSubmitted);
+
+  async function handleEmailSubmit(event) {
+    event.preventDefault();
+    if (!emailInput.trim() || !business?.shortCode || !(order.id || order.orderId)) return;
+    setEmailSubmitting(true);
+    setEmailError("");
+    try {
+      await submitGuestOrderEmail(business.shortCode, order.id || order.orderId, emailInput.trim());
+      setEmailSubmitted(true);
+    } catch (err) {
+      setEmailError(err.message || "Could not save email. Please try again.");
+    } finally {
+      setEmailSubmitting(false);
+    }
+  }
+
   return <div className="receipt-layer">
     <section className="receipt-page">
       <div className="receipt-success-mark"><Check size={25} strokeWidth={3} /></div>
       <h1>{text.orderConfirmed}</h1>
       <p>{text.orderConfirmedHint}</p>
+
+      {!hasEmail ? (
+        <div className="receipt-email-prompt">
+          <div className="receipt-email-prompt__icon"><Mail size={20} /></div>
+          <div className="receipt-email-prompt__content">
+            <h3>Get Order Tracking & Receipt by Email</h3>
+            <p>Enter your email to receive live dispatch updates, courier tracking, and an itemized receipt.</p>
+            <form onSubmit={handleEmailSubmit} className="receipt-email-prompt__form">
+              <input
+                type="email"
+                placeholder="your.email@example.com"
+                value={emailInput}
+                onChange={(e) => setEmailInput(e.target.value)}
+                required
+                disabled={emailSubmitting}
+              />
+              <button type="submit" disabled={emailSubmitting || !emailInput.trim()}>
+                {emailSubmitting ? "Sending..." : "Send Live Updates"}
+              </button>
+            </form>
+            {emailError && <span className="receipt-email-prompt__error">{emailError}</span>}
+          </div>
+        </div>
+      ) : emailSubmitted ? (
+        <div className="receipt-email-prompt is-success">
+          <Check size={20} />
+          <div className="receipt-email-prompt__content">
+            <span style={{ fontSize: "0.92rem", fontWeight: 600 }}>
+              Order confirmation & tracking details sent to <strong>{emailInput}</strong>!
+            </span>
+          </div>
+        </div>
+      ) : null}
 
       <article className="receipt-card">
         <header><div><small>{text.orderNumber}</small><strong>#{order.orderNumber}</strong></div><div><small>{text.orderDate}</small><span>{dateLabel(order.createdAt)}</span></div></header>

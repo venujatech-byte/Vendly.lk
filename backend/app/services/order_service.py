@@ -745,7 +745,75 @@ def create_order(database, business_id, uid, payload):
             )
 
     create_in_transaction(transaction)
-    return get_order(database, business_id, order_reference.id)
+    created_order = get_order(database, business_id, order_reference.id)
+
+    try:
+        from app.services.operations_service import dispatch_notification
+        from app.services.email_service import send_order_confirmation_email
+
+        order_num = created_order.get("orderNumber") or order_reference.id
+        cust_snapshot = created_order.get("customerSnapshot") or {}
+        cust_name = cust_snapshot.get("name") or customer.get("name") or "Customer"
+        fraud_snapshot = created_order.get("fraudRiskSnapshot") or {}
+        has_fraud_warning = bool(fraud_snapshot.get("matched"))
+
+        dispatch_notification(
+            database,
+            business_id,
+            notification_reference.id,
+            {
+                "id": notification_reference.id,
+                "type": "new-order",
+                "title": f"New order {order_num}",
+                "message": (
+                    f"{cust_name} placed an order."
+                    + (
+                        f' Note: "{request_data["customerNote"]}"'
+                        if request_data.get("customerNote")
+                        else ""
+                    )
+                ),
+                "hasCustomerNote": bool(request_data.get("customerNote")),
+                "orderId": order_reference.id,
+                "orderNumber": order_num,
+                "isRead": False,
+            },
+            send_email=True,
+        )
+
+        if has_fraud_warning:
+            dispatch_notification(
+                database,
+                business_id,
+                fraud_notification_reference.id,
+                {
+                    "id": fraud_notification_reference.id,
+                    "type": "fraud-warning",
+                    "title": f"Fraud warning for {order_num}",
+                    "message": (
+                        f"{cust_name} matches the global "
+                        f"fraud registry ({fraud_snapshot.get('reportCount', 0)} report(s), "
+                        f"{fraud_snapshot.get('returnedOrderCount', 0)} return(s))."
+                    ),
+                    "orderId": order_reference.id,
+                    "orderNumber": order_num,
+                    "customerId": created_order.get("customerId"),
+                    "riskLevel": fraud_snapshot.get("riskLevel", "low"),
+                    "fraudScore": fraud_snapshot.get("fraudScore") or fraud_snapshot.get("score") or 0,
+                    "isRead": False,
+                },
+                send_email=True,
+            )
+
+        customer_email = cust_snapshot.get("email") or customer.get("email")
+        if customer_email:
+            b_snap = business_reference.get()
+            b_dict = b_snap.to_dict() if b_snap.exists else {}
+            send_order_confirmation_email(created_order, b_dict, recipient_email=customer_email)
+    except Exception as notif_err:
+        LOGGER.warning("Could not dispatch post-order notifications or email: %s", notif_err)
+
+    return created_order
 
 
 def update_order_status(database, business_id, order_id, uid, payload):
@@ -1122,6 +1190,79 @@ def update_order_status(database, business_id, order_id, uid, payload):
         # Status and inventory changes must remain successful even if the
         # optional customer chat channel is temporarily unavailable.
         LOGGER.exception("Order status chat update could not be delivered.")
+
+    try:
+        from app.core.firebase import get_rtdb_reference
+        from app.services.operations_service import dispatch_notification
+        from app.services.email_service import send_customer_order_status_email
+        import time
+
+        biz_snap = business_reference.get()
+        biz_data = biz_snap.to_dict() if biz_snap.exists else {}
+        short_code = biz_data.get("shortCode", "")
+        updated_order = get_order(database, business_id, order_id)
+
+        # 1. Customer cancellation notification to seller
+        if new_status == "cancelled" and str(uid).startswith("public-chat:"):
+            dispatch_notification(
+                database,
+                business_id,
+                status_notification_reference.id,
+                {
+                    "id": status_notification_reference.id,
+                    "type": "order-cancelled",
+                    "title": f"Order {updated_order.get('orderNumber', '')} cancelled",
+                    "message": (
+                        f"Order {updated_order.get('orderNumber', '')} was cancelled by customer."
+                        + (f" Reason: {note}" if note else "")
+                    ),
+                    "orderId": order_id,
+                    "orderNumber": updated_order.get("orderNumber", ""),
+                    "isRead": False,
+                },
+                send_email=True,
+            )
+
+        # 2. Push real-time status update to RTDB for customer storefront
+        if short_code:
+            status_payload = {
+                "orderId": order_id,
+                "orderNumber": updated_order.get("orderNumber", ""),
+                "fulfilmentStatus": new_status,
+                "note": note or "",
+                "updatedAt": int(time.time() * 1000),
+            }
+            customer_uid = updated_order.get("customerUid")
+            customer_id = updated_order.get("customerId")
+            if customer_uid:
+                ref_uid = get_rtdb_reference(f"customerOrderUpdates/{short_code}/{customer_uid}/{order_id}")
+                if ref_uid:
+                    ref_uid.set(status_payload)
+            if customer_id:
+                ref_cid = get_rtdb_reference(f"customerOrderUpdates/{short_code}/{customer_id}/{order_id}")
+                if ref_cid:
+                    ref_cid.set(status_payload)
+            ref_order = get_rtdb_reference(f"customerOrderUpdates/{short_code}/{order_id}")
+            if ref_order:
+                ref_order.set(status_payload)
+
+        # 3. Customer email via Brevo
+        cust_email = (updated_order.get("customerSnapshot") or {}).get("email")
+        if not cust_email and updated_order.get("customerId"):
+            c_doc = business_reference.collection("customers").document(updated_order["customerId"]).get()
+            if c_doc.exists:
+                cust_email = c_doc.to_dict().get("email")
+        if cust_email:
+            send_customer_order_status_email(
+                order=updated_order,
+                business=biz_data,
+                new_status=new_status,
+                note=note,
+                recipient_email=cust_email,
+            )
+    except Exception as status_sync_err:
+        LOGGER.warning("Could not sync order status to RTDB or email: %s", status_sync_err)
+
     return get_order(database, business_id, order_id)
 
 

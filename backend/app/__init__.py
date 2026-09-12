@@ -64,6 +64,10 @@ def create_app(test_config=None):
         PAYHERE_MERCHANT_SECRET=settings.payhere_merchant_secret,
         FRONTEND_PUBLIC_URL=settings.frontend_public_url,
         BACKEND_PUBLIC_URL=settings.backend_public_url,
+        USE_BREVO=settings.use_brevo,
+        BREVO_API_KEY=settings.brevo_api_key,
+        BREVO_SENDER_EMAIL=settings.brevo_sender_email,
+        BREVO_SENDER_NAME=settings.brevo_sender_name,
     )
 
     if test_config:
