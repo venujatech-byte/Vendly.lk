@@ -34,7 +34,6 @@ import {
   XCircle,
 } from "lucide-react";
 
-import PageLoadingScreen from "../components/PageLoadingScreen";
 import StatCard from "../components/StatCard";
 import CustomerMessages from "../components/CustomerMessages";
 import ActionMenu from "../components/ActionMenu";
@@ -385,14 +384,6 @@ function CustomersPage() {
     }
   }
 
-  if (isLoading && customers.length === 0 && !errorMessage) {
-    return (
-      <main className="dashboard customers-page">
-        <PageLoadingScreen message="Loading customers & reviews..." />
-      </main>
-    );
-  }
-
   return (
     <main className={`dashboard customers-page ${activeCustomerTab === "messages" ? "customers-page--messages" : ""}`}>
 
@@ -534,7 +525,9 @@ function CustomersPage() {
               </section>
             </div>
 
-            <div className="customer-table-scroll">
+            {isLoading && customers.length === 0 ? null : (
+              <>
+                <div className="customer-table-scroll">
               <table className="management-table all-customers-table">
                 <colgroup>
                   <col className="customer-column--expand" />
@@ -637,8 +630,10 @@ function CustomersPage() {
               </table>
             </div>
             <TablePagination pagination={customerPagination} label="customers" variant="customers" />
-          </section>
-        </>
+          </>
+        )}
+        </section>
+      </>
       ) : activeCustomerTab === "fraud" ? (
         <>
           <section className="customers-summary" aria-label="Fraud report summary">

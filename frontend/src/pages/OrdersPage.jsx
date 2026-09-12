@@ -23,7 +23,6 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
-import PageLoadingScreen from "../components/PageLoadingScreen";
 import StatCard2 from "../components/StatCard2";
 import StatCard from "../components/StatCard";
 import OrderFilters from "../components/OrderFilters";
@@ -527,14 +526,6 @@ function OrdersPage() {
     setIsWaybillScannerOpen(false);
   }, [setSearchParameters]);
 
-  if (isLoading && orders.length === 0 && !ordersError) {
-    return (
-      <main className="dashboard orders-page">
-        <PageLoadingScreen message="Loading orders..." />
-      </main>
-    );
-  }
-
   return (
     <main className="dashboard orders-page">
       {/* View section tabs at the top */}
@@ -600,60 +591,62 @@ function OrdersPage() {
           </section>
 
           {/* Main expandable orders table with integrated filters and action buttons */}
-          <OrderTable
-            orders={visibleOrders}
-            filterControls={
-              <OrderFilters
-                couriers={couriers}
-                onApply={setFilters}
-                onReset={resetOrderFilters}
-                onStatusChange={setStatusFilter}
-                appliedFilters={assistantOrderFilters}
-                actions={
-                  <div className="page__actions">
-                    <button type="button" onClick={handleScanWaybill} title="Scan Waybill">
-                      <ScanLine size={14} aria-hidden="true" />
-                      <span>Scan Waybill</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleCopyChatbotLink}
-                      disabled={!business?.shortCode}
-                      title="Copy the seller-specific catalogue and chatbot link"
-                    >
-                      {linkWasCopied ? <Check size={14} aria-hidden="true" /> : <Link2 size={14} aria-hidden="true" />}
-                      <span>{linkWasCopied ? "Link Copied" : "Chatbot Link"}</span>
-                    </button>
-                    <button type="button" onClick={openOrdersExportModal} disabled={!business?.id} title="Export Orders">
-                      <Download size={14} />
-                      <span>Export Orders</span>
-                    </button>
-                    <button
-                      className="page__add-button"
-                      type="button"
-                      onClick={() => setIsAddOrderOpen(true)}
-                      disabled={!business?.id}
-                      title="Add Order"
-                    >
-                      <Plus size={14} aria-hidden="true" />
-                      <span>Add Order</span>
-                    </button>
-                  </div>
-                }
-              />
-            }
-            onStatusChange={handleStatusChange}
-            onGenerateWaybill={handleGenerateWaybill}
-            onFraudReport={handleFraudReport}
-            onRecordPayment={setPaymentTarget}
-            onCourierIssue={handleCourierIssue}
-            onEditOrder={setEditingOrder}
-            onRemoveOrder={setRemovalTarget}
-            onBulkStatusChange={handleBulkStatusChange}
-            onExportSelected={handleExportSelected}
-            onWaybillSave={handleWaybillSave}
-            onWarrantyClaim={openOnlineWarranty}
-          />
+          {isLoading && orders.length === 0 ? null : (
+            <OrderTable
+              orders={visibleOrders}
+              filterControls={
+                <OrderFilters
+                  couriers={couriers}
+                  onApply={setFilters}
+                  onReset={resetOrderFilters}
+                  onStatusChange={setStatusFilter}
+                  appliedFilters={assistantOrderFilters}
+                  actions={
+                    <div className="page__actions">
+                      <button type="button" onClick={handleScanWaybill} title="Scan Waybill">
+                        <ScanLine size={14} aria-hidden="true" />
+                        <span>Scan Waybill</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleCopyChatbotLink}
+                        disabled={!business?.shortCode}
+                        title="Copy the seller-specific catalogue and chatbot link"
+                      >
+                        {linkWasCopied ? <Check size={14} aria-hidden="true" /> : <Link2 size={14} aria-hidden="true" />}
+                        <span>{linkWasCopied ? "Link Copied" : "Chatbot Link"}</span>
+                      </button>
+                      <button type="button" onClick={openOrdersExportModal} disabled={!business?.id} title="Export Orders">
+                        <Download size={14} />
+                        <span>Export Orders</span>
+                      </button>
+                      <button
+                        className="page__add-button"
+                        type="button"
+                        onClick={() => setIsAddOrderOpen(true)}
+                        disabled={!business?.id}
+                        title="Add Order"
+                      >
+                        <Plus size={14} aria-hidden="true" />
+                        <span>Add Order</span>
+                      </button>
+                    </div>
+                  }
+                />
+              }
+              onStatusChange={handleStatusChange}
+              onGenerateWaybill={handleGenerateWaybill}
+              onFraudReport={handleFraudReport}
+              onRecordPayment={setPaymentTarget}
+              onCourierIssue={handleCourierIssue}
+              onEditOrder={setEditingOrder}
+              onRemoveOrder={setRemovalTarget}
+              onBulkStatusChange={handleBulkStatusChange}
+              onExportSelected={handleExportSelected}
+              onWaybillSave={handleWaybillSave}
+              onWarrantyClaim={openOnlineWarranty}
+            />
+          )}
         </>
       )}
 
@@ -751,9 +744,6 @@ function OrdersPage() {
         <p className="dashboard-notice dashboard-notice--error" role="alert">
           Orders could not be loaded from the Vendly API.
         </p>
-      )}
-      {isLoading && (
-        <p className="dashboard-notice" role="status">Loading orders...</p>
       )}
 
 

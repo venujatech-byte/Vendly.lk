@@ -18,7 +18,6 @@ import { useSearchParams } from "react-router-dom";
 import AddCourierModal from "../components/AddCourierModal";
 import ActionMenu from "../components/ActionMenu";
 import CourierDeliveryFeeMap from "../components/CourierDeliveryFeeMap";
-import PageLoadingScreen from "../components/PageLoadingScreen";
 import StatCard from "../components/StatCard";
 import TablePagination from "../components/TablePagination";
 import SortableHeader from "../components/SortableHeader";
@@ -241,14 +240,6 @@ function CouriersPage() {
       .finally(() => setIsLoading(false));
   }, [business?.id]);
 
-  if (isLoading && couriers.length === 0 && !errorMessage) {
-    return (
-      <main className="dashboard couriers-page">
-        <PageLoadingScreen message="Loading couriers & delivery rates..." />
-      </main>
-    );
-  }
-
   return (
     <main className="dashboard couriers-page">
       <input
@@ -288,8 +279,10 @@ function CouriersPage() {
             </div>
           </div>
         </div>
-        <div className="orders-table__scroll courier-table__scroll">
-        <table className="orders-table courier-table">
+        {isLoading && couriers.length === 0 ? null : (
+          <>
+            <div className="orders-table__scroll courier-table__scroll">
+            <table className="orders-table courier-table">
         <thead><tr><th className="management-table__expand-heading" /><SortableHeader columnKey="courier" label="Courier" sorting={sorting} /><SortableHeader columnKey="firstKg" label="First 1 kg (common)" sorting={sorting} /><SortableHeader columnKey="extraKg" label="Extra 1 kg" sorting={sorting} /><SortableHeader columnKey="success" label="Success" sorting={sorting} /><SortableHeader columnKey="returns" label="Returns" sorting={sorting} /><SortableHeader columnKey="delivery" label="Delivery" sorting={sorting} /><SortableHeader columnKey="status" label="Status" sorting={sorting} /><th className="orders-table__actions-heading">Actions</th></tr></thead>
         <tbody>
           {pagination.pageItems.map((courier) => {
@@ -381,11 +374,11 @@ function CouriersPage() {
         </tbody>
       </table>
       </div>
-      {!isLoading && <TablePagination pagination={pagination} label="couriers" />}
+      <TablePagination pagination={pagination} label="couriers" />
+    </>
+  )}
       </section>
 
-
-      {isLoading && <p className="management-page__notice">Loading couriers...</p>}
       {errorMessage && <p className="management-page__notice" role="alert">{errorMessage}</p>}
 
 

@@ -779,23 +779,22 @@ html[data-theme="dark"] .overview-top-product-growth {
 
 
 /* ========================================
-   OVERVIEW PAGE LOAD ANIMATIONS
+   OVERVIEW PAGE LOAD ANIMATIONS (Smooth Top-to-Bottom)
    StatCard animation is handled separately
    ======================================== */
-
 
 /* HERO */
 .overview-hero {
   animation:
     overviewHeroIn
-    650ms cubic-bezier(0.22, 1, 0.36, 1)
-    100ms both;
+    1050ms cubic-bezier(0.16, 1, 0.3, 1)
+    both;
 }
 
 @keyframes overviewHeroIn {
   from {
     opacity: 0;
-    transform: translateY(-22px) scale(0.985);
+    transform: translateY(-18px) scale(0.985);
   }
 
   to {
@@ -804,50 +803,47 @@ html[data-theme="dark"] .overview-top-product-growth {
   }
 }
 
-
 /* Hero highlight chips */
 .overview-hero__highlights > * {
   opacity: 0;
 
   animation:
     overviewChipIn
-    420ms cubic-bezier(0.22, 1, 0.36, 1)
+    850ms cubic-bezier(0.16, 1, 0.3, 1)
     both;
 }
 
 .overview-hero__highlights > *:nth-child(1) {
-  animation-delay: 350ms;
+  animation-delay: 120ms;
 }
 
 .overview-hero__highlights > *:nth-child(2) {
-  animation-delay: 420ms;
+  animation-delay: 200ms;
 }
 
 .overview-hero__highlights > *:nth-child(3) {
-  animation-delay: 490ms;
+  animation-delay: 280ms;
 }
 
 @keyframes overviewChipIn {
   from {
     opacity: 0;
-    transform: translateX(16px);
+    transform: translateY(-10px);
   }
 
   to {
     opacity: 1;
-    transform: translateX(0);
+    transform: translateY(0);
   }
 }
-
 
 /* ORDER DASHBOARD HEADING */
 .overview-section-heading {
   animation:
-    overviewFadeUp
-    500ms cubic-bezier(0.22, 1, 0.36, 1)
-    450ms both;
+    overviewSlideDown
+    950ms cubic-bezier(0.16, 1, 0.3, 1)
+    120ms both;
 }
-
 
 /* ========================================
    MAIN PANELS
@@ -855,42 +851,17 @@ html[data-theme="dark"] .overview-top-product-growth {
 
 .overview-panel--work {
   animation:
-    overviewPanelLeft
-    650ms cubic-bezier(0.22, 1, 0.36, 1)
-    1050ms both;
+    overviewSlideDown
+    1000ms cubic-bezier(0.16, 1, 0.3, 1)
+    180ms both;
 }
 
 .overview-panel--performance {
   animation:
-    overviewPanelRight
-    650ms cubic-bezier(0.22, 1, 0.36, 1)
-    1120ms both;
+    overviewSlideDown
+    1000ms cubic-bezier(0.16, 1, 0.3, 1)
+    240ms both;
 }
-
-@keyframes overviewPanelLeft {
-  from {
-    opacity: 0;
-    transform: translateX(-28px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-@keyframes overviewPanelRight {
-  from {
-    opacity: 0;
-    transform: translateX(28px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
 
 /* ========================================
    WORK CENTRE ITEMS
@@ -901,26 +872,25 @@ html[data-theme="dark"] .overview-top-product-growth {
 
   animation:
     overviewItemIn
-    450ms cubic-bezier(0.22, 1, 0.36, 1)
+    850ms cubic-bezier(0.16, 1, 0.3, 1)
     both;
 }
 
 .overview-work-item:nth-child(1) {
-  animation-delay: 1280ms;
+  animation-delay: 200ms;
 }
 
 .overview-work-item:nth-child(2) {
-  animation-delay: 1340ms;
+  animation-delay: 260ms;
 }
 
 .overview-work-item:nth-child(3) {
-  animation-delay: 1400ms;
+  animation-delay: 320ms;
 }
 
 .overview-work-item:nth-child(4) {
-  animation-delay: 1460ms;
+  animation-delay: 380ms;
 }
-
 
 /* ========================================
    PERFORMANCE METRICS
@@ -931,31 +901,30 @@ html[data-theme="dark"] .overview-top-product-growth {
 
   animation:
     overviewItemIn
-    450ms cubic-bezier(0.22, 1, 0.36, 1)
+    850ms cubic-bezier(0.16, 1, 0.3, 1)
     both;
 }
 
 .overview-metrics > div:nth-child(1) {
-  animation-delay: 1300ms;
+  animation-delay: 220ms;
 }
 
 .overview-metrics > div:nth-child(2) {
-  animation-delay: 1360ms;
+  animation-delay: 280ms;
 }
 
 .overview-metrics > div:nth-child(3) {
-  animation-delay: 1420ms;
+  animation-delay: 340ms;
 }
 
 .overview-metrics > div:nth-child(4) {
-  animation-delay: 1480ms;
+  animation-delay: 400ms;
 }
-
 
 @keyframes overviewItemIn {
   from {
     opacity: 0;
-    transform: translateY(14px) scale(0.98);
+    transform: translateY(-10px) scale(0.98);
   }
 
   to {
@@ -964,25 +933,23 @@ html[data-theme="dark"] .overview-top-product-growth {
   }
 }
 
-
 /* ========================================
    LOWER PANELS
    ======================================== */
 
 .overview-panel--orders {
   animation:
-    overviewFadeUp
-    650ms cubic-bezier(0.22, 1, 0.36, 1)
-    1650ms both;
+    overviewSlideDown
+    1050ms cubic-bezier(0.16, 1, 0.3, 1)
+    260ms both;
 }
 
 .overview-panel--products {
   animation:
-    overviewFadeUp
-    650ms cubic-bezier(0.22, 1, 0.36, 1)
-    1730ms both;
+    overviewSlideDown
+    1050ms cubic-bezier(0.16, 1, 0.3, 1)
+    320ms both;
 }
-
 
 /* Recent order rows */
 .overview-recent-orders > a {
@@ -990,86 +957,62 @@ html[data-theme="dark"] .overview-top-product-growth {
 
   animation:
     overviewRowIn
-    420ms cubic-bezier(0.22, 1, 0.36, 1)
+    850ms cubic-bezier(0.16, 1, 0.3, 1)
     both;
 }
 
 .overview-recent-orders > a:nth-child(1) {
-  animation-delay: 1850ms;
+  animation-delay: 280ms;
 }
 
 .overview-recent-orders > a:nth-child(2) {
-  animation-delay: 1910ms;
+  animation-delay: 340ms;
 }
 
 .overview-recent-orders > a:nth-child(3) {
-  animation-delay: 1970ms;
+  animation-delay: 400ms;
 }
 
 .overview-recent-orders > a:nth-child(4) {
-  animation-delay: 2030ms;
+  animation-delay: 460ms;
 }
 
 .overview-recent-orders > a:nth-child(5) {
-  animation-delay: 2090ms;
+  animation-delay: 520ms;
 }
-
 
 /* Top product rows */
 .overview-top-product-row {
   animation:
     overviewRowIn
-    350ms cubic-bezier(0.22, 1, 0.36, 1)
+    850ms cubic-bezier(0.16, 1, 0.3, 1)
     both;
 }
 
 .overview-top-product-row:nth-child(1) {
-  animation-delay: 100ms;
-}
-
-.overview-top-product-row:nth-child(2) {
-  animation-delay: 150ms;
-}
-
-.overview-top-product-row:nth-child(3) {
-  animation-delay: 200ms;
-}
-
-.overview-top-product-row:nth-child(4) {
-  animation-delay: 250ms;
-}
-
-.overview-top-product-row:nth-child(5) {
   animation-delay: 300ms;
 }
 
+.overview-top-product-row:nth-child(2) {
+  animation-delay: 360ms;
+}
+
+.overview-top-product-row:nth-child(3) {
+  animation-delay: 420ms;
+}
+
+.overview-top-product-row:nth-child(4) {
+  animation-delay: 480ms;
+}
+
+.overview-top-product-row:nth-child(5) {
+  animation-delay: 540ms;
+}
 
 @keyframes overviewRowIn {
   from {
     opacity: 0;
-    transform: translateX(14px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-
-/* Inventory health footer */
-.overview-inventory-health {
-  animation:
-    overviewFadeUp
-    500ms cubic-bezier(0.22, 1, 0.36, 1)
-    2180ms both;
-}
-
-
-@keyframes overviewFadeUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(-8px);
   }
 
   to {
@@ -1078,6 +1021,25 @@ html[data-theme="dark"] .overview-top-product-growth {
   }
 }
 
+/* Inventory health footer */
+.overview-inventory-health {
+  animation:
+    overviewSlideDown
+    950ms cubic-bezier(0.16, 1, 0.3, 1)
+    380ms both;
+}
+
+@keyframes overviewSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-16px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
 
 /* ========================================
    ACCESSIBILITY
@@ -1094,7 +1056,7 @@ html[data-theme="dark"] .overview-top-product-growth {
   .overview-work-item,
   .overview-metrics > div,
   .overview-recent-orders > a,
-  .overview-products > div,
+  .overview-top-product-row,
   .overview-inventory-health {
     opacity: 1;
     animation: none;

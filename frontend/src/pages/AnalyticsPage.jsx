@@ -23,7 +23,6 @@ import CustomerProfitability from "../components/CustomerProfitability";
 import DailyOrdersChart from "../components/DailyOrdersChart";
 import DeadStockReport from "../components/DeadStockReport";
 import MonthlyRevenueChart from "../components/MonthlyRevenueChart";
-import PageLoadingScreen from "../components/PageLoadingScreen";
 import SalesChannelPerformance from "../components/SalesChannelPerformance";
 import SalesForecast from "../components/SalesForecast";
 import StatCard from "../components/StatCard";
@@ -118,14 +117,6 @@ function AnalyticsPage() {
   }, [business?.id]);
 
   const visibleMonths = analytics?.monthlyRevenue?.slice(-6) ?? [];
-
-  if (!analytics && !error) {
-    return (
-      <main className="dashboard analytics-page">
-        <PageLoadingScreen message="Loading business analytics & reports..." />
-      </main>
-    );
-  }
 
   if (error) {
     return (
@@ -225,17 +216,20 @@ function AnalyticsPage() {
               <StatCard key={card.label} {...card} />
             ))}
           </section>
-          <section className="analytics-grid analytics-grid--charts" aria-label="Sales charts">
-            <article className="analytics-panel analytics-panel--chart">
-              <header><div><span>Last 7 days</span><h3>Daily orders</h3><p>Orders received each day</p></div><ShoppingBag size={20} /></header>
-              <DailyOrdersChart data={analytics?.dailyOrders ?? []} />
-            </article>
 
-            <article className="analytics-panel analytics-panel--chart">
-              <header><div><span>Last 6 months</span><h3>Monthly product revenue</h3><p>Delivered sales, excluding delivery fees</p></div><Banknote size={20} /></header>
-              <MonthlyRevenueChart data={visibleMonths} />
-            </article>
-          </section>
+          {!analytics ? null : (
+            <>
+              <section className="analytics-grid analytics-grid--charts" aria-label="Sales charts">
+                <article className="analytics-panel analytics-panel--chart">
+                  <header><div><span>Last 7 days</span><h3>Daily orders</h3><p>Orders received each day</p></div><ShoppingBag size={20} /></header>
+                  <DailyOrdersChart data={analytics?.dailyOrders ?? []} />
+                </article>
+
+                <article className="analytics-panel analytics-panel--chart">
+                  <header><div><span>Last 6 months</span><h3>Monthly product revenue</h3><p>Delivered sales, excluding delivery fees</p></div><Banknote size={20} /></header>
+                  <MonthlyRevenueChart data={visibleMonths} />
+                </article>
+              </section>
 
           <section className="analytics-grid" aria-label="Financial and order insights">
             <article className="analytics-panel analytics-panel--financial">
@@ -313,6 +307,8 @@ function AnalyticsPage() {
       <p className="analytics-page__footnote">
         Product profitability uses delivered revenue after discounts, recorded product cost and product-linked warranty deductions. It does not subtract salaries, rent, advertising, tax or other operating expenses.
       </p>
+            </>
+          )}
         </>
       )}
     </main>

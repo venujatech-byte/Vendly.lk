@@ -139,20 +139,20 @@ html[data-animations="enabled"]
   .couriers-page
   .management-page__heading
   .dashboard__intro {
-  animation: courierUpperFlyLeft 560ms cubic-bezier(0.22, 1, 0.36, 1) 80ms both;
+  animation: courierUpperFlyLeft 1000ms cubic-bezier(0.16, 1, 0.3, 1) 120ms both;
 }
 
 html[data-animations="enabled"]
   .couriers-page
   .management-page__heading
   .management-page__primary-button {
-  animation: courierUpperFlyRight 560ms cubic-bezier(0.22, 1, 0.36, 1) 130ms both;
+  animation: courierUpperFlyRight 1000ms cubic-bezier(0.16, 1, 0.3, 1) 180ms both;
 }
 
 html[data-animations="enabled"] .couriers-page .courier-stats .stat-card {
   opacity: 0;
-  animation-duration: 560ms;
-  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  animation-duration: 1000ms;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
   animation-fill-mode: both;
 }
 
@@ -165,19 +165,19 @@ html[data-animations="enabled"] .couriers-page .courier-stats .stat-card:nth-chi
 }
 
 html[data-animations="enabled"] .couriers-page .courier-stats .stat-card:nth-child(1) {
-  animation-delay: 220ms;
+  animation-delay: 240ms;
 }
 
 html[data-animations="enabled"] .couriers-page .courier-stats .stat-card:nth-child(2) {
-  animation-delay: 280ms;
+  animation-delay: 320ms;
 }
 
 html[data-animations="enabled"] .couriers-page .courier-stats .stat-card:nth-child(3) {
-  animation-delay: 340ms;
+  animation-delay: 400ms;
 }
 
 html[data-animations="enabled"] .couriers-page .courier-stats .stat-card:nth-child(4) {
-  animation-delay: 400ms;
+  animation-delay: 480ms;
 }
 
 @keyframes courierUpperFlyLeft {

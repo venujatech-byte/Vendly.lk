@@ -953,13 +953,13 @@ html[data-theme="dark"] .analytics-margin > span strong {
 
 
 /* ========================================
-   ANALYTICS PAGE LOAD ANIMATIONS (FAST & RESPONSIVE)
+   ANALYTICS PAGE LOAD ANIMATIONS (Smooth & Calm)
    ======================================== */
 
 .analytics-hero {
   animation:
     analyticsHeroIn
-    450ms cubic-bezier(0.22, 1, 0.36, 1)
+    1000ms cubic-bezier(0.16, 1, 0.3, 1)
     both;
 }
 
@@ -977,13 +977,13 @@ html[data-theme="dark"] .analytics-margin > span strong {
 .analytics-hero__signals > span {
   animation:
     analyticsSignalIn
-    300ms cubic-bezier(0.22, 1, 0.36, 1)
+    800ms cubic-bezier(0.16, 1, 0.3, 1)
     both;
 }
 
-.analytics-hero__signals > span:nth-child(1) { animation-delay: 50ms; }
-.analytics-hero__signals > span:nth-child(2) { animation-delay: 90ms; }
-.analytics-hero__signals > span:nth-child(3) { animation-delay: 130ms; }
+.analytics-hero__signals > span:nth-child(1) { animation-delay: 80ms; }
+.analytics-hero__signals > span:nth-child(2) { animation-delay: 150ms; }
+.analytics-hero__signals > span:nth-child(3) { animation-delay: 220ms; }
 
 @keyframes analyticsSignalIn {
   from {
@@ -999,16 +999,16 @@ html[data-theme="dark"] .analytics-margin > span strong {
 .analytics-view-tabs {
   animation:
     analyticsFadeUp
-    350ms cubic-bezier(0.22, 1, 0.36, 1)
-    60ms both;
+    900ms cubic-bezier(0.16, 1, 0.3, 1)
+    100ms both;
 }
 
 .analytics-view-tabs button {
   transition:
-    color 180ms ease,
-    background 180ms ease,
-    transform 160ms ease,
-    box-shadow 180ms ease;
+    color 250ms ease,
+    background 250ms ease,
+    transform 250ms ease,
+    box-shadow 250ms ease;
 }
 
 .analytics-view-tabs button:hover {
@@ -1026,19 +1026,19 @@ html[data-theme="dark"] .analytics-margin > span strong {
 .analytics-summary__card {
   animation:
     analyticsCardIn
-    400ms cubic-bezier(0.22, 1, 0.36, 1)
+    950ms cubic-bezier(0.16, 1, 0.3, 1)
     both;
 }
 
-.analytics-summary__card:nth-child(1) { animation-delay: 60ms; }
-.analytics-summary__card:nth-child(2) { animation-delay: 100ms; }
-.analytics-summary__card:nth-child(3) { animation-delay: 140ms; }
-.analytics-summary__card:nth-child(4) { animation-delay: 180ms; }
+.analytics-summary__card:nth-child(1) { animation-delay: 80ms; }
+.analytics-summary__card:nth-child(2) { animation-delay: 150ms; }
+.analytics-summary__card:nth-child(3) { animation-delay: 220ms; }
+.analytics-summary__card:nth-child(4) { animation-delay: 290ms; }
 
 @keyframes analyticsCardIn {
   from {
     opacity: 0;
-    transform: translateY(12px) scale(0.98);
+    transform: translateY(-14px) scale(0.98);
   }
   to {
     opacity: 1;
@@ -1049,15 +1049,15 @@ html[data-theme="dark"] .analytics-margin > span strong {
 .analytics-grid--charts .analytics-panel:nth-child(1) {
   animation:
     analyticsPanelLeft
-    450ms cubic-bezier(0.22, 1, 0.36, 1)
-    100ms both;
+    1000ms cubic-bezier(0.16, 1, 0.3, 1)
+    160ms both;
 }
 
 .analytics-grid--charts .analytics-panel:nth-child(2) {
   animation:
     analyticsPanelRight
-    450ms cubic-bezier(0.22, 1, 0.36, 1)
-    140ms both;
+    1000ms cubic-bezier(0.16, 1, 0.3, 1)
+    220ms both;
 }
 
 @keyframes analyticsPanelLeft {
@@ -1086,8 +1086,8 @@ html[data-theme="dark"] .analytics-margin > span strong {
   transform-origin: bottom;
   animation:
     analyticsBarGrow
-    400ms cubic-bezier(0.22, 1, 0.36, 1)
-    80ms both;
+    950ms cubic-bezier(0.16, 1, 0.3, 1)
+    140ms both;
 }
 
 @keyframes analyticsBarGrow {
@@ -1102,22 +1102,22 @@ html[data-theme="dark"] .analytics-margin > span strong {
 .analytics-bars > div {
   animation:
     analyticsBarItemIn
-    300ms ease
+    800ms ease
     both;
 }
 
-.analytics-bars > div:nth-child(1) { animation-delay: 40ms; }
-.analytics-bars > div:nth-child(2) { animation-delay: 80ms; }
-.analytics-bars > div:nth-child(3) { animation-delay: 120ms; }
-.analytics-bars > div:nth-child(4) { animation-delay: 160ms; }
-.analytics-bars > div:nth-child(5) { animation-delay: 200ms; }
-.analytics-bars > div:nth-child(6) { animation-delay: 240ms; }
-.analytics-bars > div:nth-child(7) { animation-delay: 280ms; }
+.analytics-bars > div:nth-child(1) { animation-delay: 60ms; }
+.analytics-bars > div:nth-child(2) { animation-delay: 120ms; }
+.analytics-bars > div:nth-child(3) { animation-delay: 180ms; }
+.analytics-bars > div:nth-child(4) { animation-delay: 240ms; }
+.analytics-bars > div:nth-child(5) { animation-delay: 300ms; }
+.analytics-bars > div:nth-child(6) { animation-delay: 360ms; }
+.analytics-bars > div:nth-child(7) { animation-delay: 420ms; }
 
 @keyframes analyticsBarItemIn {
   from {
     opacity: 0;
-    transform: translateY(6px);
+    transform: translateY(-6px);
   }
   to {
     opacity: 1;
@@ -1128,35 +1128,35 @@ html[data-theme="dark"] .analytics-margin > span strong {
 .analytics-panel--financial {
   animation:
     analyticsPanelLeft
-    450ms cubic-bezier(0.22, 1, 0.36, 1)
-    120ms both;
+    1000ms cubic-bezier(0.16, 1, 0.3, 1)
+    200ms both;
 }
 
 .analytics-panel--status {
   animation:
     analyticsPanelRight
-    450ms cubic-bezier(0.22, 1, 0.36, 1)
-    160ms both;
+    1000ms cubic-bezier(0.16, 1, 0.3, 1)
+    260ms both;
 }
 
 /* Financial rows */
 .analytics-financial-flow > div {
   animation:
     analyticsItemUp
-    350ms cubic-bezier(0.22, 1, 0.36, 1)
+    850ms cubic-bezier(0.16, 1, 0.3, 1)
     both;
 }
 
-.analytics-financial-flow > div:nth-child(1) { animation-delay: 100ms; }
-.analytics-financial-flow > div:nth-child(2) { animation-delay: 150ms; }
-.analytics-financial-flow > div:nth-child(3) { animation-delay: 200ms; }
+.analytics-financial-flow > div:nth-child(1) { animation-delay: 160ms; }
+.analytics-financial-flow > div:nth-child(2) { animation-delay: 240ms; }
+.analytics-financial-flow > div:nth-child(3) { animation-delay: 320ms; }
 
 /* Gross margin */
 .analytics-margin {
   animation:
     analyticsFadeUp
-    400ms cubic-bezier(0.22, 1, 0.36, 1)
-    160ms both;
+    900ms cubic-bezier(0.16, 1, 0.3, 1)
+    240ms both;
 }
 
 /* Gross margin progress bar */
@@ -1164,8 +1164,8 @@ html[data-theme="dark"] .analytics-margin > span strong {
   transform-origin: left;
   animation:
     analyticsProgressGrow
-    500ms cubic-bezier(0.22, 1, 0.36, 1)
-    200ms both;
+    1100ms cubic-bezier(0.16, 1, 0.3, 1)
+    300ms both;
 }
 
 @keyframes analyticsProgressGrow {
@@ -1181,8 +1181,8 @@ html[data-theme="dark"] .analytics-margin > span strong {
 .analytics-donut {
   animation:
     analyticsDonutIn
-    500ms cubic-bezier(0.22, 1, 0.36, 1)
-    140ms both;
+    1100ms cubic-bezier(0.16, 1, 0.3, 1)
+    200ms both;
 }
 
 @keyframes analyticsDonutIn {
@@ -1200,14 +1200,14 @@ html[data-theme="dark"] .analytics-margin > span strong {
 .analytics-status-legend > span {
   animation:
     analyticsLegendIn
-    300ms cubic-bezier(0.22, 1, 0.36, 1)
+    800ms cubic-bezier(0.16, 1, 0.3, 1)
     both;
 }
 
-.analytics-status-legend > span:nth-child(1) { animation-delay: 80ms; }
-.analytics-status-legend > span:nth-child(2) { animation-delay: 120ms; }
-.analytics-status-legend > span:nth-child(3) { animation-delay: 160ms; }
-.analytics-status-legend > span:nth-child(4) { animation-delay: 200ms; }
+.analytics-status-legend > span:nth-child(1) { animation-delay: 120ms; }
+.analytics-status-legend > span:nth-child(2) { animation-delay: 180ms; }
+.analytics-status-legend > span:nth-child(3) { animation-delay: 240ms; }
+.analytics-status-legend > span:nth-child(4) { animation-delay: 300ms; }
 
 @keyframes analyticsLegendIn {
   from {
@@ -1224,83 +1224,83 @@ html[data-theme="dark"] .analytics-margin > span strong {
 .analytics-panel--products {
   animation:
     analyticsPanelLeft
-    450ms cubic-bezier(0.22, 1, 0.36, 1)
-    160ms both;
+    1000ms cubic-bezier(0.16, 1, 0.3, 1)
+    240ms both;
 }
 
 .analytics-panel--inventory {
   animation:
     analyticsPanelRight
-    450ms cubic-bezier(0.22, 1, 0.36, 1)
-    200ms both;
+    1000ms cubic-bezier(0.16, 1, 0.3, 1)
+    300ms both;
 }
 
 /* TOP PRODUCT ROWS */
 .analytics-products > div {
   animation:
     analyticsItemUp
-    350ms cubic-bezier(0.22, 1, 0.36, 1)
+    850ms cubic-bezier(0.16, 1, 0.3, 1)
     both;
 }
 
-.analytics-products > div:nth-child(1) { animation-delay: 100ms; }
-.analytics-products > div:nth-child(2) { animation-delay: 140ms; }
-.analytics-products > div:nth-child(3) { animation-delay: 180ms; }
-.analytics-products > div:nth-child(4) { animation-delay: 220ms; }
-.analytics-products > div:nth-child(5) { animation-delay: 260ms; }
+.analytics-products > div:nth-child(1) { animation-delay: 160ms; }
+.analytics-products > div:nth-child(2) { animation-delay: 220ms; }
+.analytics-products > div:nth-child(3) { animation-delay: 280ms; }
+.analytics-products > div:nth-child(4) { animation-delay: 340ms; }
+.analytics-products > div:nth-child(5) { animation-delay: 400ms; }
 
 /* Product progress bars */
 .analytics-products u {
   transform-origin: left;
   animation:
     analyticsProgressGrow
-    500ms cubic-bezier(0.22, 1, 0.36, 1)
-    240ms both;
+    1100ms cubic-bezier(0.16, 1, 0.3, 1)
+    360ms both;
 }
 
 /* INVENTORY */
 .analytics-inventory-score > div {
   animation:
     analyticsItemUp
-    350ms cubic-bezier(0.22, 1, 0.36, 1)
+    850ms cubic-bezier(0.16, 1, 0.3, 1)
     both;
 }
 
-.analytics-inventory-score > div:nth-child(1) { animation-delay: 120ms; }
-.analytics-inventory-score > div:nth-child(2) { animation-delay: 180ms; }
+.analytics-inventory-score > div:nth-child(1) { animation-delay: 180ms; }
+.analytics-inventory-score > div:nth-child(2) { animation-delay: 260ms; }
 
 .analytics-inventory-list > span {
   animation:
     analyticsLegendIn
-    300ms cubic-bezier(0.22, 1, 0.36, 1)
+    800ms cubic-bezier(0.16, 1, 0.3, 1)
     both;
 }
 
-.analytics-inventory-list > span:nth-child(1) { animation-delay: 140ms; }
-.analytics-inventory-list > span:nth-child(2) { animation-delay: 180ms; }
-.analytics-inventory-list > span:nth-child(3) { animation-delay: 220ms; }
+.analytics-inventory-list > span:nth-child(1) { animation-delay: 200ms; }
+.analytics-inventory-list > span:nth-child(2) { animation-delay: 260ms; }
+.analytics-inventory-list > span:nth-child(3) { animation-delay: 320ms; }
 
 /* Work warning */
 .analytics-work-note {
   animation:
     analyticsFadeUp
-    350ms cubic-bezier(0.22, 1, 0.36, 1)
-    200ms both;
+    900ms cubic-bezier(0.16, 1, 0.3, 1)
+    280ms both;
 }
 
 /* Footnote */
 .analytics-page__footnote {
   animation:
     analyticsFadeUp
-    350ms cubic-bezier(0.22, 1, 0.36, 1)
-    220ms both;
+    900ms cubic-bezier(0.16, 1, 0.3, 1)
+    320ms both;
 }
 
 /* SHARED */
 @keyframes analyticsItemUp {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(-10px);
   }
   to {
     opacity: 1;
@@ -1311,7 +1311,7 @@ html[data-theme="dark"] .analytics-margin > span strong {
 @keyframes analyticsFadeUp {
   from {
     opacity: 0;
-    transform: translateY(14px);
+    transform: translateY(-12px);
   }
   to {
     opacity: 1;

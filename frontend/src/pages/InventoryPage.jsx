@@ -15,7 +15,6 @@ import {
   Tags,
 } from "lucide-react";
 
-import PageLoadingScreen from "../components/PageLoadingScreen";
 import StatCard from "../components/StatCard";
 import InventoryFilters from "../components/InventoryFilters";
 import InventoryTable from "../components/InventoryTable";
@@ -437,14 +436,6 @@ function InventoryPage() {
     }
   }
 
-  if (isInventoryLoading && products.length === 0 && !inventoryError && !accountError) {
-    return (
-      <main className="dashboard inventory-page">
-        <PageLoadingScreen message="Loading inventory & categories..." />
-      </main>
-    );
-  }
-
   return (
     <main className="dashboard inventory-page">
       <input
@@ -520,58 +511,60 @@ function InventoryPage() {
             </div>
           </section>
 
-          <InventoryTable
-            products={visibleProducts}
-            filterControls={
-              <InventoryFilters
-                categories={categories}
-                onApply={setInventoryFilters}
-                onReset={resetInventoryFilters}
-                appliedFilters={assistantInventoryFilters}
-                actions={
-                  <div className="page__actions">
-                    <button type="button" onClick={() => setIsBarcodeScannerOpen(true)} title="Scan Barcode">
-                      <ScanBarcode size={14} aria-hidden="true" />
-                      <span>Scan Barcode</span>
-                    </button>
-                    <button type="button" onClick={handleExportInventory} disabled={isExporting} title="Export Inventory">
-                      <Download size={14} aria-hidden="true" />
-                      <span>{isExporting ? "Exporting..." : "Export Inventory"}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => inventoryFileInputRef.current?.click()}
-                      disabled={!business?.id || isImporting}
-                      title="Import Inventory"
-                    >
-                      <Upload size={14} aria-hidden="true" />
-                      <span>{isImporting ? "Importing..." : "Import Inventory"}</span>
-                    </button>
-                    <button
-                      className="page__add-button"
-                      type="button"
-                      onClick={() => setIsAddProductOpen(true)}
-                      disabled={!business?.id}
-                      title="Add Product"
-                    >
-                      <Plus size={14} aria-hidden="true" />
-                      <span>Add Product</span>
-                    </button>
-                  </div>
-                }
-              />
-            }
-            onViewReviews={setReviewProduct}
-            onEditProduct={setEditingProduct}
-            onRemoveProduct={(product) => setRemovalTarget({ type: "product", record: product })}
-            onChangeStatus={handleBulkStatusChange}
-            categories={categories}
-            onChangeCategory={handleBulkCategoryChange}
-            onExportSelected={handleExportSelected}
-            onAdjustStock={(product, variantId) =>
-              setStockAdjustment({ product, variantId })
-            }
-          />
+          {isInventoryLoading && products.length === 0 ? null : (
+            <InventoryTable
+              products={visibleProducts}
+              filterControls={
+                <InventoryFilters
+                  categories={categories}
+                  onApply={setInventoryFilters}
+                  onReset={resetInventoryFilters}
+                  appliedFilters={assistantInventoryFilters}
+                  actions={
+                    <div className="page__actions">
+                      <button type="button" onClick={() => setIsBarcodeScannerOpen(true)} title="Scan Barcode">
+                        <ScanBarcode size={14} aria-hidden="true" />
+                        <span>Scan Barcode</span>
+                      </button>
+                      <button type="button" onClick={handleExportInventory} disabled={isExporting} title="Export Inventory">
+                        <Download size={14} aria-hidden="true" />
+                        <span>{isExporting ? "Exporting..." : "Export Inventory"}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => inventoryFileInputRef.current?.click()}
+                        disabled={!business?.id || isImporting}
+                        title="Import Inventory"
+                      >
+                        <Upload size={14} aria-hidden="true" />
+                        <span>{isImporting ? "Importing..." : "Import Inventory"}</span>
+                      </button>
+                      <button
+                        className="page__add-button"
+                        type="button"
+                        onClick={() => setIsAddProductOpen(true)}
+                        disabled={!business?.id}
+                        title="Add Product"
+                      >
+                        <Plus size={14} aria-hidden="true" />
+                        <span>Add Product</span>
+                      </button>
+                    </div>
+                  }
+                />
+              }
+              onViewReviews={setReviewProduct}
+              onEditProduct={setEditingProduct}
+              onRemoveProduct={(product) => setRemovalTarget({ type: "product", record: product })}
+              onChangeStatus={handleBulkStatusChange}
+              categories={categories}
+              onChangeCategory={handleBulkCategoryChange}
+              onExportSelected={handleExportSelected}
+              onAdjustStock={(product, variantId) =>
+                setStockAdjustment({ product, variantId })
+              }
+            />
+          )}
         </>
       )}
 
@@ -592,26 +585,28 @@ function InventoryPage() {
             </div>
           </section>
 
-          <CategoryTable
-            categories={categories}
-            products={products}
-            onEditCategory={setEditingCategory}
-            onRemoveCategory={(category) => setRemovalTarget({ type: "category", record: category })}
-            headerActions={
-              <div className="page__actions">
-                <button
-                  className="page__add-button"
-                  type="button"
-                  onClick={() => setIsAddCategoryOpen(true)}
-                  disabled={!business?.id}
-                  title="Add Category"
-                >
-                  <Plus size={14} aria-hidden="true" />
-                  <span>Add Category</span>
-                </button>
-              </div>
-            }
-          />
+          {isCategoriesLoading && categories.length === 0 ? null : (
+            <CategoryTable
+              categories={categories}
+              products={products}
+              onEditCategory={setEditingCategory}
+              onRemoveCategory={(category) => setRemovalTarget({ type: "category", record: category })}
+              headerActions={
+                <div className="page__actions">
+                  <button
+                    className="page__add-button"
+                    type="button"
+                    onClick={() => setIsAddCategoryOpen(true)}
+                    disabled={!business?.id}
+                    title="Add Category"
+                  >
+                    <Plus size={14} aria-hidden="true" />
+                    <span>Add Category</span>
+                  </button>
+                </div>
+              }
+            />
+          )}
         </>
       )}
 

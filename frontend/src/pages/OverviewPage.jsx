@@ -28,7 +28,6 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
-import PageLoadingScreen from "../components/PageLoadingScreen";
 import StatCard from "../components/StatCard";
 import { useAuth } from "../context/authContextValue";
 import {
@@ -204,14 +203,6 @@ function OverviewPage() {
     ];
   }, [analytics]);
 
-  if (isLoading && !analytics && !analyticsError) {
-    return (
-      <main className="dashboard overview-page">
-        <PageLoadingScreen message="Loading business overview..." />
-      </main>
-    );
-  }
-
   return (
     <main className="dashboard overview-page">
       <section className="overview-hero" aria-labelledby="overview-title">
@@ -328,16 +319,18 @@ function OverviewPage() {
             <Link to="/orders">View all <ArrowRight size={15} /></Link>
           </header>
           <div className="overview-recent-orders">
-            {(analytics?.recentOrders ?? []).length === 0 ? (
+            {!analytics ? null : (analytics?.recentOrders ?? []).length === 0 ? (
               <p className="overview-empty">New orders will appear here.</p>
-            ) : analytics.recentOrders.map((order) => (
-              <Link to="/orders" key={order.id || order.orderNumber}>
-                <span className="overview-order-icon"><Package size={18} /></span>
-                <span><strong>#{order.orderNumber}</strong><small>{order.customerName} · {order.itemCount} item{order.itemCount === 1 ? "" : "s"}</small></span>
-                <span><strong>{formatAnalyticsMoney(order.totalAmountMinor)}</strong><small>{formatOrderDate(order.createdAt)}</small></span>
-                <em className={`overview-status overview-status--${order.fulfilmentStatus}`}>{STATUS_LABELS[order.fulfilmentStatus] ?? order.fulfilmentStatus}</em>
-              </Link>
-            ))}
+            ) : (
+              analytics.recentOrders.map((order) => (
+                <Link to="/orders" key={order.id || order.orderNumber}>
+                  <span className="overview-order-icon"><Package size={18} /></span>
+                  <span><strong>#{order.orderNumber}</strong><small>{order.customerName} · {order.itemCount} item{order.itemCount === 1 ? "" : "s"}</small></span>
+                  <span><strong>{formatAnalyticsMoney(order.totalAmountMinor)}</strong><small>{formatOrderDate(order.createdAt)}</small></span>
+                  <em className={`overview-status overview-status--${order.fulfilmentStatus}`}>{STATUS_LABELS[order.fulfilmentStatus] ?? order.fulfilmentStatus}</em>
+                </Link>
+              ))
+            )}
           </div>
         </article>
 
@@ -349,48 +342,50 @@ function OverviewPage() {
             <Link to="/inventory">View all <ArrowRight size={15} /></Link>
           </header>
           <div className="overview-top-products-list">
-            {topProductsList.map((product, index) => {
-              const rank = index + 1;
-              const growth = product.growth ?? Math.max(24 - index * 4, 6);
-              const ProductIcon = product.icon || Package;
-              return (
-                <div className="overview-top-product-row" key={product.id || index}>
-                  <span className="overview-top-product-rank">{rank}</span>
-                  <div className="overview-top-product-media">
-                    {product.imageUrl ? (
-                      <img
-                        src={product.imageUrl}
-                        alt={product.name}
-                        loading="lazy"
-                        onError={(e) => {
-                          e.currentTarget.style.display = "none";
-                          const fallback = e.currentTarget.parentElement?.querySelector(".overview-top-product-fallback");
-                          if (fallback) fallback.style.display = "flex";
-                        }}
-                      />
-                    ) : null}
-                    <div
-                      className="overview-top-product-fallback"
-                      style={{ display: product.imageUrl ? "none" : "flex" }}
-                    >
-                      <ProductIcon size={20} strokeWidth={2.2} />
+            {!analytics ? null : (
+              topProductsList.map((product, index) => {
+                const rank = index + 1;
+                const growth = product.growth ?? Math.max(24 - index * 4, 6);
+                const ProductIcon = product.icon || Package;
+                return (
+                  <div className="overview-top-product-row" key={product.id || index}>
+                    <span className="overview-top-product-rank">{rank}</span>
+                    <div className="overview-top-product-media">
+                      {product.imageUrl ? (
+                        <img
+                          src={product.imageUrl}
+                          alt={product.name}
+                          loading="lazy"
+                          onError={(e) => {
+                            e.currentTarget.style.display = "none";
+                            const fallback = e.currentTarget.parentElement?.querySelector(".overview-top-product-fallback");
+                            if (fallback) fallback.style.display = "flex";
+                          }}
+                        />
+                      ) : null}
+                      <div
+                        className="overview-top-product-fallback"
+                        style={{ display: product.imageUrl ? "none" : "flex" }}
+                      >
+                        <ProductIcon size={20} strokeWidth={2.2} />
+                      </div>
+                    </div>
+                    <div className="overview-top-product-info">
+                      <strong>{product.name}</strong>
+                      <span>{product.categoryName || product.category || "General"}</span>
+                    </div>
+                    <div className="overview-top-product-stats">
+                      <strong>{formatAnalyticsMoney(product.revenueMinor)}</strong>
+                      <span>{product.quantity} sold</span>
+                    </div>
+                    <div className="overview-top-product-growth">
+                      <ArrowUp size={11} strokeWidth={2.8} aria-hidden="true" />
+                      +{growth}%
                     </div>
                   </div>
-                  <div className="overview-top-product-info">
-                    <strong>{product.name}</strong>
-                    <span>{product.categoryName || product.category || "General"}</span>
-                  </div>
-                  <div className="overview-top-product-stats">
-                    <strong>{formatAnalyticsMoney(product.revenueMinor)}</strong>
-                    <span>{product.quantity} sold</span>
-                  </div>
-                  <div className="overview-top-product-growth">
-                    <ArrowUp size={11} strokeWidth={2.8} aria-hidden="true" />
-                    +{growth}%
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
         </article>
       </section>

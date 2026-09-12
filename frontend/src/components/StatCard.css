@@ -28,8 +28,8 @@
   cursor: default;
   transform: scale(1);
   transition:
-    transform 350ms cubic-bezier(0.22, 1, 0.36, 1),
-    box-shadow 350ms ease;
+    transform 650ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 650ms ease;
 }
 
 /* Card lift & glow interactions */
@@ -41,8 +41,8 @@
   transform: translateY(-2px) scale(1.03);
   border: none !important;
   transition:
-    transform 350ms cubic-bezier(0.22, 1, 0.36, 1),
-    box-shadow 350ms ease;
+    transform 650ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 650ms ease;
   box-shadow: 0 14px 30px rgba(15, 23, 42, 0.09), 0 4px 10px rgba(15, 23, 42, 0.03);
 }
 
@@ -105,7 +105,7 @@ html[data-theme="dark"] .stat-card:hover::before {
   color: var(--tone-color, #2563eb);
   background-color: var(--tone-bg, #eff6ff);
   transform: scale(1);
-  transition: transform 500ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 750ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .stat-card__icon svg {
@@ -281,44 +281,44 @@ html[data-theme="dark"] .stat-card--red,
   --tone-bg: rgba(239, 68, 68, 0.16);
 }
 
-/* Previous Revealing Animations Restored */
+/* Revealing Animations: Smooth top-to-bottom entrance */
 .stat-card {
   opacity: 0;
-  animation: statCardFlyIn 600ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: statCardFlyIn 950ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .stat-card:nth-child(1) {
-  animation-delay: 400ms;
+  animation-delay: 60ms;
 }
 
 .stat-card:nth-child(2) {
-  animation-delay: 450ms;
+  animation-delay: 120ms;
 }
 
 .stat-card:nth-child(3) {
-  animation-delay: 500ms;
+  animation-delay: 180ms;
 }
 
 .stat-card:nth-child(4) {
-  animation-delay: 550ms;
+  animation-delay: 240ms;
 }
 
 .stat-card:nth-child(5) {
-  animation-delay: 700ms;
+  animation-delay: 300ms;
 }
 
 .stat-card:nth-child(6) {
-  animation-delay: 750ms;
+  animation-delay: 360ms;
 }
 
 .stat-card:nth-child(7) {
-  animation-delay: 800ms;
+  animation-delay: 420ms;
 }
 
 @keyframes statCardFlyIn {
   from {
     opacity: 0;
-    transform: translateY(35px) scale(0.95);
+    transform: translateY(-16px) scale(0.98);
   }
 
   to {
