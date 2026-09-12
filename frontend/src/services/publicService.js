@@ -20,10 +20,12 @@ export function createPublicChatSession({ storeCode, productCode, language }) {
   });
 }
 
-export function claimPublicChatSession(sessionId, sessionToken) {
+export function claimPublicChatSession(sessionId, sessionToken, data = {}) {
   return apiRequest(`/public/chat/sessions/${sessionId}/claim`, {
     method: "POST",
+    body: data,
     headers: { "X-Chat-Session-Token": sessionToken },
+    requiresAuthentication: "optional",
   });
 }
 
@@ -40,7 +42,7 @@ export function sendPublicChatMessage(sessionId, sessionToken, message, orderDra
     method: "POST",
     body: { message, ...orderDraft },
     headers: { "X-Chat-Session-Token": sessionToken },
-    requiresAuthentication: false,
+    requiresAuthentication: "optional",
   });
 }
 
@@ -95,4 +97,12 @@ export function submitGuestOrderEmail(storeCode, orderId, email) {
     requiresAuthentication: false,
   });
 }
+
+export function resumePublicChatSession(sessionId) {
+  return apiRequest(`/public/chat/sessions/${sessionId}/resume`, {
+    method: "POST",
+    requiresAuthentication: true,
+  });
+}
+
 

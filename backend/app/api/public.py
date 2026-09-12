@@ -12,6 +12,7 @@ from app.services.public_chat_service import (
     create_public_chat_session,
     claim_public_chat_session,
     get_public_chat_messages,
+    resume_public_chat_session,
 )
 from app.services.customer_portal_service import (
     get_customer_order,
@@ -50,11 +51,21 @@ def start_public_chat():
 
 @public_blueprint.post("/chat/sessions/<session_id>/messages")
 @limiter.limit("60 per minute", key_func=public_chat_key)
+@optional_firebase_user
 def public_chat_message(session_id):
+    session_token = request.headers.get("X-Chat-Session-Token", "")
+    if g.current_user:
+        claim_public_chat_session(
+            get_firestore_client(),
+            session_id,
+            session_token,
+            g.current_user["uid"],
+            customer_email=g.current_user.get("email", ""),
+        )
     response = answer_public_message(
         get_firestore_client(),
         session_id,
-        request.headers.get("X-Chat-Session-Token", ""),
+        session_token,
         get_json_object(),
     )
     return jsonify(response)
@@ -99,6 +110,7 @@ def public_chat_order(session_id):
             session_id,
             session_token,
             g.current_user["uid"],
+            customer_email=g.current_user.get("email", ""),
         )
     order = create_public_chat_order(
         get_firestore_client(),
@@ -112,11 +124,26 @@ def public_chat_order(session_id):
 @public_blueprint.post("/chat/sessions/<session_id>/claim")
 @require_firebase_user
 def claim_public_chat(session_id):
+    payload = request.get_json(silent=True) or {}
+    user_email = g.current_user.get("email") or payload.get("email") or ""
     result = claim_public_chat_session(
         get_firestore_client(),
         session_id,
         request.headers.get("X-Chat-Session-Token", ""),
         g.current_user["uid"],
+        customer_email=user_email,
+    )
+    return jsonify(result)
+
+
+@public_blueprint.post("/chat/sessions/<session_id>/resume")
+@require_firebase_user
+def resume_public_chat(session_id):
+    result = resume_public_chat_session(
+        get_firestore_client(),
+        session_id,
+        g.current_user["uid"],
+        customer_email=g.current_user.get("email", ""),
     )
     return jsonify(result)
 

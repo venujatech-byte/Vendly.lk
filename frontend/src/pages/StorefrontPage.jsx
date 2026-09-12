@@ -54,6 +54,7 @@ import {
   getPublicStore,
   getCustomerOrders,
   getPublicChatMessages,
+  resumePublicChatSession,
   sendPublicChatImage,
   sendPublicChatMessage,
   submitPublicReview,
@@ -431,6 +432,16 @@ function StorefrontPage({ linkType }) {
     }
   }, [isLoading, business, errorMessage]);
 
+  useEffect(() => {
+    if (user && !user.isAnonymous && user.email) {
+      setCustomer((current) => ({
+        ...current,
+        email: current.email || user.email,
+        name: current.name || user.displayName || "",
+      }));
+    }
+  }, [user]);
+
   async function loadOlderChatMessages() {
     if (!session?.sessionId || !session?.sessionToken || isLoadingOlderMessages) return;
     setIsLoadingOlderMessages(true);
@@ -480,7 +491,8 @@ function StorefrontPage({ linkType }) {
 
   useEffect(() => {
     if (!user || !session?.sessionId || !session?.sessionToken) return;
-    claimPublicChatSession(session.sessionId, session.sessionToken).catch((error) => {
+    const userEmail = (!user.isAnonymous && user.email) ? user.email : "";
+    claimPublicChatSession(session.sessionId, session.sessionToken, { email: userEmail }).catch((error) => {
       setErrorMessage(error.message);
     });
   }, [session?.sessionId, session?.sessionToken, user]);
@@ -851,6 +863,8 @@ function StorefrontPage({ linkType }) {
 
     try {
       const activeSession = await ensureChatSession();
+      const userEmail = (!user?.isAnonymous && user?.email) ? user.email : "";
+      const currentEmail = customer.email || userEmail || "";
       const response = await sendPublicChatMessage(
         activeSession.sessionId,
         activeSession.sessionToken,
@@ -860,6 +874,11 @@ function StorefrontPage({ linkType }) {
             variantId: item.variantId,
             quantity: item.quantity,
           })),
+          customerEmail: currentEmail,
+          customer: {
+            ...customer,
+            email: currentEmail,
+          },
         },
       );
 
@@ -1159,7 +1178,7 @@ function StorefrontPage({ linkType }) {
             name: customer.name,
             phoneNumber: customer.phoneNumber,
             secondaryPhoneNumber: customer.secondaryPhoneNumber,
-            email: customer.email,
+            email: customer.email || (!user?.isAnonymous ? user?.email : "") || "",
             address: customer.address,
           },
           deliveryNote: customer.deliveryNote,
@@ -1217,6 +1236,58 @@ function StorefrontPage({ linkType }) {
       setErrorMessage(error.message);
     } finally {
       setIsSending(false);
+    }
+  }
+
+  async function handleResumeChat(chat) {
+    if (!chat?.id) return;
+    setIsAccountOpen(false);
+    changeView("chatbot");
+    try {
+      setIsLoading(true);
+      const resumedSession = await resumePublicChatSession(chat.id);
+      setSession(resumedSession);
+      const sessionKey = chatSessionStorageKey(storeCode, productCode, user);
+      localStorage.setItem(sessionKey, JSON.stringify(resumedSession));
+
+      const result = await getPublicChatMessages(
+        resumedSession.sessionId,
+        resumedSession.sessionToken,
+        { limit: 25 },
+      );
+      const formatted = (result.messages || []).map((message) => ({
+        id: message.id,
+        role: message.role,
+        text: message.message,
+        action: message.metadata?.action,
+        imageUrl: message.metadata?.imageUrl,
+      }));
+
+      if (formatted.length > 0) {
+        setMessages(formatted);
+        messagesCacheRef.current.set(resumedSession.sessionId, formatted);
+        saveMessagesToSession(resumedSession.sessionId, formatted);
+        formatted.forEach((m) => {
+          if (m.id && m.role === "seller") {
+            receivedSellerMessageIds.current.add(m.id);
+          }
+        });
+        setHasMoreMessages(Boolean(result.nextCursor));
+        setMessageCursor(result.nextCursor || null);
+      } else {
+        setMessages([
+          {
+            role: "assistant",
+            text: `Welcome back to ${business?.name || "Vendly"}. How can I assist you with this chat?`,
+          },
+        ]);
+        setHasMoreMessages(false);
+      }
+    } catch (err) {
+      console.error("Failed to resume chat session:", err);
+      setErrorMessage(err.message || "Failed to resume chat session.");
+    } finally {
+      setIsLoading(false);
     }
   }
 
@@ -1768,10 +1839,7 @@ function StorefrontPage({ linkType }) {
         onClose={() => setIsAccountOpen(false)}
         user={user}
         storeCode={business.shortCode}
-        onOpenChat={() => {
-          setIsAccountOpen(false);
-          changeView("chatbot");
-        }}
+        onOpenChat={handleResumeChat}
       />
 
       <StorefrontInstructionsModal

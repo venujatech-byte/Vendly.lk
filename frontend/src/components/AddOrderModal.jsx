@@ -259,6 +259,8 @@ function AddOrderModal({ isOpen, businessId, business, onClose, onCreated }) {
       const receiptDataUrl = receiptFile ? await readAsDataUrl(receiptFile) : "";
       const order = await createOrder(businessId, {
         customerId: finalCustomerId,
+        customerEmail: customer.email,
+        email: customer.email,
         secondaryPhoneNumber: customer.secondaryPhoneNumber,
         items: items.map((item) => ({ variantId: item.variantId, quantity: item.quantity })),
         deliveryAddress: customer.address,
@@ -278,8 +280,16 @@ function AddOrderModal({ isOpen, businessId, business, onClose, onCreated }) {
         discountAmount,
         privateNote,
       });
-      onCreated(order);
-      setReceiptOrder(order);
+      const finalOrder = {
+        ...order,
+        customerEmail: customer.email || order.customerEmail || order.customerSnapshot?.email,
+        customerSnapshot: {
+          ...(order.customerSnapshot || {}),
+          email: customer.email || order.customerSnapshot?.email || "",
+        },
+      };
+      onCreated(finalOrder);
+      setReceiptOrder(finalOrder);
       setIsCheckoutOpen(false);
     } catch (error) {
       setErrorMessage(error.message);

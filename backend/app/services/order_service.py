@@ -2,7 +2,7 @@ from collections import defaultdict
 import logging
 from datetime import datetime, timedelta, timezone
 
-from firebase_admin import firestore
+from firebase_admin import auth as firebase_auth, firestore
 from google.cloud import firestore as google_firestore
 from google.cloud.firestore_v1.base_query import FieldFilter
 
@@ -88,6 +88,10 @@ def validate_order_request(payload):
             "Deposit amount",
         )
         secondary_phone = optional_text(payload.get("secondaryPhoneNumber"), 30)
+        customer_email = optional_text(
+            payload.get("customerEmail") or payload.get("email"),
+            254,
+        )
     except ValueError as error:
         raise ApiError("validation_error", str(error), 422) from error
 
@@ -157,6 +161,7 @@ def validate_order_request(payload):
         "customerNote": customer_note,
         "assignedStaffUid": optional_text(payload.get("assignedStaffUid"), 120),
         "customerUid": optional_text(payload.get("customerUid"), 128),
+        "customerEmail": customer_email,
     }
 
 
@@ -587,6 +592,14 @@ def create_order(database, business_id, uid, payload):
             else "partially-paid" if paid_amount_minor > 0
             else "unpaid"
         )
+        resolved_customer_email = request_data.get("customerEmail") or customer_data.get("email", "")
+        if not resolved_customer_email and request_data.get("customerUid"):
+            try:
+                user_rec = firebase_auth.get_user(request_data["customerUid"])
+                resolved_customer_email = (user_rec.email or "").strip()
+            except Exception:
+                pass
+
         current_transaction.set(
             order_reference,
             {
@@ -595,7 +608,7 @@ def create_order(database, business_id, uid, payload):
                 "customerSnapshot": {
                     "name": customer_data.get("name", ""),
                     "normalizedPhone": customer_data.get("normalizedPhone", ""),
-                    "email": customer_data.get("email", ""),
+                    "email": resolved_customer_email,
                     "secondaryPhoneNumber": request_data["secondaryPhoneNumber"] or customer_data.get("normalizedSecondaryPhone", ""),
                     "riskLevel": customer_data.get("riskLevel", "low"),
                 },
@@ -655,6 +668,8 @@ def create_order(database, business_id, uid, payload):
             "lastOrderDate": datetime.now(timezone.utc),
             "updatedAt": timestamp,
         }
+        if resolved_customer_email and not customer_data.get("email"):
+            customer_changes["email"] = resolved_customer_email
         if has_global_fraud_warning:
             customer_changes.update(
                 {
@@ -805,7 +820,7 @@ def create_order(database, business_id, uid, payload):
                 send_email=True,
             )
 
-        customer_email = cust_snapshot.get("email") or customer.get("email")
+        customer_email = cust_snapshot.get("email") or customer.get("email") or resolved_customer_email
         if customer_email:
             b_snap = business_reference.get()
             b_dict = b_snap.to_dict() if b_snap.exists else {}

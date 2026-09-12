@@ -3100,6 +3100,22 @@
     display: grid;
   }
 
+  .storefront-topbar__ai-pill,
+  .storefront-topbar__view-pill {
+    display: none !important;
+  }
+
+  .storefront-notifications__panel {
+    position: fixed !important;
+    top: 56px !important;
+    left: 50% !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
+    width: min(340px, calc(100vw - 24px)) !important;
+    max-height: min(75vh, 480px) !important;
+    z-index: 9999 !important;
+  }
+
   .storefront-chat-page {
     display: block;
     width: calc(100% - 20px);

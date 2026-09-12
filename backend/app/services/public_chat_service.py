@@ -5,7 +5,7 @@ import secrets
 import unicodedata
 from datetime import datetime, timedelta, timezone
 
-from firebase_admin import firestore
+from firebase_admin import auth as firebase_auth, firestore
 from flask import current_app
 from google.cloud.firestore_v1.base_query import FieldFilter
 
@@ -2744,7 +2744,7 @@ def save_chat_message(session_reference, role, message, metadata=None, session=N
     session_reference.set(session_changes, merge=True)
 
 
-def claim_public_chat_session(database, session_id, provided_token, customer_uid):
+def claim_public_chat_session(database, session_id, provided_token, customer_uid, customer_email=""):
     """Attach an active guest chat to the customer who has just signed in."""
     snapshot, session = authorize_public_chat_session(
         database,
@@ -2759,21 +2759,84 @@ def claim_public_chat_session(database, session_id, provided_token, customer_uid
             "This chat belongs to another customer account.",
             403,
         )
-    snapshot.reference.update(
-        {
-            "customerUid": customer_uid,
-            "updatedAt": firestore.SERVER_TIMESTAMP,
-        },
-    )
+
+    if not customer_email and customer_uid:
+        try:
+            user_record = firebase_auth.get_user(customer_uid)
+            customer_email = (user_record.email or "").strip()
+        except Exception:
+            pass
+
+    updates = {
+        "customerUid": customer_uid,
+        "updatedAt": firestore.SERVER_TIMESTAMP,
+    }
+    if customer_email:
+        updates["customerEmail"] = customer_email
+    snapshot.reference.update(updates)
+    session["customerUid"] = customer_uid
+    if customer_email:
+        session["customerEmail"] = customer_email
+
     if session.get("orderId"):
-        (
-            database.collection("businesses")
-            .document(session["businessId"])
-            .collection("orders")
-            .document(session["orderId"])
-            .update({"customerUid": customer_uid})
-        )
+        order_update = {"customerUid": customer_uid}
+        if customer_email:
+            order_update["customerEmail"] = customer_email
+            order_update["customerSnapshot.email"] = customer_email
+        try:
+            (
+                database.collection("businesses")
+                .document(session["businessId"])
+                .collection("orders")
+                .document(session["orderId"])
+                .update(order_update)
+            )
+        except Exception:
+            pass
     return {"sessionId": snapshot.id, "claimed": True}
+
+
+def resume_public_chat_session(database, session_id, customer_uid, customer_email=""):
+    """Resume an existing chat session owned by the authenticated customer and issue an active token."""
+    if not customer_uid:
+        raise ApiError("unauthorized", "You must be signed in to resume chats.", 401)
+
+    snapshot = database.collection("publicChatSessions").document(session_id).get()
+    if not snapshot.exists:
+        raise ApiError("chat_session_not_found", "Chat session not found.", 404)
+
+    session = snapshot.to_dict()
+    if session.get("customerUid") != customer_uid:
+        raise ApiError("forbidden", "You cannot access this chat session.", 403)
+
+    if not customer_email and customer_uid:
+        try:
+            user_record = firebase_auth.get_user(customer_uid)
+            customer_email = (user_record.email or "").strip()
+        except Exception:
+            pass
+
+    session_token = secrets.token_urlsafe(32)
+    updates = {
+        "tokenHash": token_hash(session_token),
+        "status": "active",
+        "updatedAt": firestore.SERVER_TIMESTAMP,
+    }
+    if customer_email and not session.get("customerEmail"):
+        updates["customerEmail"] = customer_email
+    snapshot.reference.update(updates)
+
+    return {
+        "sessionId": snapshot.id,
+        "sessionToken": session_token,
+        "status": "active",
+        "state": session.get("state", "browsing"),
+        "cart": session.get("cart", []),
+        "orderId": session.get("orderId"),
+        "businessId": session.get("businessId"),
+        "productId": session.get("productId"),
+        "language": session.get("language", "en"),
+    }
 
 
 def public_order_confirmation(order):
@@ -2801,8 +2864,15 @@ def public_order_confirmation(order):
         "deliveryFeeMinor": order.get("deliveryFeeMinor", 0),
         "taxTotalMinor": order.get("taxTotalMinor", 0),
         "totalAmountMinor": order.get("totalAmountMinor", 0),
+        "paidAmountMinor": order.get("paidAmountMinor", 0),
+        "balanceAmountMinor": order.get("balanceAmountMinor", 0),
         "paymentMethod": order.get("paymentMethod", "cod"),
+        "paymentPending": order.get("paymentPending", False),
         "paymentStatus": order.get("paymentStatus", "unpaid"),
+        "bankDetails": order.get("bankDetails", {}),
+        "customerSnapshot": order.get("customerSnapshot", {}),
+        "customerEmail": (order.get("customerSnapshot") or {}).get("email") or order.get("customerEmail", ""),
+        "customerName": (order.get("customerSnapshot") or {}).get("name") or order.get("customerName", ""),
         "fulfilmentStatus": order.get("fulfilmentStatus", "needs-confirmation"),
         "deliveryAddress": order.get("deliveryAddress", {}),
         "courier": order.get("courierSnapshot", {}),
@@ -4187,6 +4257,20 @@ def answer_public_message(database, session_id, provided_token, payload):
 
         if confirms_order:
             try:
+                chat_customer_email = (
+                    customer_draft.get("email")
+                    or session.get("customerEmail")
+                    or payload.get("customerEmail")
+                    or (payload.get("customer") or {}).get("email")
+                    or ""
+                )
+                if not chat_customer_email and session.get("customerUid"):
+                    try:
+                        u_rec = firebase_auth.get_user(session["customerUid"])
+                        chat_customer_email = (u_rec.email or "").strip()
+                    except Exception:
+                        pass
+
                 order = create_public_chat_order(
                     database,
                     session_id,
@@ -4196,9 +4280,10 @@ def answer_public_message(database, session_id, provided_token, payload):
                             "name": customer_draft.get("name"),
                             "phoneNumber": customer_draft.get("phoneNumber"),
                             "secondaryPhoneNumber": customer_draft.get("secondaryPhoneNumber", ""),
-                            "email": customer_draft.get("email", ""),
+                            "email": chat_customer_email,
                             "address": customer_draft.get("address"),
                         },
+                        "customerEmail": chat_customer_email,
                         "items": cart,
                         "deliveryNote": customer_draft.get("deliveryNote", ""),
                         # The answer to "how would you like to pay?" outranks
@@ -5396,11 +5481,33 @@ def create_public_chat_order(database, session_id, provided_token, payload):
         session["businessId"],
         phone=customer_payload.get("phoneNumber"),
     )
-    customer = (
-        existing_customers[0]
-        if existing_customers
-        else create_customer(database, session["businessId"], customer_payload)
-    )
+    email_val = str(
+        customer_payload.get("email")
+        or payload.get("customerEmail")
+        or session.get("customerEmail")
+        or ""
+    ).strip()
+
+    if not email_val and session.get("customerUid"):
+        try:
+            user_rec = firebase_auth.get_user(session["customerUid"])
+            email_val = (user_rec.email or "").strip()
+        except Exception:
+            pass
+
+    if existing_customers:
+        customer = existing_customers[0]
+        if email_val and not customer.get("email"):
+            try:
+                database.collection("businesses").document(session["businessId"]).collection("customers").document(customer["id"]).update({"email": email_val})
+                customer["email"] = email_val
+            except Exception:
+                pass
+    else:
+        cust_create_payload = dict(customer_payload)
+        if email_val:
+            cust_create_payload["email"] = email_val
+        customer = create_customer(database, session["businessId"], cust_create_payload)
     try:
         delivery_note = optional_text(payload.get("deliveryNote"), 500)
     except ValueError as error:
@@ -5461,6 +5568,7 @@ def create_public_chat_order(database, session_id, provided_token, payload):
         "privateNote": private_note,
         "customerNote": delivery_note,
         "customerUid": session.get("customerUid", ""),
+        "customerEmail": email_val or customer.get("email", ""),
     }
 
     if session.get("productId"):
@@ -5495,25 +5603,22 @@ def create_public_chat_order(database, session_id, provided_token, payload):
         "phoneNumber": customer_payload.get("phoneNumber") or customer.get("normalizedPhone", ""),
         "secondaryPhoneNumber": customer_payload.get("secondaryPhoneNumber", "")
         or customer.get("normalizedSecondaryPhone", ""),
-        "email": customer_payload.get("email", "") or customer.get("email", ""),
+        "email": email_val or customer_payload.get("email", "") or customer.get("email", ""),
         "address": customer_payload.get("address") or customer.get("defaultAddress") or {},
     }
-    session_snapshot.reference.update(
-        {
-            "status": "completed",
-            "state": "completed",
-            "cart": [],
-            "orderId": order["id"],
-            # Every order this chat has produced, not just the newest. The
-            # status notifier looks a session up by order, and `orderId` is
-            # overwritten by each new order - so a status change on the earlier
-            # one reached nobody.
-            "orderIds": firestore.ArrayUnion([order["id"]]),
-            "customerDraft": customer_summary,
-            "customerSummary": customer_summary,
-            "updatedAt": firestore.SERVER_TIMESTAMP,
-        },
-    )
+    session_update_dict = {
+        "status": "completed",
+        "state": "completed",
+        "cart": [],
+        "orderId": order["id"],
+        "orderIds": firestore.ArrayUnion([order["id"]]),
+        "customerDraft": customer_summary,
+        "customerSummary": customer_summary,
+        "updatedAt": firestore.SERVER_TIMESTAMP,
+    }
+    if email_val:
+        session_update_dict["customerEmail"] = email_val
+    session_snapshot.reference.update(session_update_dict)
     confirmation = public_order_confirmation(order)
 
     # Bank details travel with the order that needs them, never with the

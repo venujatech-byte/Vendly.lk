@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Check, CircleHelp, Download, Home, Info, Mail, Package, Truck } from "lucide-react";
+import { useAuth } from "../context/authContextValue";
 import { downloadReceiptPdf } from "../services/receiptService";
 import { submitGuestOrderEmail } from "../services/publicService";
 import { storefrontText } from "../data/storefrontText";
@@ -10,23 +11,48 @@ function money(minorUnits = 0) {
 }
 
 function dateLabel(value) {
-  const date = value ? new Date(value) : new Date();
-  return Number.isNaN(date.getTime()) ? new Date().toLocaleDateString("en-LK") : date.toLocaleDateString("en-LK", { year: "numeric", month: "long", day: "numeric" });
+  if (!value) return new Date().toLocaleDateString("en-LK", { year: "numeric", month: "long", day: "numeric" });
+  let date;
+  if (typeof value?.toDate === "function") {
+    date = value.toDate();
+  } else if (value?.seconds || value?._seconds) {
+    date = new Date((value.seconds || value._seconds) * 1000);
+  } else {
+    date = new Date(value);
+  }
+  return Number.isNaN(date.getTime())
+    ? new Date().toLocaleDateString("en-LK")
+    : date.toLocaleDateString("en-LK", { year: "numeric", month: "long", day: "numeric" });
 }
 
 export default function OrderReceipt({ business, order, onClose, closeLabel = "Return", chatLanguage = "en" }) {
   const text = storefrontText(chatLanguage);
+  const { user } = useAuth();
   const address = order.deliveryAddress || order.deliveryAddressObject || {};
   const customer = order.customerSnapshot || {};
   const payment = order.paymentMethod === "deposit" ? "Deposit / balance due" : order.paymentMethod === "paid" ? "Paid" : "Cash on delivery";
 
-  const initialEmail = customer.email || order.customerEmail || order.email || "";
+  const loggedInUserEmail = (!user?.isAnonymous && user?.email) ? user.email : "";
+  const initialEmail = customer.email || order.customerEmail || order.email || loggedInUserEmail || "";
   const [emailInput, setEmailInput] = useState("");
   const [emailSubmitting, setEmailSubmitting] = useState(false);
   const [emailSubmitted, setEmailSubmitted] = useState(false);
   const [emailError, setEmailError] = useState("");
 
+  const isDashboardOrder = closeLabel === "Return to Orders";
   const hasEmail = Boolean(initialEmail || emailSubmitted);
+  const shouldPromptForEmail = !hasEmail && !isDashboardOrder && (user?.isAnonymous || !user);
+
+  useEffect(() => {
+    // If order was created without an email, but the customer is signed in with email:
+    const targetEmail = loggedInUserEmail;
+    const orderHasEmail = Boolean(customer.email || order.customerEmail || order.email);
+    if (targetEmail && !orderHasEmail && !emailSubmitted && business?.shortCode && (order.id || order.orderId)) {
+      submitGuestOrderEmail(business.shortCode, order.id || order.orderId, targetEmail)
+        .then(() => setEmailSubmitted(true))
+        .catch((err) => console.warn("Auto-attaching user email to order failed:", err));
+    }
+  }, [loggedInUserEmail, customer.email, order, business?.shortCode, emailSubmitted]);
 
   async function handleEmailSubmit(event) {
     event.preventDefault();
@@ -49,7 +75,7 @@ export default function OrderReceipt({ business, order, onClose, closeLabel = "R
       <h1>{text.orderConfirmed}</h1>
       <p>{text.orderConfirmedHint}</p>
 
-      {!hasEmail ? (
+      {shouldPromptForEmail ? (
         <div className="receipt-email-prompt">
           <div className="receipt-email-prompt__icon"><Mail size={20} /></div>
           <div className="receipt-email-prompt__content">
@@ -71,12 +97,12 @@ export default function OrderReceipt({ business, order, onClose, closeLabel = "R
             {emailError && <span className="receipt-email-prompt__error">{emailError}</span>}
           </div>
         </div>
-      ) : emailSubmitted ? (
+      ) : (emailSubmitted || hasEmail) && !isDashboardOrder ? (
         <div className="receipt-email-prompt is-success">
           <Check size={20} />
           <div className="receipt-email-prompt__content">
             <span style={{ fontSize: "0.92rem", fontWeight: 600 }}>
-              Order confirmation & tracking details sent to <strong>{emailInput}</strong>!
+              Order confirmation & tracking details sent to <strong>{initialEmail || emailInput}</strong>!
             </span>
           </div>
         </div>
