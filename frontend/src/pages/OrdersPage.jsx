@@ -15,10 +15,10 @@ import {
   Store,
   GlobeCheck,
   ShieldCheck,
-  Banknote,
-  ShoppingBasket,
-  Trophy,
-  ReceiptText,
+  ShoppingBag,
+  PackageCheck,
+  CircleDollarSign,
+  Crown,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
@@ -252,7 +252,8 @@ function OrdersPage() {
 
   const visibleOrders = useMemo(() => {
     return orders.filter((order) => {
-      if (statusFilter && order.status !== statusFilter) return false;
+      const orderStatus = order.status || order.fulfilmentStatus;
+      if (statusFilter && orderStatus !== statusFilter) return false;
       if (!filters.payment) return true;
       return paymentCategory(order) === filters.payment;
     });
@@ -271,37 +272,40 @@ function OrdersPage() {
       { label: "All", value: orders.length, icon: Package, tone: "blue" },
       {
         label: "Pending",
-        value: orders.filter((order) => order.status === "pending").length,
+        value: orders.filter((order) => {
+          const s = order.status || order.fulfilmentStatus;
+          return s === "pending" || s === "needs-confirmation";
+        }).length,
         icon: Clock3,
         tone: "orange",
       },
       {
         label: "Confirmed",
-        value: orders.filter((order) => order.status === "confirmed").length,
+        value: orders.filter((order) => (order.status || order.fulfilmentStatus) === "confirmed").length,
         icon: SquareCheckBig,
         tone: "green",
       },
       {
         label: "Packed",
-        value: orders.filter((order) => order.status === "packed").length,
+        value: orders.filter((order) => (order.status || order.fulfilmentStatus) === "packed").length,
         icon: Package2,
         tone: "blue",
       },
       {
         label: "Shipped",
-        value: orders.filter((order) => order.status === "shipped").length,
+        value: orders.filter((order) => (order.status || order.fulfilmentStatus) === "shipped").length,
         icon: Truck,
         tone: "purple",
       },
       {
         label: "Delivered",
-        value: orders.filter((order) => order.status === "delivered").length,
+        value: orders.filter((order) => (order.status || order.fulfilmentStatus) === "delivered").length,
         icon: CircleCheck,
         tone: "green",
       },
       {
         label: "Returned",
-        value: orders.filter((order) => order.status === "returned").length,
+        value: orders.filter((order) => (order.status || order.fulfilmentStatus) === "returned").length,
         icon: Undo2,
         tone: "red",
       },
@@ -319,10 +323,10 @@ function OrdersPage() {
     activeSales.forEach((sale) => sale.items.forEach((item) => itemCounts.set(item.name, (itemCounts.get(item.name) ?? 0) + item.quantity)));
     const topItem = [...itemCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "—";
     return [
-      { label: "Total sales", value: activeSales.length, icon: ReceiptText, tone: "blue" },
-      { label: "Sold items", value: activeSales.reduce((sum, sale) => sum + sale.itemCount, 0), icon: ShoppingBasket, tone: "green" },
-      { label: "Revenue", value: `LKR ${((activeSales.reduce((sum, sale) => sum + sale.totalAmountMinor, 0) - shopWarrantyDeductions) / 100).toLocaleString("en-LK")}`, icon: Banknote, tone: "orange" },
-      { label: "Top item", value: topItem, icon: Trophy, tone: "purple" },
+      { label: "Total sales", value: activeSales.length, icon: ShoppingBag, tone: "blue" },
+      { label: "Sold items", value: activeSales.reduce((sum, sale) => sum + sale.itemCount, 0), icon: PackageCheck, tone: "green" },
+      { label: "Revenue", value: `LKR ${((activeSales.reduce((sum, sale) => sum + sale.totalAmountMinor, 0) - shopWarrantyDeductions) / 100).toLocaleString("en-LK")}`, icon: CircleDollarSign, tone: "orange" },
+      { label: "Top item", value: topItem, icon: Crown, tone: "purple" },
     ];
   }, [shopSales, warrantyClaims]);
 
@@ -527,54 +531,7 @@ function OrdersPage() {
 
   return (
     <main className="dashboard orders-page">
-      {/* Page title, description, and order export action. */}
-      <div className="dashboard__intro">
-        <div className="inventory-page__heading">
-          <p>View and manage all customer orders.</p>
-
-          {activeTab === "onlineOrders" && <div className="page__actions">
-            <button type="button" onClick={handleScanWaybill}>
-              <ScanLine size={19} aria-hidden="true" />
-              <span>Scan Waybill</span>
-            </button>
-            <button type="button" onClick={handleCopyChatbotLink} disabled={!business?.shortCode} title="Copy the seller-specific catalogue and chatbot link">
-              {linkWasCopied ? <Check size={19} aria-hidden="true" /> : <Link2 size={19} aria-hidden="true" />}
-              <span>{linkWasCopied ? "Link Copied" : "Chatbot Link"}</span>
-            </button>
-            <button type="button" onClick={openOrdersExportModal} disabled={!business?.id}>
-              <Download size={19} strokeWidth={1.8} />
-              <span>Export Orders</span>
-            </button>
-            <button className="page__add-button" type="button" onClick={() => setIsAddOrderOpen(true)} disabled={!business?.id}>
-              <Plus size={19} aria-hidden="true" />
-              Add Order
-            </button>
-          </div>}
-
-          {activeTab === "shopOrders" && <div className="page__actions">
-            <button type="button" onClick={handleExportShopSales} disabled={!shopSales.length}>
-              <Download size={19} strokeWidth={1.8} aria-hidden="true" />
-              <span>Export Sales</span>
-            </button>
-            <button className="page__add-button" type="button" onClick={() => setIsAddShopSaleOpen(true)} disabled={!business?.id}>
-              <Plus size={19} aria-hidden="true" />
-              Add Shop Sale
-            </button>
-          </div>}
-
-
-          {activeTab === "warrantyClaims" && <div className="page__actions">
-            <button type="button"  disabled={!shopSales.length}>
-              <Download size={19} strokeWidth={1.8} aria-hidden="true" />
-              <span>Export warranty claims</span>
-            </button>
-          </div>}
-        </div>
-
-      </div>
-
-
-
+      {/* View section tabs at the top */}
       <nav
         className="orders-view-tabs"
         role="tablist"
@@ -602,7 +559,6 @@ function OrdersPage() {
           <span>Shop Sales</span>
         </button>
 
-
         <button
           type="button"
           role="tab"
@@ -615,15 +571,10 @@ function OrdersPage() {
         </button>
       </nav>
 
-
-
-
       {activeTab === "onlineOrders" && (
         <>
-
           {/* Order status summary cards. */}
           <section aria-labelledby="order-dashboard-title">
-
             <div className="order-stats-grid">
               {orderStats2.map((stat) => (
                 <StatCard2
@@ -633,25 +584,58 @@ function OrdersPage() {
                   icon={stat.icon}
                   tone={stat.tone}
                   isActive={(statusFilter === "" && stat.label === "All") || statusFilter === stat.label.toLowerCase()}
-                  onClick={() => setStatusFilter(stat.label === "All" ? "" : stat.label.toLowerCase())}
+                  onClick={() => {
+                    const target = stat.label === "All" ? "" : stat.label.toLowerCase();
+                    setStatusFilter((current) => (current === target ? "" : target));
+                  }}
                 />
               ))}
             </div>
           </section>
 
-
-          {/* Filters narrow the orders shown in the table below. */}
-          <OrderFilters
-            couriers={couriers}
-            onApply={setFilters}
-            onReset={resetOrderFilters}
-            onStatusChange={setStatusFilter}
-            appliedFilters={assistantOrderFilters}
-          />
-
-          {/* Main expandable orders table. */}
+          {/* Main expandable orders table with integrated filters and action buttons */}
           <OrderTable
             orders={visibleOrders}
+            filterControls={
+              <OrderFilters
+                couriers={couriers}
+                onApply={setFilters}
+                onReset={resetOrderFilters}
+                onStatusChange={setStatusFilter}
+                appliedFilters={assistantOrderFilters}
+                actions={
+                  <div className="page__actions">
+                    <button type="button" onClick={handleScanWaybill} title="Scan Waybill">
+                      <ScanLine size={14} aria-hidden="true" />
+                      <span>Scan Waybill</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCopyChatbotLink}
+                      disabled={!business?.shortCode}
+                      title="Copy the seller-specific catalogue and chatbot link"
+                    >
+                      {linkWasCopied ? <Check size={14} aria-hidden="true" /> : <Link2 size={14} aria-hidden="true" />}
+                      <span>{linkWasCopied ? "Link Copied" : "Chatbot Link"}</span>
+                    </button>
+                    <button type="button" onClick={openOrdersExportModal} disabled={!business?.id} title="Export Orders">
+                      <Download size={14} />
+                      <span>Export Orders</span>
+                    </button>
+                    <button
+                      className="page__add-button"
+                      type="button"
+                      onClick={() => setIsAddOrderOpen(true)}
+                      disabled={!business?.id}
+                      title="Add Order"
+                    >
+                      <Plus size={14} aria-hidden="true" />
+                      <span>Add Order</span>
+                    </button>
+                  </div>
+                }
+              />
+            }
             onStatusChange={handleStatusChange}
             onGenerateWaybill={handleGenerateWaybill}
             onFraudReport={handleFraudReport}
@@ -664,13 +648,8 @@ function OrdersPage() {
             onWaybillSave={handleWaybillSave}
             onWarrantyClaim={openOnlineWarranty}
           />
-
         </>
       )}
-
-
-
-
 
       {paymentTarget && (
         <RecordPaymentModal
@@ -709,14 +688,53 @@ function OrdersPage() {
               ))}
             </div>
           </section>
-          <ShopSaleFilters onChange={setShopFilters} appliedFilters={assistantShopSaleFilters} />
-          <ShopSalesTable sales={shopSales.filter((sale) => sale.status !== "voided")} onPrint={printShopReceipt} onWarranty={openShopWarranty} onRemove={setShopRemovalTarget} />
+          <ShopSalesTable
+            sales={shopSales.filter((sale) => sale.status !== "voided")}
+            filterControls={
+              <ShopSaleFilters
+                onChange={setShopFilters}
+                appliedFilters={assistantShopSaleFilters}
+                actions={
+                  <div className="page__actions">
+                    <button type="button" onClick={handleExportShopSales} disabled={!shopSales.length} title="Export Sales">
+                      <Download size={14} aria-hidden="true" />
+                      <span>Export Sales</span>
+                    </button>
+                    <button
+                      className="page__add-button"
+                      type="button"
+                      onClick={() => setIsAddShopSaleOpen(true)}
+                      disabled={!business?.id}
+                      title="Add Shop Sale"
+                    >
+                      <Plus size={14} aria-hidden="true" />
+                      <span>Add Shop Sale</span>
+                    </button>
+                  </div>
+                }
+              />
+            }
+            onPrint={printShopReceipt}
+            onWarranty={openShopWarranty}
+            onRemove={setShopRemovalTarget}
+          />
         </>
       )}
 
       {activeTab === "warrantyClaims" && (
         <>
-          <div className="shop-sales-heading"><div><h2>Warranty claims</h2><p>Claims from online orders and physical shop sales appear together.</p></div></div>
+          <div className="shop-sales-heading">
+            <div>
+              <h2>Warranty claims</h2>
+              <p>Claims from online orders and physical shop sales appear together.</p>
+            </div>
+            <div className="page__actions">
+              <button type="button" disabled={!shopSales.length} title="Export warranty claims">
+                <Download size={14} aria-hidden="true" />
+                <span>Export warranty claims</span>
+              </button>
+            </div>
+          </div>
           <WarrantyClaimsTable claims={warrantyClaims} />
         </>
       )}
@@ -724,12 +742,12 @@ function OrdersPage() {
 
 
       {(accountError || ordersError) && (
-        <p className="orders-page__notice orders-page__notice--error" role="alert">
+        <p className="dashboard-notice dashboard-notice--error" role="alert">
           Orders could not be loaded from the Vendly API.
         </p>
       )}
       {isLoading && (
-        <p className="orders-page__notice" role="status">Loading orders...</p>
+        <p className="dashboard-notice" role="status">Loading orders...</p>
       )}
 
 

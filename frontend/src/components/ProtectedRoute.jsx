@@ -17,6 +17,7 @@ function hasPermission(membership, requiredPermission) {
     permissions.includes("*")
     || permissions.includes(requiredPermission)
     || permissions.includes(`${resource}:*`)
+    || permissions.includes(resource)
   );
 }
 

@@ -57,16 +57,7 @@ function SalesForecast({ report, isLoading, onSaveTarget, canManageTarget = fals
 
   return (
     <section className="sales-forecast" aria-labelledby="sales-forecast-title">
-      <header className="sales-forecast__intro">
-        <div>
-          <span>Planning insight</span>
-          <h3 id="sales-forecast-title">Sales forecast</h3>
-          <p>Use recognized sales history to plan next month without treating an estimate as guaranteed revenue.</p>
-        </div>
-        <CircleGauge aria-hidden="true" />
-      </header>
-
-      <div className="sales-forecast__stats">
+      <div className="sales-forecast__stats stats-grid">
         <StatCard label="Next-month estimate" value={formatAnalyticsMoney(summary.nextMonthForecastMinor)} icon={CalendarRange} tone="blue" />
         <StatCard label="Monthly target" value={formatAnalyticsMoney(summary.activeTargetMinor)} icon={Goal} tone="purple" />
         <StatCard label="Current revenue" value={formatAnalyticsMoney(summary.currentMonthRevenueMinor)} icon={TrendingUp} tone="green" />

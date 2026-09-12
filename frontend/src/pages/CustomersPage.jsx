@@ -19,8 +19,8 @@ import {
   ChevronUp,
   CheckCircle2,
   Clock3,
-  Filter,
   Flag,
+  Funnel,
   Mail,
   MessageSquare,
   Pencil,
@@ -28,7 +28,9 @@ import {
   ShieldAlert,
   UsersRound,
   RotateCcw,
+  Search,
   Trash2,
+  X,
   XCircle,
 } from "lucide-react";
 
@@ -236,27 +238,25 @@ function CustomersPage() {
   const customerTabs = [
     {
       id: "all",
-      label: "All Customers",
+      label: "Customers",
       icon: UsersRound,
-      count: customers.length,
     },
     {
       id: "messages",
       label: "Messages",
       icon: MessageSquare,
-      count: chatSummary.unread,
+      count: chatSummary.unread > 0 ? chatSummary.unread : undefined,
     },
     {
       id: "reviews",
       label: "Reviews",
       icon: Mail,
-      count: reviews.length,
     },
     {
       id: "fraud",
-      label: "Fraud Reports",
+      label: "Fraud",
       icon: ShieldAlert,
-      count: fraudCustomers.length,
+      count: fraudCustomers.length > 0 ? fraudCustomers.length : undefined,
     },
   ];
 
@@ -411,7 +411,7 @@ function CustomersPage() {
         })}
       </nav>
 
-      {activeCustomerTab === "all" && (
+      {activeCustomerTab === "all" ? (
         <>
           <section
             className="customers-summary"
@@ -432,66 +432,202 @@ function CustomersPage() {
             </div>
           </section>
 
+          {isLoading && (
+            <p className="management-page__notice">Loading customers...</p>
+          )}
+          {errorMessage && (
+            <p className="management-page__notice" role="alert">
+              {errorMessage}
+            </p>
+          )}
 
-          <section className="customers-filters filter-panel" aria-label="Customer filters">
-            <button
-              className="customers-filters__mobile-toggle filter-panel__mobile-toggle"
-              type="button"
-              onClick={() => setAreMobileFiltersOpen((isOpen) => !isOpen)}
-              aria-expanded={areMobileFiltersOpen}
-              aria-controls="customer-filter-fields"
-            >
-              <span><Filter size={17} /> {areMobileFiltersOpen ? "Hide filters" : "Show filters"}</span>
-              {areMobileFiltersOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-            </button>
-            <div id="customer-filter-fields" className={`customers-filters__form filter-panel__form ${areMobileFiltersOpen ? "is-open" : ""}`}>
-              <label className="customers-filters__search filter-panel__field filter-panel__field--search">
-                <input
-                  value={filters.search}
-                  onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
-                  placeholder="Search by name, phone or email..."
-                />
-              </label>
-              <select value={filters.risk} onChange={(event) => setFilters((current) => ({ ...current, risk: event.target.value }))} aria-label="Risk level">
-                <option value="all">All Risk Levels</option>
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
-                <option value="fraud">Fraud</option>
-              </select>
-              <select value={filters.rating} onChange={(event) => setFilters((current) => ({ ...current, rating: event.target.value }))} aria-label="Rating">
-                <option value="all">All Ratings</option>
-                <option value="5">5 stars</option>
-                <option value="4">4 stars</option>
-                <option value="3">3 stars</option>
-                <option value="2">2 stars</option>
-                <option value="1">1 star</option>
-              </select>
-              <select value={filters.location} onChange={(event) => setFilters((current) => ({ ...current, location: event.target.value }))} aria-label="Location">
-                <option value="all">All Locations</option>
-                {[...new Set(customers.map((customer) => (customer.defaultAddress || customer.address || {}).district).filter(Boolean))].map((district) => <option key={district} value={district}>{district}</option>)}
-              </select>
-              <button type="button" className="customers-filters__button filter-panel__apply"><Filter size={15} /> More Filters</button>
-              <button type="button" className="customers-filters__reset filter-panel__reset filter-panel__reset--text" onClick={() => { setFilters({ search: "", risk: "all", rating: "all", location: "all" }); setCustomerSegment("all"); }}><RotateCcw size={15} /> Reset</button>
+          <section className="customer-table-card orders-table-section" aria-label="Customers list">
+            <div className="orders-table__filters-wrapper">
+              <section className="customers-filters filter-panel" aria-label="Customer filters">
+                <button
+                  className="customers-filters__mobile-toggle filter-panel__mobile-toggle"
+                  type="button"
+                  onClick={() => setAreMobileFiltersOpen((isOpen) => !isOpen)}
+                  aria-expanded={areMobileFiltersOpen}
+                  aria-controls="customer-filter-fields"
+                >
+                  <span><Funnel size={17} aria-hidden="true" /> {areMobileFiltersOpen ? "Hide filters" : "Show filters"}</span>
+                  <ChevronDown className={areMobileFiltersOpen ? "is-open" : ""} size={18} aria-hidden="true" />
+                </button>
+                <div id="customer-filter-fields" className={`customers-filters__form filter-panel__form ${areMobileFiltersOpen ? "is-open" : ""}`}>
+                  <div className="filter-panel__field filter-panel__field--search">
+                    <Search size={15} className="filter-panel__search-icon" aria-hidden="true" />
+                    <input
+                      type="search"
+                      value={filters.search}
+                      onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
+                      placeholder="Search by name, phone or email..."
+                    />
+                    {filters.search && (
+                      <button
+                        type="button"
+                        className="filter-panel__clear"
+                        onClick={() => setFilters((current) => ({ ...current, search: "" }))}
+                        aria-label="Clear search"
+                      >
+                        <X size={14} />
+                      </button>
+                    )}
+                  </div>
+                  <div className="filter-panel__field filter-panel__field--select">
+                    <select value={filters.risk} onChange={(event) => setFilters((current) => ({ ...current, risk: event.target.value }))} aria-label="Risk level">
+                      <option value="all">All Risk Levels</option>
+                      <option value="low">Low</option>
+                      <option value="medium">Medium</option>
+                      <option value="high">High</option>
+                      <option value="fraud">Fraud</option>
+                    </select>
+                  </div>
+                  <div className="filter-panel__field filter-panel__field--select">
+                    <select value={filters.rating} onChange={(event) => setFilters((current) => ({ ...current, rating: event.target.value }))} aria-label="Rating">
+                      <option value="all">All Ratings</option>
+                      <option value="5">5 stars</option>
+                      <option value="4">4 stars</option>
+                      <option value="3">3 stars</option>
+                      <option value="2">2 stars</option>
+                      <option value="1">1 star</option>
+                    </select>
+                  </div>
+                  <div className="filter-panel__field filter-panel__field--select">
+                    <select value={filters.location} onChange={(event) => setFilters((current) => ({ ...current, location: event.target.value }))} aria-label="Location">
+                      <option value="all">All Locations</option>
+                      {[...new Set(customers.map((customer) => (customer.defaultAddress || customer.address || {}).district).filter(Boolean))].map((district) => <option key={district} value={district}>{district}</option>)}
+                    </select>
+                  </div>
+                  <div className="filter-panel__actions">
+                    <button
+                      type="button"
+                      className="filter-panel__apply"
+                      onClick={() => setAreMobileFiltersOpen(false)}
+                      aria-label="Filter"
+                      title="Filter"
+                    >
+                      <Funnel size={15} aria-hidden="true" />
+                    </button>
+                    <button
+                      type="button"
+                      className="filter-panel__reset"
+                      onClick={() => { setFilters({ search: "", risk: "all", rating: "all", location: "all" }); setCustomerSegment("all"); }}
+                      aria-label="Reset customer filters"
+                      title="Reset filters"
+                    >
+                      <RotateCcw className="order-filters__resetbt" size={17} aria-hidden="true" />
+                    </button>
+                  </div>
+                </div>
+              </section>
             </div>
-          </section></>
-      )}
 
-      {isLoading && (
-        <p className="management-page__notice">Loading customers...</p>
-      )}
-      {errorMessage && (
-        <p className="management-page__notice" role="alert">
-          {errorMessage}
-        </p>
-      )}
-
-      {activeCustomerTab === "messages" ? (
-        <CustomerMessages
-          businessId={business?.id}
-          onSummaryChange={setChatSummary}
-          initialSessionId={requestedSessionId}
-        />
+            <div className="customer-table-scroll">
+              <table className="management-table all-customers-table">
+                <colgroup>
+                  <col className="customer-column--expand" />
+                  <col className="customer-column--select" />
+                  <col className="customer-column--name" />
+                  <col className="customer-column--phone" />
+                  <col className="customer-column--email" />
+                  <col className="customer-column--address" />
+                  <col className="customer-column--orders" />
+                  <col className="customer-column--spent" />
+                  <col className="customer-column--rating" />
+                  <col className="customer-column--risk" />
+                  <col className="customer-column--actions" />
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th className="management-table__expand-heading" aria-label="Expand" />
+                    <th aria-label="Select" />
+                    <SortableHeader columnKey="customer" label="Customer" sorting={customerSorting} />
+                    <SortableHeader columnKey="phone" label="Phone" sorting={customerSorting} />
+                    <SortableHeader columnKey="email" label="Email" sorting={customerSorting} />
+                    <SortableHeader columnKey="address" label="Address" sorting={customerSorting} />
+                    <SortableHeader columnKey="orders" label="Orders" sorting={customerSorting} />
+                    <SortableHeader columnKey="spent" label="Total Spent" sorting={customerSorting} />
+                    <SortableHeader columnKey="rating" label="Rating" sorting={customerSorting} />
+                    <SortableHeader columnKey="risk" label="Risk Level" sorting={customerSorting} />
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {customerPagination.pageItems.map((customer) => (
+                    <Fragment key={customer.id}>
+                      <tr>
+                        <td className="management-table__expand-cell">
+                          <button type="button" onClick={() => setExpandedCustomerId((current) => current === customer.id ? null : customer.id)} aria-label={`Show details for ${customer.name}`}>
+                            {expandedCustomerId === customer.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                          </button>
+                        </td>
+                        <td><input type="checkbox" aria-label={`Select ${customer.name}`} /></td>
+                        <td>
+                          <div className="customer-cell"><span className="customer-cell__avatar">{String(customer.name || "C").slice(0, 2).toUpperCase()}</span><strong>{customer.name}</strong></div>
+                        </td>
+                        <td>+{customer.normalizedPhone}</td>
+                        <td>{customer.email || "No email"}</td>
+                        <td>{[customer.defaultAddress?.line1, customer.defaultAddress?.city, customer.defaultAddress?.district].filter(Boolean).join(", ") || "No address"}</td>
+                        <td>{customer.completedOrderCount ?? 0}</td>
+                        <td>
+                          LKR{" "}
+                          {((customer.totalSpentMinor ?? 0) / 100).toLocaleString(
+                            "en-LK",
+                          )}
+                        </td>
+                        <td><span className="customer-rating">{customer.rating ? `${customer.rating} ★` : "—"}</span></td>
+                        <td>
+                          <span
+                            className={`management-table__badge management-table__badge--${customer.riskLevel}`}
+                          >
+                            {customer.riskLevel}
+                          </span>
+                        </td>
+                        <td>
+                          <ActionMenu
+                            label={`Open actions for ${customer.name}`}
+                            items={[
+                              {
+                                label: "Report customer",
+                                icon: <Flag size={16} aria-hidden="true" />,
+                                onClick: () => setCustomerAction({ type: "report", customer }),
+                              },
+                              {
+                                label: "Remove customer",
+                                icon: <Trash2 size={16} aria-hidden="true" />,
+                                danger: true,
+                                onClick: () => setCustomerAction({ type: "remove", customer }),
+                              },
+                            ]}
+                          />
+                        </td>
+                      </tr>
+                      {expandedCustomerId === customer.id && (
+                        <tr key={`${customer.id}-details`} className="management-table__expanded-row">
+                          <td colSpan={11}>
+                            <div className="customer-expanded-details">
+                              <div><strong>{customer.name}</strong><span>Customer ID: {customer.id}</span><span>Joined: {customer.createdAt ? new Date(customer.createdAt).toLocaleDateString("en-LK") : "—"}</span></div>
+                              <div><strong>Contact</strong><span>☎ +{customer.normalizedPhone}</span>{customer.normalizedSecondaryPhone && <span>☎ +{customer.normalizedSecondaryPhone}</span>}<span>✉ {customer.email || "No email"}</span></div>
+                              <div><strong>Delivery Address</strong><span>{[customer.defaultAddress?.line1, customer.defaultAddress?.line2, customer.defaultAddress?.city, customer.defaultAddress?.district, customer.defaultAddress?.postalCode, customer.defaultAddress?.country].filter(Boolean).join(", ") || "No address saved"}</span></div>
+                              <div><strong>Recent orders</strong><span>{customer.completedOrderCount ?? 0} completed · {customer.returnedOrderCount ?? 0} returned</span><span>Preferred contact: Phone</span></div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  ))}
+                  {!isLoading && visibleCustomers.length === 0 && (
+                    <tr>
+                      <td colSpan={11}>No matching customers found.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <TablePagination pagination={customerPagination} label="customers" variant="customers" />
+          </section>
+        </>
       ) : activeCustomerTab === "fraud" ? (
         <>
           <section className="customers-summary" aria-label="Fraud report summary">
@@ -504,10 +640,10 @@ function CustomersPage() {
               ].map((stat) => <StatCard key={stat.label} label={stat.label} value={String(stat.value)} icon={stat.icon} tone={stat.tone} />)}
             </div>
           </section>
-          <FraudFilters filters={fraudFilters} setFilters={setFraudFilters} />
           <FraudTable
             customers={fraudRows}
             isLoading={isLoading}
+            filterControls={<FraudFilters filters={fraudFilters} setFilters={setFraudFilters} />}
             onChangeRisk={(customer) => {
               setFraudRiskLevel(customer.riskLevel || "low");
               setFraudAction({ type: "risk", customer });
@@ -545,111 +681,13 @@ function CustomersPage() {
             onModerate={handleModerateReview}
           />
         </>
-      ) : <section className="customer-table-card" aria-label="Customers list">
-        <div className="customer-table-scroll">
-          <table className="management-table all-customers-table">
-            <colgroup>
-              <col className="customer-column--expand" />
-              <col className="customer-column--select" />
-              <col className="customer-column--name" />
-              <col className="customer-column--phone" />
-              <col className="customer-column--email" />
-              <col className="customer-column--address" />
-              <col className="customer-column--orders" />
-              <col className="customer-column--spent" />
-              <col className="customer-column--rating" />
-              <col className="customer-column--risk" />
-              <col className="customer-column--actions" />
-            </colgroup>
-            <thead>
-              <tr>
-                <th className="management-table__expand-heading" aria-label="Expand" />
-                <th aria-label="Select" />
-                <SortableHeader columnKey="customer" label="Customer" sorting={customerSorting} />
-                <SortableHeader columnKey="phone" label="Phone" sorting={customerSorting} />
-                <SortableHeader columnKey="email" label="Email" sorting={customerSorting} />
-                <SortableHeader columnKey="address" label="Address" sorting={customerSorting} />
-                <SortableHeader columnKey="orders" label="Orders" sorting={customerSorting} />
-                <SortableHeader columnKey="spent" label="Total Spent" sorting={customerSorting} />
-                <SortableHeader columnKey="rating" label="Rating" sorting={customerSorting} />
-                <SortableHeader columnKey="risk" label="Risk Level" sorting={customerSorting} />
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {customerPagination.pageItems.map((customer) => (
-                <Fragment key={customer.id}>
-                  <tr>
-                    <td className="management-table__expand-cell">
-                      <button type="button" onClick={() => setExpandedCustomerId((current) => current === customer.id ? null : customer.id)} aria-label={`Show details for ${customer.name}`}>
-                        {expandedCustomerId === customer.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                      </button>
-                    </td>
-                    <td><input type="checkbox" aria-label={`Select ${customer.name}`} /></td>
-                    <td>
-                      <div className="customer-cell"><span className="customer-cell__avatar">{String(customer.name || "C").slice(0, 2).toUpperCase()}</span><strong>{customer.name}</strong></div>
-                    </td>
-                    <td>+{customer.normalizedPhone}</td>
-                    <td>{customer.email || "No email"}</td>
-                    <td>{[customer.defaultAddress?.line1, customer.defaultAddress?.city, customer.defaultAddress?.district].filter(Boolean).join(", ") || "No address"}</td>
-                    <td>{customer.completedOrderCount ?? 0}</td>
-                    <td>
-                      LKR{" "}
-                      {((customer.totalSpentMinor ?? 0) / 100).toLocaleString(
-                        "en-LK",
-                      )}
-                    </td>
-                    <td><span className="customer-rating">{customer.rating ? `${customer.rating} ★` : "—"}</span></td>
-                    <td>
-                      <span
-                        className={`management-table__badge management-table__badge--${customer.riskLevel}`}
-                      >
-                        {customer.riskLevel}
-                      </span>
-                    </td>
-                    <td>
-                      <ActionMenu
-                        label={`Open actions for ${customer.name}`}
-                        items={[
-                          {
-                            label: "Report customer",
-                            icon: <Flag size={16} aria-hidden="true" />,
-                            onClick: () => setCustomerAction({ type: "report", customer }),
-                          },
-                          {
-                            label: "Remove customer",
-                            icon: <Trash2 size={16} aria-hidden="true" />,
-                            danger: true,
-                            onClick: () => setCustomerAction({ type: "remove", customer }),
-                          },
-                        ]}
-                      />
-                    </td>
-                  </tr>
-                  {expandedCustomerId === customer.id && (
-                    <tr key={`${customer.id}-details`} className="management-table__expanded-row">
-                      <td colSpan={11}>
-                        <div className="customer-expanded-details">
-                          <div><strong>{customer.name}</strong><span>Customer ID: {customer.id}</span><span>Joined: {customer.createdAt ? new Date(customer.createdAt).toLocaleDateString("en-LK") : "—"}</span></div>
-                          <div><strong>Contact</strong><span>☎ +{customer.normalizedPhone}</span>{customer.normalizedSecondaryPhone && <span>☎ +{customer.normalizedSecondaryPhone}</span>}<span>✉ {customer.email || "No email"}</span></div>
-                          <div><strong>Delivery Address</strong><span>{[customer.defaultAddress?.line1, customer.defaultAddress?.line2, customer.defaultAddress?.city, customer.defaultAddress?.district, customer.defaultAddress?.postalCode, customer.defaultAddress?.country].filter(Boolean).join(", ") || "No address saved"}</span></div>
-                          <div><strong>Recent orders</strong><span>{customer.completedOrderCount ?? 0} completed · {customer.returnedOrderCount ?? 0} returned</span><span>Preferred contact: Phone</span></div>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                </Fragment>
-              ))}
-              {!isLoading && visibleCustomers.length === 0 && (
-                <tr>
-                  <td colSpan={11}>No matching customers found.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-        <TablePagination pagination={customerPagination} label="customers" variant="customers" />
-      </section>}
+      ) : (
+        <CustomerMessages
+          businessId={business?.id}
+          onSummaryChange={setChatSummary}
+          initialSessionId={requestedSessionId}
+        />
+      )}
 
       <ConfirmDialog
         isOpen={Boolean(customerAction)}
@@ -804,38 +842,180 @@ function ReviewsTable({ reviews, isLoading, onModerate }) {
 function FraudFilters({ filters, setFilters }) {
   const [areMobileFiltersOpen, setAreMobileFiltersOpen] = useState(false);
 
-  return <section className="customers-filters fraud-filters filter-panel" aria-label="Fraud report filters">
-    <button className="customers-filters__mobile-toggle filter-panel__mobile-toggle" type="button" onClick={() => setAreMobileFiltersOpen((isOpen) => !isOpen)} aria-expanded={areMobileFiltersOpen} aria-controls="fraud-filter-fields">
-      <span><Filter size={17} /> {areMobileFiltersOpen ? "Hide filters" : "Show filters"}</span>
-      {areMobileFiltersOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-    </button>
-    <div id="fraud-filter-fields" className={`fraud-filters__form filter-panel__form ${areMobileFiltersOpen ? "is-open" : ""}`}>
-      <label className="customers-filters__search filter-panel__field filter-panel__field--search"><input value={filters.search} onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))} placeholder="Search customers by name, phone or email..." /></label>
-      <select value={filters.risk} onChange={(event) => setFilters((current) => ({ ...current, risk: event.target.value }))} aria-label="Risk status"><option value="all">All Risk Levels</option><option value="high">High Risk</option><option value="medium">Medium Risk</option><option value="low">Low Risk</option></select>
-      <select value={filters.reason} onChange={(event) => setFilters((current) => ({ ...current, reason: event.target.value }))} aria-label="Return reason"><option value="all">All Ratings</option><option value="Unreachable">Unreachable</option><option value="Refused Delivery">Refused Delivery</option><option value="Change of Mind">Change of Mind</option><option value="Address Incomplete">Address Incomplete</option></select>
-      <select value={filters.score} onChange={(event) => setFilters((current) => ({ ...current, score: event.target.value }))} aria-label="Fraud score"><option value="all">All Locations</option><option value="high">High score</option><option value="medium">Medium score</option><option value="low">Low score</option></select>
-      <button type="button" className="customers-filters__button filter-panel__apply"><Filter size={15} /> More Filters</button>
-      <button type="button" className="customers-filters__reset filter-panel__reset filter-panel__reset--text" onClick={() => setFilters({ search: "", risk: "all", reason: "all", score: "all" })}><RotateCcw size={15} /> Reset</button>
-    </div>
-  </section>;
+  return (
+    <section className="customers-filters fraud-filters filter-panel" aria-label="Fraud report filters">
+      <button
+        className="customers-filters__mobile-toggle filter-panel__mobile-toggle"
+        type="button"
+        onClick={() => setAreMobileFiltersOpen((isOpen) => !isOpen)}
+        aria-expanded={areMobileFiltersOpen}
+        aria-controls="fraud-filter-fields"
+      >
+        <span><Funnel size={17} aria-hidden="true" /> {areMobileFiltersOpen ? "Hide filters" : "Show filters"}</span>
+        <ChevronDown className={areMobileFiltersOpen ? "is-open" : ""} size={18} aria-hidden="true" />
+      </button>
+      <div id="fraud-filter-fields" className={`fraud-filters__form filter-panel__form ${areMobileFiltersOpen ? "is-open" : ""}`}>
+        <div className="filter-panel__field filter-panel__field--search">
+          <Search size={15} className="filter-panel__search-icon" aria-hidden="true" />
+          <input
+            type="search"
+            value={filters.search}
+            onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
+            placeholder="Search customers by name, phone or email..."
+          />
+          {filters.search && (
+            <button
+              type="button"
+              className="filter-panel__clear"
+              onClick={() => setFilters((current) => ({ ...current, search: "" }))}
+              aria-label="Clear search"
+            >
+              <X size={14} />
+            </button>
+          )}
+        </div>
+        <div className="filter-panel__field filter-panel__field--select">
+          <select value={filters.risk} onChange={(event) => setFilters((current) => ({ ...current, risk: event.target.value }))} aria-label="Risk status">
+            <option value="all">All Risk Levels</option>
+            <option value="high">High Risk</option>
+            <option value="medium">Medium Risk</option>
+            <option value="low">Low Risk</option>
+          </select>
+        </div>
+        <div className="filter-panel__field filter-panel__field--select">
+          <select value={filters.reason} onChange={(event) => setFilters((current) => ({ ...current, reason: event.target.value }))} aria-label="Return reason">
+            <option value="all">All Reasons</option>
+            <option value="Unreachable">Unreachable</option>
+            <option value="Refused Delivery">Refused Delivery</option>
+            <option value="Change of Mind">Change of Mind</option>
+            <option value="Address Incomplete">Address Incomplete</option>
+          </select>
+        </div>
+        <div className="filter-panel__field filter-panel__field--select">
+          <select value={filters.score} onChange={(event) => setFilters((current) => ({ ...current, score: event.target.value }))} aria-label="Fraud score">
+            <option value="all">All Scores</option>
+            <option value="high">High score</option>
+            <option value="medium">Medium score</option>
+            <option value="low">Low score</option>
+          </select>
+        </div>
+        <div className="filter-panel__actions">
+          <button
+            type="button"
+            className="filter-panel__apply"
+            onClick={() => setAreMobileFiltersOpen(false)}
+            aria-label="Filter"
+            title="Filter"
+          >
+            <Funnel size={15} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="filter-panel__reset"
+            onClick={() => setFilters({ search: "", risk: "all", reason: "all", score: "all" })}
+            aria-label="Reset fraud filters"
+            title="Reset filters"
+          >
+            <RotateCcw className="order-filters__resetbt" size={17} aria-hidden="true" />
+          </button>
+        </div>
+      </div>
+    </section>
+  );
 }
 
-function FraudTable({ customers, isLoading, onChangeRisk, onRemove }) {
+function FraudTable({ customers, isLoading, filterControls, onChangeRisk, onRemove }) {
   const [expandedFraudCustomerId, setExpandedFraudCustomerId] = useState(null);
   const sorting = useTableSort(customers, fraudSortAccessors);
   const pagination = useTablePagination(sorting.sortedItems);
 
-  return <section className="customer-table-card" aria-label="Fraud reports list"><div className="customer-table-scroll"><table className="management-table fraud-table"><thead><tr><th className="management-table__expand-heading" aria-label="Expand" /><SortableHeader columnKey="customer" label="Customer" sorting={sorting} /><SortableHeader columnKey="phone" label="Phone" sorting={sorting} /><SortableHeader columnKey="email" label="Email" sorting={sorting} /><SortableHeader columnKey="address" label="Address" sorting={sorting} /><SortableHeader columnKey="returned" label="Returned Orders" sorting={sorting} /><SortableHeader columnKey="total" label="Total Orders" sorting={sorting} /><SortableHeader columnKey="rate" label="Return Rate" sorting={sorting} /><SortableHeader columnKey="score" label="Fraud Score" sorting={sorting} /><SortableHeader columnKey="reason" label="Reason" sorting={sorting} /><SortableHeader columnKey="risk" label="Risk Status" sorting={sorting} /><th>Actions</th></tr></thead><tbody>
-    {pagination.pageItems.map((customer) => {
-      const returned = customer.returnedOrderCount ?? 0;
-      const total = customer.totalOrderCount ?? customer.completedOrderCount ?? returned;
-      const score = customer.fraudScore ?? Math.min(99, returned * 15);
-      const risk = customer.riskLevel || "low";
-      const address = customer.defaultAddress || customer.address || {};
-      return <Fragment key={customer.id}><tr><td className="management-table__expand-cell"><button type="button" aria-label={`${expandedFraudCustomerId === customer.id ? "Collapse" : "Expand"} fraud details`} aria-expanded={expandedFraudCustomerId === customer.id} onClick={() => setExpandedFraudCustomerId((current) => current === customer.id ? null : customer.id)}>{expandedFraudCustomerId === customer.id ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</button></td><td><strong>{customer.name}</strong></td><td>+{customer.normalizedPhone || "—"}</td><td>{customer.email || "—"}</td><td>{[address.line1, address.city].filter(Boolean).join(", ") || "—"}</td><td>{returned}</td><td>{total}</td><td>{total ? `${Math.round((returned / total) * 100)}%` : "0%"}</td><td><span className={`fraud-score fraud-score--${risk}`}>{score}</span></td><td>{customer.returnReason || customer.fraudReason || "Unspecified"}</td><td><span className={`management-table__badge management-table__badge--${risk}`}>{risk} risk</span></td><td><ActionMenu label={`Open ${customer.name} fraud actions`} items={[{ label: "Change risk level", icon: <Pencil size={16} aria-hidden="true" />, onClick: () => onChangeRisk(customer) }, { label: "Remove from fraud list", icon: <Trash2 size={16} aria-hidden="true" />, danger: true, onClick: () => onRemove(customer) }]} /></td></tr>{expandedFraudCustomerId === customer.id && <tr className="management-table__expanded-row fraud-expanded-row"><td colSpan={12}><div className="customer-expanded-details"><div><strong>Customer</strong><span>{customer.name}</span><span>+{customer.normalizedPhone || "—"}</span><span>{customer.email || "No email"}</span></div><div><strong>Address</strong><span>{[address.line1, address.line2, address.city, address.district].filter(Boolean).join(", ") || "No address"}</span></div><div><strong>Order history</strong><span>{returned} returned of {total} orders</span><span>Return rate: {total ? `${Math.round((returned / total) * 100)}%` : "0%"}</span></div><div><strong>Fraud assessment</strong><span>Score: {score}</span><span>Risk: {risk}</span><span>Reason: {customer.returnReason || customer.fraudReason || "Unspecified"}</span></div></div></td></tr>}</Fragment>;
-    })}
-    {!isLoading && customers.length === 0 && <tr><td colSpan={12}>No fraud reports found.</td></tr>}
-  </tbody></table></div><TablePagination pagination={pagination} label="reports" variant="customers" /></section>;
+  return (
+    <section className="customer-table-card orders-table-section" aria-label="Fraud reports list">
+      {filterControls && (
+        <div className="orders-table__filters-wrapper">
+          {filterControls}
+        </div>
+      )}
+      <div className="customer-table-scroll">
+        <table className="management-table fraud-table">
+          <thead>
+            <tr>
+              <th className="management-table__expand-heading" aria-label="Expand" />
+              <SortableHeader columnKey="customer" label="Customer" sorting={sorting} />
+              <SortableHeader columnKey="phone" label="Phone" sorting={sorting} />
+              <SortableHeader columnKey="email" label="Email" sorting={sorting} />
+              <SortableHeader columnKey="address" label="Address" sorting={sorting} />
+              <SortableHeader columnKey="returned" label="Returned Orders" sorting={sorting} />
+              <SortableHeader columnKey="total" label="Total Orders" sorting={sorting} />
+              <SortableHeader columnKey="rate" label="Return Rate" sorting={sorting} />
+              <SortableHeader columnKey="score" label="Fraud Score" sorting={sorting} />
+              <SortableHeader columnKey="reason" label="Reason" sorting={sorting} />
+              <SortableHeader columnKey="risk" label="Risk Status" sorting={sorting} />
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {pagination.pageItems.map((customer) => {
+              const returned = customer.returnedOrderCount ?? 0;
+              const total = customer.totalOrderCount ?? customer.completedOrderCount ?? returned;
+              const score = customer.fraudScore ?? Math.min(99, returned * 15);
+              const risk = customer.riskLevel || "low";
+              const address = customer.defaultAddress || customer.address || {};
+              return (
+                <Fragment key={customer.id}>
+                  <tr>
+                    <td className="management-table__expand-cell">
+                      <button
+                        type="button"
+                        aria-label={`${expandedFraudCustomerId === customer.id ? "Collapse" : "Expand"} fraud details`}
+                        aria-expanded={expandedFraudCustomerId === customer.id}
+                        onClick={() => setExpandedFraudCustomerId((current) => current === customer.id ? null : customer.id)}
+                      >
+                        {expandedFraudCustomerId === customer.id ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                      </button>
+                    </td>
+                    <td><strong>{customer.name}</strong></td>
+                    <td>+{customer.normalizedPhone || "—"}</td>
+                    <td>{customer.email || "—"}</td>
+                    <td>{[address.line1, address.city].filter(Boolean).join(", ") || "—"}</td>
+                    <td>{returned}</td>
+                    <td>{total}</td>
+                    <td>{total ? `${Math.round((returned / total) * 100)}%` : "0%"}</td>
+                    <td><span className={`fraud-score fraud-score--${risk}`}>{score}</span></td>
+                    <td>{customer.returnReason || customer.fraudReason || "Unspecified"}</td>
+                    <td><span className={`management-table__badge management-table__badge--${risk}`}>{risk} risk</span></td>
+                    <td>
+                      <ActionMenu
+                        label={`Open ${customer.name} fraud actions`}
+                        items={[
+                          { label: "Change risk level", icon: <Pencil size={16} aria-hidden="true" />, onClick: () => onChangeRisk(customer) },
+                          { label: "Remove from fraud list", icon: <Trash2 size={16} aria-hidden="true" />, danger: true, onClick: () => onRemove(customer) },
+                        ]}
+                      />
+                    </td>
+                  </tr>
+                  {expandedFraudCustomerId === customer.id && (
+                    <tr className="management-table__expanded-row fraud-expanded-row">
+                      <td colSpan={12}>
+                        <div className="customer-expanded-details">
+                          <div><strong>Customer</strong><span>{customer.name}</span><span>+{customer.normalizedPhone || "—"}</span><span>{customer.email || "No email"}</span></div>
+                          <div><strong>Address</strong><span>{[address.line1, address.line2, address.city, address.district].filter(Boolean).join(", ") || "No address"}</span></div>
+                          <div><strong>Order history</strong><span>{returned} returned of {total} orders</span><span>Return rate: {total ? `${Math.round((returned / total) * 100)}%` : "0%"}</span></div>
+                          <div><strong>Fraud assessment</strong><span>Score: {score}</span><span>Risk: {risk}</span><span>Reason: {customer.returnReason || customer.fraudReason || "Unspecified"}</span></div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              );
+            })}
+            {!isLoading && customers.length === 0 && <tr><td colSpan={12}>No fraud reports found.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+      <TablePagination pagination={pagination} label="reports" variant="customers" />
+    </section>
+  );
 }
 
 function FraudRiskDialog({ isOpen, customer, riskLevel, isWorking, onRiskLevelChange, onCancel, onConfirm }) {

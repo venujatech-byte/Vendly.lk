@@ -880,6 +880,7 @@ def process_read_intent(database, business_id, membership, intent):
                 "whose saved Excel format you want to use."
             ),
             "navigateTo": "/orders",
+            "clientAction": {"type": "export_orders"},
         }
 
     if intent_name == "export_sales":

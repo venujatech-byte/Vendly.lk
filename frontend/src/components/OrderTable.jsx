@@ -74,6 +74,7 @@ const orderSortAccessors = {
 
 function OrderTable({
   orders = [],
+  filterControls,
   onStatusChange,
   onGenerateWaybill,
   onFraudReport,
@@ -198,6 +199,11 @@ function OrderTable({
 
   return (
     <section className="orders-table-section" aria-label="Orders list">
+      {filterControls && (
+        <div className="orders-table__filters-wrapper">
+          {filterControls}
+        </div>
+      )}
       {selectedOrderIds.length > 0 && (
         <div className="inventory-table__bulk-actions">
           <strong>{selectedOrderIds.length} orders selected</strong>

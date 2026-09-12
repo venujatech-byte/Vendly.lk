@@ -1,9 +1,10 @@
-import { KeyRound, Mail, RotateCcw, ShieldCheck, UserRound } from "lucide-react";
+import { AlertTriangle, KeyRound, Mail, RotateCcw, ShieldCheck, Trash2, UserRound } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import {
   changeAccountPassword,
   currentUserHasPasswordProvider,
+  deleteCurrentUserAccount,
   requestAccountEmailChange,
   sendCurrentUserPasswordReset,
 } from "../services/authService";
@@ -22,6 +23,7 @@ function readableAuthError(error) {
     "auth/popup-closed-by-user": "Google verification was cancelled.",
     "auth/popup-blocked": "Allow popups and try Google verification again.",
     "auth/requires-recent-login": "For security, sign out and sign in again before trying this change.",
+    "auth/current-password-required": "Enter your current password to proceed.",
   };
 
   return messages[error?.code] ?? error?.message ?? "The account could not be updated.";
@@ -36,6 +38,13 @@ function ProfileModal({ isOpen, onClose, user }) {
   const [emailMessage, setEmailMessage] = useState(null);
   const [passwordMessage, setPasswordMessage] = useState(null);
   const [workingAction, setWorkingAction] = useState("");
+
+  // Account deletion state
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteInputText, setDeleteInputText] = useState("");
+  const [deletePasswordInput, setDeletePasswordInput] = useState("");
+  const [deleteError, setDeleteError] = useState(null);
+
   const hasPasswordProvider = currentUserHasPasswordProvider();
   const providerNames = (user?.providerData ?? []).map((provider) =>
     provider.providerId === "google.com" ? "Google" :
@@ -51,6 +60,10 @@ function ProfileModal({ isOpen, onClose, user }) {
     setConfirmPassword("");
     setEmailMessage(null);
     setPasswordMessage(null);
+    setShowDeleteConfirm(false);
+    setDeleteInputText("");
+    setDeletePasswordInput("");
+    setDeleteError(null);
   }, [isOpen]);
 
   async function handleEmailChange(event) {
@@ -114,6 +127,30 @@ function ProfileModal({ isOpen, onClose, user }) {
       setPasswordMessage({ type: "success", text: `Password-reset email sent to ${user?.email}.` });
     } catch (error) {
       setPasswordMessage({ type: "error", text: readableAuthError(error) });
+    } finally {
+      setWorkingAction("");
+    }
+  }
+
+  async function handleDeleteAccount(e) {
+    if (e) e.preventDefault();
+    if (deleteInputText.trim().toUpperCase() !== "DELETE") {
+      setDeleteError("Please type DELETE in capital letters to confirm.");
+      return;
+    }
+    if (hasPasswordProvider && !deletePasswordInput) {
+      setDeleteError("Please enter your current password to verify your account.");
+      return;
+    }
+
+    setWorkingAction("delete");
+    setDeleteError(null);
+    try {
+      await deleteCurrentUserAccount(deletePasswordInput);
+      onClose();
+      window.location.href = "/login";
+    } catch (error) {
+      setDeleteError(readableAuthError(error));
     } finally {
       setWorkingAction("");
     }
@@ -185,6 +222,99 @@ function ProfileModal({ isOpen, onClose, user }) {
             <p className="profile-modal__provider-note">This account signs in with Google, so it does not have a separate Vendly password. Manage your Google password from your Google Account.</p>
           )}
         </form>
+
+        <section className="profile-modal__section profile-modal__section--danger">
+          <div className="profile-modal__section-title">
+            <Trash2 size={19} className="profile-modal__icon--danger" />
+            <div>
+              <h3>Delete Account</h3>
+              <p>Permanently remove your account, store affiliations, and personal data.</p>
+            </div>
+          </div>
+
+          {!showDeleteConfirm ? (
+            <div className="profile-modal__danger-intro">
+              <p className="profile-modal__hint">
+                Once deleted, your account cannot be restored. To proceed, verification is required.
+              </p>
+              <button
+                type="button"
+                className="profile-modal__btn-danger-outline"
+                onClick={() => setShowDeleteConfirm(true)}
+              >
+                <AlertTriangle size={15} /> Delete Account
+              </button>
+            </div>
+          ) : (
+            <div className="profile-modal__danger-form">
+              <div className="profile-modal__danger-warning">
+                <AlertTriangle size={16} />
+                <span>Verification required before deleting your account:</span>
+              </div>
+
+              {hasPasswordProvider ? (
+                <label>
+                  Current password
+                  <input
+                    type="password"
+                    value={deletePasswordInput}
+                    onChange={(e) => setDeletePasswordInput(e.target.value)}
+                    placeholder="Enter current password"
+                    autoComplete="current-password"
+                  />
+                </label>
+              ) : (
+                <p className="profile-modal__hint">
+                  Google will prompt you to verify ownership of this account.
+                </p>
+              )}
+
+              <label>
+                Type <strong>DELETE</strong> to confirm
+                <input
+                  type="text"
+                  value={deleteInputText}
+                  onChange={(e) => setDeleteInputText(e.target.value)}
+                  placeholder="Type DELETE"
+                />
+              </label>
+
+              {deleteError && (
+                <p className="profile-modal__message profile-modal__message--error" role="status">
+                  {deleteError}
+                </p>
+              )}
+
+              <div className="profile-modal__button-row">
+                <button
+                  type="button"
+                  className="profile-modal__secondary"
+                  onClick={() => {
+                    setShowDeleteConfirm(false);
+                    setDeleteInputText("");
+                    setDeletePasswordInput("");
+                    setDeleteError(null);
+                  }}
+                  disabled={workingAction === "delete"}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="profile-modal__btn-danger"
+                  onClick={handleDeleteAccount}
+                  disabled={
+                    workingAction === "delete" ||
+                    deleteInputText.trim().toUpperCase() !== "DELETE" ||
+                    (hasPasswordProvider && !deletePasswordInput)
+                  }
+                >
+                  {workingAction === "delete" ? "Deleting account..." : "Permanently Delete"}
+                </button>
+              </div>
+            </div>
+          )}
+        </section>
       </div>
     </ModalShell>
   );

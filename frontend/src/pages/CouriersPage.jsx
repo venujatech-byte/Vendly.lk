@@ -31,7 +31,9 @@ import {
 } from "../services/courierService";
 
 import "./ManagementPage.css";
+import "./Buttons.css";
 import "../components/OrderTable.css";
+import "../components/OrderFilters.css";
 
 function money(minor = 0) {
   return `LKR ${(minor / 100).toLocaleString("en-LK")}`;
@@ -240,24 +242,15 @@ function CouriersPage() {
 
   return (
     <main className="dashboard couriers-page">
-      <div className="management-page__heading">
-        <div className="dashboard__intro">
-          <h2>Couriers & Delivery</h2>
-          <p>Manage courier services, weight pricing and delivery quality.</p>
-        </div>
-        <button className="management-page__primary-button" type="button" onClick={() => setIsAddCourierOpen(true)} disabled={!business?.id}>
-          <Plus size={18} /> Add Courier
-        </button>
-        <input
-          ref={templateInputReference}
-          type="file"
-          accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-          hidden
-          onChange={handleTemplateSelected}
-        />
-      </div>
+      <input
+        ref={templateInputReference}
+        type="file"
+        accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        style={{ display: "none" }}
+        onChange={handleTemplateSelected}
+      />
 
-      <section className="courier-stats" aria-label="Courier summary">
+      <section className="courier-stats" aria-label="Courier summary" style={{ marginTop: "18px" }}>
         <div className="stats-grid">
           {courierStats.map((stat) => (
             <StatCard key={stat.label} {...stat} />
@@ -268,8 +261,26 @@ function CouriersPage() {
       {!isLoading && <CourierDeliveryFeeMap couriers={couriers} />}
 
       <section className="orders-table-section courier-table-card">
-      <div className="orders-table__scroll courier-table__scroll">
-      <table className="orders-table courier-table">
+        <div className="orders-table__filters-wrapper">
+          <div className="filter-panel courier-table__toolbar" style={{ display: "flex", justifyContent: "flex-end", width: "100%" }}>
+            <div className="filter-panel__extra-actions" style={{ marginLeft: "auto" }}>
+              <div className="page__actions">
+                <button
+                  className="page__add-button"
+                  type="button"
+                  onClick={() => setIsAddCourierOpen(true)}
+                  disabled={!business?.id}
+                  title="Add Courier"
+                >
+                  <Plus size={14} aria-hidden="true" />
+                  <span>Add Courier</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="orders-table__scroll courier-table__scroll">
+        <table className="orders-table courier-table">
         <thead><tr><th className="management-table__expand-heading" /><SortableHeader columnKey="courier" label="Courier" sorting={sorting} /><SortableHeader columnKey="firstKg" label="First 1 kg (common)" sorting={sorting} /><SortableHeader columnKey="extraKg" label="Extra 1 kg" sorting={sorting} /><SortableHeader columnKey="success" label="Success" sorting={sorting} /><SortableHeader columnKey="returns" label="Returns" sorting={sorting} /><SortableHeader columnKey="delivery" label="Delivery" sorting={sorting} /><SortableHeader columnKey="status" label="Status" sorting={sorting} /><th className="orders-table__actions-heading">Actions</th></tr></thead>
         <tbody>
           {pagination.pageItems.map((courier) => {

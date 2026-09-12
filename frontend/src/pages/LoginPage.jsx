@@ -1,6 +1,16 @@
 import { useState } from "react";
 import {
+  AlertCircle,
+  Building2,
+  CheckCircle2,
+  Eye,
+  EyeOff,
+  Loader2,
+  Lock,
   LogIn,
+  Mail,
+  ShieldCheck,
+  User,
   UserPlus,
 } from "lucide-react";
 
@@ -30,7 +40,7 @@ function getAuthErrorMessage(error) {
       return "The email or password is incorrect.";
 
     case "auth/weak-password":
-      return "Please use a stronger password.";
+      return "Please use a stronger password (at least 6 characters).";
 
     case "auth/popup-closed-by-user":
       return "Google login was cancelled.";
@@ -39,7 +49,7 @@ function getAuthErrorMessage(error) {
       return "Please verify your email address before logging in.";
 
     default:
-      return "Authentication failed. Please try again.";
+      return error?.message || "Authentication failed. Please try again.";
   }
 }
 
@@ -48,6 +58,7 @@ function LoginPage() {
 
   // The same page handles both login and registration.
   const [formMode, setFormMode] = useState("login");
+  const [showPassword, setShowPassword] = useState(false);
 
   const [formData, setFormData] = useState({
     ownerName: "",
@@ -111,12 +122,10 @@ function LoginPage() {
       }
 
       // Reload once after login so the dashboard starts with the latest
-      // Firebase account, business, and membership state.  This is placed
-      // only after a successful login, never during component rendering.
-    setTimeout(() => {
-    console.log("This runs after 2 seconds");
-    window.location.replace("/");
-  }, 1000);
+      // Firebase account, business, and membership state.
+      setTimeout(() => {
+        window.location.replace("/");
+      }, 1000);
 
     } catch (error) {
       setErrorMessage(getAuthErrorMessage(error));
@@ -135,11 +144,9 @@ function LoginPage() {
       await loginWithGoogle();
       await refreshSellerProfile();
 
-      // Google login uses the same one-time fresh dashboard load.
-       setTimeout(() => {
-    console.log("This runs after 2 seconds");
-    window.location.replace("/");
-  }, 1000);
+      setTimeout(() => {
+        window.location.replace("/");
+      }, 1000);
     } catch (error) {
       setErrorMessage(getAuthErrorMessage(error));
     } finally {
@@ -152,6 +159,7 @@ function LoginPage() {
     setFormMode(newMode);
     setErrorMessage("");
     setSuccessMessage("");
+    setShowPassword(false);
 
     setFormData({
       ownerName: "",
@@ -163,169 +171,179 @@ function LoginPage() {
 
   return (
     <main className="login-page">
+      {/* Background ambient lighting */}
+      <div className="login-page__ambient login-page__ambient--1" aria-hidden="true" />
+      <div className="login-page__ambient login-page__ambient--2" aria-hidden="true" />
+
       <section className="login-card">
         <div className="login-card__heading">
-        <img height="90" src={vendlyLoginLogo} alt="Vendly.lk" />
+          <div className="login-card__logo-wrap">
+            <img height="82" src={vendlyLoginLogo} alt="Vendly.lk" className="login-card__logo" />
+            <span className="login-card__badge">Merchant Portal</span>
+          </div>
 
-          <p>
+          <h1 className="login-card__title">
+            {isRegisterMode ? "Create Seller Account" : "Welcome Back"}
+          </h1>
+          <p className="login-card__subtitle">
             {isRegisterMode
-              ? "Create your seller account."
-              : "Login to manage your business."}
+              ? "Start managing your store, orders & AI chatbot today."
+              : "Sign in to access your store dashboard and sales."}
           </p>
         </div>
 
         {/* Login and registration selector */}
         <div className="login-card__tabs">
           <button
-            className={
-              formMode === "login"
-                ? "login-card__tab login-card__tab--active"
-                : "login-card__tab"
-            }
+            className={`login-card__tab ${formMode === "login" ? "login-card__tab--active" : ""}`}
             type="button"
             onClick={() => changeFormMode("login")}
           >
-            <LogIn size={17} aria-hidden="true" />
-            Login
+            <LogIn size={16} aria-hidden="true" />
+            <span>Login</span>
           </button>
 
           <button
-            className={
-              formMode === "register"
-                ? "login-card__tab login-card__tab--active"
-                : "login-card__tab"
-            }
+            className={`login-card__tab ${formMode === "register" ? "login-card__tab--active" : ""}`}
             type="button"
             onClick={() => changeFormMode("register")}
           >
-            <UserPlus size={17} aria-hidden="true" />
-            Register
+            <UserPlus size={16} aria-hidden="true" />
+            <span>Register</span>
           </button>
         </div>
 
         {/* Email and password form */}
-        <form
-          className="login-card__form"
-          onSubmit={handleSubmit}
-        >
+        <form className="login-card__form" onSubmit={handleSubmit}>
           {isRegisterMode && (
             <div className="login-card__field">
-              <label htmlFor="owner-name">
-                Owner name
-              </label>
-
-              <input
-                id="owner-name"
-                name="ownerName"
-                type="text"
-                value={formData.ownerName}
-                onChange={handleInputChange}
-                placeholder="Enter your name"
-                autoComplete="name"
-                required
-              />
+              <label htmlFor="owner-name">Owner Name</label>
+              <div className="login-card__input-wrap">
+                <User size={18} className="login-card__input-icon" aria-hidden="true" />
+                <input
+                  id="owner-name"
+                  name="ownerName"
+                  type="text"
+                  value={formData.ownerName}
+                  onChange={handleInputChange}
+                  placeholder="Your full name"
+                  autoComplete="name"
+                  required
+                />
+              </div>
             </div>
           )}
 
           {isRegisterMode && (
             <div className="login-card__field">
-              <label htmlFor="business-name">
-                Business name
-              </label>
-
-              <input
-                id="business-name"
-                name="businessName"
-                type="text"
-                value={formData.businessName}
-                onChange={handleInputChange}
-                placeholder="Example: VS Tech Store"
-                autoComplete="organization"
-                required
-              />
+              <label htmlFor="business-name">Business Name</label>
+              <div className="login-card__input-wrap">
+                <Building2 size={18} className="login-card__input-icon" aria-hidden="true" />
+                <input
+                  id="business-name"
+                  name="businessName"
+                  type="text"
+                  value={formData.businessName}
+                  onChange={handleInputChange}
+                  placeholder="e.g. City Boutique LK"
+                  autoComplete="organization"
+                  required
+                />
+              </div>
             </div>
           )}
 
           <div className="login-card__field">
-            <label htmlFor="seller-email">
-              Email address
-            </label>
-
-            <input
-              id="seller-email"
-              name="email"
-              type="email"
-              value={formData.email}
-              onChange={handleInputChange}
-              placeholder="seller@example.com"
-              autoComplete="email"
-              required
-            />
+            <label htmlFor="seller-email">Email Address</label>
+            <div className="login-card__input-wrap">
+              <Mail size={18} className="login-card__input-icon" aria-hidden="true" />
+              <input
+                id="seller-email"
+                name="email"
+                type="email"
+                value={formData.email}
+                onChange={handleInputChange}
+                placeholder="seller@example.com"
+                autoComplete="email"
+                required
+              />
+            </div>
           </div>
 
           <div className="login-card__field">
-            <label htmlFor="seller-password">
-              Password
-            </label>
-
-            <input
-              id="seller-password"
-              name="password"
-              type="password"
-              value={formData.password}
-              onChange={handleInputChange}
-              placeholder="Enter your password"
-              autoComplete={
-                isRegisterMode
-                  ? "new-password"
-                  : "current-password"
-              }
-              minLength={6}
-              required
-            />
+            <label htmlFor="seller-password">Password</label>
+            <div className="login-card__input-wrap">
+              <Lock size={18} className="login-card__input-icon" aria-hidden="true" />
+              <input
+                id="seller-password"
+                name="password"
+                type={showPassword ? "text" : "password"}
+                value={formData.password}
+                onChange={handleInputChange}
+                placeholder={isRegisterMode ? "Min. 6 characters" : "Enter your password"}
+                autoComplete={isRegisterMode ? "new-password" : "current-password"}
+                minLength={6}
+                required
+              />
+              <button
+                type="button"
+                className="login-card__toggle-pwd"
+                onClick={() => setShowPassword((prev) => !prev)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+              </button>
+            </div>
           </div>
 
           {errorMessage && (
-            <p className="login-card__error" role="alert">
-              {errorMessage}
-            </p>
+            <div className="login-card__alert login-card__alert--error" role="alert">
+              <AlertCircle size={18} className="login-card__alert-icon" />
+              <span>{errorMessage}</span>
+            </div>
           )}
 
           {successMessage && (
-            <p className="login-card__success" role="status">
-              {successMessage}
-            </p>
+            <div className="login-card__alert login-card__alert--success" role="status">
+              <CheckCircle2 size={18} className="login-card__alert-icon" />
+              <span>{successMessage}</span>
+            </div>
           )}
 
-          <button
-            className="login-card__submit"
-            type="submit"
-            disabled={isSubmitting}
-          >
-            {isSubmitting
-              ? "Please wait..."
-              : isRegisterMode
-                ? "Create account"
-                : "Login"}
+          <button className="login-card__submit" type="submit" disabled={isSubmitting}>
+            {isSubmitting ? (
+              <>
+                <Loader2 size={18} className="login-card__spinner" />
+                <span>{isRegisterMode ? "Creating account..." : "Signing in..."}</span>
+              </>
+            ) : (
+              <>
+                {isRegisterMode ? <UserPlus size={18} /> : <LogIn size={18} />}
+                <span>{isRegisterMode ? "Create Seller Account" : "Sign In to Dashboard"}</span>
+              </>
+            )}
           </button>
         </form>
 
         <div className="login-card__divider">
-          <span>or</span>
+          <span>or continue with</span>
         </div>
 
-{/* Google login button */}
+        {/* Google login button */}
         <button
           className="login-card__google"
           type="button"
           onClick={handleGoogleLogin}
           disabled={isSubmitting}
         >
-          <img width="25" src={googleLogo} alt="" aria-hidden="true" />
-          Sign in with Google
+          <img width="20" height="20" src={googleLogo} alt="" aria-hidden="true" />
+          <span>Continue with Google</span>
         </button>
 
-
+        <div className="login-card__footer">
+          <ShieldCheck size={14} aria-hidden="true" />
+          <span>Encrypted merchant authentication &bull; Vendly.lk</span>
+        </div>
       </section>
     </main>
   );

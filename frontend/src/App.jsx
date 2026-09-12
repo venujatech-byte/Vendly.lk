@@ -22,6 +22,7 @@ const OrdersPage = lazy(() => import("./pages/OrdersPage.jsx"));
 const OverviewPage = lazy(() => import("./pages/OverviewPage.jsx"));
 const BusinessSetupPage = lazy(() => import("./pages/BusinessSetupPage.jsx"));
 const CustomerAuthGate = lazy(() => import("./pages/CustomerAuthGate.jsx"));
+const JoinInvitePage = lazy(() => import("./pages/JoinInvitePage.jsx"));
 
 // Choose a starting theme from local storage or the user's device preference.
 function getInitialTheme() {
@@ -248,6 +249,12 @@ function App() {
       element={<LoginPage />}
     />
 
+    {/* Staff invite joining onboarding */}
+    <Route
+      path="/join"
+      element={<JoinInvitePage />}
+    />
+
     <Route
       path="/s/:storeCode"
       element={<CustomerAuthGate linkType="store" />}
@@ -276,7 +283,6 @@ function App() {
           <div className="app">
             <Sidebar
               isCollapsed={isSidebarCollapsed}
-              onToggleSidebar={toggleSidebar}
               onOpenProfile={() => setIsProfileModalOpen(true)}
               onOpenSettings={openSettings}
             />
@@ -293,6 +299,8 @@ function App() {
                         onToggleTheme={toggleTheme}
                         onOpenProfile={() => setIsProfileModalOpen(true)}
                         onOpenSettings={openSettings}
+                        isSidebarCollapsed={isSidebarCollapsed}
+                        onToggleSidebar={toggleSidebar}
                       />
 
                       <OverviewPage />
@@ -310,6 +318,8 @@ function App() {
                         onToggleTheme={toggleTheme}
                         onOpenProfile={() => setIsProfileModalOpen(true)}
                         onOpenSettings={openSettings}
+                        isSidebarCollapsed={isSidebarCollapsed}
+                        onToggleSidebar={toggleSidebar}
                       />
 
                       <OrdersPage />
@@ -327,6 +337,8 @@ function App() {
                         onToggleTheme={toggleTheme}
                         onOpenProfile={() => setIsProfileModalOpen(true)}
                         onOpenSettings={openSettings}
+                        isSidebarCollapsed={isSidebarCollapsed}
+                        onToggleSidebar={toggleSidebar}
                       />
 
                       <InventoryPage />
@@ -344,6 +356,8 @@ function App() {
                         onToggleTheme={toggleTheme}
                         onOpenProfile={() => setIsProfileModalOpen(true)}
                         onOpenSettings={openSettings}
+                        isSidebarCollapsed={isSidebarCollapsed}
+                        onToggleSidebar={toggleSidebar}
                       />
 
                       <CouriersPage />
@@ -361,6 +375,8 @@ function App() {
                         onToggleTheme={toggleTheme}
                         onOpenProfile={() => setIsProfileModalOpen(true)}
                         onOpenSettings={openSettings}
+                        isSidebarCollapsed={isSidebarCollapsed}
+                        onToggleSidebar={toggleSidebar}
                       />
 
                       <CustomersPage />
@@ -378,6 +394,8 @@ function App() {
                         onToggleTheme={toggleTheme}
                         onOpenProfile={() => setIsProfileModalOpen(true)}
                         onOpenSettings={openSettings}
+                        isSidebarCollapsed={isSidebarCollapsed}
+                        onToggleSidebar={toggleSidebar}
                       />
 
                       <AnalyticsPage />

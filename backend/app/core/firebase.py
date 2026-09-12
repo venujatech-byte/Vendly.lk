@@ -1,7 +1,7 @@
 from pathlib import Path
 
 import firebase_admin
-from firebase_admin import credentials, firestore
+from firebase_admin import credentials, firestore, db as rtdb
 
 
 def initialize_firebase(settings):
@@ -18,6 +18,11 @@ def initialize_firebase(settings):
 
     if settings.firebase_storage_bucket:
         options["storageBucket"] = settings.firebase_storage_bucket
+
+    if settings.firebase_database_url:
+        options["databaseURL"] = settings.firebase_database_url
+    elif settings.firebase_project_id:
+        options["databaseURL"] = f"https://{settings.firebase_project_id}-default-rtdb.asia-southeast1.firebasedatabase.app"
 
     if settings.firebase_service_account_path:
         credential_path = Path(settings.firebase_service_account_path).expanduser().resolve()
@@ -36,3 +41,13 @@ def initialize_firebase(settings):
 def get_firestore_client():
     """Return the Firestore Admin client for repository and service code."""
     return firestore.client()
+
+
+def get_rtdb_reference(path=""):
+    """Return a Realtime Database reference for real-time chat messages."""
+    try:
+        if not firebase_admin._apps:
+            return None
+        return rtdb.reference(path)
+    except Exception:
+        return None

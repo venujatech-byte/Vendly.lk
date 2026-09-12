@@ -10,6 +10,7 @@ from flask import current_app
 from google.cloud.firestore_v1.base_query import FieldFilter
 
 from app.core.errors import ApiError
+from app.core.firebase import get_rtdb_reference
 from app.core.serialization import serialize_snapshot
 from app.services.customer_service import (
     create_customer,
@@ -2597,7 +2598,7 @@ def authorize_public_chat_session(
     return snapshot, session
 
 
-def get_public_chat_messages(database, session_id, provided_token, limit=20, before=None, since=None):
+def get_public_chat_messages(database, session_id, provided_token, limit=10, before=None, since=None):
     """Return one customer's own chat messages after token verification."""
     snapshot, _session = authorize_public_chat_session(
         database,
@@ -2613,6 +2614,36 @@ def get_public_chat_messages(database, session_id, provided_token, limit=20, bef
             "nextCursor": None,
             "hasMore": False,
             "changed": False,
+            "updatedAt": session_updated_iso,
+        }
+
+    # First check Firebase Realtime Database for messages
+    rtdb_ref = get_rtdb_reference(f"chatMessages/{session_id}")
+    rtdb_data = None
+    if rtdb_ref is not None:
+        try:
+            rtdb_data = rtdb_ref.get()
+        except Exception as err:
+            current_app.logger.warning("Failed to fetch messages from RTDB: %s", err)
+
+    if rtdb_data and isinstance(rtdb_data, dict):
+        all_msgs = []
+        for msg_id, val in rtdb_data.items():
+            if isinstance(val, dict):
+                all_msgs.append({"id": msg_id, **val})
+        all_msgs.sort(key=lambda m: str(m.get("createdAt") or m.get("id") or ""))
+        if before:
+            idx = next((i for i, m in enumerate(all_msgs) if m.get("id") == before), None)
+            if idx is not None:
+                all_msgs = all_msgs[:idx]
+        has_more = len(all_msgs) > limit
+        rows = all_msgs[-limit:] if has_more else all_msgs
+        next_cursor = rows[0].get("id") if has_more and rows else None
+        return {
+            "messages": rows,
+            "nextCursor": next_cursor,
+            "hasMore": has_more,
+            "changed": True,
             "updatedAt": session_updated_iso,
         }
 
@@ -2655,14 +2686,36 @@ def remembered_turns(session):
 
 
 def save_chat_message(session_reference, role, message, metadata=None, session=None):
-    session_reference.collection("messages").document().set(
-        {
-            "role": role,
-            "message": message,
-            "metadata": metadata or {},
-            "createdAt": firestore.SERVER_TIMESTAMP,
-        },
-    )
+    session_id = getattr(session_reference, "id", None) or "session"
+    now_iso = datetime.now(timezone.utc).isoformat()
+    msg_data = {
+        "role": role,
+        "message": message,
+        "metadata": metadata or {},
+        "createdAt": now_iso,
+    }
+
+    # Primary write to RTDB (WebSocket-backed, zero Firestore read/write cost)
+    rtdb_ref = get_rtdb_reference(f"chatMessages/{session_id}")
+    saved_to_rtdb = False
+    if rtdb_ref is not None:
+        try:
+            rtdb_ref.push(msg_data)
+            saved_to_rtdb = True
+        except Exception as err:
+            current_app.logger.warning("Failed to save chat message to RTDB: %s", err)
+
+    # Fallback to Firestore subcollection only if RTDB write could not complete
+    if not saved_to_rtdb:
+        session_reference.collection("messages").document().set(
+            {
+                "role": role,
+                "message": message,
+                "metadata": metadata or {},
+                "createdAt": firestore.SERVER_TIMESTAMP,
+            },
+        )
+
     # Keep a small conversation summary on the parent document. The seller
     # inbox can list chats without downloading every message in every session.
     session_changes = {

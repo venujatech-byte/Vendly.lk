@@ -1,36 +1,35 @@
-/* Outer card containing all order filter controls. */
+/* Outer card containing all order filter controls (transparent toolbar). */
 .order-filters {
+  position: relative;
+  z-index: 5;
   margin-top: 10px;
-  padding: 10px;
-  padding-left: 8px;
-  padding-right: 8px;
-
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
-
-  background: var(--color-surface);
-
-  box-shadow: 0 4px 14px rgba(15, 59, 110, 0.06);
-
-  transition:
-    background 250ms ease,
-    border-color 250ms ease,
-    box-shadow 250ms ease;
+  margin-bottom: 2px;
+  padding: 0;
+  border: none;
+  background: transparent !important;
+  box-shadow: none !important;
 }
 
-/* Grid that arranges the date, search fields, courier, and buttons. */
-.order-filters__form {
-  display: grid;
+/* Unified flex layout that arranges date, search, dropdowns, and buttons consistently. */
+.order-filters__form,
+.filter-panel__form {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  width: 100%;
+  flex-wrap: wrap;
+}
 
-  grid-template-columns:
-    minmax(220px, 1.5fr)
-    minmax(280px, 2fr)
-    minmax(150px, 1fr)
-    auto
-    auto;
+.filter-panel__extra-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+}
 
-  align-items: end;
-  gap: 4px;
+.filter-panel__extra-actions .page__actions {
+  margin: 0;
+  padding: 0;
 }
 
 /* Shared label and input layout for each filter field. */
@@ -206,44 +205,12 @@
   }
 }
 
-/* Mobile filter layout. */
-@media (max-width: 620px) {
-  .order-filters {
-    padding: 12px;
-  }
-
-  .order-filters__form {
-    grid-template-columns: 1fr;
-  }
-
-  .order-filters__date-field {
-    grid-column: auto;
-  }
-
-  .order-filters__reset {
-    width: 100%;
-  }
-}
 
 /* Dark-theme filter card and form controls. */
 html[data-theme="dark"] .order-filters {
-  border-color: rgba(78, 111, 145, 0.45);
-
-  background:
-    radial-gradient(
-      circle at 10% 0%,
-      rgba(41, 151, 255, 0.09),
-      transparent 35%
-    ),
-    linear-gradient(
-      145deg,
-      rgba(17, 31, 46, 0.96),
-      rgba(10, 21, 34, 0.96)
-    );
-
-  box-shadow:
-    0 12px 28px rgba(0, 0, 0, 0.22),
-    inset 0 1px 0 rgba(255, 255, 255, 0.025);
+  border: none;
+  background: transparent !important;
+  box-shadow: none !important;
 }
 
 html[data-theme="dark"] .order-filters__field label {
@@ -305,99 +272,52 @@ html[data-theme="dark"] .order-filters__reset:hover {
   background-color: #176bb7;
 }
 .order-filters__field { position: relative; }
-.order-filters__clear { position: absolute; right: 8px; bottom: 8px; display: grid; place-items: center; width: 24px; height: 24px; border: 0; border-radius: 50%; background: var(--color-surface-muted); color: var(--color-text-muted); cursor: pointer; }
-.order-filters__clear:hover { color: var(--color-text); }
 
-/* Inventory uses the same shared filter panel. Keep its clear action inside
-   the search field instead of letting the browser render an unstyled button. */
+/* Standardized clear button across all filter panels */
+.filter-panel__clear,
+.order-filters__clear,
 .inventory-filters__clear {
   position: absolute;
   right: 8px;
   top: 50%;
-  z-index: 1;
+  z-index: 2;
   display: grid;
+  place-items: center;
   width: 24px;
   height: 24px;
   padding: 0;
-  place-items: center;
   transform: translateY(-50%);
   border: 0;
   border-radius: 50%;
-  color: var(--color-text-muted);
-  background: var(--color-surface-muted);
+  color: var(--color-subtle);
+  background: var(--color-surface-soft);
   cursor: pointer;
+  transition: color 150ms ease, background-color 150ms ease;
 }
 
+.filter-panel__clear:hover,
+.order-filters__clear:hover,
 .inventory-filters__clear:hover {
-  color: var(--color-text);
+  color: var(--color-text-strong);
+  background: var(--color-border);
 }
 
+.filter-panel .filter-panel__field--search > input,
 .inventory-filters__field--search > input {
-  padding-right: 42px;
+  padding-right: 36px;
 }
 
 /* A controlled React clear button is used for consistent behaviour. */
+.filter-panel .filter-panel__field--search > input[type="search"]::-webkit-search-cancel-button,
 .inventory-filters__field--search > input[type="search"]::-webkit-search-cancel-button {
   -webkit-appearance: none;
   appearance: none;
 }
 
-/* Mobile-only control for expanding and collapsing the filter fields. */
-.order-filters__mobile-toggle {
+/* Mobile-only control for expanding and collapsing the filter fields (hidden on desktop) */
+.order-filters__mobile-toggle,
+.filter-panel__mobile-toggle {
   display: none;
-}
-
-@media (max-width: 620px) {
-  .order-filters {
-    padding: 8px;
-  }
-
-  .order-filters__mobile-toggle {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    width: 100%;
-    min-height: 38px;
-    padding: 0 10px;
-    border: 1px solid var(--color-border);
-    border-radius: 8px;
-    color: var(--color-text-strong);
-    background: var(--color-control);
-    font: inherit;
-    font-size: 12px;
-    font-weight: 700;
-    cursor: pointer;
-  }
-
-  .order-filters__mobile-toggle > span {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .order-filters__mobile-toggle > svg {
-    transition: transform 180ms ease;
-  }
-
-  .order-filters__mobile-toggle > svg.is-open {
-    transform: rotate(180deg);
-  }
-
-  .order-filters__form {
-    display: none;
-    gap: 10px;
-    padding: 10px 4px 4px;
-  }
-
-  .order-filters__form.is-open {
-    display: grid;
-  }
-}
-
-html[data-theme="dark"] .order-filters__mobile-toggle {
-  border-color: #31506d;
-  color: var(--color-text);
-  background: rgba(13, 31, 48, 0.9);
 }
 
 /*
@@ -407,55 +327,103 @@ html[data-theme="dark"] .order-filters__mobile-toggle {
  * class contract for one consistent card, control, button and mobile layout.
  */
 .filter-panel.filter-panel {
+  position: relative;
+  z-index: 5;
   margin-top: 10px;
-  padding: 10px;
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
-  background: var(--color-surface);
-  box-shadow: 0 4px 14px rgba(15, 59, 110, 0.06);
+  margin-bottom: 2px;
+  padding: 0;
+  border: none;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.order-filters:has(.date-range-picker.is-open),
+.filter-panel:has(.date-range-picker.is-open) {
+  z-index: 30;
 }
 
 .filter-panel .filter-panel__form {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 8px;
   width: 100%;
+  flex-wrap: wrap;
 }
 
+/* Individual fields have natural, content-based sizing aligned to the left */
 .filter-panel .filter-panel__field {
   position: relative;
   display: flex;
-  flex: 1 1 150px;
+  align-items: center;
+  flex: 0 0 auto;
   min-width: 0;
 }
 
-.filter-panel .filter-panel__form > select {
-  flex: 1 1 150px;
-}
-
+/* Search input: compact fixed width aligned left */
 .filter-panel .filter-panel__field--search {
-  flex: 2 1 260px;
+  flex: 0 0 240px;
+  width: 240px;
 }
 
+.filter-panel .filter-panel__search-icon {
+  position: absolute;
+  left: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+  color: var(--color-muted);
+  pointer-events: none;
+}
+
+/* Date range picker field */
 .filter-panel .filter-panel__field--date {
-  flex: 1.5 1 240px;
+  flex: 0 0 auto;
+  width: auto;
+}
+
+/* Select dropdowns: custom clean chevron, compact padding, no huge empty space */
+.filter-panel .filter-panel__field--select,
+.filter-panel .filter-panel__field > select,
+.filter-panel .filter-panel__form > select {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 130px;
+  max-width: 165px;
 }
 
 .filter-panel .filter-panel__field > input,
 .filter-panel .filter-panel__field > select,
 .filter-panel .filter-panel__form > select {
-  width: 100%;
-  min-width: 0;
-  height: 40px;
+  height: 38px;
   padding: 0 11px;
   border: 1px solid var(--color-border);
-  border-radius: 7px;
+  border-radius: 8px;
   outline: none;
   color: var(--color-text);
-  background: var(--color-control);
+  background-color: var(--color-control);
   font: inherit;
   font-size: 13px;
+  font-weight: 500;
   transition: border-color 180ms ease, box-shadow 180ms ease, background 180ms ease;
+}
+
+/* Search input specific padding so text never overlaps the icon */
+.filter-panel .filter-panel__field--search > input {
+  width: 100%;
+  padding-left: 34px !important;
+  padding-right: 32px !important;
+}
+
+.filter-panel .filter-panel__field > select,
+.filter-panel .filter-panel__form > select {
+  padding-right: 30px;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
 }
 
 .filter-panel .filter-panel__field > input:focus,
@@ -465,57 +433,37 @@ html[data-theme="dark"] .order-filters__mobile-toggle {
   box-shadow: 0 0 0 3px rgba(41, 151, 255, 0.14);
 }
 
-.filter-panel .filter-panel__icon-field {
-  align-items: center;
-}
-
-.filter-panel .filter-panel__icon-field > svg {
+/* Clear icon button for search */
+.filter-panel .filter-panel__clear {
   position: absolute;
-  left: 11px;
-  z-index: 1;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
   color: var(--color-muted);
-  pointer-events: none;
+  cursor: pointer;
+  transition: color 150ms ease, background-color 150ms ease;
 }
 
-.filter-panel .filter-panel__icon-field > input {
-  padding-left: 36px;
+.filter-panel .filter-panel__clear:hover {
+  background-color: rgba(0, 0, 0, 0.08);
+  color: var(--color-text);
 }
 
-.filter-panel .filter-panel__date-control {
+/* Actions block: aligned directly with other filters on the left */
+.filter-panel .filter-panel__actions {
   display: flex;
   align-items: center;
-  gap: 7px;
-  height: 40px;
-  padding: 0 10px;
-  border: 1px solid var(--color-border);
-  border-radius: 7px;
-  background: var(--color-control);
-}
-
-.filter-panel .filter-panel__date-control:focus-within {
-  border-color: var(--color-accent);
-  box-shadow: 0 0 0 3px rgba(41, 151, 255, 0.14);
-}
-
-.filter-panel .filter-panel__date-control > svg {
+  gap: 8px;
+  margin-left: 0;
   flex: 0 0 auto;
-  color: var(--color-accent);
-}
-
-.filter-panel .filter-panel__date-control input {
-  width: 100%;
-  min-width: 0;
-  border: 0;
-  outline: 0;
-  color: var(--color-text);
-  background: transparent;
-  font: inherit;
-  font-size: 12px;
-}
-
-.filter-panel .filter-panel__date-control span {
-  color: var(--color-muted);
-  font-size: 12px;
 }
 
 .filter-panel .filter-panel__apply,
@@ -524,26 +472,39 @@ html[data-theme="dark"] .order-filters__mobile-toggle {
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  gap: 7px;
-  height: 40px;
-  border-radius: 7px;
+  gap: 6px;
+  height: 36px;
+  width: 34px;
+  min-width: 34px;
+  border-radius: 8px;
   font: inherit;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   cursor: pointer;
+  transition: all 160ms ease;
 }
 
 .filter-panel .filter-panel__apply {
-  min-width: 104px;
-  padding: 0 16px;
+  width: 34px;
+  height: 36px;
+  min-width: 34px;
+  padding: 0;
   border: 1px solid var(--color-accent);
   color: #fff;
   background: var(--color-accent);
-  box-shadow: 0 4px 10px rgba(22, 140, 245, 0.2);
+  box-shadow: 0 2px 6px rgba(22, 140, 245, 0.22);
+}
+
+.filter-panel .filter-panel__apply:has(span) {
+  width: auto;
+  min-width: 76px;
+  padding: 0 12px;
 }
 
 .filter-panel .filter-panel__reset {
-  width: 42px;
+  width: 34px;
+  height: 36px;
+  min-width: 34px;
   padding: 0;
   border: 1px solid var(--color-border);
   color: var(--color-accent);
@@ -556,11 +517,16 @@ html[data-theme="dark"] .order-filters__mobile-toggle {
   padding: 0 12px;
 }
 
-.filter-panel .filter-panel__apply:hover,
-.filter-panel .filter-panel__reset:hover {
+.filter-panel .filter-panel__apply:hover {
   border-color: #0879dd;
-  color: #fff;
   background: #0879dd;
+  box-shadow: 0 4px 10px rgba(22, 140, 245, 0.3);
+}
+
+.filter-panel .filter-panel__reset:hover {
+  border-color: var(--color-accent);
+  color: #fff;
+  background: var(--color-accent);
 }
 
 .filter-panel .filter-panel__mobile-toggle {
@@ -568,9 +534,9 @@ html[data-theme="dark"] .order-filters__mobile-toggle {
 }
 
 html[data-theme="dark"] .filter-panel.filter-panel {
-  border-color: rgba(78, 111, 145, 0.45);
-  background: rgba(12, 29, 45, 0.88);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  border: none;
+  background: transparent !important;
+  box-shadow: none !important;
 }
 
 html[data-theme="dark"] .filter-panel .filter-panel__field > input,
@@ -580,72 +546,151 @@ html[data-theme="dark"] .filter-panel .filter-panel__date-control,
 html[data-theme="dark"] .filter-panel .filter-panel__reset {
   border-color: #31506d;
   color: var(--color-text);
-  background: rgba(13, 31, 48, 0.9);
+  background-color: rgba(13, 31, 48, 0.9);
+}
+
+html[data-theme="dark"] .filter-panel .filter-panel__field > select,
+html[data-theme="dark"] .filter-panel .filter-panel__form > select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
 }
 
 @media (max-width: 1050px) {
   .filter-panel .filter-panel__form {
     flex-wrap: wrap;
+    justify-content: flex-start;
   }
 
   .filter-panel .filter-panel__field,
   .filter-panel .filter-panel__form > select {
-    flex: 1 1 calc(50% - 8px);
+    flex: 0 0 auto;
   }
 }
 
-@media (max-width: 700px) {
+@media (max-width: 768px) {
+  .order-filters,
   .filter-panel.filter-panel {
-    padding: 8px;
+    padding: 6px 0;
+    margin-top: 6px;
   }
 
+  .order-filters__mobile-toggle,
   .filter-panel .filter-panel__mobile-toggle {
     display: flex;
     align-items: center;
     justify-content: space-between;
     width: 100%;
-    min-height: 38px;
-    padding: 0 10px;
+    min-height: 42px;
+    padding: 0 14px;
     border: 1px solid var(--color-border);
     border-radius: 8px;
     color: var(--color-text-strong);
     background: var(--color-control);
     font: inherit;
-    font-size: 12px;
-    font-weight: 700;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 160ms ease;
   }
 
+  .order-filters__mobile-toggle > span,
   .filter-panel .filter-panel__mobile-toggle > span {
     display: inline-flex;
     align-items: center;
     gap: 8px;
   }
 
+  .order-filters__mobile-toggle > svg,
   .filter-panel .filter-panel__mobile-toggle > svg {
     transition: transform 180ms ease;
   }
 
+  .order-filters__mobile-toggle > svg.is-open,
   .filter-panel .filter-panel__mobile-toggle > svg.is-open {
     transform: rotate(180deg);
   }
 
+  .order-filters__form,
   .filter-panel .filter-panel__form {
     display: none;
-    grid-template-columns: 1fr;
+    flex-direction: column;
     gap: 10px;
-    padding: 10px 4px 4px;
-  }
-
-  .filter-panel .filter-panel__form.is-open {
-    display: grid;
-  }
-
-  .filter-panel .filter-panel__field,
-  .filter-panel .filter-panel__form > select,
-  .filter-panel .filter-panel__apply,
-  .filter-panel .filter-panel__reset {
+    padding: 10px 0 4px;
     width: 100%;
   }
+
+  .order-filters__form.is-open,
+  .filter-panel .filter-panel__form.is-open {
+    display: flex;
+  }
+
+  /* All filter fields expand to full width on mobile */
+  .order-filters__field,
+  .filter-panel .filter-panel__field,
+  .filter-panel .filter-panel__field--search,
+  .filter-panel .filter-panel__field--select,
+  .filter-panel .filter-panel__field--date {
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    flex: 1 1 100% !important;
+  }
+
+  /* Inputs and selects expand to full width and 42px touch height */
+  .order-filters__field > input,
+  .order-filters__field > select,
+  .filter-panel .filter-panel__field > input,
+  .filter-panel .filter-panel__field > select,
+  .filter-panel .filter-panel__form > select {
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    min-height: 42px !important;
+    font-size: 14px !important;
+  }
+
+  /* Actions container layout on mobile */
+  .filter-panel .filter-panel__actions,
+  .order-filters__actions {
+    display: flex !important;
+    width: 100% !important;
+    align-items: center !important;
+    gap: 8px !important;
+    margin-top: 2px !important;
+  }
+
+  .filter-panel .filter-panel__apply,
+  .order-filters__apply {
+    flex: 1 1 auto !important;
+    width: auto !important;
+    min-height: 42px !important;
+    justify-content: center !important;
+    font-size: 14px !important;
+  }
+
+  .filter-panel .filter-panel__reset,
+  .order-filters__reset {
+    flex: 0 0 42px !important;
+    width: 42px !important;
+    height: 42px !important;
+    min-height: 42px !important;
+    padding: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .filter-panel .filter-panel__reset--text {
+    flex: 0 0 auto !important;
+    width: auto !important;
+    min-width: 80px !important;
+  }
+}
+
+html[data-theme="dark"] .order-filters__mobile-toggle,
+html[data-theme="dark"] .filter-panel .filter-panel__mobile-toggle {
+  border-color: #31506d;
+  color: var(--color-text);
+  background: rgba(13, 31, 48, 0.9);
 }
 
 

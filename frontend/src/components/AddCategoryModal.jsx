@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { FolderPlus } from "lucide-react";
 
 import { createCategory, updateCategory } from "../services/categoryService";
 import ModalShell from "./ModalShell";
@@ -54,6 +55,8 @@ function AddCategoryModal({ isOpen, businessId, category = null, onClose, onCrea
       isOpen={isOpen}
       title={category ? "Edit Category" : "Add Category"}
       description="Create a category used to organise your catalogue."
+      icon={FolderPlus}
+      iconTone="category"
       onClose={onClose}
     >
       <form className="inventory-form" onSubmit={handleSubmit}>

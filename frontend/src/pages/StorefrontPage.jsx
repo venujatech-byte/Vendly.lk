@@ -10,6 +10,7 @@ import {
   ClipboardList,
   Copy,
   Headset,
+  HelpCircle,
   Mail,
   MapPin,
   Menu,
@@ -29,10 +30,12 @@ import {
   ShoppingBag,
   ShoppingCart,
   SlidersHorizontal,
+  Sparkles,
   Star,
   Store,
   Sun,
   Trash2,
+  Truck,
   UserRound,
   Volume2,
   VolumeX,
@@ -57,6 +60,7 @@ import {
 } from "../services/publicService";
 import OrderReceipt from "../components/OrderReceipt";
 import CustomerAccountModal from "../components/CustomerAccountModal";
+import StorefrontInstructionsModal from "../components/StorefrontInstructionsModal";
 import { useAuth } from "../context/authContextValue";
 import { claimPublicChatSession } from "../services/publicService";
 
@@ -210,6 +214,26 @@ function chatSessionStorageKey(storeCode, productCode, user) {
   return `vendly-chat-session:${linkKey}:${customerKey}`;
 }
 
+function saveMessagesToSession(sessionId, msgs) {
+  try {
+    if (!sessionId) return;
+    const trimmed = (msgs || []).slice(-30);
+    sessionStorage.setItem(`vendly-chat-messages:${sessionId}`, JSON.stringify(trimmed));
+  } catch {
+    // Gracefully ignore storage quota or private-mode errors
+  }
+}
+
+function loadMessagesFromSession(sessionId) {
+  try {
+    if (!sessionId) return null;
+    const raw = sessionStorage.getItem(`vendly-chat-messages:${sessionId}`);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
 function StorefrontPage({ linkType }) {
   const { user, isAuthLoading } = useAuth();
   const { storeCode, productCode } = useParams();
@@ -222,6 +246,7 @@ function StorefrontPage({ linkType }) {
   const [isLoadingOlderMessages, setIsLoadingOlderMessages] = useState(false);
   const receivedSellerMessageIds = useRef(new Set());
   const activeChatUpdatedAtRef = useRef("");
+  const messagesCacheRef = useRef(new Map());
   const [messageText, setMessageText] = useState("");
   const [isListening, setIsListening] = useState(false);
   const [speechEnabled, setSpeechEnabled] = useState(
@@ -291,6 +316,7 @@ function StorefrontPage({ linkType }) {
   });
   const [reviewMessage, setReviewMessage] = useState("");
   const [isAccountOpen, setIsAccountOpen] = useState(false);
+  const [isInstructionsOpen, setIsInstructionsOpen] = useState(false);
   const messagesEndRef = useRef(null);
   const latestMessageRef = useRef(null);
   const recognitionRef = useRef(null);
@@ -304,7 +330,7 @@ function StorefrontPage({ linkType }) {
     let requestIsCurrent = true;
 
     async function loadStorefront() {
-      if (isAuthLoading || !user) return;
+      if (isAuthLoading) return;
       setIsLoading(true);
       setErrorMessage("");
 
@@ -313,6 +339,25 @@ function StorefrontPage({ linkType }) {
           linkType === "product"
             ? getPublicProduct(productCode)
             : getPublicStore(storeCode);
+        const reviewRequest =
+          linkType === "product"
+            ? getPublicProductReviews(productCode)
+            : Promise.resolve({ reviews: [] });
+        const [catalog, reviewResponse] = await Promise.all([
+          catalogRequest,
+          reviewRequest,
+        ]);
+
+        if (!requestIsCurrent) return;
+
+        setBusiness(catalog.business);
+        const customerOrderResponse = await getCustomerOrders(catalog.business.shortCode).catch(() => ({ orders: [] }));
+        setCustomerOrders(customerOrderResponse.orders || []);
+        setProducts(
+          linkType === "product" ? [catalog.product] : catalog.products,
+        );
+        setReviews(reviewResponse.reviews);
+
         const sessionKey = chatSessionStorageKey(
           storeCode,
           productCode,
@@ -321,91 +366,39 @@ function StorefrontPage({ linkType }) {
         const savedSession = JSON.parse(
           localStorage.getItem(sessionKey) || "null",
         );
-        let sessionRequest;
+
         if (savedSession?.sessionId && savedSession?.sessionToken) {
-          // Reuse the existing conversation. The token check below also
-          // detects an expired/invalid saved session and creates a new one.
-          sessionRequest = getPublicChatMessages(
-            savedSession.sessionId,
-            savedSession.sessionToken,
-          )
-            .then(() => ({ ...savedSession, _reused: true }))
-            .catch(() => createPublicChatSession({
-              storeCode: linkType === "store" ? storeCode : undefined,
-              productCode: linkType === "product" ? productCode : undefined,
-              // A returning customer is greeted in the language they settled
-              // on last visit instead of starting again in English.
-              language: savedChatLanguage(),
-            }));
-        } else {
-          sessionRequest = createPublicChatSession({
-            storeCode: linkType === "store" ? storeCode : undefined,
-            productCode: linkType === "product" ? productCode : undefined,
-            language: savedChatLanguage(),
-          });
-        }
-        const reviewRequest =
-          linkType === "product"
-            ? getPublicProductReviews(productCode)
-            : Promise.resolve({ reviews: [] });
-        const [catalog, sessionResponse, reviewResponse] = await Promise.all([
-          catalogRequest,
-          sessionRequest,
-          reviewRequest,
-        ]);
-
-        if (!requestIsCurrent) return;
-
-        const chatSession = sessionResponse._reused
-          ? {
-              ...sessionResponse,
-              business: catalog.business,
-              product: linkType === "product" ? catalog.product : null,
-              products: linkType === "product" ? [catalog.product] : catalog.products,
-              message: `Welcome back to ${catalog.business.name}. Ask me about your order or say “another order” to shop again.`,
+          setSession(savedSession);
+          const cached =
+            messagesCacheRef.current.get(savedSession.sessionId) ||
+            loadMessagesFromSession(savedSession.sessionId);
+          if (cached && cached.length > 0) {
+            setMessages(cached);
+            messagesCacheRef.current.set(savedSession.sessionId, cached);
+            cached.forEach((m) => {
+              if (m.id && m.role === "seller") {
+                receivedSellerMessageIds.current.add(m.id);
+              }
+            });
+            setHasMoreMessages(true);
+          } else {
+            setMessages([{
+              role: "assistant",
+              text: `Welcome back to ${catalog.business.name}. Ask me about your order or say "another order" to shop again.`,
               action: "show-order-info",
-            }
-          : sessionResponse;
-
-        setBusiness(catalog.business);
-        const customerOrderResponse = await getCustomerOrders(catalog.business.shortCode).catch(() => ({ orders: [] }));
-        setCustomerOrders(customerOrderResponse.orders || []);
-        setProducts(
-          linkType === "product" ? [catalog.product] : catalog.products,
-        );
-        setSession(chatSession);
-        localStorage.setItem(sessionKey, JSON.stringify(chatSession));
-        const currentMessageResponse = await getPublicChatMessages(
-          chatSession.sessionId,
-          chatSession.sessionToken,
-        ).catch(() => ({ messages: [], nextCursor: null, hasMore: false }));
-        // These seller replies are already rendered below. Mark them before
-        // the polling effect starts so refresh does not append duplicates at
-        // the end of the conversation.
-        currentMessageResponse.messages?.forEach((message) => {
-          if (message.role === "seller" && message.id) {
-            receivedSellerMessageIds.current.add(message.id);
+            }]);
+            setHasMoreMessages(true);
           }
-        });
-        setMessageCursor(currentMessageResponse.nextCursor || null);
-        setHasMoreMessages(Boolean(currentMessageResponse.hasMore));
-        activeChatUpdatedAtRef.current = currentMessageResponse.updatedAt || "";
-        const previousMessages = (currentMessageResponse.messages || []).map((message) => ({
-          id: message.id,
-          role: message.role === "seller" ? "assistant" : message.role,
-          text: message.message,
-          action: message.metadata?.action,
-        })) ?? [];
-        setMessages(previousMessages.length > 0 ? previousMessages : [{
-          role: "assistant",
-          text: chatSession.message,
-          action: chatSession.action,
-          product: chatSession.product,
-          products: chatSession.products,
-          reviews: chatSession.reviews,
-          reviewSummary: chatSession.reviewSummary,
-        }]);
-        setReviews(reviewResponse.reviews);
+        } else {
+          setSession(null);
+          setMessages([{
+            role: "assistant",
+            text: `Welcome to ${catalog.business.name}. How can I help you today?`,
+            action: linkType === "product" ? "show-product" : "prompt-product",
+            product: linkType === "product" ? catalog.product : null,
+            products: linkType === "product" ? [catalog.product] : [],
+          }]);
+        }
       } catch (error) {
         if (requestIsCurrent) setErrorMessage(error.message);
       } finally {
@@ -419,20 +412,52 @@ function StorefrontPage({ linkType }) {
     };
   }, [isAuthLoading, linkType, productCode, storeCode, user]);
 
+  useEffect(() => {
+    if (!isLoading && business && !errorMessage) {
+      try {
+        const isDismissed = localStorage.getItem("vendly_storefront_guide_dismissed");
+        const hasShownSession = sessionStorage.getItem("vendly_storefront_guide_session");
+        if (!isDismissed && !hasShownSession) {
+          const timer = setTimeout(() => {
+            setIsInstructionsOpen(true);
+          }, 600);
+          return () => clearTimeout(timer);
+        }
+      } catch {
+        // ignore
+      }
+    }
+  }, [isLoading, business, errorMessage]);
+
   async function loadOlderChatMessages() {
-    if (!session?.sessionId || !session?.sessionToken || !messageCursor || isLoadingOlderMessages) return;
+    if (!session?.sessionId || !session?.sessionToken || isLoadingOlderMessages) return;
     setIsLoadingOlderMessages(true);
     try {
+      const earliestId = messages.find((m) => m.id)?.id;
       const result = await getPublicChatMessages(session.sessionId, session.sessionToken, {
-        before: messageCursor,
+        before: earliestId || messageCursor || undefined,
+        limit: 10,
       });
       const olderMessages = (result.messages || []).map((message) => ({
         id: message.id,
-        role: message.role === "seller" ? "assistant" : message.role,
+        role: message.role,
         text: message.message,
         action: message.metadata?.action,
+        imageUrl: message.metadata?.imageUrl,
       }));
-      setMessages((current) => [...olderMessages, ...current]);
+      olderMessages.forEach((m) => {
+        if (m.id && m.role === "seller") {
+          receivedSellerMessageIds.current.add(m.id);
+        }
+      });
+      setMessages((current) => {
+        const existingIds = new Set(current.map((m) => m.id).filter(Boolean));
+        const newOlder = olderMessages.filter((m) => !existingIds.has(m.id));
+        const updated = [...newOlder, ...current];
+        messagesCacheRef.current.set(session.sessionId, updated);
+        saveMessagesToSession(session.sessionId, updated);
+        return updated;
+      });
       setMessageCursor(result.nextCursor || null);
       setHasMoreMessages(Boolean(result.hasMore));
     } catch (error) {
@@ -445,6 +470,9 @@ function StorefrontPage({ linkType }) {
   function clearStorefrontChat() {
     if (!session || !window.confirm("Clear this chat from this device and start a new conversation?")) return;
     localStorage.removeItem(chatSessionStorageKey(storeCode, productCode, user));
+    if (session?.sessionId) {
+      sessionStorage.removeItem(`vendly-chat-messages:${session.sessionId}`);
+    }
     window.location.reload();
   }
 
@@ -454,76 +482,6 @@ function StorefrontPage({ linkType }) {
       setErrorMessage(error.message);
     });
   }, [session?.sessionId, session?.sessionToken, user]);
-
-  // Seller replies are written to the same Firestore chat. Poll the protected
-  // session endpoint so a storefront customer sees those replies without a
-  // page refresh; only unseen seller messages are appended to local UI state.
-  useEffect(() => {
-    if (!session?.sessionId || !session?.sessionToken) return undefined;
-
-    let isCurrent = true;
-    async function loadSellerReplies() {
-      try {
-        const currentResponse = await getPublicChatMessages(
-          session.sessionId,
-          session.sessionToken,
-          { since: activeChatUpdatedAtRef.current },
-        );
-        if (currentResponse.updatedAt) {
-          activeChatUpdatedAtRef.current = currentResponse.updatedAt;
-        }
-        if (currentResponse.changed === false) return;
-        const candidates = new Map();
-        [
-          ...(currentResponse.messages || []),
-        ].forEach((message) => {
-          if (message.id) candidates.set(message.id, message);
-        });
-        const unseen = [...candidates.values()].filter(
-          (message) => message.role === "seller"
-            && !receivedSellerMessageIds.current.has(message.id),
-        );
-        if (!isCurrent || unseen.length === 0) return;
-        unseen.forEach((message) => receivedSellerMessageIds.current.add(message.id));
-        setMessages((current) => [
-          ...current,
-          ...unseen.map((message) => ({
-            id: message.id,
-            role: "seller",
-            text: message.message,
-          })),
-        ]);
-        // Only when they are somewhere else. Notifying about a message that is
-        // already on screen is noise.
-        if (viewRef.current !== "chatbot") {
-          setNotifications((current) => [
-            ...unseen.map((message) => ({
-              id: message.id,
-              kind: "seller",
-              title: business?.name || "The seller",
-              body: message.message,
-            })),
-            ...current,
-          ].slice(0, 20));
-        }
-      } catch {
-        // The normal send flow reports errors. Silent polling should not cover
-        // the storefront with an error if the network briefly disconnects.
-      }
-    }
-
-    loadSellerReplies();
-    const timer = window.setInterval(loadSellerReplies, 15000);
-    return () => {
-      isCurrent = false;
-      window.clearInterval(timer);
-    };
-  }, [
-    business?.name,
-    business?.shortCode,
-    session?.sessionId,
-    session?.sessionToken,
-  ]);
 
 
   // Orders are loaded once at startup, so a status the seller changes minutes
@@ -797,25 +755,46 @@ function StorefrontPage({ linkType }) {
     );
   }
 
+  async function ensureChatSession() {
+    if (session?.sessionId && session?.sessionToken) return session;
+    const newSession = await createPublicChatSession({
+      storeCode: linkType === "store" ? storeCode : undefined,
+      productCode: linkType === "product" ? productCode : undefined,
+      language: savedChatLanguage(),
+    });
+    setSession(newSession);
+    const sessionKey = chatSessionStorageKey(storeCode, productCode, user);
+    localStorage.setItem(sessionKey, JSON.stringify(newSession));
+    return newSession;
+  }
+
   // A customer sending a bank slip or a photo of a damaged item. The image
   // goes to Cloudinary; only its URL is kept on the message.
   async function sendChatImage(file) {
-    if (!file || !session?.sessionId) return;
+    if (!file) return;
 
     setIsSending(true);
     setErrorMessage("");
     try {
+      const activeSession = await ensureChatSession();
       const { url } = await compressUploadImage(file);
       const response = await sendPublicChatImage(
-        session.sessionId,
-        session.sessionToken,
+        activeSession.sessionId,
+        activeSession.sessionToken,
         url,
       );
-      setMessages((current) => [
-        ...current,
-        { role: "customer", text: "", imageUrl: response.imageUrl },
-        { role: "assistant", text: response.message },
-      ]);
+      setMessages((current) => {
+        const updated = [
+          ...current,
+          { role: "customer", text: "", imageUrl: response.imageUrl },
+          { role: "assistant", text: response.message },
+        ];
+        if (activeSession?.sessionId) {
+          messagesCacheRef.current.set(activeSession.sessionId, updated);
+          saveMessagesToSession(activeSession.sessionId, updated);
+        }
+        return updated;
+      });
     } catch (error) {
       setErrorMessage(error.message);
     } finally {
@@ -824,20 +803,28 @@ function StorefrontPage({ linkType }) {
   }
 
   async function requestChatMessage(cleanMessage) {
-    if (!cleanMessage || !session || isSending) return;
+    if (!cleanMessage || isSending) return;
 
-    setMessages((current) => [
-      ...current,
-      { role: "customer", text: cleanMessage },
-    ]);
+    setMessages((current) => {
+      const updated = [
+        ...current,
+        { role: "customer", text: cleanMessage },
+      ];
+      if (session?.sessionId) {
+        messagesCacheRef.current.set(session.sessionId, updated);
+        saveMessagesToSession(session.sessionId, updated);
+      }
+      return updated;
+    });
     setMessageText("");
     setIsSending(true);
     setErrorMessage("");
 
     try {
+      const activeSession = await ensureChatSession();
       const response = await sendPublicChatMessage(
-        session.sessionId,
-        session.sessionToken,
+        activeSession.sessionId,
+        activeSession.sessionToken,
         cleanMessage,
         {
           cart: cart.map((item) => ({
@@ -906,23 +893,30 @@ function StorefrontPage({ linkType }) {
         setVoiceLanguage(CHAT_LANGUAGE_TO_VOICE[response.language]);
       }
       if (response.message) {
-        setMessages((current) => [
-          ...current,
-          {
-            role: "assistant",
-            text: response.message,
-            action: response.action,
-            suggestions: response.suggestions,
-            product: response.product,
-            products: response.products,
-            reviews: response.reviews,
-            categories: response.categories,
-            reviewSummary: response.reviewSummary,
-            sellerRating: response.sellerRating,
-            cartSummary: response.cartSummary,
-            customerDraft: response.customerDraft,
-          },
-        ]);
+        setMessages((current) => {
+          const updated = [
+            ...current,
+            {
+              role: "assistant",
+              text: response.message,
+              action: response.action,
+              suggestions: response.suggestions,
+              product: response.product,
+              products: response.products,
+              reviews: response.reviews,
+              categories: response.categories,
+              reviewSummary: response.reviewSummary,
+              sellerRating: response.sellerRating,
+              cartSummary: response.cartSummary,
+              customerDraft: response.customerDraft,
+            },
+          ];
+          if (activeSession?.sessionId) {
+            messagesCacheRef.current.set(activeSession.sessionId, updated);
+            saveMessagesToSession(activeSession.sessionId, updated);
+          }
+          return updated;
+        });
         speakAssistantReply(response.message);
       }
     } catch (error) {
@@ -1088,14 +1082,21 @@ function StorefrontPage({ linkType }) {
     if (selectedItem?.quantity >= variant.availableStock) return;
 
     addToCart(product, variant);
-    setMessages((current) => [
-      ...current,
-      {
-        role: "assistant",
-        text: `${product.name}${variant.size ? `, size ${variant.size}` : ""} was added to your cart. Do you want to add any other item?`,
-        action: "cart-updated",
-      },
-    ]);
+    setMessages((current) => {
+      const updated = [
+        ...current,
+        {
+          role: "assistant",
+          text: `${product.name}${variant.size ? `, size ${variant.size}` : ""} was added to your cart. Do you want to add any other item?`,
+          action: "cart-updated",
+        },
+      ];
+      if (session?.sessionId) {
+        messagesCacheRef.current.set(session.sessionId, updated);
+        saveMessagesToSession(session.sessionId, updated);
+      }
+      return updated;
+    });
   }
 
   function updateCustomer(event) {
@@ -1329,16 +1330,24 @@ function StorefrontPage({ linkType }) {
             >
               <Menu size={21} />
             </button>
-            <div>
-              <strong>
-                {activeView === "catalog" && "Catalog"}
-                {activeView === "chatbot" &&
-                  `${business.name} – AI Ordering Assistant`}
-                {activeView === "reviews" && "Reviews"}
-                {activeView === "orders" && text.myOrders}
-                {activeView === "contact" && "Contact"}
+            <div className="storefront-topbar__title-wrapper">
+              <strong className="storefront-topbar__store-title">
+                {business.name}
               </strong>
-              <small>{business.name}</small>
+              {activeView === "chatbot" ? (
+                <span className="storefront-topbar__ai-pill">
+                  <span className="storefront-topbar__ai-dot" />
+                  <Sparkles size={12} className="storefront-topbar__ai-sparkle" />
+                  AI Ordering Assistant
+                </span>
+              ) : (
+                <span className="storefront-topbar__view-pill">
+                  {activeView === "catalog" && "Catalog"}
+                  {activeView === "reviews" && "Reviews"}
+                  {activeView === "orders" && text.myOrders}
+                  {activeView === "contact" && "Contact"}
+                </span>
+              )}
             </div>
           </div>
 
@@ -1464,6 +1473,15 @@ function StorefrontPage({ linkType }) {
               aria-label={`Switch to ${theme === "light" ? "dark" : "light"} mode`}
             >
               {theme === "light" ? <Moon size={20} /> : <Sun size={20} />}
+            </button>
+            <button
+              className="storefront-icon-button"
+              type="button"
+              aria-label="How to use storefront"
+              title="Customer Guide"
+              onClick={() => setIsInstructionsOpen(true)}
+            >
+              <HelpCircle size={20} />
             </button>
             <button
               className="storefront-icon-button"
@@ -1721,6 +1739,17 @@ function StorefrontPage({ linkType }) {
         onClose={() => setIsAccountOpen(false)}
         user={user}
         storeCode={business.shortCode}
+        onOpenChat={() => {
+          setIsAccountOpen(false);
+          changeView("chatbot");
+        }}
+      />
+
+      <StorefrontInstructionsModal
+        isOpen={isInstructionsOpen}
+        onClose={() => setIsInstructionsOpen(false)}
+        businessName={business?.name}
+        onOpenChat={() => changeView("chatbot")}
       />
     </main>
   );
@@ -2042,9 +2071,22 @@ function CatalogView({
         ))}
         {products.length === 0 && (
           <div className="storefront-empty-state">
-            <Search size={34} />
+            <Search size={38} />
             <h2>{text.noMatchingProducts}</h2>
             <p>{text.tryDifferentSearch}</p>
+            {(searchText || activeCategory !== "All" || activeFilterCount > 0) && (
+              <button
+                type="button"
+                className="storefront-empty-state__reset"
+                onClick={() => {
+                  onSearchChange("");
+                  onCategoryChange("All");
+                  onClearFilters();
+                }}
+              >
+                Reset all filters
+              </button>
+            )}
           </div>
         )}
       </section>
@@ -2291,8 +2333,21 @@ function ProductCard({
     variantImageUrl(firstVariant) ||
     publicMediaUrl(product.media?.[0]);
 
+  const hasDiscount =
+    Number(product.compareAtPriceMinor) > Number(product.sellingPriceMinor);
+  const discountPercent = hasDiscount
+    ? Math.round(
+        ((product.compareAtPriceMinor - product.sellingPriceMinor) /
+          product.compareAtPriceMinor) *
+          100,
+      )
+    : 0;
+
+  const isOutOfStock = (product.availableStock ?? 0) <= 0;
+  const isLowStock = !isOutOfStock && (product.availableStock ?? 0) <= 5;
+
   return (
-    <article className="storefront-product-card">
+    <article className={`storefront-product-card ${isOutOfStock ? "is-out-of-stock" : ""}`}>
       <div className="storefront-product-card__media">
         <button
           type="button"
@@ -2301,81 +2356,104 @@ function ProductCard({
           aria-label={`View details for ${product.name}`}
         >
           {productImage ? (
-            <img src={productImage} alt={product.name} />
+            <img src={productImage} alt={product.name} loading="lazy" />
           ) : (
             <Package size={52} />
           )}
         </button>
-        <strong>{money(product.sellingPriceMinor)}</strong>
-        {product.compareAtPriceMinor > product.sellingPriceMinor && (
-          <small>{money(product.compareAtPriceMinor)}</small>
-        )}
+
+        <div className="storefront-product-card__badges">
+          {hasDiscount && (
+            <span className="storefront-product-card__discount">
+              -{discountPercent}%
+            </span>
+          )}
+          {isOutOfStock ? (
+            <span className="storefront-product-card__stock-badge is-out">
+              Out of stock
+            </span>
+          ) : isLowStock ? (
+            <span className="storefront-product-card__stock-badge is-low">
+              Only {product.availableStock} left
+            </span>
+          ) : null}
+        </div>
+
+        <button
+          type="button"
+          className="storefront-product-card__quick-view"
+          onClick={() => onOpenDetails(product)}
+          title={text.viewDetails || "Quick view"}
+          aria-label={`Quick view ${product.name}`}
+        >
+          <Search size={15} />
+        </button>
       </div>
 
       <div className="storefront-product-card__body">
-        <span>{product.categoryName || product.brand || "Product"}</span>
-        <h2>
-          <button type="button" onClick={() => onOpenDetails(product)}>
-            {product.name}
-          </button>
-        </h2>
-        <p>
-          {product.description ||
-            product.aiDescription ||
-            "Ask our chatbot for more information."}
-        </p>
-        {cartQuantity > 0 && (
-          <span className="storefront-product-card__added">
-            <Check size={14} /> {text.addedToCart} ({cartQuantity})
+        <div className="storefront-product-card__header">
+          <span className="storefront-product-card__category">
+            {product.categoryName || product.brand || "Product"}
           </span>
-        )}
-
-        <div className="storefront-product-card__stock">
-          <CheckCircle2 size={15} /> {product.availableStock} available
-          {product.approvedReviewCount > 0 && (
-            <span>
-              <Star size={14} fill="currentColor" />{" "}
-              {product.approvedReviewCount} reviews
+          {product.approvedReviewCount > 0 ? (
+            <span className="storefront-product-card__rating">
+              <Star size={13} fill="currentColor" /> {product.approvedReviewCount}
+            </span>
+          ) : (
+            <span className="storefront-product-card__stock-tag">
+              <CheckCircle2 size={12} /> In stock
             </span>
           )}
         </div>
 
-        {hasMultipleVariants && (
-          <div className="storefront-product-card__variants">
-            {product.variants.map((variant) => (
-              <button
-                type="button"
-                key={variant.id}
-                onClick={() => onAddToCart(product, variant)}
-                title={`${text.addToCart}: ${variant.size || variant.sku}`}
-              >
-                {variant.size || variant.sku}
-              </button>
-            ))}
-          </div>
-        )}
+        <h2 className="storefront-product-card__title">
+          <button type="button" onClick={() => onOpenDetails(product)}>
+            {product.name}
+          </button>
+        </h2>
+
+        <div className="storefront-product-card__pricing">
+          <strong className="storefront-product-card__price">
+            {money(product.sellingPriceMinor)}
+          </strong>
+          {hasDiscount && (
+            <small className="storefront-product-card__compare-price">
+              {money(product.compareAtPriceMinor)}
+            </small>
+          )}
+        </div>
 
         <div className="storefront-product-card__actions">
           <button
             type="button"
-            disabled={!firstVariant}
+            className={`storefront-product-card__cart-btn ${cartQuantity > 0 ? "is-added" : ""}`}
+            disabled={!firstVariant || isOutOfStock}
             onClick={() =>
-              // With options to choose from, adding "the first" picks for the
-              // customer - the popup asks instead.
               hasMultipleVariants
                 ? onOpenDetails(product)
                 : onAddToCart(product, firstVariant)
             }
           >
-            <ShoppingCart size={17} />
-            {text.addToCart}
+            {cartQuantity > 0 ? (
+              <>
+                <Check size={16} />
+                <span>{text.addedToCart} ({cartQuantity})</span>
+              </>
+            ) : (
+              <>
+                <ShoppingCart size={16} />
+                <span>{hasMultipleVariants ? (text.chooseOption || "Select Option") : text.addToCart}</span>
+              </>
+            )}
           </button>
           <button
             type="button"
+            className="storefront-product-card__chat-btn"
             onClick={onOpenChat}
-            aria-label={`Ask about ${product.name}`}
+            aria-label={`Ask AI about ${product.name}`}
+            title="Ask AI Shopping Assistant"
           >
-            <Bot size={17} />
+            <Sparkles size={16} />
           </button>
         </div>
       </div>
@@ -3032,6 +3110,7 @@ function ChatbotView({
                       ))}
                   </div>
                 )}
+
 
                 {message.role === "assistant" &&
                   [

@@ -61,6 +61,7 @@ class FakeDatabase:
 def send(monkeypatch, language, seller_text, translator=None):
     session = {"businessId": "biz", "language": language}
     written = {}
+    monkeypatch.setattr(message_service, "get_rtdb_reference", lambda *a: None)
     monkeypatch.setattr(
         message_service,
         "translate_chat_message",
@@ -119,6 +120,7 @@ def test_a_seller_already_writing_the_customer_language_is_not_flagged(monkeypat
 def test_a_session_with_no_language_defaults_to_english(monkeypatch):
     session = {"businessId": "biz"}
     written = {}
+    monkeypatch.setattr(message_service, "get_rtdb_reference", lambda *a: None)
     monkeypatch.setattr(
         message_service,
         "translate_chat_message",

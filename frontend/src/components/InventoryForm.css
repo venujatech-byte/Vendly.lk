@@ -3,59 +3,65 @@
   gap: 16px;
 }
 
-/* Add Product modal: compact layout based on the approved reference. */
+/* Add Product modal: compact layout based on modern theme */
 .modal-shell:has(.stitch-product-form) {
-  width: min(940px, calc(100vw - 32px));
-  max-height: calc(100vh - 28px);
-  border-radius: 3px;
+  width: min(980px, calc(100vw - 32px));
+  max-height: calc(100vh - 36px);
 }
-
-.modal-shell:has(.stitch-product-form) .modal-shell__header {
-  padding: 13px 20px;
-  background: #f8fafc;
-}
-
-.modal-shell:has(.stitch-product-form) .modal-shell__header h2 { font-size: 1.05rem; }
-.modal-shell:has(.stitch-product-form) .modal-shell__header p { display: none; }
-.modal-shell:has(.stitch-product-form) .modal-shell__content { padding: 18px 20px 14px; }
 
 .stitch-product-form {
   display: grid;
-  gap: 14px;
-  color: #344054;
-  font-size: 12px;
+  gap: 18px;
+  color: var(--color-text);
+  font-size: 13px;
 }
 
-.stitch-product-form label {
+.stitch-product-form label,
+.inventory-form label {
   display: grid;
-  gap: 5px;
+  gap: 6px;
   min-width: 0;
+  font-size: 12px;
   font-weight: 650;
+  color: var(--color-text-strong);
 }
 
 .stitch-product-form input,
 .stitch-product-form select,
-.stitch-product-form textarea {
+.stitch-product-form textarea,
+.inventory-form input,
+.inventory-form select,
+.inventory-form textarea {
   width: 100%;
   min-width: 0;
-  min-height: 35px;
-  padding: 7px 10px;
-  border: 1px solid #d5dbe3;
-  border-radius: 6px;
-  color: #344054;
-  background: #fff;
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  color: var(--color-text);
+  background: var(--color-surface);
   font: inherit;
+  font-size: 13px;
   outline: none;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
 }
 
 .stitch-product-form input:focus,
 .stitch-product-form select:focus,
-.stitch-product-form textarea:focus {
-  border-color: #2589dc;
-  box-shadow: 0 0 0 2px rgba(37, 137, 220, 0.12);
+.stitch-product-form textarea:focus,
+.inventory-form input:focus,
+.inventory-form select:focus,
+.inventory-form textarea:focus {
+  border-color: var(--color-accent, #2563eb);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent, #2563eb) 15%, transparent);
 }
 
-.stitch-product-form input:disabled { background: #f2f4f7; }
+.stitch-product-form input:disabled,
+.inventory-form input:disabled {
+  background: var(--color-surface-soft);
+  color: var(--color-muted);
+  cursor: not-allowed;
+}
 
 .stitch-product__top {
   display: grid;
@@ -74,14 +80,14 @@
 
 .stitch-product__photos,
 .stitch-product__panel {
-  border: 1px solid #e0e4ea;
-  border-radius: 7px;
-  background: #f8fafc;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: var(--color-surface-soft, #f8fafc);
 }
 
 .stitch-product__photos { padding: 18px; }
 .stitch-product__photos > strong,
-.stitch-product__panel > strong { display: block; margin-bottom: 13px; }
+.stitch-product__panel > strong { display: block; margin-bottom: 13px; font-weight: 700; color: var(--color-text-strong); }
 
 .stitch-product__upload {
   display: flex !important;
@@ -89,11 +95,19 @@
   align-items: center;
   justify-content: center;
   gap: 7px !important;
-  height: 36px;
-  border: 1px solid #d5dbe3;
-  border-radius: 6px;
-  background: #fff;
+  height: 38px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface);
+  color: var(--color-text-strong);
+  font-weight: 600;
   cursor: pointer;
+  transition: all 160ms ease;
+}
+
+.stitch-product__upload:hover {
+  background: var(--color-surface-soft);
+  border-color: var(--color-accent, #2563eb);
 }
 
 .stitch-product__upload input,
@@ -113,11 +127,17 @@
   width: 55px;
   height: 55px;
   overflow: hidden;
-  border: 1px dashed #ccd4df;
-  border-radius: 4px;
-  color: #98a2b3;
-  background: #fff;
+  border: 1.5px dashed var(--color-border);
+  border-radius: 10px;
+  color: var(--color-muted);
+  background: var(--color-surface);
   cursor: pointer;
+  transition: all 160ms ease;
+}
+
+.stitch-product__photo-add:hover {
+  border-color: var(--color-accent, #2563eb);
+  color: var(--color-accent, #2563eb);
 }
 
 .stitch-product__photo-grid img { width: 100%; height: 100%; object-fit: cover; }
@@ -231,9 +251,58 @@
 }
 
 .stitch-product__description textarea { min-height: 88px; resize: vertical; }
-.stitch-product__footer { display: flex; justify-content: flex-end; gap: 9px; padding-top: 3px; }
-.stitch-product__footer button { min-height: 36px; padding: 0 18px; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; cursor: pointer; }
-.stitch-product__footer .stitch-product__save { border-color: #087cf0; color: #fff; background: #087cf0; }
+.inventory-form__footer,
+.stitch-product__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--color-border);
+}
+
+.inventory-form__footer button,
+.stitch-product__footer button {
+  min-height: 40px;
+  padding: 0 18px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface);
+  color: var(--color-text-strong);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 160ms ease;
+}
+
+.inventory-form__footer button:hover,
+.stitch-product__footer button:hover {
+  background: var(--color-surface-soft);
+  border-color: var(--color-border-strong, #cbd5e1);
+}
+
+.inventory-form__footer .inventory-form__primary,
+.stitch-product__footer .stitch-product__save {
+  border: 0;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--color-accent, #2563eb), #1d4ed8);
+  color: #fff;
+  font-weight: 650;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+}
+
+.inventory-form__footer .inventory-form__primary:hover:not(:disabled),
+.stitch-product__footer .stitch-product__save:hover:not(:disabled) {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.32);
+}
+
+.inventory-form__footer .inventory-form__primary:disabled,
+.stitch-product__footer .stitch-product__save:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  box-shadow: none;
+}
 
 html[data-theme="dark"] .modal-shell:has(.stitch-product-form) .modal-shell__header,
 html[data-theme="dark"] .stitch-product__photos,
@@ -292,15 +361,15 @@ html[data-theme="dark"] .stitch-product__photo-add { color: var(--color-text); b
     min-width: 0;
     margin-top: 9px;
     padding: 11px;
-    border: 1px solid #dbe3ed;
+    border: 1px solid var(--color-border);
     border-radius: 10px;
-    background: #fff;
+    background: var(--color-surface);
   }
   .stitch-product__variant-field { display: grid; gap: 4px; min-width: 0; }
   .stitch-product__variant-field > small,
   .stitch-product__variant-image > small {
     display: block;
-    color: #667085;
+    color: var(--color-muted);
     font-size: 9px;
     font-weight: 700;
     letter-spacing: .04em;
@@ -316,9 +385,11 @@ html[data-theme="dark"] .stitch-product__photo-add { color: var(--color-text); b
     height: auto;
     min-height: 58px;
     padding: 4px;
+    background: var(--color-surface);
+    border-color: var(--color-border);
   }
   .stitch-product__variant-image img { width: 42px; height: 34px; border-radius: 5px; }
-  .stitch-product__variant-row > button { align-self: end; justify-self: end; border-radius: 7px; background: #fff1f2; color: #dc2626; }
+  .stitch-product__variant-row > button { align-self: end; justify-self: end; border-radius: 7px; background: rgba(239, 68, 68, 0.1); color: #dc2626; }
   .stitch-product__description textarea { min-height: 96px; }
   .stitch-product__footer {
     position: sticky;
@@ -326,11 +397,29 @@ html[data-theme="dark"] .stitch-product__photo-add { color: var(--color-text); b
     z-index: 4;
     margin: 0 -12px;
     padding: 10px 12px;
-    border-top: 1px solid #e0e7ef;
-    background: rgba(255, 255, 255, .96);
+    border-top: 1px solid var(--color-border);
+    background: var(--color-surface);
     backdrop-filter: blur(8px);
   }
-  .stitch-product__footer button { flex: 1; }
+  .stitch-product__footer button { flex: 1; min-height: 44px; }
+}
+
+@media (max-width: 600px) {
+  .inventory-form__two-columns {
+    grid-template-columns: 1fr !important;
+    gap: 10px;
+  }
+
+  .inventory-form__footer {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 10px;
+  }
+
+  .inventory-form__footer button {
+    min-height: 44px;
+    width: 100%;
+  }
 }
 
 @media (max-width: 480px) {
@@ -343,7 +432,7 @@ html[data-theme="dark"] .stitch-product__photo-add { color: var(--color-text); b
   .stitch-product__photo-add { height: 50px; }
   .stitch-product__variant-row { grid-template-columns: 1fr; }
   .stitch-product__variant-image { justify-items: start; }
-  .stitch-product__variant-row > button { width: 100%; height: 34px; }
+  .stitch-product__variant-row > button { width: 100%; height: 38px; }
 }
 
 .inventory-form__columns {
@@ -1063,17 +1152,19 @@ html[data-theme="dark"] .stitch-product__photo-add { color: var(--color-text); b
 /* Courier modal: first-kilogram price for each of the 25 districts. */
 .courier-districts {
   display: grid;
-  gap: 10px;
-  padding: 14px;
-  border: 1px solid rgba(47, 128, 237, .22);
-  border-radius: 12px;
-  background: rgba(47, 128, 237, .04);
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--color-accent, #2563eb) 26%, var(--color-border));
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--color-accent, #2563eb) 4%, var(--color-surface));
 }
 
 .courier-districts legend {
-  padding: 0 6px;
-  font-size: 13px;
-  font-weight: 600;
+  padding: 0 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-text-strong);
+  letter-spacing: 0.02em;
 }
 
 .courier-districts__base {
@@ -1089,18 +1180,25 @@ html[data-theme="dark"] .stitch-product__photo-add { color: var(--color-text); b
 
 .courier-districts__base button {
   flex: 0 0 auto;
-  padding: 9px 14px;
-  border: 1px solid rgba(47, 128, 237, .4);
-  border-radius: 9px;
-  background: #fff;
-  color: #2f80ed;
-  font-weight: 600;
+  min-height: 40px;
+  padding: 0 16px;
+  border: 1px solid color-mix(in srgb, var(--color-accent, #2563eb) 40%, var(--color-border));
+  border-radius: 10px;
+  background: var(--color-surface);
+  color: var(--color-accent, #2563eb);
+  font-weight: 650;
+  font-size: 13px;
   cursor: pointer;
+  transition: all 160ms ease;
+}
+
+.courier-districts__base button:hover {
+  background: color-mix(in srgb, var(--color-accent, #2563eb) 10%, var(--color-surface));
 }
 
 .courier-districts__hint {
   margin: 0;
-  color: #5b6b7f;
+  color: var(--color-muted);
   font-size: 12px;
   line-height: 1.5;
 }
@@ -1116,6 +1214,7 @@ html[data-theme="dark"] .stitch-product__photo-add { color: var(--color-text); b
 
 .courier-districts__grid label {
   font-size: 12px;
+  color: var(--color-text-strong);
 }
 
 @media (max-width: 700px) {

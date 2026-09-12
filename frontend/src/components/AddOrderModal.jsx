@@ -116,8 +116,9 @@ function AddOrderModal({ isOpen, businessId, business, onClose, onCreated }) {
   const discount = Math.min(Math.max(0, Number(discountAmount) || 0), subtotal);
   const totalWeightGrams = items.reduce((sum, item) => sum + (item.weightKg || 0) * 1000 * item.quantity, 0);
   const matrixTotal = Object.entries(variantQuantities).reduce((sum, [variantId, quantity]) => {
-    const variant = selectedProduct?.sizes.find((row) => row.id === variantId);
-    return sum + (variant ? variant.sellingPrice * quantity : 0);
+    const variant = selectedProduct?.sizes?.find((row) => String(row.id || row.sku) === String(variantId));
+    const price = variant ? (variant.sellingPrice ?? selectedProduct.sellingPrice ?? 0) : 0;
+    return sum + price * quantity;
   }, 0);
   const matrixUnitCount = Object.values(variantQuantities).reduce((sum, quantity) => sum + quantity, 0);
 
@@ -161,7 +162,7 @@ function AddOrderModal({ isOpen, businessId, business, onClose, onCreated }) {
       phoneNumber: selected.phoneNumber || selected.normalizedPhone || "",
       secondaryPhoneNumber: selected.secondaryPhoneNumber || selected.normalizedSecondaryPhone || "",
       email: selected.email || "",
-      address: { ...emptyAddress, ...(selected.defaultAddress || {}) },
+      address: { ...emptyAddress, ...selected.defaultAddress },
     });
   }
 
@@ -180,14 +181,23 @@ function AddOrderModal({ isOpen, businessId, business, onClose, onCreated }) {
 
   function chooseProduct(product) {
     setSelectedProductId(product.id);
-    setVariantQuantities({});
+    const availableSizes = product.sizes || [];
+    // If product has only 1 variant in stock, auto-select quantity 1 for instant add
+    if (availableSizes.length === 1 && ((availableSizes[0].stock ?? availableSizes[0].stockAvailable ?? 0) > 0)) {
+      const vId = availableSizes[0].id || availableSizes[0].sku || `${product.id}-0`;
+      setVariantQuantities({ [vId]: 1 });
+    } else {
+      setVariantQuantities({});
+    }
   }
 
   function changeVariantQuantity(variant, delta) {
+    const vId = variant.id || variant.sku;
+    const maxStock = variant.stock ?? variant.stockAvailable ?? 999;
     setVariantQuantities((current) => {
-      const next = Math.max(0, Math.min(variant.stock, (current[variant.id] || 0) + delta));
-      const updated = { ...current, [variant.id]: next };
-      if (next === 0) delete updated[variant.id];
+      const next = Math.max(0, Math.min(maxStock, (current[vId] || 0) + delta));
+      const updated = { ...current, [vId]: next };
+      if (next === 0) delete updated[vId];
       return updated;
     });
   }
@@ -196,19 +206,21 @@ function AddOrderModal({ isOpen, businessId, business, onClose, onCreated }) {
     if (!selectedProduct || matrixUnitCount === 0) return;
     setItems((current) => {
       let next = current;
-      for (const variant of selectedProduct.sizes) {
-        const quantity = variantQuantities[variant.id];
+      for (const variant of (selectedProduct.sizes || [])) {
+        const vId = variant.id || variant.sku;
+        const quantity = variantQuantities[vId];
         if (!quantity) continue;
-        const existing = next.find((item) => item.variantId === variant.id);
+        const existing = next.find((item) => item.variantId === vId);
         const row = {
           ...variant,
-          variantId: variant.id,
+          variantId: vId,
           productName: selectedProduct.name,
-          image: selectedProduct.images?.[0] || "",
+          sellingPrice: variant.sellingPrice ?? selectedProduct.sellingPrice ?? 0,
+          image: variant.imageUrl || selectedProduct.images?.[0] || "",
           weightKg: selectedProduct.weightKg,
         };
         next = existing
-          ? next.map((item) => item.variantId === variant.id ? { ...item, quantity: item.quantity + quantity } : item)
+          ? next.map((item) => item.variantId === vId ? { ...item, quantity: item.quantity + quantity } : item)
           : [...next, { ...row, quantity }];
       }
       return next;
@@ -290,78 +302,270 @@ function AddOrderModal({ isOpen, businessId, business, onClose, onCreated }) {
   const balanceDue = Math.max(0, total - paidAmount);
 
   return <>
-    <ModalShell isOpen={isOpen && !isCheckoutOpen && !receiptOrder} title="Add Order" onClose={onClose} size="full">
-      {isLoading ? <div className="order-dialog__loading"><Package /><span>Loading order data...</span></div> :
-        <form className="order-dialog order-dialog--fit" onSubmit={openCheckout}>
+    <ModalShell
+      isOpen={isOpen && !isCheckoutOpen && !receiptOrder}
+      title="Add Order"
+      description="Create and dispatch a customer order with courier routing."
+      icon={ShoppingBag}
+      iconTone="order"
+      onClose={onClose}
+      size="full"
+    >
+      {isLoading ? (
+        <div className="order-dialog__loading">
+          <Package size={28} />
+          <span>Loading catalogue and couriers...</span>
+        </div>
+      ) : (
+        <form className="order-dialog order-dialog--modern" onSubmit={openCheckout}>
           <div className="order-dialog__body">
+            {/* Customer Details Column */}
             <section className="order-dialog__customer">
-              <header><strong>CUSTOMER</strong><button type="button" onClick={startNewCustomer}><Plus size={14} /> New</button></header>
-              <label className="order-dialog__search"><Search size={15} /><select value={customerId} onChange={chooseCustomer}><option value="">Search or choose customer...</option>{customers.map((row) => <option key={row.id} value={row.id}>{row.name} — {row.normalizedPhone}</option>)}</select></label>
+              <header className="order-dialog__section-header">
+                <div className="order-dialog__section-title">
+                  <span className="order-dialog__section-icon"><UserRound size={15} /></span>
+                  <div>
+                    <strong>Customer details</strong>
+                    <small>Customer profile & delivery destination</small>
+                  </div>
+                </div>
+                <button type="button" className="order-dialog__btn-new" onClick={startNewCustomer}>
+                  <Plus size={13} /> New customer
+                </button>
+              </header>
+
+              <label className="order-dialog__search">
+                <Search size={15} />
+                <select value={customerId} onChange={chooseCustomer}>
+                  <option value="">Search existing customer or enter below...</option>
+                  {customers.map((row) => (
+                    <option key={row.id} value={row.id}>{row.name} — {row.normalizedPhone}</option>
+                  ))}
+                </select>
+              </label>
+
               <div className="order-dialog__customer-fields">
-                <label>Name<input name="name" value={customer.name} onChange={updateCustomer} required /></label>
-                <label>Email Address<input name="email" type="email" value={customer.email} onChange={updateCustomer} /></label>
-                <label>1st Phone No.<input name="phoneNumber" value={customer.phoneNumber} onChange={updateCustomer} placeholder="07XXXXXXXX" required /></label>
-                <label>2nd Phone No.<input name="secondaryPhoneNumber" value={customer.secondaryPhoneNumber} onChange={updateCustomer} placeholder="Optional" /></label>
-                <label className="order-dialog__wide">Address<textarea name="address.line1" value={customer.address.line1} onChange={updateCustomer} placeholder="Street address" required /></label>
-                <label>City<input name="address.city" value={customer.address.city} onChange={updateCustomer} placeholder="Nearest city" required /></label>
-                <label>District<input name="address.district" value={customer.address.district} onChange={updateCustomer} placeholder="District" required /></label>
-                <label className="order-dialog__wide">Order note<textarea value={privateNote} onChange={(event) => setPrivateNote(event.target.value)} placeholder="Add delivery instructions or a private note about this order..." /></label>
+                <label>
+                  Full name
+                  <input name="name" value={customer.name} onChange={updateCustomer} placeholder="e.g. Kasun Perera" required />
+                </label>
+                <label>
+                  Email address
+                  <input name="email" type="email" value={customer.email} onChange={updateCustomer} placeholder="name@example.com" />
+                </label>
+                <label>
+                  1st Phone number
+                  <input name="phoneNumber" value={customer.phoneNumber} onChange={updateCustomer} placeholder="07XXXXXXXX" required />
+                </label>
+                <label>
+                  2nd Phone number
+                  <input name="secondaryPhoneNumber" value={customer.secondaryPhoneNumber} onChange={updateCustomer} placeholder="Optional" />
+                </label>
+                <label className="order-dialog__wide">
+                  Street address
+                  <textarea name="address.line1" value={customer.address.line1} onChange={updateCustomer} placeholder="House / street address" rows={2} required />
+                </label>
+                <label>
+                  City
+                  <input name="address.city" value={customer.address.city} onChange={updateCustomer} placeholder="City" required />
+                </label>
+                <label>
+                  District
+                  <input name="address.district" value={customer.address.district} onChange={updateCustomer} placeholder="District" required />
+                </label>
+                <label className="order-dialog__wide">
+                  Order note
+                  <textarea value={privateNote} onChange={(event) => setPrivateNote(event.target.value)} placeholder="Delivery instructions or private notes..." rows={2} />
+                </label>
               </div>
             </section>
 
+            {/* Products & Items Column */}
             <section className="order-dialog__items">
-              <strong>ADD ITEM</strong>
-              <div className="order-dialog__filters"><label className="order-dialog__search"><Search size={15} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search product..." /></label><select value={categoryId} onChange={(event) => setCategoryId(event.target.value)}><option value="">Category</option>{categories.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></div>
+              <header className="order-dialog__section-header">
+                <div className="order-dialog__section-title">
+                  <span className="order-dialog__section-icon"><Package size={15} /></span>
+                  <div>
+                    <strong>Select products</strong>
+                    <small>Browse catalogue and pick sizes</small>
+                  </div>
+                </div>
+              </header>
+
+              <div className="order-dialog__filters">
+                <label className="order-dialog__search">
+                  <Search size={15} />
+                  <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search product name, SKU, or barcode..." />
+                </label>
+                <select value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>
+                  <option value="">All Categories</option>
+                  {categories.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+                </select>
+              </div>
 
               {!selectedProduct ? (
                 <div className="order-dialog__results">
-                  {!search && !categoryId ? <p>Search for a product above.<br />Matching items will show here.</p> : matchingProducts.map((product) => <button type="button" key={product.id} onClick={() => chooseProduct(product)}>{product.images?.[0] ? <img src={product.images[0]} alt="" /> : <Package size={20} />}<span><strong>{product.name}</strong><small>{product.sizes.length} sizes · {product.stock} in stock</small></span></button>)}
+                  {!search && !categoryId ? (
+                    <div className="order-dialog__empty-prompt">
+                      <Search size={22} />
+                      <p>Type above or select a category to view products.</p>
+                    </div>
+                  ) : matchingProducts.length === 0 ? (
+                    <div className="order-dialog__empty-prompt">
+                      <p>No products match your search.</p>
+                    </div>
+                  ) : (
+                    <div className="order-dialog__product-grid">
+                      {matchingProducts.map((product) => {
+                        const inStock = product.stock > 0;
+                        return (
+                          <button
+                            type="button"
+                            key={product.id}
+                            className={`order-dialog__product-card${!inStock ? " is-out-of-stock" : ""}`}
+                            onClick={() => chooseProduct(product)}
+                          >
+                            <div className="order-dialog__product-thumb">
+                              {product.images?.[0] ? <img src={product.images[0]} alt="" /> : <Package size={20} />}
+                            </div>
+                            <div className="order-dialog__product-info">
+                              <strong>{product.name}</strong>
+                              <span className="order-dialog__product-meta">
+                                {product.colour ? `${product.colour} · ` : ""}
+                                {product.sizes.length > 1 ? `${product.sizes.length} sizes` : "1 size"}
+                              </span>
+                              <div className="order-dialog__product-stock-tag">
+                                {inStock ? (
+                                  <span className={product.stock <= 5 ? "tag-low" : "tag-in"}>
+                                    {product.stock} in stock
+                                  </span>
+                                ) : (
+                                  <span className="tag-out">Sold out</span>
+                                )}
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="order-dialog__matrix">
                   <header>
-                    <div className="order-dialog__matrix-thumb">{selectedProduct.images?.[0] ? <img src={selectedProduct.images[0]} alt="" /> : <Package size={18} />}</div>
-                    <span><strong>{selectedProduct.name}{selectedProduct.colour ? ` · ${selectedProduct.colour}` : ""}</strong><small>{selectedProduct.sizes.length} sizes · {selectedProduct.stock} in stock</small></span>
-                    <button type="button" onClick={() => { setSelectedProductId(""); setVariantQuantities({}); }}>Change</button>
+                    <div className="order-dialog__matrix-thumb">
+                      {selectedProduct.images?.[0] ? <img src={selectedProduct.images[0]} alt="" /> : <Package size={18} />}
+                    </div>
+                    <span>
+                      <strong>{selectedProduct.name}{selectedProduct.colour ? ` · ${selectedProduct.colour}` : ""}</strong>
+                      <small>{selectedProduct.sizes?.length || 1} size(s) · {selectedProduct.stock} in stock</small>
+                    </span>
+                    <button type="button" className="order-dialog__change-btn" onClick={() => { setSelectedProductId(""); setVariantQuantities({}); }}>
+                      Change
+                    </button>
                   </header>
-                  {selectedProduct.sizes.map((variant) => {
-                    const quantity = variantQuantities[variant.id] || 0;
-                    const soldOut = variant.stock <= 0;
-                    return (
-                      <div className={`order-dialog__matrix-row${soldOut ? " is-sold-out" : ""}${quantity > 0 ? " is-selected" : ""}`} key={variant.id}>
-                        <span className="order-dialog__variant-main"><small>Variant</small><strong>{variant.size ? `Size ${variant.size}` : "Standard option"}</strong><small className="mono">{variant.sku}{variant.barcode ? ` · ${variant.barcode}` : ""}</small></span>
-                        <span className="order-dialog__variant-stat"><small>Stock</small><strong>{soldOut ? <em className="order-dialog__soldout-tag">Sold out</em> : variant.stock <= 5 ? <em className="order-dialog__low-tag">{variant.stock}</em> : variant.stock}</strong></span>
-                        <span className="order-dialog__variant-stat"><small>Price</small><strong>{money(variant.sellingPrice)}</strong></span>
-                        <span className="order-dialog__quantity"><button type="button" disabled={soldOut} onClick={() => changeVariantQuantity(variant, -1)}><Minus size={12} /></button><b>{quantity}</b><button type="button" disabled={soldOut || quantity >= variant.stock} onClick={() => changeVariantQuantity(variant, 1)}><Plus size={12} /></button></span>
-                        <span className="order-dialog__variant-stat order-dialog__variant-total"><small>Line total</small><strong>{quantity > 0 ? money(variant.sellingPrice * quantity) : "—"}</strong></span>
-                      </div>
-                    );
-                  })}
+                  <div className="order-dialog__matrix-rows">
+                    {(selectedProduct.sizes || []).map((variant, index) => {
+                      const vId = variant.id || variant.sku || `${selectedProduct.id}-${index}`;
+                      const quantity = variantQuantities[vId] || 0;
+                      const stockVal = variant.stock ?? variant.stockAvailable ?? 0;
+                      const soldOut = stockVal <= 0;
+                      const unitPrice = variant.sellingPrice ?? selectedProduct.sellingPrice ?? 0;
+                      return (
+                        <div className={`order-dialog__matrix-row${soldOut ? " is-sold-out" : ""}${quantity > 0 ? " is-selected" : ""}`} key={vId}>
+                          <span className="order-dialog__variant-main">
+                            <small>Variant</small>
+                            <strong>{variant.size ? `Size ${variant.size}` : "Standard option"}</strong>
+                            <small className="mono">{variant.sku}{variant.barcode ? ` · ${variant.barcode}` : ""}</small>
+                          </span>
+                          <span className="order-dialog__variant-stat">
+                            <small>Stock</small>
+                            <strong>{soldOut ? <em className="order-dialog__soldout-tag">Sold out</em> : stockVal <= 5 ? <em className="order-dialog__low-tag">{stockVal} left</em> : `${stockVal} in stock`}</strong>
+                          </span>
+                          <span className="order-dialog__variant-stat">
+                            <small>Price</small>
+                            <strong>{money(unitPrice)}</strong>
+                          </span>
+                          <span className="order-dialog__quantity">
+                            <button type="button" disabled={soldOut || quantity <= 0} onClick={() => changeVariantQuantity(variant, -1)} aria-label="Decrease quantity"><Minus size={12} /></button>
+                            <b>{quantity}</b>
+                            <button type="button" disabled={soldOut || quantity >= stockVal} onClick={() => changeVariantQuantity(variant, 1)} aria-label="Increase quantity"><Plus size={12} /></button>
+                          </span>
+                          <span className="order-dialog__variant-stat order-dialog__variant-total">
+                            <small>Line total</small>
+                            <strong>{quantity > 0 ? money(unitPrice * quantity) : "—"}</strong>
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
                   <footer>
-                    <span>{matrixUnitCount > 0 ? `${matrixUnitCount} unit(s) selected · ${money(matrixTotal)}` : "Choose a size to add it"}</span>
-                    <button type="button" className="order-dialog__add-item" disabled={matrixUnitCount === 0} onClick={addMatrixToOrder}>Add to order</button>
+                    <span>{matrixUnitCount > 0 ? `${matrixUnitCount} unit(s) selected · ${money(matrixTotal)}` : "Select quantity to add to order"}</span>
+                    <button type="button" className="order-dialog__add-item" disabled={matrixUnitCount === 0} onClick={addMatrixToOrder}>
+                      <Plus size={13} /> Add to order
+                    </button>
                   </footer>
                 </div>
               )}
 
-              <strong className="order-dialog__items-heading">ORDER ITEMS</strong>
+              <header className="order-dialog__section-header order-dialog__items-header">
+                <div className="order-dialog__section-title">
+                  <span className="order-dialog__section-icon"><ShoppingBag size={15} /></span>
+                  <div>
+                    <strong>Order items ({items.length})</strong>
+                    <small>Items to be packed and fulfilled</small>
+                  </div>
+                </div>
+              </header>
+
               <div className="order-dialog__table">
-                <div className="order-dialog__table-head"><span>ITEM</span><span>QTY</span><span>PRICE</span><span /></div>
+                <div className="order-dialog__table-head">
+                  <span>ITEM</span>
+                  <span>QTY</span>
+                  <span>PRICE</span>
+                  <span />
+                </div>
                 <div className="order-dialog__table-body">
-                  {items.length === 0 && <p className="order-dialog__empty">No items added yet.</p>}
-                  {items.map((item) => <div className="order-dialog__table-row" key={item.variantId}><div>{item.image && <img src={item.image} alt="" />}<span><strong>{item.productName}</strong><small>{item.size ? `Size ${item.size}` : item.sku}</small></span></div><span className="order-dialog__quantity"><button type="button" onClick={() => changeItemQuantity(item.variantId, -1)}><Minus size={14} /></button><b>{item.quantity}</b><button type="button" onClick={() => changeItemQuantity(item.variantId, 1)}><Plus size={14} /></button></span><strong>{money(item.sellingPrice * item.quantity)}</strong><button type="button" onClick={() => setItems((current) => current.filter((row) => row.variantId !== item.variantId))}><Trash2 size={14} /></button></div>)}
+                  {items.length === 0 && (
+                    <div className="order-dialog__empty-cart">
+                      <ShoppingBag size={22} />
+                      <p>No items added yet.<br />Select products from above to add them.</p>
+                    </div>
+                  )}
+                  {items.map((item) => (
+                    <div className="order-dialog__table-row" key={item.variantId}>
+                      <div className="order-dialog__table-item">
+                        {item.image ? <img src={item.image} alt="" /> : <div className="order-dialog__item-placeholder"><Package size={16} /></div>}
+                        <span>
+                          <strong>{item.productName}</strong>
+                          <small>{item.size ? `Size ${item.size}` : item.sku}</small>
+                        </span>
+                      </div>
+                      <span className="order-dialog__quantity">
+                        <button type="button" onClick={() => changeItemQuantity(item.variantId, -1)}><Minus size={13} /></button>
+                        <b>{item.quantity}</b>
+                        <button type="button" onClick={() => changeItemQuantity(item.variantId, 1)}><Plus size={13} /></button>
+                      </span>
+                      <strong className="order-dialog__item-price">{money(item.sellingPrice * item.quantity)}</strong>
+                      <button type="button" className="order-dialog__btn-delete" title="Remove item" onClick={() => setItems((current) => current.filter((row) => row.variantId !== item.variantId))}>
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  ))}
                 </div>
               </div>
-              <div className="order-dialog__subtotal"><span>Items subtotal</span><strong>{money(subtotal)}</strong></div>
             </section>
           </div>
 
           {errorMessage && <p className="order-dialog__error">{errorMessage}</p>}
           <footer className="order-dialog__footer">
-            <div className="order-dialog__footer-total"><span>Items subtotal</span><strong>{money(subtotal)}</strong></div>
+            <div className="order-dialog__footer-total">
+              <span>Items subtotal ({items.length} item{items.length !== 1 ? "s" : ""})</span>
+              <strong>{money(subtotal)}</strong>
+            </div>
 
             <div className="order-dialog__courier" ref={courierPickerRef}>
-              <span className="order-dialog__footer-label">Courier</span>
+              <span className="order-dialog__footer-label">Courier:</span>
               <button
                 type="button"
                 className="order-dialog__courier-chip"
@@ -379,34 +583,44 @@ function AddOrderModal({ isOpen, businessId, business, onClose, onCreated }) {
                         ? "Fetching rates…"
                         : "Needs items & district"}
                 </span>
-                {selectedQuote && <strong>{money(deliveryFee)}</strong>}
+                {selectedQuote && <span className="order-dialog__courier-fee">{money(deliveryFee)}</span>}
                 <ChevronDown size={14} />
               </button>
 
               {isCourierPickerOpen && courierQuotes.length > 0 && (
                 <div className="order-dialog__courier-popover">
+                  <div className="order-dialog__courier-popover-title">Select Courier Service</div>
                   {courierQuotes.map((quote, index) => (
                     <button
                       type="button"
                       key={quote.courier.id}
-                      className={quote.courier.id === courierId ? "is-active" : ""}
+                      className={`order-dialog__courier-option${quote.courier.id === courierId ? " is-active" : ""}`}
                       onClick={() => { setCourierId(quote.courier.id); setIsCourierPickerOpen(false); }}
                     >
                       <span className="order-dialog__courier-radio" />
                       <span className="order-dialog__courier-info">
                         <strong>{quote.courier.name}</strong>
-                        <small>{quote.courier.averageDeliveryDays ? `${quote.courier.averageDeliveryDays} day(s)` : ""}{index === 0 ? " · Recommended" : ""}</small>
+                        <small>
+                          {quote.courier.averageDeliveryDays ? `${quote.courier.averageDeliveryDays} day(s)` : "Standard delivery"}
+                          {index === 0 ? " · Recommended" : ""}
+                        </small>
                       </span>
-                      <b>{money(quote.deliveryFeeMinor / 100)}</b>
+                      <b className="order-dialog__courier-option-price">{money(quote.deliveryFeeMinor / 100)}</b>
                     </button>
                   ))}
                 </div>
               )}
             </div>
 
-            <div className="order-dialog__footer-actions"><button type="button" onClick={onClose}>Cancel</button><button className="order-dialog__checkout" type="submit">Checkout</button></div>
+            <div className="order-dialog__footer-actions">
+              <button type="button" className="order-dialog__btn-cancel" onClick={onClose}>Cancel</button>
+              <button className="order-dialog__checkout" type="submit" disabled={items.length === 0}>
+                Review & Checkout →
+              </button>
+            </div>
           </footer>
-        </form>}
+        </form>
+      )}
     </ModalShell>
 
     {isOpen && isCheckoutOpen && <div className="order-summary__backdrop" role="presentation">

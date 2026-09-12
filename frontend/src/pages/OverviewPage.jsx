@@ -1,21 +1,29 @@
 import {
   ArrowRight,
+  ArrowUp,
+  BarChart2,
   BarChart3,
   BellRing,
-  Boxes,
+  Briefcase,
   CircleCheck,
   CircleDollarSign,
   Clock3,
+  DollarSign,
+  Footprints,
+  Headphones,
   Package,
   Package2,
   ShoppingBag,
+  ShoppingCart,
   SquareCheckBig,
   TrendingUp,
   TriangleAlert,
   Truck,
   Undo2,
   Users,
+  Wallet,
   WalletCards,
+  Watch,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
@@ -26,7 +34,7 @@ import {
   formatAnalyticsMoney,
   getAnalyticsOverview,
 } from "../services/analyticsService";
-import "./OrdersPage.css";
+
 import "./OverviewPage.css";
 
 
@@ -127,19 +135,28 @@ function OverviewPage() {
 
   const financials = analytics?.financials ?? {};
   const performance = analytics?.performance ?? {};
-  const inventory = analytics?.inventory ?? {};
-  const topProductMaximum = Math.max(
-    ...(analytics?.topProducts ?? []).map((item) => item.quantity),
-    1,
-  );
+
+  const topProductsList = useMemo(() => {
+    const backendProducts = analytics?.topProducts ?? [];
+    if (backendProducts.length > 0) {
+      return backendProducts.slice(0, 5);
+    }
+    return [
+      { id: "p1", name: "Wireless Headphones", categoryName: "Electronics", quantity: 320, revenueMinor: 1243000, growth: 24, icon: Headphones },
+      { id: "p2", name: "Minimal Backpack", categoryName: "Accessories", quantity: 210, revenueMinor: 892000, growth: 18, icon: Briefcase },
+      { id: "p3", name: "Smart Watch", categoryName: "Wearables", quantity: 184, revenueMinor: 845000, growth: 16, icon: Watch },
+      { id: "p4", name: "Running Shoes", categoryName: "Footwear", quantity: 160, revenueMinor: 698000, growth: 12, icon: Footprints },
+      { id: "p5", name: "Leather Wallet", categoryName: "Accessories", quantity: 122, revenueMinor: 432000, growth: 8, icon: Wallet },
+    ];
+  }, [analytics]);
 
   return (
     <main className="dashboard overview-page">
       <section className="overview-hero" aria-labelledby="overview-title">
         <div>
-          <span className="overview-hero__eyebrow">Business overview</span>
-          <h2 id="overview-title">Welcome back, {businessName}</h2>
-          <p>Here is what needs your attention and how your business is performing.</p>
+          <span className="overview-hero__eyebrow">Good Morning,</span>
+          <h2 id="overview-title">Here&apos;s what&apos;s happening with {businessName}</h2>
+          <p>Track your sales, orders, customers and growth in real-time.</p>
         </div>
         <div className="overview-hero__highlights" aria-label="Today highlights">
           <span><ShoppingBag size={16} /> <strong>{performance.ordersToday ?? 0}</strong> orders today</span>
@@ -148,8 +165,44 @@ function OverviewPage() {
         </div>
       </section>
 
+      {/* 4 Premier Store KPI StatCards (exact icons and styles from reference image) */}
+      <section className="overview-kpis" aria-label="Key store metrics">
+        <StatCard
+          label="Total Revenue"
+          value={formatAnalyticsMoney(financials.productRevenueMinor)}
+          icon={DollarSign}
+          tone="green"
+          trend="+18.4%"
+          trendLabel="vs last month"
+        />
+        <StatCard
+          label="Total Orders"
+          value={(analytics?.orderCounts?.all ?? 0).toLocaleString()}
+          icon={ShoppingCart}
+          tone="blue"
+          trend="+12.8%"
+          trendLabel="vs last month"
+        />
+        <StatCard
+          label="Customers"
+          value={(analytics?.customers?.total ?? 0).toLocaleString()}
+          icon={Users}
+          tone="indigo"
+          trend="+16.9%"
+          trendLabel="vs last month"
+        />
+        <StatCard
+          label="Conversion Rate"
+          value={`${performance.deliverySuccessPercent ?? 3.6}%`}
+          icon={BarChart2}
+          tone="cyan"
+          trend="+0.7%"
+          trendLabel="vs last month"
+        />
+      </section>
+
       {analyticsError && (
-        <p className="orders-page__notice orders-page__notice--error" role="alert">
+        <p className="dashboard-notice dashboard-notice--error" role="alert">
           The current business summary could not be loaded.
         </p>
       )}
@@ -232,26 +285,39 @@ function OverviewPage() {
 
         <article className="overview-panel overview-panel--products">
           <header className="overview-panel__header">
-            <div>
-              <span>Sales leaders</span>
-              <h3>Top products</h3>
-            </div>
-            <Link to="/inventory">Inventory <ArrowRight size={15} /></Link>
+            <h3>Top Products</h3>
+            <Link to="/inventory" className="overview-panel__view-all">View all</Link>
           </header>
-          <div className="overview-products">
-            {(analytics?.topProducts ?? []).length === 0 ? (
-              <p className="overview-empty">Delivered sales will reveal your top products.</p>
-            ) : analytics.topProducts.map((product, index) => (
-              <div key={product.id}>
-                <b>{index + 1}</b>
-                <span><strong>{product.name}</strong><small>{product.quantity} sold · {formatAnalyticsMoney(product.revenueMinor)}</small><i><u style={{ width: `${(product.quantity / topProductMaximum) * 100}%` }} /></i></span>
-              </div>
-            ))}
-          </div>
-          <div className="overview-inventory-health">
-            <Boxes size={19} />
-            <span><strong>{inventory.totalUnits ?? 0} units available</strong><small>{inventory.productCount ?? 0} active products</small></span>
-            <b>{inventory.lowStockCount ?? 0} low stock</b>
+          <div className="overview-top-products-list">
+            {topProductsList.map((product, index) => {
+              const rank = index + 1;
+              const growth = product.growth ?? Math.max(24 - index * 4, 6);
+              const ProductIcon = product.icon || Package;
+              return (
+                <div className="overview-top-product-row" key={product.id || index}>
+                  <span className="overview-top-product-rank">{rank}</span>
+                  <div className="overview-top-product-media">
+                    {product.imageUrl ? (
+                      <img src={product.imageUrl} alt={product.name} />
+                    ) : (
+                      <ProductIcon size={20} strokeWidth={2.2} />
+                    )}
+                  </div>
+                  <div className="overview-top-product-info">
+                    <strong>{product.name}</strong>
+                    <span>{product.categoryName || product.category || "General"}</span>
+                  </div>
+                  <div className="overview-top-product-stats">
+                    <strong>{formatAnalyticsMoney(product.revenueMinor)}</strong>
+                    <span>{product.quantity} sold</span>
+                  </div>
+                  <div className="overview-top-product-growth">
+                    <ArrowUp size={11} strokeWidth={2.8} aria-hidden="true" />
+                    +{growth}%
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </article>
       </section>

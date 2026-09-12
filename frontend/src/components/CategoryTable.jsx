@@ -100,7 +100,7 @@ function CategoryProductsTable({ products }) {
   );
 }
 
-function CategoryTable({ categories: categoryRecords = [], products = [], onEditCategory, onRemoveCategory }) {
+function CategoryTable({ categories: categoryRecords = [], products = [], onEditCategory, onRemoveCategory, headerActions }) {
   // Only one category is expanded at a time.
   const [expandedCategoryId, setExpandedCategoryId] =
     useState("category-footwear");
@@ -136,6 +136,15 @@ function CategoryTable({ categories: categoryRecords = [], products = [], onEdit
       className="orders-table-section category-table-section"
       aria-label="Product categories"
     >
+      {headerActions && (
+        <div className="orders-table__filters-wrapper">
+          <div className="filter-panel category-table__toolbar" style={{ display: "flex", justifyContent: "flex-end", width: "100%" }}>
+            <div className="filter-panel__extra-actions" style={{ marginLeft: "auto" }}>
+              {headerActions}
+            </div>
+          </div>
+        </div>
+      )}
       <div className="orders-table__scroll">
         <table className="orders-table category-table">
           <thead>

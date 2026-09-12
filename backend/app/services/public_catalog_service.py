@@ -1,5 +1,10 @@
+import time
+
 from app.core.errors import ApiError
 from app.services.product_service import get_product, list_products
+
+_STORE_CACHE = {}
+_STORE_CACHE_TTL = 60  # seconds
 
 
 def resolve_short_link(database, short_code, expected_type=None):
@@ -100,6 +105,11 @@ def public_business(snapshot):
 
 
 def get_public_store(database, short_code):
+    now = time.time()
+    cached = _STORE_CACHE.get(short_code)
+    if cached and (now - cached[0]) < _STORE_CACHE_TTL:
+        return cached[1]
+
     link = resolve_short_link(database, short_code, "store")
     business_snapshot = database.collection("businesses").document(
         link["businessId"],
@@ -109,10 +119,12 @@ def get_public_store(database, short_code):
         raise ApiError("store_not_found", "This Vendly store is unavailable.", 404)
 
     products = list_products(database, business_snapshot.id, status="active")
-    return {
+    store_data = {
         "business": public_business(business_snapshot),
         "products": [public_product(product) for product in products],
     }
+    _STORE_CACHE[short_code] = (now, store_data)
+    return store_data
 
 
 def get_public_product(database, short_code):

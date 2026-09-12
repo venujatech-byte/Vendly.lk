@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Truck } from "lucide-react";
 
 import { SRI_LANKA_DISTRICTS, districtSlug } from "../data/districts";
 import { createCourier, updateCourier } from "../services/courierService";
@@ -162,6 +163,9 @@ function AddCourierModal({ isOpen, businessId, courier = null, onClose, onCreate
       isOpen={isOpen}
       title={courier ? "Edit Courier" : "Add Courier"}
       description="Set the first-kilogram price for every district and one shared extra-kilogram price."
+      icon={Truck}
+      iconTone="courier"
+      size="large"
       onClose={onClose}
     >
       <form className="inventory-form" onSubmit={handleSubmit}>
