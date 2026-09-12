@@ -740,10 +740,36 @@ def calculate_analytics(
         summary["revenueMinor"] = max(summary["revenueMinor"] - impact, 0)
         summary["grossProfitMinor"] -= impact
 
+    product_map = {p.get("id"): p for p in products if p.get("id")}
+    for product_id, summary in top_products.items():
+        prod = product_map.get(product_id) or {}
+        if not summary.get("name") or summary["name"] == "Product":
+            summary["name"] = prod.get("name") or summary["name"]
+        
+        img = prod.get("imageUrl")
+        if not img and isinstance(prod.get("images"), list) and prod.get("images"):
+            img = prod["images"][0]
+        if not img and isinstance(prod.get("media"), list) and prod.get("media"):
+            first_media = prod["media"][0]
+            img = first_media.get("url") if isinstance(first_media, dict) else first_media
+        if not img and isinstance(prod.get("variants"), list):
+            for v in prod["variants"]:
+                if isinstance(v, dict) and v.get("imageUrl"):
+                    img = v["imageUrl"]
+                    break
+        summary["imageUrl"] = img or ""
+        summary["categoryName"] = prod.get("categoryName") or prod.get("category") or "General"
+
     product_profitability = []
     for summary in top_products.values():
         product_profitability.append({
-            **summary,
+            "id": summary.get("id"),
+            "name": summary.get("name"),
+            "quantity": summary["quantity"],
+            "revenueMinor": summary["revenueMinor"],
+            "costOfGoodsMinor": summary["costOfGoodsMinor"],
+            "grossProfitMinor": summary["grossProfitMinor"],
+            "warrantyDeductionsMinor": summary["warrantyDeductionsMinor"],
             "grossMarginPercent": percentage(
                 summary["grossProfitMinor"],
                 summary["revenueMinor"],

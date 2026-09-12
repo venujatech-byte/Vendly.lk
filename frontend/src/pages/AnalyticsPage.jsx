@@ -20,7 +20,9 @@ import { useEffect, useMemo, useState } from "react";
 import AnalyticsLedger from "../components/AnalyticsLedger";
 import CodReconciliation from "../components/CodReconciliation";
 import CustomerProfitability from "../components/CustomerProfitability";
+import DailyOrdersChart from "../components/DailyOrdersChart";
 import DeadStockReport from "../components/DeadStockReport";
+import MonthlyRevenueChart from "../components/MonthlyRevenueChart";
 import SalesChannelPerformance from "../components/SalesChannelPerformance";
 import SalesForecast from "../components/SalesForecast";
 import StatCard from "../components/StatCard";
@@ -114,15 +116,7 @@ function AnalyticsPage() {
     };
   }, [business?.id]);
 
-  const maximumDailyOrders = useMemo(
-    () => Math.max(...(analytics?.dailyOrders ?? []).map((item) => item.count), 1),
-    [analytics],
-  );
   const visibleMonths = analytics?.monthlyRevenue?.slice(-6) ?? [];
-  const maximumMonthlyRevenue = Math.max(
-    ...visibleMonths.map((item) => item.revenueMinor),
-    1,
-  );
 
   if (error) {
     return (
@@ -225,32 +219,12 @@ function AnalyticsPage() {
           <section className="analytics-grid analytics-grid--charts" aria-label="Sales charts">
             <article className="analytics-panel analytics-panel--chart">
               <header><div><span>Last 7 days</span><h3>Daily orders</h3><p>Orders received each day</p></div><ShoppingBag size={20} /></header>
-              <div className="analytics-bars analytics-bars--daily">
-                {(analytics?.dailyOrders ?? []).map((item) => (
-                  <div key={item.date} className="analytics-bar-col">
-                    <span className="analytics-bars__value">{item.count}</span>
-                    <div className="analytics-bar-track">
-                      <i style={{ height: `${Math.max((item.count / maximumDailyOrders) * 100, 4)}%` }} />
-                    </div>
-                    <small>{formatWeekday(item.date)}</small>
-                  </div>
-                ))}
-              </div>
+              <DailyOrdersChart data={analytics?.dailyOrders ?? []} />
             </article>
 
             <article className="analytics-panel analytics-panel--chart">
               <header><div><span>Last 6 months</span><h3>Monthly product revenue</h3><p>Delivered sales, excluding delivery fees</p></div><Banknote size={20} /></header>
-              <div className="analytics-bars">
-                {visibleMonths.map((item) => (
-                  <div key={item.month} className="analytics-bar-col">
-                    <span className="analytics-bars__value">{formatAnalyticsMoney(item.revenueMinor).replace("LKR ", "")}</span>
-                    <div className="analytics-bar-track">
-                      <i style={{ height: `${Math.max((item.revenueMinor / maximumMonthlyRevenue) * 100, 4)}%` }} />
-                    </div>
-                    <small>{formatMonth(item.month)}</small>
-                  </div>
-                ))}
-              </div>
+              <MonthlyRevenueChart data={visibleMonths} />
             </article>
           </section>
 

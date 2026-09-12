@@ -142,11 +142,56 @@ function OverviewPage() {
       return backendProducts.slice(0, 5);
     }
     return [
-      { id: "p1", name: "Wireless Headphones", categoryName: "Electronics", quantity: 320, revenueMinor: 1243000, growth: 24, icon: Headphones },
-      { id: "p2", name: "Minimal Backpack", categoryName: "Accessories", quantity: 210, revenueMinor: 892000, growth: 18, icon: Briefcase },
-      { id: "p3", name: "Smart Watch", categoryName: "Wearables", quantity: 184, revenueMinor: 845000, growth: 16, icon: Watch },
-      { id: "p4", name: "Running Shoes", categoryName: "Footwear", quantity: 160, revenueMinor: 698000, growth: 12, icon: Footprints },
-      { id: "p5", name: "Leather Wallet", categoryName: "Accessories", quantity: 122, revenueMinor: 432000, growth: 8, icon: Wallet },
+      {
+        id: "p1",
+        name: "Wireless Headphones",
+        categoryName: "Electronics",
+        quantity: 320,
+        revenueMinor: 1243000,
+        growth: 24,
+        imageUrl: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=160&auto=format&fit=crop&q=80",
+        icon: Headphones,
+      },
+      {
+        id: "p2",
+        name: "Minimal Backpack",
+        categoryName: "Accessories",
+        quantity: 210,
+        revenueMinor: 892000,
+        growth: 18,
+        imageUrl: "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=160&auto=format&fit=crop&q=80",
+        icon: Briefcase,
+      },
+      {
+        id: "p3",
+        name: "Smart Watch",
+        categoryName: "Wearables",
+        quantity: 184,
+        revenueMinor: 845000,
+        growth: 16,
+        imageUrl: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=160&auto=format&fit=crop&q=80",
+        icon: Watch,
+      },
+      {
+        id: "p4",
+        name: "Running Shoes",
+        categoryName: "Footwear",
+        quantity: 160,
+        revenueMinor: 698000,
+        growth: 12,
+        imageUrl: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=160&auto=format&fit=crop&q=80",
+        icon: Footprints,
+      },
+      {
+        id: "p5",
+        name: "Leather Wallet",
+        categoryName: "Accessories",
+        quantity: 122,
+        revenueMinor: 432000,
+        growth: 8,
+        imageUrl: "https://images.unsplash.com/photo-1627123424574-724758594e93?w=160&auto=format&fit=crop&q=80",
+        icon: Wallet,
+      },
     ];
   }, [analytics]);
 
@@ -154,8 +199,8 @@ function OverviewPage() {
     <main className="dashboard overview-page">
       <section className="overview-hero" aria-labelledby="overview-title">
         <div>
-          <span className="overview-hero__eyebrow">Good Morning,</span>
-          <h2 id="overview-title">Here&apos;s what&apos;s happening with {businessName}</h2>
+          <span className="overview-hero__eyebrow">Business Overview</span>
+          <h2 id="overview-title">Welcome Back, {businessName}</h2>
           <p>Track your sales, orders, customers and growth in real-time.</p>
         </div>
         <div className="overview-hero__highlights" aria-label="Today highlights">
@@ -165,7 +210,7 @@ function OverviewPage() {
         </div>
       </section>
 
-      {/* 4 Premier Store KPI StatCards (exact icons and styles from reference image) */}
+      {/* 4 Premier Store KPI StatCards */}
       <section className="overview-kpis" aria-label="Key store metrics">
         <StatCard
           label="Total Revenue"
@@ -210,7 +255,6 @@ function OverviewPage() {
       <section aria-labelledby="order-dashboard-title">
         <div className="overview-section-heading">
           <div>
-            <span>Live operations</span>
             <h2 id="order-dashboard-title">Order dashboard</h2>
           </div>
           <Link to="/orders">Manage orders <ArrowRight size={15} /></Link>
@@ -226,7 +270,6 @@ function OverviewPage() {
         <article className="overview-panel overview-panel--work">
           <header className="overview-panel__header">
             <div>
-              <span>Priorities</span>
               <h3>Today&apos;s work centre</h3>
             </div>
             <span className="overview-panel__badge">Live</span>
@@ -246,10 +289,9 @@ function OverviewPage() {
         <article className="overview-panel overview-panel--performance">
           <header className="overview-panel__header">
             <div>
-              <span>Financial snapshot</span>
               <h3>Business performance</h3>
             </div>
-            <Link to="/analytics"><BarChart3 size={16} /> Report</Link>
+            <Link to="/analytics"><BarChart3 size={15} /> Report</Link>
           </header>
           <div className="overview-metrics">
             <div><CircleDollarSign /><span>Product revenue</span><strong>{formatAnalyticsMoney(financials.productRevenueMinor)}</strong></div>
@@ -264,7 +306,6 @@ function OverviewPage() {
         <article className="overview-panel overview-panel--orders">
           <header className="overview-panel__header">
             <div>
-              <span>Latest activity</span>
               <h3>Recent orders</h3>
             </div>
             <Link to="/orders">View all <ArrowRight size={15} /></Link>
@@ -285,8 +326,10 @@ function OverviewPage() {
 
         <article className="overview-panel overview-panel--products">
           <header className="overview-panel__header">
-            <h3>Top Products</h3>
-            <Link to="/inventory" className="overview-panel__view-all">View all</Link>
+            <div>
+              <h3>Top products</h3>
+            </div>
+            <Link to="/inventory">View all <ArrowRight size={15} /></Link>
           </header>
           <div className="overview-top-products-list">
             {topProductsList.map((product, index) => {
@@ -298,10 +341,23 @@ function OverviewPage() {
                   <span className="overview-top-product-rank">{rank}</span>
                   <div className="overview-top-product-media">
                     {product.imageUrl ? (
-                      <img src={product.imageUrl} alt={product.name} />
-                    ) : (
+                      <img
+                        src={product.imageUrl}
+                        alt={product.name}
+                        loading="lazy"
+                        onError={(e) => {
+                          e.currentTarget.style.display = "none";
+                          const fallback = e.currentTarget.parentElement?.querySelector(".overview-top-product-fallback");
+                          if (fallback) fallback.style.display = "flex";
+                        }}
+                      />
+                    ) : null}
+                    <div
+                      className="overview-top-product-fallback"
+                      style={{ display: product.imageUrl ? "none" : "flex" }}
+                    >
                       <ProductIcon size={20} strokeWidth={2.2} />
-                    )}
+                    </div>
                   </div>
                   <div className="overview-top-product-info">
                     <strong>{product.name}</strong>
@@ -324,6 +380,5 @@ function OverviewPage() {
     </main>
   );
 }
-
 
 export default OverviewPage;

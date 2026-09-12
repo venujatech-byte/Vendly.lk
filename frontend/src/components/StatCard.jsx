@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp } from "lucide-react";
+import { ArrowBigDown, ArrowBigUp } from "lucide-react";
 import "./StatCard.css";
 
 // Modern dashboard statistic card inspired by clean e-commerce UI
@@ -49,9 +49,9 @@ function StatCard({
             <div className={`stat-card__trend stat-card__trend--${isDown ? "down" : "up"}`}>
               <span className="stat-card__trend-badge">
                 {isDown ? (
-                  <ArrowDown size={13} strokeWidth={2.6} aria-hidden="true" />
+                  <ArrowBigDown size={14} fill="currentColor" stroke="currentColor" strokeWidth={1} aria-hidden="true" />
                 ) : (
-                  <ArrowUp size={13} strokeWidth={2.6} aria-hidden="true" />
+                  <ArrowBigUp size={14} fill="currentColor" stroke="currentColor" strokeWidth={1}} aria-hidden="true" />
                 )}
                 {trend}
               </span>
