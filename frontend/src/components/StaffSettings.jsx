@@ -27,6 +27,7 @@ import {
   removeBusinessMember,
   updateBusinessMember,
 } from "../services/memberService";
+import CustomSelect from "./CustomSelect";
 import "./StaffSettings.css";
 
 export const PERMISSION_OPTIONS = [
@@ -398,7 +399,7 @@ function StaffSettings({ businessId, currentRole }) {
 
                 <div className="staff-settings__input-group">
                   <label htmlFor="staff-role">Role Template</label>
-                  <select
+                  <CustomSelect
                     id="staff-role"
                     value={selectedRole}
                     onChange={(e) => handleRoleChange(e.target.value)}
@@ -408,7 +409,7 @@ function StaffSettings({ businessId, currentRole }) {
                         {label}
                       </option>
                     ))}
-                  </select>
+                  </CustomSelect>
                   <small>{roleDescriptions[selectedRole]}</small>
                 </div>
               </div>
@@ -667,7 +668,7 @@ function StaffSettings({ businessId, currentRole }) {
             <div className="staff-settings__modal-body">
               <div className="staff-settings__input-group">
                 <label>Role Preset</label>
-                <select
+                <CustomSelect
                   value={editRole}
                   onChange={(e) => {
                     const newR = e.target.value;
@@ -682,7 +683,7 @@ function StaffSettings({ businessId, currentRole }) {
                       {label}
                     </option>
                   ))}
-                </select>
+                </CustomSelect>
               </div>
 
               <div className="staff-settings__modal-perms">

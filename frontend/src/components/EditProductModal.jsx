@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { updateProduct, uploadProductMedia } from "../services/productService";
 import ModalShell from "./ModalShell";
+import CustomSelect from "./CustomSelect";
 import "./InventoryForm.css";
 
 const emptyForm = {
@@ -85,12 +86,23 @@ function EditProductModal({ isOpen, businessId, product, categories = [], onClos
           <label>Colour<input className="inventory-form__colour" name="colourHex" type="color" value={form.colourHex} onChange={change} /></label>
         </div>
         <div className="inventory-form__two-columns">
-          <label>Category <small>(optional)</small><select name="categoryId" value={form.categoryId} onChange={change}><option value="">Uncategorized - assign later</option>{categories.filter((category) => category.status === "active").map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
+          <label>Category <small>(optional)</small>
+            <CustomSelect name="categoryId" value={form.categoryId} onChange={change}>
+              <option value="">Uncategorized - assign later</option>
+              {categories.filter((category) => category.status === "active").map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
+            </CustomSelect>
+          </label>
           <label>Brand<input name="brand" value={form.brand} onChange={change} /></label>
         </div>
         <div className="inventory-form__two-columns">
           <label>Supplier ID<input name="supplierId" value={form.supplierId} onChange={change} /></label>
-          <label>Tax category<select name="taxCategory" value={form.taxCategory} onChange={change}><option value="standard">Standard</option><option value="zero-rated">Zero rated</option><option value="exempt">Exempt</option></select></label>
+          <label>Tax category
+            <CustomSelect name="taxCategory" value={form.taxCategory} onChange={change}>
+              <option value="standard">Standard</option>
+              <option value="zero-rated">Zero rated</option>
+              <option value="exempt">Exempt</option>
+            </CustomSelect>
+          </label>
         </div>
         <label>Description for chatbot<textarea name="description" value={form.description} onChange={change} rows={4} /></label>
         <label>AI description<textarea name="aiDescription" value={form.aiDescription} onChange={change} rows={3} /></label>

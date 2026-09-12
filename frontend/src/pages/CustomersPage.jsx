@@ -43,10 +43,12 @@ import TablePagination from "../components/TablePagination";
 import SortableHeader from "../components/SortableHeader";
 import useTablePagination from "../hooks/useTablePagination";
 import useTableSort from "../hooks/useTableSort";
+import CustomSelect from "../components/CustomSelect";
 
 import "./ManagementPage.css";
 import "../components/OrderFilters.css";
 import "./CustomersPage.css";
+import "../components/OrderTable.css";
 
 const customerSortAccessors = {
   customer: (customer) => customer.name,
@@ -475,29 +477,29 @@ function CustomersPage() {
                     )}
                   </div>
                   <div className="filter-panel__field filter-panel__field--select">
-                    <select value={filters.risk} onChange={(event) => setFilters((current) => ({ ...current, risk: event.target.value }))} aria-label="Risk level">
+                    <CustomSelect value={filters.risk} onChange={(event) => setFilters((current) => ({ ...current, risk: event.target.value }))} aria-label="Risk level">
                       <option value="all">All Risk Levels</option>
                       <option value="low">Low</option>
                       <option value="medium">Medium</option>
                       <option value="high">High</option>
                       <option value="fraud">Fraud</option>
-                    </select>
+                    </CustomSelect>
                   </div>
                   <div className="filter-panel__field filter-panel__field--select">
-                    <select value={filters.rating} onChange={(event) => setFilters((current) => ({ ...current, rating: event.target.value }))} aria-label="Rating">
+                    <CustomSelect value={filters.rating} onChange={(event) => setFilters((current) => ({ ...current, rating: event.target.value }))} aria-label="Rating">
                       <option value="all">All Ratings</option>
                       <option value="5">5 stars</option>
                       <option value="4">4 stars</option>
                       <option value="3">3 stars</option>
                       <option value="2">2 stars</option>
                       <option value="1">1 star</option>
-                    </select>
+                    </CustomSelect>
                   </div>
                   <div className="filter-panel__field filter-panel__field--select">
-                    <select value={filters.location} onChange={(event) => setFilters((current) => ({ ...current, location: event.target.value }))} aria-label="Location">
+                    <CustomSelect value={filters.location} onChange={(event) => setFilters((current) => ({ ...current, location: event.target.value }))} aria-label="Location">
                       <option value="all">All Locations</option>
                       {[...new Set(customers.map((customer) => (customer.defaultAddress || customer.address || {}).district).filter(Boolean))].map((district) => <option key={district} value={district}>{district}</option>)}
-                    </select>
+                    </CustomSelect>
                   </div>
                   <div className="filter-panel__actions">
                     <button
@@ -875,29 +877,29 @@ function FraudFilters({ filters, setFilters }) {
           )}
         </div>
         <div className="filter-panel__field filter-panel__field--select">
-          <select value={filters.risk} onChange={(event) => setFilters((current) => ({ ...current, risk: event.target.value }))} aria-label="Risk status">
+          <CustomSelect value={filters.risk} onChange={(event) => setFilters((current) => ({ ...current, risk: event.target.value }))} aria-label="Risk status">
             <option value="all">All Risk Levels</option>
             <option value="high">High Risk</option>
             <option value="medium">Medium Risk</option>
             <option value="low">Low Risk</option>
-          </select>
+          </CustomSelect>
         </div>
         <div className="filter-panel__field filter-panel__field--select">
-          <select value={filters.reason} onChange={(event) => setFilters((current) => ({ ...current, reason: event.target.value }))} aria-label="Return reason">
+          <CustomSelect value={filters.reason} onChange={(event) => setFilters((current) => ({ ...current, reason: event.target.value }))} aria-label="Return reason">
             <option value="all">All Reasons</option>
             <option value="Unreachable">Unreachable</option>
             <option value="Refused Delivery">Refused Delivery</option>
             <option value="Change of Mind">Change of Mind</option>
             <option value="Address Incomplete">Address Incomplete</option>
-          </select>
+          </CustomSelect>
         </div>
         <div className="filter-panel__field filter-panel__field--select">
-          <select value={filters.score} onChange={(event) => setFilters((current) => ({ ...current, score: event.target.value }))} aria-label="Fraud score">
+          <CustomSelect value={filters.score} onChange={(event) => setFilters((current) => ({ ...current, score: event.target.value }))} aria-label="Fraud score">
             <option value="all">All Scores</option>
             <option value="high">High score</option>
             <option value="medium">Medium score</option>
             <option value="low">Low score</option>
-          </select>
+          </CustomSelect>
         </div>
         <div className="filter-panel__actions">
           <button
@@ -1024,11 +1026,11 @@ function FraudRiskDialog({ isOpen, customer, riskLevel, isWorking, onRiskLevelCh
       <div className="fraud-risk-dialog">
         <label>
           <span>Risk level</span>
-          <select value={riskLevel} onChange={(event) => onRiskLevelChange(event.target.value)}>
+          <CustomSelect value={riskLevel} onChange={(event) => onRiskLevelChange(event.target.value)}>
             <option value="low">Low risk</option>
             <option value="medium">Medium risk</option>
             <option value="high">High risk</option>
-          </select>
+          </CustomSelect>
         </label>
         <footer>
           <button type="button" onClick={onCancel} disabled={isWorking}>Cancel</button>

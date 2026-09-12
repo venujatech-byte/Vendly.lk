@@ -5,6 +5,7 @@ import useTablePagination from "../hooks/useTablePagination";
 import { formatAnalyticsMoney } from "../services/analyticsService";
 import StatCard from "./StatCard";
 import TablePagination from "./TablePagination";
+import CustomSelect from "./CustomSelect";
 import "./OrderFilters.css";
 import "./OrderTable.css";
 import "./DeadStockReport.css";
@@ -75,18 +76,18 @@ function DeadStockReport({ report, isLoading }) {
                 )}
               </div>
               <div className="filter-panel__field filter-panel__field--select">
-                <select value={filters.category} onChange={(event) => setFilters((current) => ({ ...current, category: event.target.value }))}>
+                <CustomSelect value={filters.category} onChange={(event) => setFilters((current) => ({ ...current, category: event.target.value }))}>
                   <option value="all">All categories</option>
                   {categories.map((category) => <option key={category}>{category}</option>)}
-                </select>
+                </CustomSelect>
               </div>
               <div className="filter-panel__field filter-panel__field--select">
-                <select value={filters.state} onChange={(event) => setFilters((current) => ({ ...current, state: event.target.value }))}>
+                <CustomSelect value={filters.state} onChange={(event) => setFilters((current) => ({ ...current, state: event.target.value }))}>
                   <option value="all">All dead stock</option>
                   <option value="never-sold">Never sold</option>
                   <option value="stale">60-119 days</option>
                   <option value="critical">120+ days</option>
-                </select>
+                </CustomSelect>
               </div>
               <div className="filter-panel__actions">
                 <button

@@ -7,6 +7,7 @@ import {
   X,
 } from "lucide-react";
 import DateRangePicker from "./DateRangePicker";
+import CustomSelect from "./CustomSelect";
 
 import "./OrderFilters.css";
 
@@ -149,7 +150,7 @@ function OrderFilters({ couriers = [], onApply, onReset, onStatusChange, applied
 
         {/* Restrict results to a selected courier. */}
         <div className="filter-panel__field filter-panel__field--select">
-          <select
+          <CustomSelect
             id="courier"
             name="courier"
             value={filters.courier}
@@ -159,17 +160,17 @@ function OrderFilters({ couriers = [], onApply, onReset, onStatusChange, applied
             {couriers.map((courier) => (
               <option key={courier.id} value={courier.id}>{courier.name}</option>
             ))}
-          </select>
+          </CustomSelect>
         </div>
 
         {/* Filter orders by how the customer paid. */}
         <div className="filter-panel__field filter-panel__field--select">
-          <select id="order-payment" name="payment" value={filters.payment} onChange={handleInputChange}>
+          <CustomSelect id="order-payment" name="payment" value={filters.payment} onChange={handleInputChange}>
             <option value="">All payments</option>
             <option value="cod">COD</option>
             <option value="partially-paid">Half paid</option>
             <option value="paid">Fully paid</option>
-          </select>
+          </CustomSelect>
         </div>
 
         {/* Apply and reset action buttons */}

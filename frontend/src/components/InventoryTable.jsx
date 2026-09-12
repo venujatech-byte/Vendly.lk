@@ -1,6 +1,7 @@
 // React tools manage repeated table rows and interactive component state.
 import { Fragment, useState } from "react";
 import {
+  CheckSquare,
   ChevronDown,
   ChevronRight,
   Download,
@@ -9,10 +10,12 @@ import {
   Pencil,
   Star,
   Trash2,
+  X,
 } from "lucide-react";
 import ActionMenu from "./ActionMenu";
 import TablePagination from "./TablePagination";
 import SortableHeader from "./SortableHeader";
+import CustomSelect from "./CustomSelect";
 import useTablePagination from "../hooks/useTablePagination";
 import useTableSort from "../hooks/useTableSort";
 
@@ -300,60 +303,100 @@ function InventoryTable({
       )}
       {/* Bulk actions appear only after one or more products are selected. */}
       {selectedProductIds.length > 0 && (
-        <div className="inventory-table__bulk-actions">
-          <strong>{selectedProductIds.length} products selected</strong>
-          <button
-            type="button"
-            onClick={() => {
-              if (selectedProductIds.length === 1) {
-                onAdjustStock?.(
-                  products.find((product) => product.id === selectedProductIds[0]),
-                );
-              }
-            }}
-            disabled={selectedProductIds.length !== 1}
-            title={selectedProductIds.length === 1 ? "Adjust selected product" : "Select one product to adjust stock"}
-          >
-            <PackagePlus size={16} aria-hidden="true" />
-            Adjust stock
-          </button>
-          <select
-            className="inventory-table__bulk-status"
-            defaultValue=""
-            aria-label="Change status for selected products"
-            onChange={(event) => {
-              if (event.target.value) {
-                onChangeStatus?.(selectedProductIds, event.target.value);
-                event.target.value = "";
-              }
-            }}
-          >
-            <option value="" disabled>Change status</option>
-            <option value="active">Active</option>
-            <option value="draft">Draft</option>
-            <option value="archived">Archived</option>
-          </select>
-          <select
-            className="inventory-table__bulk-status"
-            defaultValue=""
-            aria-label="Add selected products to a category"
-            onChange={(event) => {
-              if (event.target.value) {
-                onChangeCategory?.(selectedProductIds, event.target.value);
-                event.target.value = "";
-              }
-            }}
-          >
-            <option value="" disabled>Add to category</option>
-            {categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
-          </select>
-          <button type="button" onClick={() => onChangeStatus?.(selectedProductIds, "archived")}>
-            Delete selected
-          </button>
-          <button type="button" onClick={() => onExportSelected?.(selectedProductIds)}>
-            <Download size={16} aria-hidden="true" />
-            Export selected
-          </button>
+        <div className="inventory-table__bulk-actions" role="toolbar" aria-label="Bulk selection actions">
+          <div className="inventory-table__bulk-summary">
+            <span className="inventory-table__bulk-badge">
+              <CheckSquare size={13} aria-hidden="true" />
+              {selectedProductIds.length}
+            </span>
+            <span className="inventory-table__bulk-count-label">
+              {selectedProductIds.length === 1 ? "product selected" : "products selected"}
+            </span>
+            <button
+              type="button"
+              className="inventory-table__bulk-clear-btn"
+              onClick={() => setSelectedProductIds([])}
+              title="Clear selection"
+            >
+              <X size={13} aria-hidden="true" />
+              <span>Deselect</span>
+            </button>
+          </div>
+
+          <div className="inventory-table__bulk-controls">
+            <button
+              type="button"
+              className="inventory-table__bulk-action-btn"
+              onClick={() => {
+                if (selectedProductIds.length === 1) {
+                  onAdjustStock?.(
+                    products.find((product) => product.id === selectedProductIds[0]),
+                  );
+                }
+              }}
+              disabled={selectedProductIds.length !== 1}
+              title={selectedProductIds.length === 1 ? "Adjust selected product stock" : "Select exactly one product to adjust stock"}
+            >
+              <PackagePlus size={14} aria-hidden="true" />
+              <span>Adjust stock</span>
+            </button>
+
+            <div className="inventory-table__bulk-select-wrap">
+              <CustomSelect
+                value=""
+                placeholder="Change status"
+                aria-label="Change status for selected products"
+                onChange={(event) => {
+                  if (event.target.value) {
+                    onChangeStatus?.(selectedProductIds, event.target.value);
+                  }
+                }}
+              >
+                <option value="active">Active</option>
+                <option value="draft">Draft</option>
+                <option value="archived">Archived</option>
+              </CustomSelect>
+            </div>
+
+            <div className="inventory-table__bulk-select-wrap">
+              <CustomSelect
+                value=""
+                placeholder="Add to category"
+                aria-label="Add selected products to a category"
+                onChange={(event) => {
+                  if (event.target.value) {
+                    onChangeCategory?.(selectedProductIds, event.target.value);
+                  }
+                }}
+              >
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </CustomSelect>
+            </div>
+
+            <button
+              type="button"
+              className="inventory-table__bulk-action-btn"
+              onClick={() => onExportSelected?.(selectedProductIds)}
+              title="Export selected products"
+            >
+              <Download size={14} aria-hidden="true" />
+              <span>Export</span>
+            </button>
+
+            <button
+              type="button"
+              className="inventory-table__bulk-action-btn inventory-table__bulk-action-btn--danger"
+              onClick={() => onChangeStatus?.(selectedProductIds, "archived")}
+              title="Delete / archive selected products"
+            >
+              <Trash2 size={14} aria-hidden="true" />
+              <span>Delete</span>
+            </button>
+          </div>
         </div>
       )}
 

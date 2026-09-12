@@ -3,6 +3,7 @@ import { Fragment, useState } from "react";
 import OrderDetails from "./OrderDetails";
 
 import {
+  CheckSquare,
   ChevronDown,
   ChevronRight,
   CircleAlert,
@@ -15,10 +16,12 @@ import {
   RefreshCw,
   Trash2,
   ShieldCheck,
+  X,
 } from "lucide-react";
 import ActionMenu from "./ActionMenu";
 import TablePagination from "./TablePagination";
 import SortableHeader from "./SortableHeader";
+import CustomSelect from "./CustomSelect";
 import useTablePagination from "../hooks/useTablePagination";
 import useTableSort from "../hooks/useTableSort";
 import { printWaybill } from "../services/operationService";
@@ -205,34 +208,60 @@ function OrderTable({
         </div>
       )}
       {selectedOrderIds.length > 0 && (
-        <div className="inventory-table__bulk-actions">
-          <strong>{selectedOrderIds.length} orders selected</strong>
-          <select
-            className="inventory-table__bulk-status"
-            defaultValue=""
-            aria-label="Change status for selected orders"
-            onChange={(event) => {
-              if (event.target.value) {
-                Promise.resolve(onBulkStatusChange?.(selectedOrderIds, event.target.value))
-                  .then((updatedOrders) => {
-                    if (updatedOrders) setSelectedOrderIds([]);
-                  });
-                event.target.value = "";
-              }
-            }}
-          >
-            <option value="" disabled>Change status</option>
-            <option value="pending">Pending</option>
-            <option value="confirmed">Confirmed</option>
-            <option value="packed">Packed</option>
-            <option value="shipped">Shipped</option>
-            <option value="delivered">Delivered</option>
-            <option value="returned">Returned</option>
-          </select>
-          <button type="button" onClick={() => onExportSelected?.(selectedOrderIds)}>
-            <Download size={16} aria-hidden="true" />
-            Export selected
-          </button>
+        <div className="inventory-table__bulk-actions" role="toolbar" aria-label="Bulk selection actions">
+          <div className="inventory-table__bulk-summary">
+            <span className="inventory-table__bulk-badge">
+              <CheckSquare size={13} aria-hidden="true" />
+              {selectedOrderIds.length}
+            </span>
+            <span className="inventory-table__bulk-count-label">
+              {selectedOrderIds.length === 1 ? "order selected" : "orders selected"}
+            </span>
+            <button
+              type="button"
+              className="inventory-table__bulk-clear-btn"
+              onClick={() => setSelectedOrderIds([])}
+              title="Clear selection"
+            >
+              <X size={13} aria-hidden="true" />
+              <span>Deselect</span>
+            </button>
+          </div>
+
+          <div className="inventory-table__bulk-controls">
+            <div className="inventory-table__bulk-select-wrap">
+              <CustomSelect
+                value=""
+                placeholder="Change status"
+                aria-label="Change status for selected orders"
+                onChange={(event) => {
+                  if (event.target.value) {
+                    Promise.resolve(onBulkStatusChange?.(selectedOrderIds, event.target.value))
+                      .then((updatedOrders) => {
+                        if (updatedOrders) setSelectedOrderIds([]);
+                      });
+                  }
+                }}
+              >
+                <option value="pending">Pending</option>
+                <option value="confirmed">Confirmed</option>
+                <option value="packed">Packed</option>
+                <option value="shipped">Shipped</option>
+                <option value="delivered">Delivered</option>
+                <option value="returned">Returned</option>
+              </CustomSelect>
+            </div>
+
+            <button
+              type="button"
+              className="inventory-table__bulk-action-btn"
+              onClick={() => onExportSelected?.(selectedOrderIds)}
+              title="Export selected orders"
+            >
+              <Download size={14} aria-hidden="true" />
+              <span>Export</span>
+            </button>
+          </div>
         </div>
       )}
       {/* Horizontal scrolling protects the table layout on narrow screens. */}

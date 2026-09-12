@@ -5,6 +5,7 @@ import useTablePagination from "../hooks/useTablePagination";
 import { formatAnalyticsMoney, saveCodSettlement } from "../services/analyticsService";
 import StatCard from "./StatCard";
 import TablePagination from "./TablePagination";
+import CustomSelect from "./CustomSelect";
 import "./OrderFilters.css";
 import "./OrderTable.css";
 import "./CodReconciliation.css";
@@ -125,16 +126,16 @@ function CodReconciliation({ businessId, reconciliation, isLoading, error, onCha
                 )}
               </div>
               <div className="filter-panel__field filter-panel__field--select">
-                <select value={filters.status} onChange={(event) => setFilters((current) => ({ ...current, status: event.target.value }))}>
+                <CustomSelect value={filters.status} onChange={(event) => setFilters((current) => ({ ...current, status: event.target.value }))}>
                   <option value="all">All statuses</option>
                   {["unreconciled", "pending", "partial", "reconciled", "disputed"].map((status) => <option key={status} value={status}>{status.replaceAll("-", " ")}</option>)}
-                </select>
+                </CustomSelect>
               </div>
               <div className="filter-panel__field filter-panel__field--select">
-                <select value={filters.courier} onChange={(event) => setFilters((current) => ({ ...current, courier: event.target.value }))}>
+                <CustomSelect value={filters.courier} onChange={(event) => setFilters((current) => ({ ...current, courier: event.target.value }))}>
                   <option value="all">All couriers</option>
                   {couriers.map((courier) => <option key={courier}>{courier}</option>)}
-                </select>
+                </CustomSelect>
               </div>
               <div className="filter-panel__actions">
                 <button

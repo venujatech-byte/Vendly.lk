@@ -7,6 +7,7 @@ import {
   X,
 } from "lucide-react";
 
+import CustomSelect from "./CustomSelect";
 import "./OrderFilters.css";
 
 // Empty values used when the form first loads or is reset.
@@ -28,104 +29,117 @@ function InventoryFilters({ categories = [], onApply, onReset, appliedFilters, a
     }
 
     window.addEventListener("vendly:reset-filters", resetAssistantFilters);
-    return () => window.removeEventListener("vendly:reset-filters", resetAssistantFilters);
+    return () => {
+      window.removeEventListener("vendly:reset-filters", resetAssistantFilters);
+    };
   }, []);
 
-  // The assistant encodes a requested search/status in the route. Display it
-  // here instead of leaving the user with an apparently empty filter form.
+  // Update local inputs when active filters change from the outside.
   useEffect(() => {
-    if (!appliedFilters) return;
-    setFilters({
-      ...initialFilters,
-      ...appliedFilters,
-    });
+    if (appliedFilters) {
+      setFilters({
+        searchProduct: appliedFilters.searchProduct || "",
+        category: appliedFilters.category || "",
+        stockStatus: appliedFilters.stockStatus || "",
+      });
+    }
   }, [appliedFilters]);
 
-  // Update the field whose name matches the changed input or select element.
+  // Keep filter state updated on change.
   function handleInputChange(event) {
-    const fieldName = event.target.name;
-    const fieldValue = event.target.value;
-
-    const nextFilters = {
-      ...filters,
-      [fieldName]: fieldValue,
-    };
+    const { name, value } = event.target;
     setFilters((currentFilters) => ({
       ...currentFilters,
-      [fieldName]: fieldValue,
+      [name]: value,
     }));
-    // Apply every change immediately; the Filter button remains available as
-    // an explicit confirmation action and closes the mobile filter panel.
-    onApply?.(nextFilters);
   }
 
-  // Prevent a page reload and send the selected values to InventoryPage.
+  // Clear single search input immediately.
+  function clearSearch() {
+    const updatedFilters = { ...filters, searchProduct: "" };
+    setFilters(updatedFilters);
+    if (onApply) onApply(updatedFilters);
+  }
+
+  // Trigger search filter submission.
   function handleSubmit(event) {
     event.preventDefault();
-    onApply?.(filters);
+    if (onApply) onApply(filters);
     setAreMobileFiltersOpen(false);
   }
 
-  // Restore every filter to its original empty value.
+  // Reset all filters back to empty defaults.
   function handleReset() {
     setFilters(initialFilters);
-    onReset?.();
+    if (onReset) onReset();
     setAreMobileFiltersOpen(false);
   }
 
-  return (
-    <section className="inventory-filters filter-panel" aria-label="inventory filters">
-      <button
-        className="inventory-filters__mobile-toggle filter-panel__mobile-toggle"
-        type="button"
-        onClick={() => setAreMobileFiltersOpen((isOpen) => !isOpen)}
-        aria-expanded={areMobileFiltersOpen}
-        aria-controls="inventory-filter-fields"
-      >
-        <span>
-          <Funnel size={17} aria-hidden="true" />
-          {areMobileFiltersOpen ? "Hide filters" : "Show filters"}
-        </span>
-        <ChevronDown
-          className={areMobileFiltersOpen ? "is-open" : ""}
-          size={18}
-          aria-hidden="true"
-        />
-      </button>
+  // Count filters currently in use.
+  const activeFilterCount = [
+    filters.searchProduct,
+    filters.category,
+    filters.stockStatus,
+  ].filter(Boolean).length;
 
-      {/* Controlled form: every value comes from the filters state object. */}
+  return (
+    <section className="inventory-filters filter-panel" aria-label="Inventory filters">
+      {/* Mobile-only toggle button. */}
+      <div className="inventory-filters__mobile-bar">
+        <button
+          className="inventory-filters__mobile-toggle filter-panel__mobile-toggle"
+          type="button"
+          onClick={() => setAreMobileFiltersOpen((wasOpen) => !wasOpen)}
+          aria-expanded={areMobileFiltersOpen}
+          aria-controls="inventory-filter-fields"
+        >
+          <Funnel size={14} aria-hidden="true" />
+          <span>Filters</span>
+          {activeFilterCount > 0 && (
+            <span className="filter-panel__count">{activeFilterCount}</span>
+          )}
+          <ChevronDown
+            size={14}
+            className={`filter-panel__chevron ${areMobileFiltersOpen ? "is-open" : ""}`}
+            aria-hidden="true"
+          />
+        </button>
+      </div>
+
+      {/* Main filter form wrapper. */}
       <form
         id="inventory-filter-fields"
         className={`inventory-filters__form filter-panel__form ${areMobileFiltersOpen ? "is-open" : ""}`}
         onSubmit={handleSubmit}
       >
-        {/* Product name, SKU, or barcode search. */}
+        {/* Search input with icons. */}
         <div className="inventory-filters__field filter-panel__field filter-panel__field--search">
           <Search size={15} className="filter-panel__search-icon" aria-hidden="true" />
           <input
             id="searchProduct"
             name="searchProduct"
             type="search"
-            aria-label="Search product by name or SKU"
-            placeholder="Search product name, SKU, or barcode"
+            placeholder="Search by name, SKU, or barcode..."
             value={filters.searchProduct}
             onChange={handleInputChange}
+            aria-label="Search by name, SKU, or barcode"
           />
           {filters.searchProduct && (
             <button
-              type="button"
               className="inventory-filters__clear filter-panel__clear"
-              onClick={() => handleInputChange({ target: { name: "searchProduct", value: "" } })}
-              aria-label="Clear product search"
+              type="button"
+              onClick={clearSearch}
+              aria-label="Clear search input"
+              title="Clear search"
             >
-              <X size={15} />
+              <X size={13} aria-hidden="true" />
             </button>
           )}
         </div>
 
         {/* Category selector. */}
         <div className="inventory-filters__field filter-panel__field filter-panel__field--select">
-          <select
+          <CustomSelect
             id="category"
             name="category"
             value={filters.category}
@@ -135,12 +149,12 @@ function InventoryFilters({ categories = [], onApply, onReset, appliedFilters, a
             {categories.map((category) => (
               <option key={category.id} value={category.id}>{category.name}</option>
             ))}
-          </select>
+          </CustomSelect>
         </div>
 
         {/* Stock-status selector. */}
         <div className="inventory-filters__field filter-panel__field filter-panel__field--select">
-          <select
+          <CustomSelect
             id="stockStatus"
             name="stockStatus"
             value={filters.stockStatus}
@@ -150,7 +164,7 @@ function InventoryFilters({ categories = [], onApply, onReset, appliedFilters, a
             <option value="in-stock">In Stock</option>
             <option value="low-stock">Low Stock</option>
             <option value="out-of-stock">Out of Stock</option>
-          </select>
+          </CustomSelect>
         </div>
 
         {/* Submit and reset controls wrapped in filter-panel__actions. */}

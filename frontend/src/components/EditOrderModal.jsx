@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import ModalShell from "./ModalShell";
 import { getCouriers } from "../services/courierService";
 import { updateOrder, updateOrderStatus } from "../services/orderService";
+import CustomSelect from "./CustomSelect";
 import "./InventoryForm.css";
 
 const emptyAddress = { line1: "", line2: "", city: "", district: "", postalCode: "" };
@@ -90,8 +91,30 @@ function EditOrderModal({ isOpen, businessId, order, onClose, onUpdated }) {
           <div className="inventory-form__two-columns"><label>District<input name="address.district" value={form.deliveryAddress.district} onChange={change} required /></label><label>Postal code<input name="address.postalCode" value={form.deliveryAddress.postalCode} onChange={change} /></label></div>
         </section>
         <section className="inventory-form__panel"><h3>Order settings</h3>
-          <div className="inventory-form__two-columns"><label>Courier<select name="courierId" value={form.courierId} onChange={change}><option value="">Choose courier</option>{couriers.map((courier) => <option key={courier.id} value={courier.id}>{courier.name}</option>)}</select></label><label>Payment<select name="paymentMethod" value={form.paymentMethod} onChange={change}><option value="cod">Cash on delivery</option><option value="paid">Paid</option><option value="deposit">Deposit</option></select></label></div>
-          <label>Next status<select name="status" value={form.status} onChange={change}><option value="">Keep {order?.status ?? "current status"}</option>{statusOptions.map((status) => <option key={status} value={status}>{status.replaceAll("-", " ")}</option>)}</select></label>
+          <div className="inventory-form__two-columns">
+            <label>
+              Courier
+              <CustomSelect name="courierId" value={form.courierId} onChange={change}>
+                <option value="">Choose courier</option>
+                {couriers.map((courier) => <option key={courier.id} value={courier.id}>{courier.name}</option>)}
+              </CustomSelect>
+            </label>
+            <label>
+              Payment
+              <CustomSelect name="paymentMethod" value={form.paymentMethod} onChange={change}>
+                <option value="cod">Cash on delivery</option>
+                <option value="paid">Paid</option>
+                <option value="deposit">Deposit</option>
+              </CustomSelect>
+            </label>
+          </div>
+          <label>
+            Next status
+            <CustomSelect name="status" value={form.status} onChange={change}>
+              <option value="">Keep {order?.status ?? "current status"}</option>
+              {statusOptions.map((status) => <option key={status} value={status}>{status.replaceAll("-", " ")}</option>)}
+            </CustomSelect>
+          </label>
           <label>Private order note<textarea name="privateNote" value={form.privateNote} onChange={change} rows={4} placeholder="Visible only to your team" /></label>
         </section>
         {error && <p className="inventory-form__error" role="alert">{error}</p>}

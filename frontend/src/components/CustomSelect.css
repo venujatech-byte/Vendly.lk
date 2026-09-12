@@ -1,0 +1,332 @@
+/* ==========================================================================
+   Vendly Custom Select Component
+   High-precision, modern dropdown styling matching design tokens
+   ========================================================================== */
+
+.custom-select {
+  position: relative;
+  display: inline-flex;
+  width: 100%;
+  box-sizing: border-box;
+  font-family: inherit;
+  user-select: none;
+}
+
+/* Visually hidden native select for form data, screen readers, automation */
+.custom-select__native {
+  position: absolute !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  width: 1px !important;
+  height: 1px !important;
+  margin: -1px !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  clip: rect(0 0 0 0) !important;
+  border: 0 !important;
+}
+
+/* ==========================================================================
+   Trigger Button
+   ========================================================================== */
+
+.custom-select__trigger {
+  width: 100%;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 12px;
+  background-color: var(--color-control, #ffffff);
+  color: var(--color-text, #102f50);
+  border: 1px solid var(--color-border, #dbe4ee);
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  outline: none;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  transition:
+    border-color 160ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 160ms cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 160ms ease,
+    color 160ms ease;
+  white-space: nowrap;
+}
+
+.custom-select__trigger:hover:not(:disabled) {
+  border-color: var(--color-accent, #168cf5);
+  background-color: var(--color-surface, #ffffff);
+}
+
+.custom-select.is-open .custom-select__trigger {
+  border-color: var(--color-accent, #168cf5);
+  box-shadow: 0 0 0 3px rgba(22, 140, 245, 0.16);
+}
+
+.custom-select.is-disabled .custom-select__trigger {
+  opacity: 0.55;
+  cursor: not-allowed;
+  background-color: var(--color-surface-soft, #f1f5f9);
+}
+
+.custom-select__value {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  letter-spacing: -0.01em;
+}
+
+.custom-select__chevron {
+  flex: 0 0 auto;
+  color: var(--color-muted, #526b87);
+  transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1), color 160ms ease;
+}
+
+.custom-select__chevron.is-rotated {
+  transform: rotate(180deg);
+  color: var(--color-accent, #168cf5);
+}
+
+/* ==========================================================================
+   Dropdown Menu
+   ========================================================================== */
+
+.custom-select__menu {
+  position: absolute;
+  left: 0;
+  right: 0;
+  min-width: 100%;
+  width: max-content;
+  max-width: min(320px, 90vw);
+  max-height: 250px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  margin: 0;
+  padding: 6px;
+  z-index: 1050;
+  border-radius: 10px;
+  box-sizing: border-box;
+
+  /* Premium Light Mode Card / Glass */
+  background: var(--color-surface, #ffffff);
+  border: 1px solid var(--color-border, #dbe4ee);
+  box-shadow:
+    0 4px 6px -1px rgba(15, 23, 42, 0.08),
+    0 12px 28px -4px rgba(15, 23, 42, 0.16),
+    0 0 0 1px rgba(15, 23, 42, 0.03);
+
+  animation: custom-select-pop 160ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.custom-select__menu--bottom {
+  top: calc(100% + 6px);
+  transform-origin: top center;
+}
+
+.custom-select__menu--top {
+  bottom: calc(100% + 6px);
+  transform-origin: bottom center;
+}
+
+@keyframes custom-select-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.96) translateY(-4px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Custom Sleek Scrollbar */
+.custom-select__menu::-webkit-scrollbar {
+  width: 5px;
+  display: block;
+}
+
+.custom-select__menu::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-select__menu::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.4);
+  border-radius: 999px;
+}
+
+.custom-select__menu::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.7);
+}
+
+/* ==========================================================================
+   Menu Option Items
+   ========================================================================== */
+
+.custom-select__option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text, #102f50);
+  cursor: pointer;
+  transition:
+    background-color 120ms ease,
+    color 120ms ease,
+    transform 120ms ease;
+  white-space: nowrap;
+}
+
+.custom-select__option-label {
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.custom-select__option:hover,
+.custom-select__option.is-highlighted {
+  background-color: rgba(22, 140, 245, 0.08);
+  color: var(--color-accent, #168cf5);
+}
+
+.custom-select__option.is-selected {
+  background-color: rgba(22, 140, 245, 0.12);
+  color: var(--color-accent, #168cf5);
+  font-weight: 600;
+}
+
+.custom-select__check {
+  flex: 0 0 auto;
+  color: var(--color-accent, #168cf5);
+  animation: custom-select-check-in 140ms ease-out both;
+}
+
+@keyframes custom-select-check-in {
+  from {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.custom-select__option.is-disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  background-color: transparent !important;
+  color: var(--color-muted, #526b87) !important;
+}
+
+.custom-select__empty {
+  padding: 12px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--color-muted, #526b87);
+}
+
+/* ==========================================================================
+   Dark Mode Styling
+   ========================================================================== */
+
+html[data-theme="dark"] .custom-select__trigger {
+  background-color: var(--color-control, #111e2d);
+  color: var(--color-text, #f4f7fb);
+  border-color: var(--color-border, #25374a);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+html[data-theme="dark"] .custom-select__trigger:hover:not(:disabled) {
+  border-color: var(--color-accent, #2997ff);
+  background-color: var(--color-surface, #101b28);
+}
+
+html[data-theme="dark"] .custom-select.is-open .custom-select__trigger {
+  border-color: var(--color-accent, #2997ff);
+  box-shadow: 0 0 0 3px rgba(41, 151, 255, 0.22);
+}
+
+html[data-theme="dark"] .custom-select__chevron {
+  color: var(--color-subtle, #8ea1b6);
+}
+
+html[data-theme="dark"] .custom-select__chevron.is-rotated {
+  color: var(--color-accent, #2997ff);
+}
+
+html[data-theme="dark"] .custom-select__menu {
+  background: #0f1925;
+  border-color: #223548;
+  box-shadow:
+    0 16px 36px rgba(0, 0, 0, 0.55),
+    0 4px 12px rgba(0, 0, 0, 0.35),
+    0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme="dark"] .custom-select__option {
+  color: #e2e8f0;
+}
+
+html[data-theme="dark"] .custom-select__option:hover,
+html[data-theme="dark"] .custom-select__option.is-highlighted {
+  background-color: rgba(41, 151, 255, 0.16);
+  color: #60a5fa;
+}
+
+html[data-theme="dark"] .custom-select__option.is-selected {
+  background-color: rgba(41, 151, 255, 0.24);
+  color: #93c5fd;
+}
+
+html[data-theme="dark"] .custom-select__check {
+  color: #60a5fa;
+}
+
+/* ==========================================================================
+   Integration with Filter Panels, Tables, and Forms
+   ========================================================================== */
+
+/* Filter panel fields */
+.filter-panel .filter-panel__field--select .custom-select {
+  width: auto;
+  min-width: 130px;
+  max-width: 175px;
+}
+
+.filter-panel .filter-panel__field--select .custom-select__trigger {
+  height: 38px;
+  font-size: 13px;
+}
+
+/* Ensure open custom select sits on top of other filter fields */
+.filter-panel .filter-panel__field:has(.custom-select.is-open),
+.filter-panel__field:has(.custom-select.is-open) {
+  z-index: 50;
+  position: relative;
+}
+
+/* Table bulk action selects */
+.inventory-table__bulk-actions .custom-select {
+  width: auto;
+  min-width: 140px;
+  max-width: 180px;
+}
+
+.inventory-table__bulk-actions .custom-select__trigger {
+  height: 34px;
+  font-size: 12px;
+  padding: 0 10px;
+}
+
+.inventory-table__bulk-actions .custom-select__menu {
+  min-width: 150px;
+}

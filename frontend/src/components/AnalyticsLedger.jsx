@@ -14,6 +14,7 @@ import { useMemo, useState } from "react";
 
 import DateRangePicker from "./DateRangePicker";
 import TablePagination from "./TablePagination";
+import CustomSelect from "./CustomSelect";
 import useTablePagination from "../hooks/useTablePagination";
 import { downloadAnalyticsLedger, formatAnalyticsMoney } from "../services/analyticsService";
 import StatCard from "./StatCard";
@@ -166,9 +167,9 @@ function AnalyticsLedger({ businessId, ledger, isLoading, error }) {
                 />
               </div>
               <div className="filter-panel__field filter-panel__field--select">
-                <select value={filters.type} onChange={(event) => setFilters((current) => ({ ...current, type: event.target.value }))}>
+                <CustomSelect value={filters.type} onChange={(event) => setFilters((current) => ({ ...current, type: event.target.value }))}>
                   {TRANSACTION_TYPES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                </select>
+                </CustomSelect>
               </div>
               <div className="filter-panel__actions">
                 <button

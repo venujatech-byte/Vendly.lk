@@ -15,6 +15,7 @@ import useTablePagination from "../hooks/useTablePagination";
 import { formatAnalyticsMoney } from "../services/analyticsService";
 import StatCard from "./StatCard";
 import TablePagination from "./TablePagination";
+import CustomSelect from "./CustomSelect";
 import "./OrderFilters.css";
 import "./OrderTable.css";
 import "./CustomerProfitability.css";
@@ -102,20 +103,20 @@ function CustomerProfitability({ report, isLoading }) {
                 )}
               </div>
               <div className="filter-panel__field filter-panel__field--select">
-                <select value={filters.profitability} onChange={(event) => setFilters((current) => ({ ...current, profitability: event.target.value }))}>
+                <CustomSelect value={filters.profitability} onChange={(event) => setFilters((current) => ({ ...current, profitability: event.target.value }))}>
                   <option value="all">All profitability</option>
                   <option value="profitable">Profitable</option>
                   <option value="low-margin">Low margin</option>
                   <option value="loss">Loss making</option>
                   <option value="no-sales">No delivered sales</option>
-                </select>
+                </CustomSelect>
               </div>
               <div className="filter-panel__field filter-panel__field--select">
-                <select value={filters.returnRisk} onChange={(event) => setFilters((current) => ({ ...current, returnRisk: event.target.value }))}>
+                <CustomSelect value={filters.returnRisk} onChange={(event) => setFilters((current) => ({ ...current, returnRisk: event.target.value }))}>
                   <option value="all">All return levels</option>
                   <option value="healthy">Below 30%</option>
                   <option value="high">30% or higher</option>
-                </select>
+                </CustomSelect>
               </div>
               <div className="filter-panel__actions">
                 <button
