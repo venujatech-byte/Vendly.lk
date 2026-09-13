@@ -82,6 +82,16 @@ function AnalyticsPage() {
     setAnalytics(refreshedAnalytics);
   }
 
+  async function handleRefreshLedger() {
+    if (!business?.id) return;
+    try {
+      const data = await getAnalyticsLedger(business.id);
+      setLedger(data);
+    } catch (requestError) {
+      setLedgerError(requestError);
+    }
+  }
+
   useEffect(() => {
     let requestIsCurrent = true;
     if (!business?.id) return undefined;
@@ -193,7 +203,7 @@ function AnalyticsPage() {
       </nav>
 
       {activeView === "ledger" ? (
-        <AnalyticsLedger businessId={business?.id} ledger={ledger} isLoading={!ledger && !ledgerError} error={ledgerError} />
+        <AnalyticsLedger businessId={business?.id} ledger={ledger} isLoading={!ledger && !ledgerError} error={ledgerError} onRefresh={handleRefreshLedger} />
       ) : activeView === "cod" ? (
         <CodReconciliation businessId={business?.id} reconciliation={reconciliation} isLoading={!reconciliation && !reconciliationError} error={reconciliationError} onChange={setReconciliation} />
       ) : activeView === "dead-stock" ? (

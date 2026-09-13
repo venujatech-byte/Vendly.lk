@@ -6,9 +6,11 @@ from app.core.auth import require_firebase_user
 from app.core.authorization import require_business_member
 from app.core.firebase import get_firestore_client
 from app.services.analytics_service import (
+    delete_ledger_entry,
     get_analytics_version,
     get_business_analytics,
     get_business_ledger,
+    record_ledger_entry,
     update_monthly_revenue_target,
 )
 from app.services.cod_reconciliation_service import (
@@ -56,6 +58,24 @@ def analytics_ledger(business_id):
     return jsonify(
         {"ledger": get_business_ledger(get_firestore_client(), business_id)},
     )
+
+
+@analytics_blueprint.post("/businesses/<business_id>/analytics/ledger/entries")
+@require_firebase_user
+@require_business_member(permission="analytics:read")
+def analytics_add_ledger_entry(business_id):
+    payload = request.get_json(silent=True) or {}
+    user_id = g.current_user.get("uid") if hasattr(g, "current_user") and g.current_user else None
+    entry = record_ledger_entry(get_firestore_client(), business_id, payload, user_id=user_id)
+    return jsonify({"entry": entry}), 201
+
+
+@analytics_blueprint.delete("/businesses/<business_id>/analytics/ledger/entries/<entry_id>")
+@require_firebase_user
+@require_business_member(permission="analytics:read")
+def analytics_delete_ledger_entry(business_id, entry_id):
+    result = delete_ledger_entry(get_firestore_client(), business_id, entry_id)
+    return jsonify(result)
 
 
 @analytics_blueprint.get("/businesses/<business_id>/analytics/cod-reconciliation")

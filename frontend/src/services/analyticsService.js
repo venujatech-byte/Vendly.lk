@@ -20,6 +20,29 @@ export async function getAnalyticsLedger(businessId) {
 }
 
 
+export async function createLedgerEntry(businessId, entryData) {
+  const response = await apiRequest(
+    `/businesses/${businessId}/analytics/ledger/entries`,
+    {
+      method: "POST",
+      body: entryData,
+    },
+  );
+  return response.entry;
+}
+
+
+export async function deleteLedgerEntry(businessId, entryId) {
+  const response = await apiRequest(
+    `/businesses/${businessId}/analytics/ledger/entries/${entryId}`,
+    {
+      method: "DELETE",
+    },
+  );
+  return response;
+}
+
+
 export async function saveMonthlyRevenueTarget(businessId, monthlyTargetMinor) {
   return apiRequest(`/businesses/${businessId}/analytics/monthly-target`, {
     method: "PATCH",

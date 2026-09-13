@@ -39,17 +39,26 @@ function CategoryProductImage({ product }) {
 }
 
 // Find all products belonging to one category.
-function getProductsForCategory(category, products) {
-  if (category.name === "Uncategorized") {
+function getProductsForCategory(category, products = []) {
+  const isUncategorized =
+    category.name?.toLowerCase() === "uncategorized" ||
+    category.id === "category-uncategorized" ||
+    category.id === "uncategorized";
+
+  if (isUncategorized) {
     return products.filter(
-      (product) => !product.categoryId && !product.category,
+      (product) =>
+        !product.categoryId &&
+        !product.category &&
+        !product.categoryName,
     );
   }
 
   return products.filter(
     (product) =>
-      product.categoryId === category.id ||
-      product.category === category.name,
+      (product.categoryId && (product.categoryId === category.id || product.categoryId === category.name)) ||
+      (product.category && (product.category === category.name || product.category === category.id)) ||
+      (product.categoryName && (product.categoryName === category.name || product.categoryName === category.id)),
   );
 }
 
@@ -101,9 +110,8 @@ function CategoryProductsTable({ products }) {
 }
 
 function CategoryTable({ categories: categoryRecords = [], products = [], onEditCategory, onRemoveCategory, headerActions }) {
-  // Only one category is expanded at a time.
-  const [expandedCategoryId, setExpandedCategoryId] =
-    useState("category-footwear");
+  // Initially no category is expanded by default.
+  const [expandedCategoryId, setExpandedCategoryId] = useState(null);
 
   // Add product count, product records and total stock to every category.
   const categories = categoryRecords.map((category) => {
@@ -121,6 +129,33 @@ function CategoryTable({ categories: categoryRecords = [], products = [], onEdit
       totalStock,
     };
   });
+
+  const hasUncategorizedRecord = categoryRecords.some(
+    (cat) =>
+      cat.name?.toLowerCase() === "uncategorized" ||
+      cat.id === "category-uncategorized" ||
+      cat.id === "uncategorized",
+  );
+  const uncategorizedProducts = products.filter(
+    (product) => !product.categoryId && !product.category && !product.categoryName,
+  );
+
+  if (!hasUncategorizedRecord && uncategorizedProducts.length > 0) {
+    const totalStock = uncategorizedProducts.reduce(
+      (stockTotal, product) => stockTotal + getProductStock(product),
+      0,
+    );
+    categories.push({
+      id: "uncategorized",
+      name: "Uncategorized",
+      description: "Products without an assigned category.",
+      status: "needs-attention",
+      products: uncategorizedProducts,
+      totalStock,
+      isSystem: true,
+    });
+  }
+
   const sorting = useTableSort(categories, categorySortAccessors);
   const pagination = useTablePagination(sorting.sortedItems);
 
@@ -162,7 +197,13 @@ function CategoryTable({ categories: categoryRecords = [], products = [], onEdit
           </thead>
 
           <tbody>
-            {pagination.pageItems.map((category) => {
+            {pagination.pageItems.length === 0 ? (
+              <tr>
+                <td colSpan={7} style={{ textAlign: "center", padding: "36px 16px", color: "var(--color-muted)", fontSize: "13px" }}>
+                  No categories found. Click <strong>Add Category</strong> above to create one.
+                </td>
+              </tr>
+            ) : pagination.pageItems.map((category) => {
               const isExpanded =
                 expandedCategoryId === category.id;
 
@@ -200,7 +241,7 @@ function CategoryTable({ categories: categoryRecords = [], products = [], onEdit
                       <strong>{category.name}</strong>
                     </td>
 
-                    <td>{category.description}</td>
+                    <td>{category.description || "—"}</td>
 
                     <td>
                       <strong>{category.products.length}</strong>
@@ -221,10 +262,14 @@ function CategoryTable({ categories: categoryRecords = [], products = [], onEdit
                     </td>
 
                     <td>
-                      <ActionMenu label={`More actions for ${category.name}`} items={[
-                        { label: "Edit category", icon: <Pencil size={16} />, onClick: () => onEditCategory?.(category) },
-                        { label: "Remove category", icon: <Trash2 size={16} />, danger: true, onClick: () => onRemoveCategory?.(category) },
-                      ]} />
+                      {!category.isSystem ? (
+                        <ActionMenu label={`More actions for ${category.name}`} items={[
+                          { label: "Edit category", icon: <Pencil size={16} />, onClick: () => onEditCategory?.(category) },
+                          { label: "Remove category", icon: <Trash2 size={16} />, danger: true, onClick: () => onRemoveCategory?.(category) },
+                        ]} />
+                      ) : (
+                        <span style={{ fontSize: "11px", color: "var(--color-muted)" }}>Default</span>
+                      )}
                     </td>
                   </tr>
 

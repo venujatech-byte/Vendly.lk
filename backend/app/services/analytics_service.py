@@ -957,16 +957,9 @@ def build_transaction_ledger(
     shop_sales,
     warranty_claims,
     inventory_transactions=None,
+    manual_entries=None,
 ):
-    """Build a read-only sales ledger from the system's source documents.
-
-    Every sale is recorded as a credit. A returned/cancelled online order or a
-    voided shop sale receives a matching debit so its net effect is zero.
-    Warranty costs and purchased inventory are debit adjustments. Inventory
-    debits come only from positive stock-in audit records that carry their cost
-    at the time of receipt. This keeps the ledger auditable while leaving the
-    order, sale and stock write paths as the single source of truth.
-    """
+    """Build a sales & expense ledger from source documents and manual records."""
     entries = []
 
     def add_entry(**entry):
@@ -1066,16 +1059,36 @@ def build_transaction_ledger(
     for stock_entry in inventory_transactions or []:
         quantity = int(stock_entry.get("quantity") or 0)
         total_cost_minor = _minor_units(stock_entry.get("totalCostMinor"))
+        unit_cost_minor = _minor_units(stock_entry.get("unitCostMinor"))
+        ledger_impact = stock_entry.get("ledgerImpact")
         if (
-            quantity <= 0
-            or total_cost_minor <= 0
-            or stock_entry.get("ledgerImpact") != "inventory-debit"
+            total_cost_minor <= 0
+            or ledger_impact not in {"inventory-debit", "inventory-credit"}
         ):
             continue
 
         product_name = stock_entry.get("productName") or "Inventory item"
         sku = stock_entry.get("variantSku") or ""
         reference = stock_entry.get("reference") or product_name
+        abs_qty = abs(quantity)
+        cost_str = f" @ LKR {unit_cost_minor / 100:,.2f}" if unit_cost_minor > 0 else ""
+
+        if ledger_impact == "inventory-credit":
+            direction = "credit"
+            label = "Supplier refund"
+            transaction_type = "supplier-refund"
+            status = "completed"
+        elif quantity < 0:
+            direction = "debit"
+            label = "Stock write-off"
+            transaction_type = "inventory-purchase"
+            status = "written-off"
+        else:
+            direction = "debit"
+            label = "Inventory purchase"
+            transaction_type = "inventory-purchase"
+            status = "received"
+
         add_entry(
             id=f"inventory:{stock_entry.get('id') or stock_entry.get('variantId', '')}",
             sourceId=stock_entry.get("id", ""),
@@ -1083,18 +1096,47 @@ def build_transaction_ledger(
             reference=reference,
             customerName="Inventory",
             description=(
-                f"{product_name} · {sku} · {quantity} unit(s)"
+                f"{product_name} · {sku} · {abs_qty} unit(s)"
                 if sku
-                else f"{product_name} · {quantity} unit(s)"
+                else f"{product_name} · {abs_qty} unit(s)"
             ),
-            paymentMethod="inventory-purchase",
+            paymentMethod="inventory-purchase" if direction == "debit" else "supplier-refund",
             paymentStatus="recorded",
-            transactionType="inventory-purchase",
-            label="Inventory purchase",
-            direction="debit",
+            transactionType=transaction_type,
+            label=label,
+            direction=direction,
             amountMinor=total_cost_minor,
-            status="received",
+            status=status,
             createdAt=stock_entry.get("createdAt"),
+        )
+
+    for manual in manual_entries or []:
+        direction = manual.get("direction") or ("debit" if manual.get("type") == "expense" else "credit")
+        transaction_type = manual.get("transactionType") or ("expense" if direction == "debit" else "income")
+        total_minor = _minor_units(manual.get("amountMinor"))
+        if total_minor <= 0:
+            continue
+        manual_id = str(manual.get("id") or "")
+        reference = manual.get("reference") or (f"EXP-{manual_id[:6].upper()}" if direction == "debit" else f"INC-{manual_id[:6].upper()}")
+        label = manual.get("category") or manual.get("label") or ("Expense" if direction == "debit" else "Income")
+        customer_name = manual.get("customerName") or manual.get("payee") or ("Expense" if direction == "debit" else "Income")
+        description = manual.get("description") or manual.get("title") or label
+        status = manual.get("status", "completed")
+        add_entry(
+            id=f"manual:{manual_id}",
+            sourceId=manual_id,
+            sourceType="manual-entry",
+            reference=reference,
+            customerName=customer_name,
+            description=description,
+            paymentMethod=manual.get("paymentMethod", "cash"),
+            paymentStatus=manual.get("paymentStatus", "paid"),
+            transactionType=transaction_type,
+            label=label,
+            direction=direction,
+            amountMinor=total_minor,
+            status=status,
+            createdAt=manual.get("createdAt"),
         )
 
     entries.sort(
@@ -1147,9 +1189,118 @@ def get_business_ledger(database, business_id):
         .limit(2000)
         .stream()
     ]
+    manual_entries = [
+        serialize_snapshot(snapshot)
+        for snapshot in business_reference.collection("ledgerEntries")
+        .limit(2000)
+        .stream()
+    ]
     return build_transaction_ledger(
         orders,
         shop_sales,
         warranty_claims,
         inventory_transactions,
+        manual_entries=manual_entries,
     )
+
+
+def record_ledger_entry(database, business_id, payload, user_id=None):
+    if not isinstance(payload, dict):
+        raise ApiError("validation_error", "Request payload must be a JSON object.", 422)
+
+    entry_type = str(payload.get("type") or payload.get("direction") or "expense").strip().lower()
+    if entry_type in {"expense", "debit"}:
+        direction = "debit"
+        transaction_type = "expense"
+    elif entry_type in {"income", "credit"}:
+        direction = "credit"
+        transaction_type = "income"
+    else:
+        raise ApiError("validation_error", "Transaction type must be 'expense' or 'income'.", 422)
+
+    raw_amount = payload.get("amountMinor")
+    if raw_amount is None and payload.get("amount") is not None:
+        try:
+            raw_amount = int(round(float(payload.get("amount")) * 100))
+        except (ValueError, TypeError):
+            raise ApiError("validation_error", "Invalid amount.", 422)
+
+    amount_minor = _minor_units(raw_amount)
+    if amount_minor <= 0:
+        raise ApiError("validation_error", "Amount must be greater than 0.", 422)
+
+    description = str(payload.get("description") or payload.get("title") or "").strip()
+    if not description:
+        raise ApiError("validation_error", "Description is required.", 422)
+
+    category = str(payload.get("category") or payload.get("label") or ("Expense" if direction == "debit" else "Income")).strip()
+    reference = str(payload.get("reference") or "").strip()
+    payee = str(payload.get("payee") or payload.get("customerName") or "").strip()
+    payment_method = str(payload.get("paymentMethod") or "cash").strip()
+    payment_status = str(payload.get("paymentStatus") or "paid").strip()
+    notes = str(payload.get("notes") or "").strip()
+
+    custom_date = payload.get("date") or payload.get("createdAt")
+    if custom_date:
+        if isinstance(custom_date, str):
+            try:
+                if len(custom_date) == 10:
+                    created_at = datetime.strptime(custom_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+                else:
+                    created_at = datetime.fromisoformat(custom_date.replace("Z", "+00:00"))
+            except ValueError:
+                created_at = datetime.now(timezone.utc)
+        elif isinstance(custom_date, datetime):
+            created_at = custom_date
+        else:
+            created_at = datetime.now(timezone.utc)
+    else:
+        created_at = datetime.now(timezone.utc)
+
+    doc_ref = (
+        database.collection("businesses")
+        .document(business_id)
+        .collection("ledgerEntries")
+        .document()
+    )
+
+    doc_data = {
+        "id": doc_ref.id,
+        "type": transaction_type,
+        "direction": direction,
+        "transactionType": transaction_type,
+        "amountMinor": amount_minor,
+        "description": description,
+        "category": category,
+        "label": category,
+        "reference": reference or (f"EXP-{doc_ref.id[:6].upper()}" if direction == "debit" else f"INC-{doc_ref.id[:6].upper()}"),
+        "customerName": payee or ("Expense" if direction == "debit" else "Income"),
+        "payee": payee,
+        "paymentMethod": payment_method,
+        "paymentStatus": payment_status,
+        "notes": notes,
+        "createdBy": user_id,
+        "status": "completed",
+        "createdAt": created_at,
+        "updatedAt": firestore.SERVER_TIMESTAMP,
+    }
+
+    doc_ref.set(doc_data)
+    bump_analytics_version(database, business_id)
+    return serialize_snapshot(doc_ref.get())
+
+
+def delete_ledger_entry(database, business_id, entry_id):
+    clean_id = entry_id.replace("manual:", "") if entry_id.startswith("manual:") else entry_id
+    doc_ref = (
+        database.collection("businesses")
+        .document(business_id)
+        .collection("ledgerEntries")
+        .document(clean_id)
+    )
+    snapshot = doc_ref.get()
+    if not snapshot.exists:
+        raise ApiError("not_found", "Ledger entry not found.", 404)
+    doc_ref.delete()
+    bump_analytics_version(database, business_id)
+    return {"id": clean_id, "deleted": True}

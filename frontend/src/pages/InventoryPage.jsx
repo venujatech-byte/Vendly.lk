@@ -35,7 +35,7 @@ import {
   updateProduct,
   updateProductStatus,
 } from "../services/productService";
-import { getProductStockStatus } from "../utils/inventory";
+import { getProductStock, getProductStockStatus } from "../utils/inventory";
 
 import "./InventoryPage.css";
 import "./Buttons.css";
@@ -52,7 +52,9 @@ function InventoryPage() {
   const { business, accountError } = useAuth();
 
   // Products is the default tab when the Inventory page opens.
-  const [activeTab, setActiveTab] = useState("products");
+  const [activeTab, setActiveTab] = useState(() => {
+    return searchParameters.get("tab") === "categories" ? "categories" : "products";
+  });
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [isInventoryLoading, setIsInventoryLoading] = useState(true);
@@ -171,8 +173,11 @@ function InventoryPage() {
         ]);
 
         if (requestIsCurrent) {
-          setProducts(productRecords);
-          setCategories(categoryResponse.categories.filter((category) => category.status === "active"));
+          setProducts(productRecords || []);
+          const rawCategories = Array.isArray(categoryResponse)
+            ? categoryResponse
+            : (categoryResponse?.categories || []);
+          setCategories(rawCategories.filter((category) => category.status !== "archived"));
         }
       } catch (error) {
         console.error("Inventory could not be loaded:", error);
@@ -236,8 +241,13 @@ function InventoryPage() {
     const categoryStock = categories.map((category) => ({
       ...category,
       stock: products
-        .filter((product) => product.categoryId === category.id)
-        .reduce((total, product) => total + product.stock, 0),
+        .filter(
+          (product) =>
+            (product.categoryId && product.categoryId === category.id) ||
+            (product.category && product.category === category.name) ||
+            (product.categoryName && product.categoryName === category.name),
+        )
+        .reduce((total, product) => total + getProductStock(product), 0),
     }));
     const topCategory = categoryStock.reduce(
       (currentTop, category) =>
@@ -254,14 +264,14 @@ function InventoryPage() {
       },
       {
         label: "Active categories",
-        value: categories.filter((category) => category.status === "active")
+        value: categories.filter((category) => category.status !== "needs-attention" && category.status !== "archived")
           .length,
         icon: CircleCheck,
         tone: "green",
       },
       {
         label: "Uncategorized Products",
-        value: products.filter((product) => !product.categoryId).length,
+        value: products.filter((product) => !product.categoryId && !product.category && !product.categoryName).length,
         icon: TriangleAlert,
         tone: "orange",
       },
@@ -460,7 +470,12 @@ function InventoryPage() {
             ? "inventory-tabs__button--active"
             : ""
             }`}
-          onClick={() => setActiveTab("products")}
+          onClick={() => {
+            setActiveTab("products");
+            const nextParams = new URLSearchParams(searchParameters);
+            nextParams.delete("tab");
+            setSearchParameters(nextParams, { replace: true });
+          }}
         >
           <Package size={17} aria-hidden="true" />
           <span>Products</span>
@@ -474,7 +489,12 @@ function InventoryPage() {
             ? "inventory-tabs__button--active"
             : ""
             }`}
-          onClick={() => setActiveTab("categories")}
+          onClick={() => {
+            setActiveTab("categories");
+            const nextParams = new URLSearchParams(searchParameters);
+            nextParams.set("tab", "categories");
+            setSearchParameters(nextParams, { replace: true });
+          }}
         >
           <Tags size={17} aria-hidden="true" />
           <span>Categories</span>
@@ -568,7 +588,7 @@ function InventoryPage() {
         </>
       )}
 
-      {/* Temporary category content shown while Categories is active. */}
+      {/* Category content shown while Categories is active. */}
       {activeTab === "categories" && (
         <>
           <section aria-label="Inventory dashboard">
@@ -585,7 +605,7 @@ function InventoryPage() {
             </div>
           </section>
 
-          {isCategoriesLoading && categories.length === 0 ? null : (
+          {isInventoryLoading && categories.length === 0 ? null : (
             <CategoryTable
               categories={categories}
               products={products}

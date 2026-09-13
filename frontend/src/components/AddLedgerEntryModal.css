@@ -1,0 +1,244 @@
+.add-ledger-entry-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.add-ledger-entry__type-selector {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  background: var(--bg-subtle, #f1f5f9);
+  padding: 4px;
+  border-radius: var(--radius-md, 10px);
+}
+
+body.dark-theme .add-ledger-entry__type-selector {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.add-ledger-entry__type-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: var(--radius-sm, 8px);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-secondary, #64748b);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.add-ledger-entry__type-btn:hover {
+  color: var(--text-primary, #0f172a);
+}
+
+body.dark-theme .add-ledger-entry__type-btn:hover {
+  color: var(--text-primary, #f8fafc);
+}
+
+.add-ledger-entry__type-btn.is-active-expense {
+  background: #fef2f2;
+  color: #dc2626;
+  border-color: rgba(220, 38, 38, 0.2);
+  box-shadow: 0 1px 3px rgba(220, 38, 38, 0.1);
+}
+
+body.dark-theme .add-ledger-entry__type-btn.is-active-expense {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.add-ledger-entry__type-btn.is-active-income {
+  background: #ecfdf5;
+  color: #059669;
+  border-color: rgba(5, 150, 105, 0.2);
+  box-shadow: 0 1px 3px rgba(5, 150, 105, 0.1);
+}
+
+body.dark-theme .add-ledger-entry__type-btn.is-active-income {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.add-ledger-entry__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+@media (max-width: 580px) {
+  .add-ledger-entry__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.add-ledger-entry__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.add-ledger-entry__field--full {
+  grid-column: 1 / -1;
+}
+
+.add-ledger-entry__field label {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-secondary, #475569);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+body.dark-theme .add-ledger-entry__field label {
+  color: var(--text-secondary, #94a3b8);
+}
+
+.add-ledger-entry__field input,
+.add-ledger-entry__field select,
+.add-ledger-entry__field textarea {
+  width: 100%;
+  padding: 9px 12px;
+  font-size: 13px;
+  border-radius: var(--radius-sm, 8px);
+  border: 1px solid var(--border-color, #e2e8f0);
+  background: var(--bg-surface, #ffffff);
+  color: var(--text-primary, #0f172a);
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+body.dark-theme .add-ledger-entry__field input,
+body.dark-theme .add-ledger-entry__field select,
+body.dark-theme .add-ledger-entry__field textarea {
+  border-color: var(--border-color, rgba(255, 255, 255, 0.12));
+  background: var(--bg-surface, #1e293b);
+  color: var(--text-primary, #f8fafc);
+}
+
+.add-ledger-entry__field input:focus,
+.add-ledger-entry__field select:focus,
+.add-ledger-entry__field textarea:focus {
+  border-color: var(--primary, #6366f1);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+
+.add-ledger-entry__amount-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.add-ledger-entry__currency-tag {
+  position: absolute;
+  left: 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted, #94a3b8);
+  pointer-events: none;
+}
+
+.add-ledger-entry__amount-wrapper input {
+  padding-left: 48px;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.add-ledger-entry__error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm, 8px);
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  color: #ef4444;
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+.add-ledger-entry__footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-subtle, #f1f5f9);
+}
+
+body.dark-theme .add-ledger-entry__footer {
+  border-top-color: var(--border-subtle, rgba(255, 255, 255, 0.08));
+}
+
+.add-ledger-entry__cancel-btn {
+  padding: 9px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: var(--radius-sm, 8px);
+  border: 1px solid var(--border-color, #e2e8f0);
+  background: transparent;
+  color: var(--text-secondary, #64748b);
+  cursor: pointer;
+}
+
+body.dark-theme .add-ledger-entry__cancel-btn {
+  border-color: var(--border-color, rgba(255, 255, 255, 0.15));
+  color: var(--text-secondary, #94a3b8);
+}
+
+.add-ledger-entry__cancel-btn:hover {
+  background: var(--bg-hover, #f8fafc);
+  color: var(--text-primary, #0f172a);
+}
+
+body.dark-theme .add-ledger-entry__cancel-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary, #f8fafc);
+}
+
+.add-ledger-entry__submit-btn {
+  padding: 9px 20px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: var(--radius-sm, 8px);
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: opacity 0.15s ease, transform 0.1s ease;
+}
+
+.add-ledger-entry__submit-btn--expense {
+  background: #dc2626;
+  color: #ffffff;
+}
+
+.add-ledger-entry__submit-btn--expense:hover {
+  background: #b91c1c;
+}
+
+.add-ledger-entry__submit-btn--income {
+  background: #059669;
+  color: #ffffff;
+}
+
+.add-ledger-entry__submit-btn--income:hover {
+  background: #047857;
+}
+
+.add-ledger-entry__submit-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

@@ -1,11 +1,12 @@
 // Return direct stock for simple products or add all size stocks together.
 export function getProductStock(product) {
+  if (!product) return 0;
   if (!product.hasSizes) {
-    return product.stock;
+    return Number(product.stock ?? product.availableStock ?? 0);
   }
 
-  return product.sizes.reduce(
-    (totalStock, sizeOption) => totalStock + sizeOption.stock,
+  return (product.sizes ?? []).reduce(
+    (totalStock, sizeOption) => totalStock + Number(sizeOption?.stock ?? 0),
     0,
   );
 }

@@ -9,9 +9,11 @@ import {
   Search,
   WalletCards,
   X,
+  Plus,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 
+import AddLedgerEntryModal from "./AddLedgerEntryModal";
 import DateRangePicker from "./DateRangePicker";
 import TablePagination from "./TablePagination";
 import CustomSelect from "./CustomSelect";
@@ -26,6 +28,8 @@ import "./AnalyticsLedger.css";
 
 const TRANSACTION_TYPES = [
   ["all", "All transactions"],
+  ["expense", "Expenses (Manual)"],
+  ["income", "Income (Manual)"],
   ["online-order", "Online orders"],
   ["shop-sale", "Shop sales"],
   ["returned", "Order returns"],
@@ -54,11 +58,12 @@ function displayDate(value) {
 }
 
 
-function AnalyticsLedger({ businessId, ledger, isLoading, error }) {
+function AnalyticsLedger({ businessId, ledger, isLoading, error, onRefresh }) {
   const [filters, setFilters] = useState({ search: "", type: "all", dateFrom: "", dateTo: "" });
   const [areMobileFiltersOpen, setAreMobileFiltersOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [exportError, setExportError] = useState("");
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   const filteredEntries = useMemo(() => {
     const needle = filters.search.trim().toLowerCase();
@@ -196,6 +201,15 @@ function AnalyticsLedger({ businessId, ledger, isLoading, error }) {
                 <div className="page__actions">
                   <button
                     type="button"
+                    className="button button--primary"
+                    onClick={() => setIsAddModalOpen(true)}
+                    title="Record expense or income"
+                  >
+                    <Plus size={15} aria-hidden="true" />
+                    <span>Add Expense / Income</span>
+                  </button>
+                  <button
+                    type="button"
                     onClick={exportLedger}
                     disabled={!businessId || isExporting}
                     title="Export ledger"
@@ -239,6 +253,13 @@ function AnalyticsLedger({ businessId, ledger, isLoading, error }) {
       </section>
 
       <p className="analytics-ledger__note">This activity ledger is derived from Vendly sales, warranty and stock-in records. It is not a bank statement or a double-entry accounting report.</p>
+
+      <AddLedgerEntryModal
+        isOpen={isAddModalOpen}
+        businessId={businessId}
+        onClose={() => setIsAddModalOpen(false)}
+        onSuccess={() => onRefresh?.()}
+      />
     </section>
   );
 }

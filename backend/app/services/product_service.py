@@ -725,6 +725,22 @@ def adjust_variant_stock(
             422,
         )
 
+    raw_unit_cost = payload.get("unitCostMinor")
+    if raw_unit_cost is None and payload.get("unitCost") is not None:
+        try:
+            raw_unit_cost = money_to_minor_units(payload.get("unitCost"), "Unit cost")
+        except ValueError as error:
+            raise ApiError("validation_error", str(error), 422) from error
+    elif raw_unit_cost is None and payload.get("costPrice") is not None:
+        try:
+            raw_unit_cost = money_to_minor_units(payload.get("costPrice"), "Unit cost")
+        except ValueError as error:
+            raise ApiError("validation_error", str(error), 422) from error
+
+    update_cost_price = bool(payload.get("updateCostPrice") or payload.get("updateVariantCostPrice"))
+    removal_type = str(payload.get("removalType") or "").strip().lower()
+    custom_ledger_impact = payload.get("ledgerImpact")
+
     business_reference = database.collection("businesses").document(business_id)
     product_reference = business_reference.collection("products").document(product_id)
     variant_reference = business_reference.collection("productVariants").document(
@@ -767,41 +783,65 @@ def adjust_variant_stock(
         new_variant_status = stock_status(available_after, threshold)
         product_stock_after = product.get("totalStock", 0) + quantity_change
         product_available_after = product.get("availableStock", 0) + quantity_change
-        summaries = []
 
+        variant_unit_cost_minor = variant.get("costPriceMinor", product.get("costPriceMinor", 0))
+        unit_cost_minor = (
+            int(raw_unit_cost)
+            if raw_unit_cost is not None
+            else variant_unit_cost_minor
+        )
+        total_cost_minor = abs(quantity_change) * unit_cost_minor
+
+        if custom_ledger_impact in {"inventory-debit", "inventory-credit", "none"}:
+            ledger_impact = custom_ledger_impact
+        elif quantity_change > 0:
+            ledger_impact = "inventory-debit" if total_cost_minor > 0 else "none"
+        else:
+            if removal_type in {"supplier-return", "return", "refund"}:
+                ledger_impact = "inventory-credit" if total_cost_minor > 0 else "none"
+            elif removal_type in {"loss", "damaged", "expired", "write-off"}:
+                ledger_impact = "inventory-debit" if total_cost_minor > 0 else "none"
+            else:
+                ledger_impact = "none"
+
+        summaries = []
         for summary in product.get("variantSummaries", []):
             if summary.get("id") == variant_id:
-                summaries.append(
-                    {
-                        **summary,
-                        "stockOnHand": stock_after,
-                        "stockAvailable": available_after,
-                        "stockStatus": new_variant_status,
-                    },
-                )
+                updated_summary = {
+                    **summary,
+                    "stockOnHand": stock_after,
+                    "stockAvailable": available_after,
+                    "stockStatus": new_variant_status,
+                }
+                if update_cost_price and unit_cost_minor > 0:
+                    updated_summary["costPriceMinor"] = unit_cost_minor
+                summaries.append(updated_summary)
             else:
                 summaries.append(summary)
 
         timestamp = firestore.SERVER_TIMESTAMP
-        current_transaction.update(
-            variant_reference,
-            {
-                "stockOnHand": stock_after,
-                "stockAvailable": available_after,
-                "stockStatus": new_variant_status,
-                "updatedAt": timestamp,
-            },
-        )
-        current_transaction.update(
-            product_reference,
-            {
-                "totalStock": product_stock_after,
-                "availableStock": product_available_after,
-                "stockStatus": stock_status(product_available_after, threshold),
-                "variantSummaries": summaries,
-                "updatedAt": timestamp,
-            },
-        )
+        variant_updates = {
+            "stockOnHand": stock_after,
+            "stockAvailable": available_after,
+            "stockStatus": new_variant_status,
+            "updatedAt": timestamp,
+        }
+        if update_cost_price and unit_cost_minor > 0:
+            variant_updates["costPriceMinor"] = unit_cost_minor
+
+        product_updates = {
+            "totalStock": product_stock_after,
+            "availableStock": product_available_after,
+            "stockStatus": stock_status(product_available_after, threshold),
+            "variantSummaries": summaries,
+            "updatedAt": timestamp,
+        }
+        if update_cost_price and unit_cost_minor > 0:
+            if not product.get("hasSizes") or len(product.get("variantSummaries", [])) <= 1:
+                product_updates["costPriceMinor"] = unit_cost_minor
+
+        current_transaction.update(variant_reference, variant_updates)
+        current_transaction.update(product_reference, product_updates)
         current_transaction.set(
             transaction_reference,
             {
@@ -811,15 +851,10 @@ def adjust_variant_stock(
                 "variantSku": variant.get("sku", ""),
                 "type": "adjust",
                 "quantity": quantity_change,
-                "unitCostMinor": variant.get("costPriceMinor", 0),
-                "totalCostMinor": (
-                    quantity_change * variant.get("costPriceMinor", 0)
-                    if quantity_change > 0
-                    else 0
-                ),
-                "ledgerImpact": (
-                    "inventory-debit" if quantity_change > 0 else "none"
-                ),
+                "unitCostMinor": unit_cost_minor,
+                "totalCostMinor": total_cost_minor,
+                "ledgerImpact": ledger_impact,
+                "removalType": removal_type or None,
                 "stockBefore": stock_before,
                 "stockAfter": stock_after,
                 "orderId": None,

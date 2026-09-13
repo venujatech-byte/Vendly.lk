@@ -22,15 +22,20 @@
   flex-wrap: wrap;
 }
 .cod-reconciliation__table-shell { overflow:hidden; border:1px solid var(--color-border); border-radius:14px; background:var(--color-surface); }
-.cod-reconciliation table { width:100%; border-collapse:collapse; font-size:11px; }
-.cod-reconciliation th,.cod-reconciliation td { padding:11px 9px; border-bottom:1px solid var(--color-border); text-align:left; }
-.cod-reconciliation th { color:var(--color-text-strong); background:var(--color-surface-soft); font-size:10px; }
+.cod-reconciliation table { width:100%; border-collapse:collapse; font-size:13px; line-height:1.4; }
+.cod-reconciliation th,.cod-reconciliation td { padding:12px 10px; border-bottom:1px solid var(--color-border); text-align:left; vertical-align:middle; font-size:13px; }
+.cod-reconciliation th { color:var(--color-text-strong); background:var(--color-surface-soft); font-size:12px; font-weight:650; letter-spacing:-0.01em; white-space:nowrap; }
 .cod-reconciliation td { color:var(--color-text); }
-.cod-reconciliation td strong,.cod-reconciliation td small { display:block; }.cod-reconciliation td small { margin-top:3px; color:var(--color-muted); font-size:9px; }
-.cod-reconciliation tr.is-overdue { background:color-mix(in srgb,#ef4444 7%,var(--color-surface)); }.cod-reconciliation td.is-negative { color:#dc2626; font-weight:750; }
-.cod-reconciliation__status { display:inline-flex; padding:4px 8px; border-radius:999px; background:var(--color-surface-soft); font-size:9px; font-weight:800; text-transform:capitalize; }
-.cod-reconciliation__status.is-reconciled { color:#087a52; background:#e6f8f0; }.cod-reconciliation__status.is-partial,.cod-reconciliation__status.is-pending { color:#a65a00; background:#fff3db; }.cod-reconciliation__status.is-disputed { color:#b42318; background:#feeceb; }
-.cod-reconciliation__record { padding:6px 10px; border:1px solid var(--color-accent); border-radius:7px; color:var(--color-accent); background:transparent; font-size:10px; font-weight:750; }
+.cod-reconciliation td strong,.cod-reconciliation td small { display:block; }
+.cod-reconciliation td strong { font-size:13px; font-weight:650; color:var(--color-text-strong); }
+.cod-reconciliation td small { margin-top:3px; color:var(--color-muted); font-size:11.5px; }
+.cod-reconciliation tr.is-overdue { background:color-mix(in srgb,#ef4444 7%,var(--color-surface)); }
+.cod-reconciliation td.is-negative { color:#dc2626; font-weight:750; }
+.cod-reconciliation__status { display:inline-flex; padding:4px 9px; border-radius:999px; background:var(--color-surface-soft); font-size:11px; font-weight:700; text-transform:capitalize; }
+.cod-reconciliation__status.is-reconciled { color:#087a52; background:#e6f8f0; }
+.cod-reconciliation__status.is-partial,.cod-reconciliation__status.is-pending { color:#a65a00; background:#fff3db; }
+.cod-reconciliation__status.is-disputed { color:#b42318; background:#feeceb; }
+.cod-reconciliation__record { padding:6px 11px; border:1px solid var(--color-accent); border-radius:7px; color:var(--color-accent); background:transparent; font-size:11.5px; font-weight:700; cursor:pointer; }
 .cod-reconciliation__overlay { position:fixed; inset:0; z-index:1000; display:grid; place-items:center; padding:20px; background:rgba(4,20,38,.58); backdrop-filter:blur(5px); }
 .cod-reconciliation__dialog { width:min(560px,100%); border:1px solid var(--color-border); border-radius:17px; background:var(--color-surface); box-shadow:0 24px 70px rgba(0,20,45,.3); }
 .cod-reconciliation__dialog header,.cod-reconciliation__dialog footer { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:15px 18px; border-bottom:1px solid var(--color-border); }.cod-reconciliation__dialog footer { justify-content:flex-end; border-top:1px solid var(--color-border); border-bottom:0; }
