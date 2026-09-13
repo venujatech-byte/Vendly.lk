@@ -5,6 +5,12 @@ from google.cloud.firestore_v1.base_query import FieldFilter
 from app.core.errors import ApiError
 from app.core.serialization import serialize_snapshot
 from app.services.business_service import generate_short_code
+from app.services.inventory_batches import (
+    add_fifo_batch,
+    consume_fifo_batches,
+    get_active_unit_cost,
+    normalize_batches,
+)
 from app.services.numbers import (
     kilograms_to_grams,
     integer_value,
@@ -325,6 +331,15 @@ def create_product(database, business_id, uid, payload):
         for variant_reference, variant in variant_entries:
             initial_stock = variant["initialStock"]
             variant_status = stock_status(initial_stock, product["lowStockThreshold"])
+            variant_batches = [
+                {
+                    "batchId": "initial",
+                    "quantity": initial_stock,
+                    "initialQuantity": initial_stock,
+                    "unitCostMinor": variant["costPriceMinor"],
+                    "createdAt": timestamp,
+                }
+            ] if initial_stock > 0 else []
             variant_data = {
                 "productId": product_reference.id,
                 "size": variant["size"],
@@ -337,6 +352,7 @@ def create_product(database, business_id, uid, payload):
                 "stockReserved": 0,
                 "stockAvailable": initial_stock,
                 "stockStatus": variant_status,
+                "inventoryBatches": variant_batches,
                 "status": "active",
                 "imageUrl": variant.get("imageUrl", ""),
                 "createdAt": timestamp,
@@ -355,6 +371,7 @@ def create_product(database, business_id, uid, payload):
                     "stockStatus": variant_status,
                     "costPriceMinor": variant["costPriceMinor"],
                     "sellingPriceMinor": variant["sellingPriceMinor"],
+                    "inventoryBatches": variant_batches,
                     "imageUrl": variant.get("imageUrl", ""),
                 },
             )
@@ -792,6 +809,29 @@ def adjust_variant_stock(
         )
         total_cost_minor = abs(quantity_change) * unit_cost_minor
 
+        existing_batches = normalize_batches(
+            variant.get("inventoryBatches"),
+            fallback_quantity=stock_before,
+            fallback_cost_minor=variant_unit_cost_minor,
+        )
+
+        if quantity_change > 0:
+            updated_batches = add_fifo_batch(
+                existing_batches,
+                quantity_change,
+                unit_cost_minor,
+                timestamp=datetime.now(timezone.utc),
+            )
+            # If there was no previous stock, active cost immediately becomes the new batch's cost.
+            # If previous stock was present, active cost stays at the previous stock's cost until it is sold out.
+            active_cost = get_active_unit_cost(updated_batches, unit_cost_minor)
+        else:
+            updated_batches, _consumed_cost, _weighted_cost, active_cost = consume_fifo_batches(
+                existing_batches,
+                abs(quantity_change),
+                unit_cost_minor,
+            )
+
         if custom_ledger_impact in {"inventory-debit", "inventory-credit", "none"}:
             ledger_impact = custom_ledger_impact
         elif quantity_change > 0:
@@ -812,9 +852,9 @@ def adjust_variant_stock(
                     "stockOnHand": stock_after,
                     "stockAvailable": available_after,
                     "stockStatus": new_variant_status,
+                    "costPriceMinor": active_cost,
+                    "inventoryBatches": updated_batches,
                 }
-                if update_cost_price and unit_cost_minor > 0:
-                    updated_summary["costPriceMinor"] = unit_cost_minor
                 summaries.append(updated_summary)
             else:
                 summaries.append(summary)
@@ -824,10 +864,10 @@ def adjust_variant_stock(
             "stockOnHand": stock_after,
             "stockAvailable": available_after,
             "stockStatus": new_variant_status,
+            "costPriceMinor": active_cost,
+            "inventoryBatches": updated_batches,
             "updatedAt": timestamp,
         }
-        if update_cost_price and unit_cost_minor > 0:
-            variant_updates["costPriceMinor"] = unit_cost_minor
 
         product_updates = {
             "totalStock": product_stock_after,
@@ -836,9 +876,8 @@ def adjust_variant_stock(
             "variantSummaries": summaries,
             "updatedAt": timestamp,
         }
-        if update_cost_price and unit_cost_minor > 0:
-            if not product.get("hasSizes") or len(product.get("variantSummaries", [])) <= 1:
-                product_updates["costPriceMinor"] = unit_cost_minor
+        if not product.get("hasSizes") or len(product.get("variantSummaries", [])) <= 1:
+            product_updates["costPriceMinor"] = active_cost
 
         current_transaction.update(variant_reference, variant_updates)
         current_transaction.update(product_reference, product_updates)

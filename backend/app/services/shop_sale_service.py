@@ -6,6 +6,7 @@ from google.cloud import firestore as google_firestore
 
 from app.core.errors import ApiError
 from app.core.serialization import serialize_snapshot
+from app.services.inventory_batches import consume_fifo_batches
 from app.services.numbers import money_to_minor_units, non_negative_integer
 from app.services.product_service import stock_status
 from app.services.text import optional_text, required_text
@@ -112,6 +113,7 @@ def create_shop_sale(database, business_id, uid, payload):
         warranty_started_at = datetime.now(timezone.utc)
         subtotal_minor = 0
         quantity_by_product = defaultdict(int)
+        consumed_variant_batches = {}
 
         for requested in items_requested:
             variant_snapshot = variant_snapshots[requested["variantId"]]
@@ -123,6 +125,19 @@ def create_shop_sale(database, business_id, uid, payload):
             line_total_minor = price_minor * quantity
             media = product.get("media", [])
             image_url = variant.get("imageUrl") or (media[0].get("url", "") if media else "")
+
+            # FIFO batch consumption for accurate cost of goods sold
+            existing_batches = variant.get("inventoryBatches")
+            updated_batches, line_cost, weighted_unit_cost, active_cost = consume_fifo_batches(
+                existing_batches,
+                quantity,
+                variant.get("costPriceMinor", product.get("costPriceMinor", 0)),
+            )
+            consumed_variant_batches[variant_snapshot.id] = {
+                "batches": updated_batches,
+                "activeCost": active_cost,
+            }
+
             sale_items.append({
                 "productId": variant["productId"],
                 "variantId": variant_snapshot.id,
@@ -132,7 +147,7 @@ def create_shop_sale(database, business_id, uid, payload):
                 "barcode": variant.get("barcode", ""),
                 "quantity": quantity,
                 "unitPriceMinor": price_minor,
-                "unitCostMinor": variant.get("costPriceMinor", 0),
+                "unitCostMinor": weighted_unit_cost,
                 "lineTotalMinor": line_total_minor,
                 "mediaUrl": image_url,
                 **warranty_snapshot(product, warranty_started_at),
@@ -149,6 +164,8 @@ def create_shop_sale(database, business_id, uid, payload):
                 "stockOnHand": on_hand_after,
                 "stockAvailable": available_after,
                 "stockStatus": stock_status(available_after, threshold),
+                "inventoryBatches": updated_batches,
+                "costPriceMinor": active_cost,
                 "updatedAt": timestamp,
             })
             current_transaction.set(business_ref.collection("inventoryTransactions").document(), {
@@ -172,21 +189,33 @@ def create_shop_sale(database, business_id, uid, payload):
             summaries = []
             for summary in product.get("variantSummaries", []):
                 sold = sold_by_variant.get(summary.get("id"), 0)
+                batch_info = consumed_variant_batches.get(summary.get("id"), {})
                 if not sold:
                     summaries.append(summary)
                     continue
                 available = summary.get("stockAvailable", 0) - sold
-                summaries.append({**summary, "stockOnHand": summary.get("stockOnHand", 0) - sold,
-                                  "stockAvailable": available,
-                                  "stockStatus": stock_status(available, product.get("lowStockThreshold", 0))})
+                updated_summary = {
+                    **summary,
+                    "stockOnHand": summary.get("stockOnHand", 0) - sold,
+                    "stockAvailable": available,
+                    "stockStatus": stock_status(available, product.get("lowStockThreshold", 0)),
+                }
+                if "activeCost" in batch_info:
+                    updated_summary["costPriceMinor"] = batch_info["activeCost"]
+                    updated_summary["inventoryBatches"] = batch_info["batches"]
+                summaries.append(updated_summary)
             available_stock = product.get("availableStock", 0) - quantity
-            current_transaction.update(product_snapshot.reference, {
+            product_updates = {
                 "totalStock": product.get("totalStock", 0) - quantity,
                 "availableStock": available_stock,
                 "variantSummaries": summaries,
                 "stockStatus": stock_status(available_stock, product.get("lowStockThreshold", 0)),
                 "updatedAt": timestamp,
-            })
+            }
+            if (not product.get("hasSizes") or len(summaries) <= 1) and summaries:
+                product_updates["costPriceMinor"] = summaries[0].get("costPriceMinor", product.get("costPriceMinor", 0))
+
+            current_transaction.update(product_snapshot.reference, product_updates)
 
         total_minor = subtotal_minor - discount_minor
         current_transaction.set(sale_ref, {
@@ -285,8 +314,10 @@ def create_warranty_claim(database, business_id, uid, payload):
         claim_quantity = non_negative_integer(payload.get("claimQuantity", 1), "Claim quantity")
         claim_type = required_text(payload.get("claimType", "supplier-warranty"), "Claim handling", 30)
         repair_cost_minor = money_to_minor_units(payload.get("repairCost", 0), "Repair cost")
+        other_expenses_minor = money_to_minor_units(payload.get("otherExpenses", payload.get("otherExpensesMinor", 0)), "Other expenses")
         reason = required_text(payload.get("reason"), "Warranty reason", 300)
         details = optional_text(payload.get("details"), 1500)
+        other_expenses_notes = optional_text(payload.get("otherExpensesNotes", payload.get("expenseNotes")), 500)
     except ValueError as error:
         raise ApiError("validation_error", str(error), 422) from error
     collection_name = "orders" if source_type == "online-order" else "shopSales" if source_type == "shop-sale" else None
@@ -309,16 +340,18 @@ def create_warranty_claim(database, business_id, uid, payload):
     item = source_items[item_index]
     if claim_quantity > item.get("quantity", 0):
         raise ApiError("validation_error", "Claim quantity cannot exceed the purchased quantity.", 422)
-    if not warranty_is_active(item):
-        raise ApiError("warranty_expired", "This item's warranty has expired or was not included with the sale.", 422)
 
     # Store the exact financial impact with the claim so it remains auditable
     # even if a seller edits the product price later.
-    revenue_impact_minor = 0
+    base_impact_minor = 0
     if claim_type == "shop-warranty":
-        revenue_impact_minor = item.get("unitPriceMinor", 0) * claim_quantity
+        base_impact_minor = item.get("unitPriceMinor", 0) * claim_quantity
     elif claim_type == "shop-repair":
-        revenue_impact_minor = repair_cost_minor
+        base_impact_minor = repair_cost_minor
+    
+    total_expenses_minor = base_impact_minor + other_expenses_minor
+    revenue_impact_minor = total_expenses_minor
+
     business = business_ref.get().to_dict() or {}
     sequence = business.get("nextWarrantyClaimSequence", 1)
     claim_ref = business_ref.collection("warrantyClaims").document()
@@ -330,9 +363,13 @@ def create_warranty_claim(database, business_id, uid, payload):
         "phoneNumber": source.get("customerSnapshot", {}).get("phoneNumber") or source.get("phoneNumber", ""),
         "item": item, "itemIndex": item_index, "claimQuantity": claim_quantity,
         "claimType": claim_type, "repairCostMinor": repair_cost_minor,
+        "otherExpensesMinor": other_expenses_minor,
+        "otherExpensesNotes": other_expenses_notes,
         "revenueImpactMinor": revenue_impact_minor,
+        "totalExpensesMinor": total_expenses_minor,
         "reason": reason, "details": details, "status": "open",
         "createdBy": uid, "createdAt": timestamp, "updatedAt": timestamp,
     })
     business_ref.update({"nextWarrantyClaimSequence": sequence + 1, "updatedAt": timestamp})
     return serialize_snapshot(claim_ref.get())
+

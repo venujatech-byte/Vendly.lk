@@ -329,6 +329,14 @@ function OrdersPage() {
     ];
   }, [shopSales, warrantyClaims]);
 
+  const allSalesSources = useMemo(() => {
+    const list = [
+      ...orders.map((o) => ({ ...o, sourceType: "online-order" })),
+      ...shopSales.map((s) => ({ ...s, sourceType: "shop-sale" })),
+    ];
+    return list.filter((s) => (s.items ?? []).length > 0);
+  }, [orders, shopSales]);
+
   function openOnlineWarranty(order) { setWarrantySource({ ...order, sourceType: "online-order" }); }
   function openShopWarranty(sale) { setWarrantySource({ ...sale, sourceType: "shop-sale" }); }
 
@@ -728,7 +736,17 @@ function OrdersPage() {
               <p>Claims from online orders and physical shop sales appear together.</p>
             </div>
             <div className="page__actions">
-              <button type="button" disabled={!shopSales.length} title="Export warranty claims">
+              <button
+                className="page__add-button"
+                type="button"
+                onClick={() => setWarrantySource(allSalesSources[0] || null)}
+                disabled={!allSalesSources.length}
+                title="Record Warranty Claim"
+              >
+                <Plus size={14} aria-hidden="true" />
+                <span>Record Warranty Claim</span>
+              </button>
+              <button type="button" disabled={!warrantyClaims.length} title="Export warranty claims">
                 <Download size={14} aria-hidden="true" />
                 <span>Export warranty claims</span>
               </button>
@@ -759,7 +777,19 @@ function OrdersPage() {
         onCreated={(order) => setOrders((current) => [order, ...current])}
       />
       <AddShopSaleModal isOpen={isAddShopSaleOpen} businessId={business?.id} onClose={() => setIsAddShopSaleOpen(false)} onCreated={(sale) => setShopSales((current) => [sale, ...current])} />
-      <WarrantyClaimModal source={warrantySource} businessId={business?.id} onClose={() => setWarrantySource(null)} onCreate={async (businessId, payload) => { const claim = await createWarrantyClaim(businessId, payload); setWarrantyClaims((current) => [claim, ...current]); }} />
+      {Boolean(warrantySource) && (
+        <WarrantyClaimModal
+          source={warrantySource}
+          availableSources={allSalesSources}
+          onSourceChange={setWarrantySource}
+          businessId={business?.id}
+          onClose={() => setWarrantySource(null)}
+          onCreate={async (businessId, payload) => {
+            const claim = await createWarrantyClaim(businessId, payload);
+            setWarrantyClaims((current) => [claim, ...current]);
+          }}
+        />
+      )}
 
       <EditOrderModal isOpen={Boolean(editingOrder)} businessId={business?.id} order={editingOrder} onClose={() => setEditingOrder(null)} onUpdated={(updated) => { setOrders((current) => current.map((order) => order.id === updated.id ? updated : order)); setEditingOrder(null); }} />
       <ConfirmDialog isOpen={Boolean(removalTarget)} title="Remove order?" message={`This cancels ${removalTarget?.orderNumber ?? "this order"} and releases its reserved stock.`} isWorking={isRemoving} onCancel={() => setRemovalTarget(null)} onConfirm={confirmOrderRemoval} />

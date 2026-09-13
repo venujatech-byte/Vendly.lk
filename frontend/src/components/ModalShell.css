@@ -5,13 +5,15 @@
 .modal-shell__backdrop {
   position: fixed;
   inset: 0;
-  z-index: 1000;
-  display: grid;
-  place-items: center;
+  z-index: 5000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   padding: 24px;
-  background: rgba(15, 23, 42, 0.65);
-  backdrop-filter: blur(8px);
-  animation: modal-backdrop-in 160ms ease-out;
+  background: rgba(15, 23, 42, 0.68);
+  backdrop-filter: blur(14px) saturate(160%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  animation: modalBackdropFadeIn 180ms ease-out;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
@@ -19,18 +21,20 @@
 .modal-shell {
   width: min(100%, 620px);
   max-height: calc(100vh - 48px);
+  margin: auto;
   overflow: auto;
   border: 1px solid var(--color-border);
   border-radius: 20px;
   color: var(--color-text);
   background: var(--color-surface, #ffffff);
   box-shadow:
-    0 24px 64px -12px rgba(15, 23, 42, 0.26),
-    0 8px 24px -4px rgba(15, 23, 42, 0.08);
-  animation: modal-panel-in 200ms cubic-bezier(0.22, 1, 0.36, 1);
+    0 28px 72px -12px rgba(15, 23, 42, 0.38),
+    0 12px 32px -4px rgba(15, 23, 42, 0.16);
+  animation: modalPopInCenter 220ms cubic-bezier(0.16, 1, 0.3, 1);
   scrollbar-width: thin;
   scrollbar-color: rgba(148, 163, 184, 0.3) transparent;
 }
+
 
 .modal-shell::-webkit-scrollbar {
   width: 6px;

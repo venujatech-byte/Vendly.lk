@@ -392,15 +392,17 @@ function OrderDetails({
           Report Courier Issue
         </button>
 
-        {hasActiveWarranty && <button
-          className="order-details__print-button"
-          type="button"
-          onClick={() => onWarrantyClaim?.(order)}
-          disabled={isWorking}
-        >
-          <ShieldCheck size={17} />
-          Warranty Claim
-        </button>}
+        {(order.items?.length > 0) && (
+          <button
+            className="order-details__print-button"
+            type="button"
+            onClick={() => onWarrantyClaim?.(order)}
+            disabled={isWorking}
+          >
+            <ShieldCheck size={17} />
+            Warranty Claim
+          </button>
+        )}
 
         {/* Money the seller has received. Offered while anything is still
             outstanding, and on any order - a cash-on-delivery customer who

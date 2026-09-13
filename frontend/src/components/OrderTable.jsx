@@ -445,7 +445,7 @@ function OrderTable({
                           icon: <CircleAlert size={16} aria-hidden="true" />,
                           onClick: () => reportOrderCourierIssue(order),
                         },
-                        ...(hasActiveWarranty(order) ? [{
+                        ...(order.items?.length ? [{
                           label: "Warranty claim",
                           icon: <ShieldCheck size={16} aria-hidden="true" />,
                           onClick: () => onWarrantyClaim?.(order),

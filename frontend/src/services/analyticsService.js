@@ -68,6 +68,16 @@ export async function saveCodSettlement(businessId, orderId, settlement) {
 }
 
 
+export async function saveBulkCodSettlements(businessId, payload) {
+  const response = await apiRequest(
+    `/businesses/${businessId}/analytics/cod-reconciliation/bulk`,
+    { method: "POST", body: payload },
+  );
+  return response.reconciliation;
+}
+
+
+
 export async function downloadAnalyticsLedger(businessId, filters = {}) {
   const searchParameters = new URLSearchParams();
   if (filters.search?.trim()) searchParameters.set("search", filters.search.trim());

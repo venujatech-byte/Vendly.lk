@@ -15,6 +15,7 @@ from app.services.analytics_service import (
 )
 from app.services.cod_reconciliation_service import (
     get_cod_reconciliation,
+    update_bulk_cod_settlements,
     update_cod_settlement,
 )
 from app.services.spreadsheet_service import export_ledger_workbook
@@ -100,6 +101,21 @@ def analytics_update_cod_reconciliation(business_id, order_id):
             g.current_user["uid"],
         ),
     })
+
+
+@analytics_blueprint.post("/businesses/<business_id>/analytics/cod-reconciliation/bulk")
+@require_firebase_user
+@require_business_member(permission="orders:*")
+def analytics_bulk_update_cod_reconciliation(business_id):
+    return jsonify({
+        "reconciliation": update_bulk_cod_settlements(
+            get_firestore_client(),
+            business_id,
+            request.get_json(silent=True) or {},
+            g.current_user["uid"],
+        ),
+    })
+
 
 
 @analytics_blueprint.get("/businesses/<business_id>/analytics/ledger-export.xlsx")

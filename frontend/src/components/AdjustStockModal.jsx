@@ -249,6 +249,22 @@ function AdjustStockModal({ businessId, product, initialVariantId, onClose, onUp
               </div>
             </div>
 
+            {/* FIFO Batch Costing Explanatory Card */}
+            {operation === "add" && currentStock > 0 && numericUnitCost > 0 && (
+              <div className="adjust-stock__batch-explanation">
+                <span className="adjust-stock__batch-title">FIFO Batch Costing Active</span>
+                <p>
+                  • <strong>{currentStock} units</strong> existing in stock @ {formatMoney(selectedVariant?.costPrice || product.costPrice || 0)}
+                </p>
+                <p>
+                  • <strong>{numericQuantity} units</strong> incoming new arrival @ {formatMoney(numericUnitCost)}
+                </p>
+                <small>
+                  Orders will be costed at {formatMoney(selectedVariant?.costPrice || product.costPrice || 0)} until the {currentStock} previous units are sold out. Subsequent orders will automatically switch to {formatMoney(numericUnitCost)} for profit calculations.
+                </small>
+              </div>
+            )}
+
             {/* Checkbox Options */}
             <div className="adjust-stock__checkbox-group">
               {operation === "add" && (

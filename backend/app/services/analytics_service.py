@@ -1038,23 +1038,41 @@ def build_transaction_ledger(
             )
 
     for claim in warranty_claims:
-        impact_minor = _minor_units(claim.get("revenueImpactMinor"))
+        impact_minor = _minor_units(
+            claim.get("revenueImpactMinor")
+            if "revenueImpactMinor" in claim
+            else (claim.get("totalExpensesMinor") or 0)
+        )
+        if impact_minor == 0 and claim.get("otherExpensesMinor"):
+            impact_minor = _minor_units(claim.get("otherExpensesMinor"))
+
+        item_name = (claim.get("item") or {}).get("name") or "Warranty claim"
+        desc_parts = [item_name]
+        if claim.get("reason"):
+            desc_parts.append(claim.get("reason"))
+        other_exp = _minor_units(claim.get("otherExpensesMinor"))
+        if other_exp > 0 and claim.get("otherExpensesNotes"):
+            desc_parts.append(f"Expenses: {claim.get('otherExpensesNotes')} (LKR {other_exp / 100:,.2f})")
+        elif other_exp > 0:
+            desc_parts.append(f"Other expenses: LKR {other_exp / 100:,.2f}")
+
         add_entry(
             id=f"warranty:{claim.get('id') or claim.get('claimNumber', '')}",
             sourceId=claim.get("id", ""),
             sourceType=claim.get("sourceType", "warranty-claim"),
             reference=claim.get("claimNumber") or claim.get("sourceNumber") or "Warranty",
             customerName=claim.get("customerName") or "Customer",
-            description=(claim.get("item") or {}).get("name") or claim.get("reason") or "Warranty claim",
+            description=" · ".join(desc_parts),
             paymentMethod="adjustment",
             paymentStatus=claim.get("status", "open"),
             transactionType="warranty-adjustment",
-            label="Warranty adjustment",
+            label="Warranty expense" if impact_minor > 0 else "Warranty claim",
             direction="debit",
             amountMinor=impact_minor,
             status=claim.get("status", "open"),
             createdAt=claim.get("createdAt"),
         )
+
 
     for stock_entry in inventory_transactions or []:
         quantity = int(stock_entry.get("quantity") or 0)

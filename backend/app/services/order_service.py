@@ -23,6 +23,7 @@ from app.services.chat_event_service import (
     send_order_status_chat_message,
     send_payment_recorded_chat_message,
 )
+from app.services.inventory_batches import consume_fifo_batches
 from app.services.numbers import money_to_minor_units, non_negative_integer
 from app.services.product_service import stock_status
 from app.services.text import optional_text, required_text
@@ -438,6 +439,7 @@ def create_order(database, business_id, uid, payload):
         subtotal_minor = 0
         total_weight_grams = 0
         quantities_by_product = defaultdict(int)
+        consumed_variant_batches = {}
 
         for requested_item in request_data["items"]:
             variant_snapshot = variant_snapshots[requested_item["variantId"]]
@@ -448,6 +450,19 @@ def create_order(database, business_id, uid, payload):
             line_total_minor = unit_price_minor * quantity
             line_weight_grams = variant.get("weightGrams", 0) * quantity
             media = product.get("media", [])
+
+            # FIFO batch consumption for accurate cost of goods sold
+            existing_batches = variant.get("inventoryBatches")
+            updated_batches, line_cost, weighted_unit_cost, active_cost = consume_fifo_batches(
+                existing_batches,
+                quantity,
+                variant.get("costPriceMinor", product.get("costPriceMinor", 0)),
+            )
+            consumed_variant_batches[variant_snapshot.id] = {
+                "batches": updated_batches,
+                "activeCost": active_cost,
+            }
+
             items.append(
                 {
                     "productId": variant["productId"],
@@ -458,7 +473,7 @@ def create_order(database, business_id, uid, payload):
                     "barcode": variant.get("barcode", ""),
                     "quantity": quantity,
                     "unitPriceMinor": unit_price_minor,
-                    "unitCostMinor": variant.get("costPriceMinor", 0),
+                    "unitCostMinor": weighted_unit_cost,
                     "unitWeightGrams": variant.get("weightGrams", 0),
                     "lineTotalMinor": line_total_minor,
                     "mediaUrl": media[0].get("url", "") if media else "",
@@ -500,14 +515,21 @@ def create_order(database, business_id, uid, payload):
             reserved_after = variant.get("stockReserved", 0) + quantity
             product = product_snapshots[variant["productId"]].to_dict()
             threshold = product.get("lowStockThreshold", 0)
+            batch_info = consumed_variant_batches.get(variant_snapshot.id, {})
+
+            variant_updates = {
+                "stockReserved": reserved_after,
+                "stockAvailable": available_after,
+                "stockStatus": stock_status(available_after, threshold),
+                "updatedAt": timestamp,
+            }
+            if "batches" in batch_info:
+                variant_updates["inventoryBatches"] = batch_info["batches"]
+                variant_updates["costPriceMinor"] = batch_info["activeCost"]
+
             current_transaction.update(
                 variant_snapshot.reference,
-                {
-                    "stockReserved": reserved_after,
-                    "stockAvailable": available_after,
-                    "stockStatus": stock_status(available_after, threshold),
-                    "updatedAt": timestamp,
-                },
+                variant_updates,
             )
             current_transaction.set(
                 business_reference.collection("inventoryTransactions").document(),
@@ -539,36 +561,44 @@ def create_order(database, business_id, uid, payload):
 
             for summary in product.get("variantSummaries", []):
                 quantity = variant_updates.get(summary.get("id"), 0)
+                batch_info = consumed_variant_batches.get(summary.get("id"), {})
 
                 if quantity:
                     available = summary.get("stockAvailable", 0) - quantity
-                    summaries.append(
-                        {
-                            **summary,
-                            "stockReserved": summary.get("stockReserved", 0) + quantity,
-                            "stockAvailable": available,
-                            "stockStatus": stock_status(
-                                available,
-                                product.get("lowStockThreshold", 0),
-                            ),
-                        },
-                    )
+                    updated_summary = {
+                        **summary,
+                        "stockReserved": summary.get("stockReserved", 0) + quantity,
+                        "stockAvailable": available,
+                        "stockStatus": stock_status(
+                            available,
+                            product.get("lowStockThreshold", 0),
+                        ),
+                    }
+                    if "activeCost" in batch_info:
+                        updated_summary["costPriceMinor"] = batch_info["activeCost"]
+                        updated_summary["inventoryBatches"] = batch_info["batches"]
+                    summaries.append(updated_summary)
                 else:
                     summaries.append(summary)
 
             available_product_stock = product.get("availableStock", 0) - reserved_quantity
+            product_updates = {
+                "reservedStock": product.get("reservedStock", 0) + reserved_quantity,
+                "availableStock": available_product_stock,
+                "stockStatus": stock_status(
+                    available_product_stock,
+                    product.get("lowStockThreshold", 0),
+                ),
+                "variantSummaries": summaries,
+                "updatedAt": timestamp,
+            }
+            # If single variant, sync active cost price
+            if (not product.get("hasSizes") or len(summaries) <= 1) and summaries:
+                product_updates["costPriceMinor"] = summaries[0].get("costPriceMinor", product.get("costPriceMinor", 0))
+
             current_transaction.update(
                 product_snapshot.reference,
-                {
-                    "reservedStock": product.get("reservedStock", 0) + reserved_quantity,
-                    "availableStock": available_product_stock,
-                    "stockStatus": stock_status(
-                        available_product_stock,
-                        product.get("lowStockThreshold", 0),
-                    ),
-                    "variantSummaries": summaries,
-                    "updatedAt": timestamp,
-                },
+                product_updates,
             )
 
         if request_data["depositMinor"] > total_minor:

@@ -150,3 +150,87 @@ def update_cod_settlement(database, business_id, order_id, payload, user_id):
         changes["createdAt"] = firestore.SERVER_TIMESTAMP
     settlement_reference.set(changes, merge=True)
     return get_cod_reconciliation(database, business_id)
+
+
+def update_bulk_cod_settlements(database, business_id, payload, user_id):
+    """Update multiple COD settlements in batch."""
+    reference = database.collection("businesses").document(business_id)
+    raw_settlements = payload.get("settlements")
+    order_ids = payload.get("orderIds")
+    shared_data = payload.get("settlementData") or payload
+
+    settlements_to_apply = []
+    if isinstance(raw_settlements, list) and len(raw_settlements) > 0:
+        settlements_to_apply = raw_settlements
+    elif isinstance(order_ids, list) and len(order_ids) > 0:
+        for oid in order_ids:
+            item = dict(shared_data)
+            item["orderId"] = oid
+            settlements_to_apply.append(item)
+    else:
+        raise ApiError("validation_error", "No orders specified for bulk settlement.", 422)
+
+    if not settlements_to_apply:
+        raise ApiError("validation_error", "No settlements provided.", 422)
+
+    # Process settlements in batches of 400
+    chunk_size = 400
+    for i in range(0, len(settlements_to_apply), chunk_size):
+        chunk = settlements_to_apply[i : i + chunk_size]
+        batch = database.batch()
+
+        for item in chunk:
+            order_id = item.get("orderId")
+            if not order_id:
+                continue
+
+            order_snapshot = reference.collection("orders").document(order_id).get()
+            if not order_snapshot.exists:
+                continue
+            order = {"id": order_snapshot.id, **order_snapshot.to_dict()}
+            if order.get("fulfilmentStatus") != "delivered":
+                continue
+            balance = _cod_balance(order)
+            if balance <= 0:
+                continue
+
+            changes = {
+                "orderId": order_id,
+                "updatedAt": firestore.SERVER_TIMESTAMP,
+                "updatedBy": user_id,
+            }
+
+            # If auto-full-settlement is requested or specific amounts
+            auto_full = item.get("autoFullSettlement") or item.get("fullSettlement")
+            collected = _minor(item.get("amountCollectedMinor", balance if auto_full else None))
+            if "amountCollectedMinor" in item:
+                collected = _minor(item["amountCollectedMinor"])
+            elif auto_full:
+                collected = balance
+
+            courier_charge = _minor(item.get("courierChargeMinor", 0))
+
+            if auto_full and "receivedSettlementMinor" not in item:
+                received = max(collected - courier_charge, 0)
+            elif "receivedSettlementMinor" in item:
+                received = _minor(item["receivedSettlementMinor"])
+            else:
+                received = max(collected - courier_charge, 0)
+
+            changes["amountCollectedMinor"] = collected
+            changes["courierChargeMinor"] = courier_charge
+            changes["receivedSettlementMinor"] = received
+
+            for field, limit in (("settlementDate", 20), ("settlementReference", 120), ("note", 500)):
+                if field in item:
+                    changes[field] = str(item[field] or "").strip()[:limit]
+            if "isDisputed" in item:
+                changes["isDisputed"] = bool(item["isDisputed"])
+
+            settlement_ref = reference.collection("codSettlements").document(order_id)
+            batch.set(settlement_ref, changes, merge=True)
+
+        batch.commit()
+
+    return get_cod_reconciliation(database, business_id)
+

@@ -1,30 +1,32 @@
 .customer-account-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 120;
-  display: grid;
+  z-index: 5000;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
   padding: 20px;
-  place-items: center;
-  background: rgba(4, 18, 34, 0.58);
-  backdrop-filter: blur(7px);
+  background: rgba(15, 23, 42, 0.68) !important;
+  backdrop-filter: blur(14px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(14px) saturate(160%) !important;
+  animation: modalBackdropFadeIn 180ms ease-out;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .customer-account-modal {
   width: min(680px, 100%);
   max-height: min(760px, calc(100vh - 40px));
+  margin: auto !important;
   overflow: auto;
   border: 1px solid var(--sf-border, #dfe4ec);
   border-radius: 20px;
   color: var(--sf-text, #142238);
   background: var(--sf-surface, #fff);
   box-shadow: 0 28px 80px rgba(0, 22, 48, 0.28);
-  animation: customer-modal-in 180ms ease-out;
+  animation: modalPopInCenter 220ms cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
 
-@keyframes customer-modal-in {
-  from { opacity: 0; transform: translateY(12px) scale(0.98); }
-  to { opacity: 1; transform: none; }
-}
 
 .customer-account-modal > header,
 .customer-account-modal > header > div,
