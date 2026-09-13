@@ -64,7 +64,7 @@ import CustomerAccountModal from "../components/CustomerAccountModal";
 import StorefrontInstructionsModal from "../components/StorefrontInstructionsModal";
 import { useAuth } from "../context/authContextValue";
 import { claimPublicChatSession } from "../services/publicService";
-import { ref as dbRef, onValue } from "firebase/database";
+import { ref as dbRef, onValue, query, limitToLast } from "firebase/database";
 import { rtdb } from "../firebase/firebase";
 
 import "./StorefrontPage.css";
@@ -580,6 +580,144 @@ function StorefrontPage({ linkType }) {
       }
     };
   }, [business?.shortCode, user?.uid, session?.sessionId]);
+
+  // Real-time listener on RTDB for incoming seller, customer, and AI messages
+  useEffect(() => {
+    if (!session?.sessionId) return undefined;
+
+    let isCurrent = true;
+    let unsubscribe = null;
+
+    try {
+      const chatQuery = query(
+        dbRef(rtdb, `chatMessages/${session.sessionId}`),
+        limitToLast(30),
+      );
+
+      unsubscribe = onValue(
+        chatQuery,
+        (snapshot) => {
+          if (!isCurrent) return;
+          const val = snapshot.val();
+          if (!val) return;
+
+          const rtdbMessages = Object.entries(val).map(([id, item]) => {
+            const meta = item.metadata || {};
+            return {
+              id,
+              role: item.role,
+              text: item.message || item.text || "",
+              action: meta.action || item.action,
+              imageUrl: meta.imageUrl || item.imageUrl,
+              suggestions: (meta.suggestions && meta.suggestions.length > 0) ? meta.suggestions : (item.suggestions || []),
+              product: meta.product || item.product,
+              products: (meta.products && meta.products.length > 0) ? meta.products : (item.products || []),
+              categories: (meta.categories && meta.categories.length > 0) ? meta.categories : (item.categories || []),
+              reviews: (meta.reviews && meta.reviews.length > 0) ? meta.reviews : (item.reviews || []),
+              reviewSummary: meta.reviewSummary || item.reviewSummary,
+              sellerRating: meta.sellerRating || item.sellerRating,
+              cartSummary: meta.cartSummary || item.cartSummary,
+              customerDraft: meta.customerDraft || item.customerDraft,
+              createdAt: item.createdAt,
+            };
+          });
+
+          rtdbMessages.sort(
+            (a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0),
+          );
+
+          setMessages((current) => {
+            const prev = current || [];
+            const rtdbIds = new Set(rtdbMessages.map((m) => m.id));
+
+            // Check if there are newly arrived seller messages that need notification
+            rtdbMessages.forEach((m) => {
+              if (m.role === "seller" && m.id && !receivedSellerMessageIds.current.has(m.id)) {
+                receivedSellerMessageIds.current.add(m.id);
+                // Push a notification to the customer if they are browsing another view
+                setNotifications((notifs) => [
+                  {
+                    id: `seller-msg-${m.id}-${Date.now()}`,
+                    kind: "chat",
+                    title: business?.name ? `${business.name} (Seller)` : "New message from seller",
+                    body: m.text,
+                  },
+                  ...notifs,
+                ].slice(0, 20));
+              }
+            });
+
+            // If an incoming RTDB message matches an existing message in prev (by ID or by text+role without ID),
+            // preserve any rich UI properties (action, suggestions, product, products, reviews, etc.) attached locally
+            const enrichedRtdbMessages = rtdbMessages.map((rtdbMsg) => {
+              const matchedPrev = prev.find(
+                (p) => p.id === rtdbMsg.id || (!p.id && p.role === rtdbMsg.role && p.text === rtdbMsg.text)
+              );
+              if (matchedPrev) {
+                return {
+                  ...rtdbMsg,
+                  ...matchedPrev,
+                  id: rtdbMsg.id,
+                  role: rtdbMsg.role || matchedPrev.role,
+                  text: rtdbMsg.text || matchedPrev.text,
+                  action: matchedPrev.action || rtdbMsg.action,
+                  product: matchedPrev.product || rtdbMsg.product,
+                  products: (matchedPrev.products && matchedPrev.products.length > 0) ? matchedPrev.products : rtdbMsg.products,
+                  categories: (matchedPrev.categories && matchedPrev.categories.length > 0) ? matchedPrev.categories : rtdbMsg.categories,
+                  reviews: (matchedPrev.reviews && matchedPrev.reviews.length > 0) ? matchedPrev.reviews : rtdbMsg.reviews,
+                  suggestions: (matchedPrev.suggestions && matchedPrev.suggestions.length > 0) ? matchedPrev.suggestions : rtdbMsg.suggestions,
+                  reviewSummary: matchedPrev.reviewSummary || rtdbMsg.reviewSummary,
+                  sellerRating: matchedPrev.sellerRating || rtdbMsg.sellerRating,
+                  cartSummary: matchedPrev.cartSummary || rtdbMsg.cartSummary,
+                  customerDraft: matchedPrev.customerDraft || rtdbMsg.customerDraft,
+                  createdAt: rtdbMsg.createdAt || matchedPrev.createdAt,
+                };
+              }
+              return rtdbMsg;
+            });
+
+            // Keep any older paginated messages that came before the last 30
+            const olderLoaded = prev.filter((m) => m.id && !rtdbIds.has(m.id));
+
+            // Keep only un-synced local messages (e.g. initial greeting or pending optimistic customer msg) that have no text match in RTDB
+            const unsyncedLocal = prev.filter(
+              (m) => !m.id && !enrichedRtdbMessages.some((r) => r.role === m.role && r.text === m.text)
+            );
+
+            const combined = [...olderLoaded, ...enrichedRtdbMessages, ...unsyncedLocal];
+            combined.sort(
+              (a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0),
+            );
+
+            // Avoid re-rendering if identical
+            if (
+              prev.length === combined.length &&
+              prev.every((p, i) => (p.id || "") === (combined[i]?.id || "") && p.text === combined[i]?.text && p.role === combined[i]?.role)
+            ) {
+              return current;
+            }
+
+            messagesCacheRef.current.set(session.sessionId, combined);
+            saveMessagesToSession(session.sessionId, combined);
+            return combined;
+          });
+        },
+        (error) => {
+          console.warn("RTDB chatMessages listener error:", error);
+        },
+      );
+    } catch (error) {
+      console.warn("Failed to subscribe to RTDB chatMessages:", error);
+    }
+
+    return () => {
+      isCurrent = false;
+      if (typeof unsubscribe === "function") {
+        unsubscribe();
+      }
+    };
+  }, [session?.sessionId, business?.name]);
+
   useEffect(() => {
     localStorage.setItem("vendly-storefront-theme", theme);
   }, [theme]);
@@ -825,11 +963,18 @@ function StorefrontPage({ linkType }) {
         url,
       );
       setMessages((current) => {
-        const updated = [
-          ...current,
-          { role: "customer", text: "", imageUrl: response.imageUrl },
-          { role: "assistant", text: response.message },
-        ];
+        const list = current || [];
+        const customerImg = { role: "customer", text: "", imageUrl: response.imageUrl };
+        const assistantMsg = { role: "assistant", text: response.message };
+
+        let updated = [...list];
+        if (!updated.some((m) => m.role === "customer" && m.imageUrl === response.imageUrl)) {
+          updated.push(customerImg);
+        }
+        if (!updated.some((m) => m.role === "assistant" && m.text === response.message)) {
+          updated.push(assistantMsg);
+        }
+
         if (activeSession?.sessionId) {
           messagesCacheRef.current.set(activeSession.sessionId, updated);
           saveMessagesToSession(activeSession.sessionId, updated);
@@ -942,23 +1087,38 @@ function StorefrontPage({ linkType }) {
       }
       if (response.message) {
         setMessages((current) => {
-          const updated = [
-            ...current,
-            {
-              role: "assistant",
-              text: response.message,
-              action: response.action,
-              suggestions: response.suggestions,
-              product: response.product,
-              products: response.products,
-              reviews: response.reviews,
-              categories: response.categories,
-              reviewSummary: response.reviewSummary,
-              sellerRating: response.sellerRating,
-              cartSummary: response.cartSummary,
-              customerDraft: response.customerDraft,
-            },
-          ];
+          const list = current || [];
+          const assistantMsg = {
+            role: "assistant",
+            text: response.message,
+            action: response.action,
+            suggestions: response.suggestions,
+            product: response.product,
+            products: response.products,
+            reviews: response.reviews,
+            categories: response.categories,
+            reviewSummary: response.reviewSummary,
+            sellerRating: response.sellerRating,
+            cartSummary: response.cartSummary,
+            customerDraft: response.customerDraft,
+          };
+
+          // If RTDB listener already pushed this assistant reply, enrich it rather than duplicating
+          let foundIndex = -1;
+          for (let i = list.length - 1; i >= 0; i--) {
+            if (list[i].role === "assistant" && list[i].text === response.message) {
+              foundIndex = i;
+              break;
+            }
+          }
+
+          let updated;
+          if (foundIndex >= 0) {
+            updated = list.map((m, idx) => (idx === foundIndex ? { ...m, ...assistantMsg } : m));
+          } else {
+            updated = [...list, assistantMsg];
+          }
+
           if (activeSession?.sessionId) {
             messagesCacheRef.current.set(activeSession.sessionId, updated);
             saveMessagesToSession(activeSession.sessionId, updated);

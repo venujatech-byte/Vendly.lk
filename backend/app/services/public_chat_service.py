@@ -2978,16 +2978,39 @@ def answer_public_message(database, session_id, provided_token, payload):
             if is_translated
             else translate_chat_message(response_message, language)
         )
+        suggestions_list = chat_suggestions(
+            action,
+            state,
+            bool(cart_summary),
+            bool(session.get("orderId")),
+            len(response_products or []),
+        )
+        msg_metadata = {
+            "action": action,
+            "productId": product.get("id") if product else None,
+            "state": state,
+            "language": language,
+        }
+        if product:
+            msg_metadata["product"] = product
+        if response_products:
+            msg_metadata["products"] = response_products
+        if response_categories:
+            msg_metadata["categories"] = response_categories
+        if response_reviews:
+            msg_metadata["reviews"] = response_reviews
+        if review_summary:
+            msg_metadata["reviewSummary"] = review_summary
+        if seller_rating:
+            msg_metadata["sellerRating"] = seller_rating
+        if suggestions_list:
+            msg_metadata["suggestions"] = suggestions_list
+
         save_chat_message(
             session_snapshot.reference,
             "assistant",
             localized_message,
-            {
-                "action": action,
-                "productId": product.get("id") if product else None,
-                "state": state,
-                "language": language,
-            },
+            msg_metadata,
             session=session,
         )
         changes = {
@@ -3043,13 +3066,7 @@ def answer_public_message(database, session_id, provided_token, payload):
             "language": language,
             "action": action,
             "state": state,
-            "suggestions": chat_suggestions(
-                action,
-                state,
-                bool(cart_summary),
-                bool(session.get("orderId")),
-                len(response_products or []),
-            ),
+            "suggestions": suggestions_list,
             "product": product,
             "products": response_products or [],
             "reviews": response_reviews or [],
