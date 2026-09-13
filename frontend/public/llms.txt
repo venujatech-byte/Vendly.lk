@@ -1,0 +1,41 @@
+# Vendly.lk — E-commerce & Order Management Platform
+
+> Vendly (https://vendly-lk.vercel.app/) is a cloud-based e-commerce operations, order management, inventory tracking, and courier COD reconciliation system built for merchants, retailers, and online sellers in Sri Lanka.
+
+## Overview
+Vendly streamlines multi-channel sales operations by connecting online orders (chatbots, social media, web storefronts) and physical walk-in retail sales into a single synchronized dashboard.
+
+## Key Capabilities & Features
+
+### 1. Unified Order Processing
+- Online order processing with real-time customer status updates.
+- Physical shop point-of-sale (POS) integration with instant stock updates.
+- Automated waybill generation with barcode and QR code printing.
+- Fraud risk detection and suspicious order warning flags.
+
+### 2. Multi-Channel Inventory Management
+- Real-time stock counts across multiple sizes, colors, and variant attributes.
+- Multi-batch tracking with unit cost (FIFO) valuation.
+- Low-stock alerts and out-of-stock reservation locks.
+- Supplier and return stock adjustments.
+
+### 3. Courier & COD Reconciliation
+- Native tracking for courier partners in Sri Lanka (Prompt, Domex, Koombiyo, Fardar, Pronto, etc.).
+- Cash-on-Delivery (COD) automated financial reconciliation.
+- Settlement verification, courier charge auditing, and discrepancy dispute workflows.
+- Single and bulk settlement entry recording.
+
+### 4. Warranty & Claims Management
+- Supplier warranty tracking with zero revenue loss allocation.
+- In-house shop warranty and repair expense debiting.
+- Live ledger debit calculation with courier transit expense tracking.
+
+### 5. Financial Analytics & Business Intelligence
+- Live profit & loss calculations per order and per product.
+- Courier delivery performance ratings and return rate analysis.
+- Sales revenue forecasting and customer repeat-rate metrics.
+
+## Platform Links
+- **Home / App**: https://vendly-lk.vercel.app/
+- **Merchant Login**: https://vendly-lk.vercel.app/login
+- **Storefront & Portal Access**: https://vendly-lk.vercel.app/join

@@ -1,0 +1,44 @@
+# robots.txt for Vendly (https://vendly-lk.vercel.app/)
+
+User-agent: *
+Allow: /
+Disallow: /api/
+
+# OpenAI Crawlers (ChatGPT Search & Retrieval)
+User-agent: GPTBot
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+# Anthropic Crawlers (Claude)
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+# Perplexity AI Search Crawler
+User-agent: PerplexityBot
+Allow: /
+
+# Google AI & Extended Crawlers
+User-agent: Google-Extended
+Allow: /
+
+User-agent: Googlebot
+Allow: /
+
+# Apple AI & Search
+User-agent: Applebot-Extended
+Allow: /
+
+# Cohere AI
+User-agent: cohere-ai
+Allow: /
+
+# Sitemap Location
+Sitemap: https://vendly-lk.vercel.app/sitemap.xml
