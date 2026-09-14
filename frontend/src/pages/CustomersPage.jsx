@@ -10,7 +10,6 @@ import {
   reportCustomer,
   updateCustomer,
 } from "../services/customerService";
-import { getChatSessions } from "../services/messageService";
 import { getReviews, moderateReview } from "../services/reviewService";
 
 import {
@@ -26,6 +25,7 @@ import {
   Pencil,
   Repeat2,
   ShieldAlert,
+  Star,
   UsersRound,
   RotateCcw,
   Search,
@@ -35,7 +35,6 @@ import {
 } from "lucide-react";
 
 import StatCard from "../components/StatCard";
-import CustomerMessages from "../components/CustomerMessages";
 import ActionMenu from "../components/ActionMenu";
 import ConfirmDialog from "../components/ConfirmDialog";
 import ModalShell from "../components/ModalShell";
@@ -96,14 +95,12 @@ function CustomersPage() {
     .trim()
     .toLowerCase();
   const requestedTab = searchParameters.get("tab");
-  const requestedSessionId = searchParameters.get("session") ?? "";
   const { business } = useAuth();
   const [customers, setCustomers] = useState([]);
   const [reviews, setReviews] = useState([]);
   const [fraudCustomers, setFraudCustomers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
-  const [chatSummary, setChatSummary] = useState({ count: 0, unread: 0 });
   const [activeCustomerTab, setActiveCustomerTab] = useState("all");
   const [customerSegment, setCustomerSegment] = useState("all");
   const [reviewStatusFilter, setReviewStatusFilter] = useState("all");
@@ -131,7 +128,7 @@ function CustomersPage() {
   }, [setSearchParameters]);
 
   useEffect(() => {
-    if (["all", "messages", "reviews", "fraud"].includes(requestedTab)) {
+    if (["all", "reviews", "fraud"].includes(requestedTab)) {
       setActiveCustomerTab(requestedTab);
     }
   }, [requestedTab]);
@@ -166,10 +163,6 @@ function CustomersPage() {
 
     if (activeCustomerTab === "all") {
       return true;
-    }
-
-    if (activeCustomerTab === "messages") {
-      return (customer.unreadMessageCount ?? 0) > 0;
     }
 
     if (activeCustomerTab === "reviews") {
@@ -224,9 +217,9 @@ function CustomersPage() {
       tone: "green",
     },
     {
-      label: "Unread Messages",
-      value: chatSummary.unread.toLocaleString("en-LK"),
-      icon: Mail,
+      label: "Total Reviews",
+      value: reviews.length.toLocaleString("en-LK"),
+      icon: Star,
       tone: "orange",
     },
     {
@@ -244,15 +237,10 @@ function CustomersPage() {
       icon: UsersRound,
     },
     {
-      id: "messages",
-      label: "Messages",
-      icon: MessageSquare,
-      count: chatSummary.unread > 0 ? chatSummary.unread : undefined,
-    },
-    {
       id: "reviews",
       label: "Reviews",
-      icon: Mail,
+      icon: Star,
+      count: reviews.filter((r) => String(r.status || "pending").toLowerCase() === "pending").length || undefined,
     },
     {
       id: "fraud",
@@ -272,23 +260,6 @@ function CustomersPage() {
       .then(setCustomers)
       .catch((error) => setErrorMessage(error.message))
       .finally(() => setIsLoading(false));
-  }, [business?.id]);
-
-  useEffect(() => {
-    if (!business?.id) return;
-    getChatSessions(business.id)
-      .then(({ sessions = [] }) =>
-        setChatSummary({
-          count: sessions.length,
-          unread: sessions.reduce(
-            (sum, session) => sum + (session.unreadCount || 0),
-            0,
-          ),
-        }),
-      )
-      .catch(() => {
-        // Customer records should still load if this staff role cannot read chats.
-      });
   }, [business?.id]);
 
   useEffect(() => {
@@ -659,12 +630,12 @@ function CustomersPage() {
             }
           />
         </>
-      ) : activeCustomerTab === "reviews" ? (
+      ) : (
         <>
           <section className="customers-summary customers-review-summary" aria-label="Review summary">
             <div className="stats-grid">
               {[
-                { id: "all", label: "Total Reviews", value: reviewRows.length, icon: MessageSquare, tone: "blue" },
+                { id: "all", label: "Total Reviews", value: reviewRows.length, icon: Star, tone: "blue" },
                 { id: "approved", label: "Approved", value: reviewRows.filter((review) => String(review.status).toLowerCase() === "approved").length, icon: CheckCircle2, tone: "green" },
                 { id: "pending", label: "Pending", value: reviewRows.filter((review) => String(review.status || "pending").toLowerCase() === "pending").length, icon: Clock3, tone: "orange" },
                 { id: "rejected", label: "Rejected", value: reviewRows.filter((review) => String(review.status).toLowerCase() === "rejected").length, icon: XCircle, tone: "red" },
@@ -687,12 +658,6 @@ function CustomersPage() {
             onModerate={handleModerateReview}
           />
         </>
-      ) : (
-        <CustomerMessages
-          businessId={business?.id}
-          onSummaryChange={setChatSummary}
-          initialSessionId={requestedSessionId}
-        />
       )}
 
       <ConfirmDialog

@@ -1,7 +1,7 @@
 .customer-messages {
   display: grid;
   grid-template-columns: 310px minmax(0, 1fr);
-  height: clamp(560px, calc(100dvh - 170px), 780px);
+  height: clamp(560px, calc(100dvh - 140px), 780px);
   max-height: calc(100dvh - 110px);
   min-height: 0;
   overflow: hidden;
