@@ -17,6 +17,7 @@ import { useAuth } from "./context/authContextValue.js";
 const AnalyticsPage = lazy(() => import("./pages/AnalyticsPage.jsx"));
 const CouriersPage = lazy(() => import("./pages/CouriersPage.jsx"));
 const CustomersPage = lazy(() => import("./pages/CustomersPage.jsx"));
+const MessagesPage = lazy(() => import("./pages/MessagesPage.jsx"));
 const InventoryPage = lazy(() => import("./pages/InventoryPage.jsx"));
 const OrdersPage = lazy(() => import("./pages/OrdersPage.jsx"));
 const OverviewPage = lazy(() => import("./pages/OverviewPage.jsx"));
@@ -385,6 +386,25 @@ function App() {
                       />
 
                       <CustomersPage />
+                    </ProtectedRoute>
+                  }
+                />
+
+                <Route
+                  path="/messages"
+                  element={
+                    <ProtectedRoute permission="customers:read">
+                      <Header
+                        title="Messages"
+                        theme={theme}
+                        onToggleTheme={toggleTheme}
+                        onOpenProfile={() => setIsProfileModalOpen(true)}
+                        onOpenSettings={openSettings}
+                        isSidebarCollapsed={isSidebarCollapsed}
+                        onToggleSidebar={toggleSidebar}
+                      />
+
+                      <MessagesPage />
                     </ProtectedRoute>
                   }
                 />

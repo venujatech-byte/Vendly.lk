@@ -1,0 +1,17 @@
+.messages-page {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  height: calc(100vh - 72px);
+  padding: 1.25rem 1.75rem;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+@media (max-width: 768px) {
+  .messages-page {
+    padding: 0.5rem;
+    height: calc(100vh - 60px);
+  }
+}

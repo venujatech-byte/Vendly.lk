@@ -22,6 +22,7 @@ import {
   Sparkles,
   UserRound,
   UsersRound,
+  MessageSquare,
 } from "lucide-react";
 
 // Central list of sidebar pages; map() below turns each item into a link.
@@ -31,6 +32,7 @@ const navigationItems = [
   { label: "Inventory", path: "/inventory", icon: Box, permission: "inventory:read" },
   { label: "Couriers", path: "/couriers", icon: Truck, permission: "couriers:read" },
   { label: "Customers", path: "/customers", icon: Users, permission: "customers:read" },
+  { label: "Messages", path: "/messages", icon: MessageSquare, permission: "customers:read" },
   { label: "Analytics", path: "/analytics", icon: ChartNoAxesCombined, permission: "analytics:read" },
 ];
 
@@ -38,7 +40,12 @@ function hasPermission(membership, requiredPermission) {
   if (!requiredPermission || membership?.role === "owner") return true;
   const permissions = membership?.permissions ?? [];
   const resource = requiredPermission.split(":", 1)[0];
-  return permissions.includes("*") || permissions.includes(requiredPermission) || permissions.includes(`${resource}:*`);
+  return (
+    permissions.includes("*") ||
+    permissions.includes(requiredPermission) ||
+    permissions.includes(`${resource}:*`) ||
+    (resource === "messages" && (permissions.includes("customers") || permissions.includes("customers:*") || permissions.includes("customers:read")))
+  );
 }
 
 function readableRole(role = "viewer") {
