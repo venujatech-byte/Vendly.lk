@@ -1,9 +1,29 @@
 from functools import wraps
 
-from flask import g
+from flask import current_app, g
 
 from app.core.errors import ApiError
 from app.core.firebase import get_firestore_client
+
+
+def require_platform_admin(view_function):
+    """Restrict an endpoint to a Vendly team member configured by email."""
+
+    @wraps(view_function)
+    def wrapped_view(*args, **kwargs):
+        email = str(g.current_user.get("email") or "").strip().casefold()
+        allowed_emails = set(current_app.config.get("PLATFORM_ADMIN_EMAILS") or [])
+
+        if not email or email not in allowed_emails:
+            raise ApiError(
+                "platform_admin_required",
+                "You do not have access to the Vendly admin dashboard.",
+                403,
+            )
+
+        return view_function(*args, **kwargs)
+
+    return wrapped_view
 
 
 def membership_has_permission(membership, required_permission):

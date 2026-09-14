@@ -2535,6 +2535,17 @@ def create_public_chat_session(database, payload, customer_uid=None):
         },
     )
 
+    try:
+        activity_ref = get_rtdb_reference(f"businessChatActivity/{business['id']}")
+        if activity_ref is not None:
+            activity_ref.set({
+                "lastUpdated": now.isoformat(),
+                "sessionId": session_reference.id,
+                "action": "session_created",
+            })
+    except Exception:
+        pass
+
     if greeting_language in {"si", "ta"}:
         greeting = translate_chat_message(english_greeting, greeting_language)
     elif greeting_language == "en":
@@ -2704,6 +2715,21 @@ def save_chat_message(session_reference, role, message, metadata=None, session=N
             saved_to_rtdb = True
         except Exception as err:
             current_app.logger.warning("Failed to save chat message to RTDB: %s", err)
+
+    # Signal chat activity to the business in RTDB for instant seller inbox refresh
+    business_id = (session or {}).get("businessId")
+    if business_id:
+        try:
+            act_ref = get_rtdb_reference(f"businessChatActivity/{business_id}")
+            if act_ref is not None:
+                act_ref.set({
+                    "lastUpdated": now_iso,
+                    "sessionId": session_id,
+                    "lastMessage": str(message or "")[:120],
+                    "role": role,
+                })
+        except Exception:
+            pass
 
     # Fallback to Firestore subcollection only if RTDB write could not complete
     if not saved_to_rtdb:

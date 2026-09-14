@@ -58,6 +58,9 @@ class Settings:
     brevo_api_key: str | None
     brevo_sender_email: str | None
     brevo_sender_name: str | None
+    platform_admin_emails: list[str]
+    aws_region: str | None
+    aws_instance_id: str | None
 
     @classmethod
     def from_environment(cls):
@@ -133,5 +136,11 @@ class Settings:
             brevo_api_key=os.getenv("BREVO_API_KEY") or None,
             brevo_sender_email=os.getenv("BREVO_SENDER_EMAIL") or None,
             brevo_sender_name=os.getenv("BREVO_SENDER_NAME") or "Vendly",
+            platform_admin_emails=[
+                email.strip().casefold()
+                for email in os.getenv("VENDLY_ADMIN_EMAILS", "").split(",")
+                if email.strip()
+            ],
+            aws_region=os.getenv("AWS_REGION") or None,
+            aws_instance_id=os.getenv("AWS_INSTANCE_ID") or None,
         )
-

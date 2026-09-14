@@ -24,6 +24,7 @@ const OverviewPage = lazy(() => import("./pages/OverviewPage.jsx"));
 const BusinessSetupPage = lazy(() => import("./pages/BusinessSetupPage.jsx"));
 const CustomerAuthGate = lazy(() => import("./pages/CustomerAuthGate.jsx"));
 const JoinInvitePage = lazy(() => import("./pages/JoinInvitePage.jsx"));
+const PlatformAdminPage = lazy(() => import("./pages/PlatformAdminPage.jsx"));
 
 // Choose a starting theme from local storage or the user's device preference.
 function getInitialTheme() {
@@ -197,11 +198,13 @@ function App() {
   const isStorefrontRoute =
     location.pathname.startsWith("/s/") ||
     location.pathname.startsWith("/p/");
+  const isPlatformAdminRoute = location.pathname.startsWith("/admin");
   const startupError =
     authenticationError ||
     (
       user &&
       !isStorefrontRoute &&
+      !isPlatformAdminRoute &&
       location.pathname !== "/login" &&
       accountError
     );
@@ -277,6 +280,16 @@ function App() {
       element={
         <ProtectedRoute requireSellerProfile={false}>
           <BusinessSetupPage />
+        </ProtectedRoute>
+      }
+    />
+
+    {/* Vendly team view. The API independently verifies platform-admin access. */}
+    <Route
+      path="/admin"
+      element={
+        <ProtectedRoute requireSellerProfile={false}>
+          <PlatformAdminPage />
         </ProtectedRoute>
       }
     />

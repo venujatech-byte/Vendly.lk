@@ -5,6 +5,7 @@ from app.api.businesses import businesses_blueprint
 from app.api.business_assistant import business_assistant_blueprint
 from app.api.billing import billing_blueprint
 from app.api.analytics import analytics_blueprint
+from app.api.admin import admin_blueprint
 from app.api.categories import categories_blueprint
 from app.api.customers import customers_blueprint
 from app.api.couriers import couriers_blueprint
@@ -68,6 +69,9 @@ def create_app(test_config=None):
         BREVO_API_KEY=settings.brevo_api_key,
         BREVO_SENDER_EMAIL=settings.brevo_sender_email,
         BREVO_SENDER_NAME=settings.brevo_sender_name,
+        PLATFORM_ADMIN_EMAILS=settings.platform_admin_emails,
+        AWS_REGION=settings.aws_region,
+        AWS_INSTANCE_ID=settings.aws_instance_id,
     )
 
     if test_config:
@@ -102,6 +106,7 @@ def create_app(test_config=None):
 
     app.register_blueprint(health_blueprint)
     app.register_blueprint(analytics_blueprint)
+    app.register_blueprint(admin_blueprint)
     app.register_blueprint(me_blueprint)
     app.register_blueprint(members_blueprint)
     app.register_blueprint(messages_blueprint)

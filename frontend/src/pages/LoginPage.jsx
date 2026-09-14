@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   AlertCircle,
   Building2,
@@ -55,6 +56,9 @@ function getAuthErrorMessage(error) {
 
 function LoginPage() {
   const { refreshSellerProfile } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const destination = location.state?.from || "/";
 
   // The same page handles both login and registration.
   const [formMode, setFormMode] = useState("login");
@@ -124,7 +128,7 @@ function LoginPage() {
       // Reload once after login so the dashboard starts with the latest
       // Firebase account, business, and membership state.
       setTimeout(() => {
-        window.location.replace("/");
+        navigate(destination, { replace: true });
       }, 1000);
 
     } catch (error) {
@@ -145,7 +149,7 @@ function LoginPage() {
       await refreshSellerProfile();
 
       setTimeout(() => {
-        window.location.replace("/");
+        navigate(destination, { replace: true });
       }, 1000);
     } catch (error) {
       setErrorMessage(getAuthErrorMessage(error));

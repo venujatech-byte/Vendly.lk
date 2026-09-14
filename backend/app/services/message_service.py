@@ -249,6 +249,19 @@ def send_seller_message(database, business_id, session_id, seller_uid, payload):
         },
         merge=True,
     )
+
+    try:
+        act_ref = get_rtdb_reference(f"businessChatActivity/{business_id}")
+        if act_ref is not None:
+            act_ref.set({
+                "lastUpdated": now_iso,
+                "sessionId": session_id,
+                "lastMessage": str(customer_message or "")[:120],
+                "role": "seller",
+            })
+    except Exception:
+        pass
+
     return {
         "id": message_id,
         **msg_data,
