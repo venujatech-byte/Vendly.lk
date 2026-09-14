@@ -1,6 +1,7 @@
 """Read-only reporting used by the internal Vendly platform dashboard."""
 
 from app.core.serialization import serialize_snapshot
+from app.core.errors import ApiError
 
 
 SELLER_PAGE_SIZE = 25
@@ -77,4 +78,59 @@ def get_seller_dashboard(database, limit=SELLER_PAGE_SIZE, after=None):
         "sellers": sellers,
         "nextCursor": sellers[-1]["id"] if has_more and sellers else None,
         "hasMore": has_more,
+    }
+
+
+def get_seller_detail(database, business_id):
+    """Return a single seller profile and a small recent-activity sample."""
+    business_snapshot = database.collection("businesses").document(business_id).get()
+    if not business_snapshot.exists:
+        raise ApiError("seller_not_found", "Seller business not found.", 404)
+
+    business = serialize_snapshot(business_snapshot)
+    owner_uid = business.get("ownerUid")
+    owner_snapshot = (
+        database.collection("users").document(owner_uid).get()
+        if owner_uid else None
+    )
+    owner = owner_snapshot.to_dict() if owner_snapshot and owner_snapshot.exists else {}
+    business_reference = business_snapshot.reference
+    recent_orders = [
+        serialize_snapshot(snapshot)
+        for snapshot in business_reference.collection("orders")
+        .order_by("createdAt", direction="DESCENDING")
+        .limit(5)
+        .stream()
+    ]
+
+    return {
+        "id": business["id"],
+        "businessName": business.get("name") or "Unnamed business",
+        "status": business.get("status", "active"),
+        "createdAt": business.get("createdAt"),
+        "lastActivityAt": business.get("updatedAt") or business.get("createdAt"),
+        "shortCode": business.get("shortCode"),
+        "contact": {
+            "email": owner.get("email") or business.get("email") or "",
+            "phone": business.get("phone") or business.get("publicPhone") or "",
+        },
+        "owner": {
+            "name": owner.get("displayName") or "Business owner",
+            "email": owner.get("email") or business.get("email") or "",
+        },
+        "stats": {
+            "orders": _collection_count(business_reference.collection("orders")),
+            "products": _collection_count(business_reference.collection("products")),
+            "customers": _collection_count(business_reference.collection("customers")),
+        },
+        "recentOrders": [
+            {
+                "id": order["id"],
+                "orderNumber": order.get("orderNumber") or order["id"],
+                "status": order.get("fulfilmentStatus", "unknown"),
+                "totalAmountMinor": order.get("totalAmountMinor", 0),
+                "createdAt": order.get("createdAt"),
+            }
+            for order in recent_orders
+        ],
     }
