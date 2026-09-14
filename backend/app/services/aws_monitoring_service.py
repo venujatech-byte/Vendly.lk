@@ -3,10 +3,10 @@ from datetime import datetime, timedelta, timezone
 from flask import current_app
 
 
-def _latest_metric(cloudwatch, instance_id, metric_name, unit=None):
+def _latest_metric(cloudwatch, instance_id, metric_name, unit=None, namespace="AWS/EC2"):
     now = datetime.now(timezone.utc)
     request = {
-        "Namespace": "AWS/EC2",
+        "Namespace": namespace,
         "MetricName": metric_name,
         "Dimensions": [{"Name": "InstanceId", "Value": instance_id}],
         "StartTime": now - timedelta(minutes=15),
@@ -52,6 +52,8 @@ def get_aws_server_health():
         cpu = _latest_metric(cloudwatch, instance_id, "CPUUtilization", "Percent")
         network_in = _latest_metric(cloudwatch, instance_id, "NetworkIn", "Bytes")
         network_out = _latest_metric(cloudwatch, instance_id, "NetworkOut", "Bytes")
+        memory = _latest_metric(cloudwatch, instance_id, "mem_used_percent", "Percent", namespace="CWAgent")
+        disk = _latest_metric(cloudwatch, instance_id, "disk_used_percent", "Percent", namespace="CWAgent")
         state = instance.get("State", {}).get("Name", "unknown")
         healthy = state == "running" and system_status in {"ok", "initializing"} and instance_status in {"ok", "initializing"} and (cpu is None or cpu < 90)
 
@@ -63,9 +65,15 @@ def get_aws_server_health():
             "instanceType": instance.get("InstanceType"),
             "state": state,
             "checks": {"system": system_status, "instance": instance_status},
-            "metrics": {"cpuPercent": round(cpu, 2) if cpu is not None else None, "networkInBytes": round(network_in) if network_in is not None else None, "networkOutBytes": round(network_out) if network_out is not None else None},
+            "metrics": {
+                "cpuPercent": round(cpu, 2) if cpu is not None else None,
+                "memoryPercent": round(memory, 2) if memory is not None else None,
+                "diskPercent": round(disk, 2) if disk is not None else None,
+                "networkInBytes": round(network_in) if network_in is not None else None,
+                "networkOutBytes": round(network_out) if network_out is not None else None,
+            },
             "fetchedAt": datetime.now(timezone.utc).isoformat(),
-            "note": "EC2 does not publish memory or disk metrics by default. Install the CloudWatch Agent for those metrics.",
+            "note": "Install/configure the CloudWatch Agent for memory and disk metrics." if memory is None or disk is None else None,
         }
     except Exception as error:
         return {
