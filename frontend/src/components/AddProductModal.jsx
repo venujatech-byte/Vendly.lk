@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Image as ImageIcon, Package, Plus, Trash2, Upload, WandSparkles } from "lucide-react";
+import { Check, Image as ImageIcon, Package, Plus, Trash2, Upload, WandSparkles } from "lucide-react";
 
 import {
   createProduct,
@@ -73,6 +73,7 @@ function initialFormData(product = null) {
 function AddProductModal({ isOpen, businessId, categories, product = null, onClose, onCreated, onUpdated }) {
   const [formData, setFormData] = useState(initialFormData);
   const [mediaFiles, setMediaFiles] = useState([]);
+  const [frontImageIndex, setFrontImageIndex] = useState(0);
   const [errorMessage, setErrorMessage] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -82,6 +83,7 @@ function AddProductModal({ isOpen, businessId, categories, product = null, onClo
     if (isOpen) {
       setFormData(initialFormData(product));
       setMediaFiles([]);
+      setFrontImageIndex(0);
       setErrorMessage("");
       setGeneratedProductInfo(null);
     }
@@ -99,6 +101,19 @@ function AddProductModal({ isOpen, businessId, categories, product = null, onClo
   function updateField(event) {
     const { name, value, type, checked } = event.target;
     setFormData((current) => ({ ...current, [name]: type === "checkbox" ? checked : value }));
+  }
+
+  function replaceMediaFiles(files) {
+    setMediaFiles(files.slice(0, 12));
+    setFrontImageIndex(0);
+  }
+
+  function appendMediaFiles(files) {
+    setMediaFiles((current) => [...current, ...files].slice(0, 12));
+  }
+
+  function selectFrontImage(index) {
+    setFrontImageIndex(index);
   }
 
   function updateVariant(id, field, value) {
@@ -209,7 +224,13 @@ function AddProductModal({ isOpen, businessId, categories, product = null, onClo
       let savedProduct = product
         ? await updateProduct(businessId, product.id, payload)
         : await createProduct(businessId, payload);
-      if (mediaFiles.length) savedProduct = await uploadProductMedia(businessId, savedProduct.id, mediaFiles);
+      if (mediaFiles.length) {
+        const orderedMediaFiles = [
+          mediaFiles[frontImageIndex],
+          ...mediaFiles.filter((_, index) => index !== frontImageIndex),
+        ];
+        savedProduct = await uploadProductMedia(businessId, savedProduct.id, orderedMediaFiles);
+      }
       for (const [index, variant] of formData.variants.entries()) {
         if (!variant.imageFile) continue;
         const savedVariant = savedProduct.sizes.find((item) => item.id === variant.id) || savedProduct.sizes[index];
@@ -267,17 +288,28 @@ function AddProductModal({ isOpen, businessId, categories, product = null, onClo
           <section className="stitch-product__photos">
             <strong>Product Photos</strong>
             <label className="stitch-product__upload"><Upload size={15} /> Upload
-              <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple onChange={(event) => setMediaFiles(Array.from(event.target.files).slice(0, 12))} />
+              <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple onChange={(event) => replaceMediaFiles(Array.from(event.target.files || []))} />
             </label>
             <div className="stitch-product__photo-grid">
-              {previews.slice(0, 3).map((preview, index) => (
-                <span key={`${preview.file.name}-${index}`}>{preview.url ? <img src={preview.url} alt="" /> : <ImageIcon size={19} />}</span>
+              {previews.map((preview, index) => (
+                <button
+                  className={`stitch-product__photo-thumb ${frontImageIndex === index ? "is-front" : ""}`}
+                  key={`${preview.file.name}-${index}`}
+                  type="button"
+                  title={frontImageIndex === index ? "Front image" : "Set as front image"}
+                  aria-label={frontImageIndex === index ? `${preview.file.name} is the front image` : `Set ${preview.file.name} as the front image`}
+                  onClick={() => selectFrontImage(index)}
+                >
+                  {preview.url ? <img src={preview.url} alt="" /> : <ImageIcon size={19} />}
+                  {frontImageIndex === index && <span className="stitch-product__front-badge"><Check size={11} /> Front</span>}
+                </button>
               ))}
               {Array.from({ length: Math.max(0, 3 - previews.length) }, (_, index) => <span key={`empty-${index}`}><ImageIcon size={19} /></span>)}
               <label className="stitch-product__photo-add"><Plus size={22} />
-                <input type="file" accept="image/*" multiple onChange={(event) => setMediaFiles((current) => [...current, ...Array.from(event.target.files)].slice(0, 12))} />
+                <input type="file" accept="image/*" multiple onChange={(event) => appendMediaFiles(Array.from(event.target.files || []))} />
               </label>
             </div>
+            <small className="stitch-product__photo-help">Select an image to use it as the front image.</small>
           </section>
         </div>
 

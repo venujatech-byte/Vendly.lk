@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from firebase_admin import firestore
 from google.cloud import firestore as google_firestore
 from google.cloud.firestore_v1.base_query import FieldFilter
@@ -324,6 +326,11 @@ def create_product(database, business_id, uid, payload):
             )
 
         timestamp = firestore.SERVER_TIMESTAMP
+        # Firestore server-timestamp sentinels cannot be nested inside array
+        # elements. Inventory batches are stored in an array, so use a real
+        # UTC timestamp for the nested batch record while retaining the server
+        # timestamp for top-level document fields.
+        batch_timestamp = datetime.now(timezone.utc)
         total_stock = sum(item["initialStock"] for item in product["variants"])
         overall_status = stock_status(total_stock, product["lowStockThreshold"])
         variant_summaries = []
@@ -337,7 +344,7 @@ def create_product(database, business_id, uid, payload):
                     "quantity": initial_stock,
                     "initialQuantity": initial_stock,
                     "unitCostMinor": variant["costPriceMinor"],
-                    "createdAt": timestamp,
+                    "createdAt": batch_timestamp,
                 }
             ] if initial_stock > 0 else []
             variant_data = {

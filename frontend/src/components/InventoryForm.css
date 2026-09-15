@@ -121,6 +121,7 @@
 }
 
 .stitch-product__photo-grid > span,
+.stitch-product__photo-thumb,
 .stitch-product__photo-add {
   display: grid !important;
   place-items: center;
@@ -133,6 +134,39 @@
   background: var(--color-surface);
   cursor: pointer;
   transition: all 160ms ease;
+}
+
+.stitch-product__photo-thumb {
+  position: relative;
+  padding: 0;
+  border-style: solid;
+}
+
+.stitch-product__photo-thumb.is-front {
+  border-color: var(--color-accent, #2563eb);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent, #2563eb) 22%, transparent);
+}
+
+.stitch-product__front-badge {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  background: var(--color-accent, #2563eb);
+  color: #fff;
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.stitch-product__photo-help {
+  display: block;
+  margin-top: 8px;
+  color: var(--color-muted);
 }
 
 .stitch-product__photo-add:hover {
