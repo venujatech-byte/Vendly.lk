@@ -96,6 +96,8 @@ export default function CustomerMessages({
   const messagesContainerRef = useRef(null);
   const sessionsRef = useRef(sessions);
   sessionsRef.current = sessions;
+  const selectedIdRef = useRef(selectedId);
+  selectedIdRef.current = selectedId;
   const isUserNearBottomRef = useRef(true);
   const lastSelectedIdRef = useRef(selectedId);
   const previousMessagesCountRef = useRef(0);
@@ -157,10 +159,10 @@ export default function CustomerMessages({
       setConversation(null);
       return;
     }
-    // Restore from in-memory cache immediately if available
-    if (conversationCacheRef.current.has(selectedId)) {
-      setConversation(conversationCacheRef.current.get(selectedId));
-    }
+    // Never retain the previous chat while the new chat is loading. Otherwise
+    // the realtime callback can mistake the previous chat's messages for
+    // older history and merge two conversations together.
+    setConversation(conversationCacheRef.current.get(selectedId) || null);
     markChatRead(businessId, selectedId).catch(() => {});
     setSessions((current) =>
       current.map((item) =>
@@ -168,6 +170,21 @@ export default function CustomerMessages({
       ),
     );
   }, [businessId, selectedId]);
+
+  // The backend writes this lightweight RTDB signal whenever a customer or
+  // seller message is saved. Refresh the inbox immediately without waiting
+  // for the polling interval.
+  useEffect(() => {
+    if (!businessId) return undefined;
+
+    const activityRef = ref(rtdb, `businessChatActivity/${businessId}`);
+    const unsubscribe = onValue(activityRef, (snapshot) => {
+      const activity = snapshot.val();
+      if (activity?.lastUpdated) loadSessions();
+    });
+
+    return () => unsubscribe();
+  }, [businessId, loadSessions]);
 
   function handleScroll(event) {
     const element = event.currentTarget;
@@ -179,6 +196,8 @@ export default function CustomerMessages({
   useEffect(() => {
     if (!selectedId) return undefined;
 
+    let isListenerActive = true;
+
     const chatQuery = query(
       ref(rtdb, `chatMessages/${selectedId}`),
       limitToLast(10),
@@ -186,6 +205,7 @@ export default function CustomerMessages({
     const unsubscribe = onValue(
       chatQuery,
       (snapshot) => {
+        if (!isListenerActive || selectedIdRef.current !== selectedId) return;
         const val = snapshot.val();
         if (!val) {
           setConversation((current) => {
@@ -272,11 +292,13 @@ export default function CustomerMessages({
         }
       },
       (err) => {
+        if (!isListenerActive) return;
         console.error("RTDB onValue error in CustomerMessages:", err);
       },
     );
 
     return () => {
+      isListenerActive = false;
       unsubscribe();
     };
   }, [selectedId]);
