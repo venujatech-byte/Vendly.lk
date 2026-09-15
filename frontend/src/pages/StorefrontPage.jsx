@@ -240,6 +240,11 @@ function loadMessagesFromSession(sessionId) {
 function StorefrontPage({ linkType }) {
   const { user, isAuthLoading } = useAuth();
   const { storeCode, productCode } = useParams();
+  const storefrontQuery = new URLSearchParams(window.location.search);
+  const linkedProductCode = storefrontQuery.get("product")?.trim() || "";
+  const initialChatPrompt = storefrontQuery.get("prompt")?.trim()
+    || (linkedProductCode ? "Tell me about this product" : "");
+  const activeProductCode = linkType === "product" ? productCode : linkedProductCode;
   const [business, setBusiness] = useState(null);
   const [products, setProducts] = useState([]);
   const [session, setSession] = useState(null);
@@ -326,6 +331,7 @@ function StorefrontPage({ linkType }) {
   const voiceHoldTimerRef = useRef(null);
   const skipNextVoiceClickRef = useRef(false);
   const voiceStopRequestedRef = useRef(false);
+  const initialChatPromptHandledRef = useRef("");
   const [isHoldingVoiceButton, setIsHoldingVoiceButton] = useState(false);
   const [voiceTranscript, setVoiceTranscript] = useState("");
 
@@ -361,9 +367,13 @@ function StorefrontPage({ linkType }) {
         );
         setReviews(reviewResponse.reviews);
 
+        const linkedProduct = linkType === "product"
+          ? catalog.product
+          : (catalog.products || []).find((product) => product.shortCode === linkedProductCode);
+
         const sessionKey = chatSessionStorageKey(
           storeCode,
-          productCode,
+          activeProductCode,
           user,
         );
         const savedSession = JSON.parse(
@@ -397,9 +407,9 @@ function StorefrontPage({ linkType }) {
           setMessages([{
             role: "assistant",
             text: `Welcome to ${catalog.business.name}. How can I help you today?`,
-            action: linkType === "product" ? "show-product" : "prompt-product",
-            product: linkType === "product" ? catalog.product : null,
-            products: linkType === "product" ? [catalog.product] : [],
+            action: linkedProduct ? "show-product" : "prompt-product",
+            product: linkedProduct || null,
+            products: linkedProduct ? [linkedProduct] : [],
           }]);
         }
       } catch (error) {
@@ -413,7 +423,7 @@ function StorefrontPage({ linkType }) {
     return () => {
       requestIsCurrent = false;
     };
-  }, [isAuthLoading, linkType, productCode, storeCode, user]);
+  }, [activeProductCode, isAuthLoading, linkType, linkedProductCode, productCode, storeCode, user]);
 
   useEffect(() => {
     if (!isLoading && business && !errorMessage) {
@@ -482,7 +492,7 @@ function StorefrontPage({ linkType }) {
 
   function clearStorefrontChat() {
     if (!session || !window.confirm("Clear this chat from this device and start a new conversation?")) return;
-    localStorage.removeItem(chatSessionStorageKey(storeCode, productCode, user));
+    localStorage.removeItem(chatSessionStorageKey(storeCode, activeProductCode, user));
     if (session?.sessionId) {
       sessionStorage.removeItem(`vendly-chat-messages:${session.sessionId}`);
     }
@@ -938,11 +948,11 @@ function StorefrontPage({ linkType }) {
     if (session?.sessionId && session?.sessionToken) return session;
     const newSession = await createPublicChatSession({
       storeCode: linkType === "store" ? storeCode : undefined,
-      productCode: linkType === "product" ? productCode : undefined,
+      productCode: activeProductCode || undefined,
       language: savedChatLanguage(),
     });
     setSession(newSession);
-    const sessionKey = chatSessionStorageKey(storeCode, productCode, user);
+    const sessionKey = chatSessionStorageKey(storeCode, activeProductCode, user);
     localStorage.setItem(sessionKey, JSON.stringify(newSession));
     return newSession;
   }
@@ -1133,6 +1143,18 @@ function StorefrontPage({ linkType }) {
       setIsSending(false);
     }
   }
+
+  // Product share links include a prompt and the chatbot hash. Once the
+  // product/store data is ready, send that prompt through the normal chat
+  // flow so the backend has the product context and the reply is persisted.
+  useEffect(() => {
+    if (isLoading || !business || !initialChatPrompt) return;
+
+    const promptKey = `${linkType}:${storeCode || productCode}:${activeProductCode}:${initialChatPrompt}`;
+    if (initialChatPromptHandledRef.current === promptKey) return;
+    initialChatPromptHandledRef.current = promptKey;
+    requestChatMessage(initialChatPrompt);
+  }, [activeProductCode, business, initialChatPrompt, isLoading, linkType, productCode, storeCode]);
 
   async function sendMessage(event) {
     event.preventDefault();
@@ -1407,7 +1429,7 @@ function StorefrontPage({ linkType }) {
       setIsLoading(true);
       const resumedSession = await resumePublicChatSession(chat.id);
       setSession(resumedSession);
-      const sessionKey = chatSessionStorageKey(storeCode, productCode, user);
+      const sessionKey = chatSessionStorageKey(storeCode, activeProductCode, user);
       localStorage.setItem(sessionKey, JSON.stringify(resumedSession));
 
       const result = await getPublicChatMessages(

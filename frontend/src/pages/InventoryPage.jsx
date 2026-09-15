@@ -398,6 +398,38 @@ function InventoryPage() {
     setInventoryImportFile(file);
   }
 
+  function getProductChatLink(product) {
+    if (!business?.shortCode || !product?.shortCode) return "";
+
+    return `${window.location.origin}/s/${encodeURIComponent(business.shortCode)}?product=${encodeURIComponent(product.shortCode)}#chatbot`;
+  }
+
+  function handleOpenProductChat(product) {
+    const link = getProductChatLink(product);
+    if (!link) {
+      setInventoryActionError("This product does not have a public storefront link yet.");
+      return;
+    }
+
+    window.open(link, "_blank", "noopener,noreferrer");
+  }
+
+  async function handleCopyProductChatLink(product) {
+    const link = getProductChatLink(product);
+    if (!link) {
+      setInventoryActionError("This product does not have a public storefront link yet.");
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(link);
+      setInventoryActionError("");
+      setInventoryActionMessage(`Product chat link copied for ${product.name}.`);
+    } catch {
+      setInventoryActionError("The link could not be copied. Please use the Open product chat action instead.");
+    }
+  }
+
   async function confirmInventoryImport() {
     if (!business?.id || !inventoryImportFile || isImporting) return;
     setIsImporting(true);
@@ -576,6 +608,8 @@ function InventoryPage() {
               onViewReviews={setReviewProduct}
               onEditProduct={setEditingProduct}
               onRemoveProduct={(product) => setRemovalTarget({ type: "product", record: product })}
+              onOpenProductChat={handleOpenProductChat}
+              onCopyProductChatLink={handleCopyProductChatLink}
               onChangeStatus={handleBulkStatusChange}
               categories={categories}
               onChangeCategory={handleBulkCategoryChange}

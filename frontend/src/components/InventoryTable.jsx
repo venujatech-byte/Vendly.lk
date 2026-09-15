@@ -5,6 +5,8 @@ import {
   ChevronDown,
   ChevronRight,
   Download,
+  ExternalLink,
+  Link,
   Package,
   PackagePlus,
   Pencil,
@@ -247,6 +249,8 @@ function InventoryTable({
   onAdjustStock,
   onEditProduct,
   onRemoveProduct,
+  onOpenProductChat,
+  onCopyProductChatLink,
   onChangeStatus,
   onChangeCategory,
   onExportSelected,
@@ -516,6 +520,8 @@ function InventoryTable({
                         { label: "Edit product", icon: <Pencil size={16} />, onClick: () => onEditProduct?.(product) },
                         { label: "Adjust stock", icon: <PackagePlus size={16} />, onClick: () => onAdjustStock?.(product) },
                         { label: "View reviews", icon: <Star size={16} />, onClick: () => onViewReviews?.(product) },
+                        { label: "Open product chat", icon: <ExternalLink size={16} />, onClick: () => onOpenProductChat?.(product), disabled: !product.shortCode },
+                        { label: "Copy product chat link", icon: <Link size={16} />, onClick: () => onCopyProductChatLink?.(product), disabled: !product.shortCode },
                         { label: "Remove product", icon: <Trash2 size={16} />, danger: true, onClick: () => onRemoveProduct?.(product) },
                       ]} />
                     </td>
