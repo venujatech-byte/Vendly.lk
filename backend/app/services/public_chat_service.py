@@ -44,6 +44,7 @@ from app.services.order_service import (
     add_items_to_order,
     create_order,
     order_accepts_more_items,
+    update_order,
     update_order_status,
 )
 from app.services.public_catalog_service import (
@@ -548,6 +549,15 @@ def order_information_message(order):
     return " ".join(parts)
 
 
+def customer_order_edit_message(business, order_number):
+    """Explain the seller handoff when an order is already confirmed."""
+    return (
+        f"Order {order_number} has already been confirmed by the seller, so I "
+        "cannot change or cancel it here. Please contact the seller directly. "
+        + seller_contact_message(business)
+    )
+
+
 def word_characters(value):
     """Keep letters, combining marks and digits; turn everything else to space.
 
@@ -935,12 +945,28 @@ CANCEL_ORDER_PHRASES = (
 # done: picked, boxed and often labelled. They should decide whether to undo it,
 # so the bot escalates instead of cancelling. Add "packed" here if you would
 # rather let customers cancel right up to dispatch.
-CUSTOMER_CANCELLABLE_STATUSES = {"needs-confirmation", "confirmed"}
+CUSTOMER_CANCELLABLE_STATUSES = {"needs-confirmation"}
 
 
 def is_cancel_order_request(message):
     text = str(message).casefold()
     return any(phrase in text for phrase in CANCEL_ORDER_PHRASES)
+
+
+def requested_customer_detail(message):
+    """Return the one contact/delivery field the customer wants to change."""
+    tokens = set(word_characters(message).split())
+    if "name" in tokens:
+        return "name"
+    if tokens & {"phone", "mobile", "number"}:
+        return "phone"
+    if tokens & {"address", "street"}:
+        return "address"
+    if "district" in tokens:
+        return "district"
+    if tokens & {"city", "town"}:
+        return "city"
+    return None
 
 
 DEPOSIT_REQUEST_PHRASES = (
@@ -3107,6 +3133,70 @@ def answer_public_message(database, session_id, provided_token, payload):
             "customerDraft": customer_draft,
         }
 
+    # Change only the requested field while a new order is being collected.
+    # The return state keeps the customer in the same checkout flow instead of
+    # starting name/phone/address collection from the beginning.
+    if current_state.startswith("editing-draft-"):
+        field = current_state.replace("editing-draft-", "", 1)
+        return_state = session.get("editingReturnState") or "awaiting-confirmation"
+        address = dict(customer_draft.get("address") or {})
+        try:
+            if field == "name":
+                customer_draft["name"] = parse_customer_name(message)
+            elif field == "phone":
+                normalize_sri_lankan_phone(message)
+                customer_draft["phoneNumber"] = message.strip()
+            elif field == "address":
+                customer_draft.setdefault("address", address)
+                customer_draft["address"]["line1"] = required_text(
+                    message.strip(), "Street address", 200,
+                )
+            elif field == "district":
+                if not is_known_district(message):
+                    raise ValueError("Please send one of Sri Lanka's 25 districts.")
+                customer_draft.setdefault("address", address)
+                customer_draft["address"]["district"] = district_display_name(message)
+            elif field == "city":
+                customer_draft.setdefault("address", address)
+                customer_draft["address"]["city"] = parse_required_location(
+                    message, "nearest city",
+                )
+            else:
+                return respond(
+                    "Which contact or delivery detail would you like to change?",
+                    "edit-order",
+                    next_state=return_state,
+                )
+        except ValueError as error:
+            return respond(str(error), "edit-order", next_state=current_state)
+
+        if return_state == "awaiting-confirmation":
+            return respond(
+                "Updated that detail. Reply 'confirm order' to submit this order, "
+                "or tell me another detail to change.",
+                "confirm-order",
+                next_state="awaiting-confirmation",
+            )
+
+        next_state_after_edit = {
+            "name": "collecting-phone",
+            "phone": "collecting-secondary-phone",
+            "address": "collecting-district" if not address.get("district") else "collecting-nearest-city",
+            "district": "collecting-nearest-city",
+            "city": "collecting-delivery-note",
+        }.get(field, return_state)
+        return respond(
+            "Updated. " + {
+                "name": "What is your Sri Lankan mobile number?",
+                "phone": "Do you have a second phone number? Send it, or type 'skip'.",
+                "address": "Which district should we deliver to?" if not customer_draft.get("address", {}).get("district") else "What is the nearest city?",
+                "district": "What is the nearest city?",
+                "city": "Do you have any extra delivery note? Type it, or type 'skip'.",
+            }.get(field, "Please continue."),
+            "edit-order",
+            next_state=next_state_after_edit,
+        )
+
     # Stock moved while the customer was deciding. Say so immediately, before
     # answering anything else: a changed order is more urgent than the question
     # they just asked, and silently shipping a different order is not an option.
@@ -3714,6 +3804,42 @@ def answer_public_message(database, session_id, provided_token, payload):
                 "appear on the store once approved.",
             )
 
+    # A customer may correct any contact field while checkout is in progress.
+    # Restarting the deterministic collection prevents a sentence such as
+    # "change my phone" from being stored as a name or address.
+    detail_change_words = {"change", "edit", "correct", "wrong", "update", "modify"}
+    detail_change_tokens = set(word_characters(lowered_message).split())
+    if (
+        current_state in DRAFT_IN_PROGRESS_STATES
+        and bool(detail_change_words & detail_change_tokens)
+    ):
+        requested_detail = requested_customer_detail(message)
+        if requested_detail:
+            session_snapshot.reference.set(
+                {"editingReturnState": current_state},
+                merge=True,
+            )
+            prompts = {
+                "name": "What is the new full name?",
+                "phone": "What is the new Sri Lankan mobile number?",
+                "address": "What is the new street address?",
+                "district": "What is the new delivery district?",
+                "city": "What is the new nearest city?",
+            }
+            return respond(
+                prompts[requested_detail],
+                "edit-order",
+                next_state=f"editing-draft-{requested_detail}",
+            )
+
+        customer_draft = {}
+        return respond(
+            "No problem. Let us collect the delivery details again so I can use "
+            "your corrected information. What is your full name?",
+            "collect-name",
+            next_state="collecting-name",
+        )
+
     if current_state == "collecting-name":
         try:
             customer_draft["name"] = parse_customer_name(message)
@@ -3922,9 +4048,10 @@ def answer_public_message(database, session_id, provided_token, payload):
                 f"Customer asked to cancel {order_to_cancel.get('orderNumber', '')}",
             )
             return respond(
-                f"Order {order_to_cancel.get('orderNumber', '')} is already "
-                f"{current_order_status.replace('-', ' ')}, so I cannot cancel "
-                "it here. I have told the seller and they will contact you.",
+                customer_order_edit_message(
+                    catalog["business"],
+                    order_to_cancel.get("orderNumber", ""),
+                ),
                 "show-order-info",
                 next_state="completed",
             )
@@ -3935,6 +4062,140 @@ def answer_public_message(database, session_id, provided_token, payload):
             "Reply 'yes cancel' to go ahead.",
             "confirm-cancel-order",
             next_state="confirming-cancel",
+        )
+
+    # Customer edits are allowed only while the order is still waiting for the
+    # seller. The status is checked again by update_order so a seller
+    # confirmation racing this request wins safely.
+    if current_state in {
+        "editing-order",
+        "editing-name",
+        "editing-phone",
+        "editing-address",
+        "editing-district",
+        "editing-city",
+    }:
+        editable_order = latest_order_for_session(database, session)
+        if not editable_order:
+            return respond(
+                "I could not find that order. Please contact the seller directly.",
+                "show-order-info",
+                next_state="completed",
+            )
+
+        if editable_order.get("fulfilmentStatus") != "needs-confirmation":
+            notify_seller_attention(
+                database,
+                session_snapshot.reference,
+                session["businessId"],
+                f"Customer asked to change confirmed order {editable_order.get('orderNumber', '')}",
+            )
+            return respond(
+                customer_order_edit_message(
+                    catalog["business"],
+                    editable_order.get("orderNumber", ""),
+                ),
+                "show-order-info",
+                next_state="completed",
+            )
+
+        if current_state == "editing-order":
+            if lowered_message in {"done", "finish", "finished", "save", "continue"}:
+                return respond(
+                    order_information_message(editable_order),
+                    "show-order-info",
+                    next_state="completed",
+                )
+
+            field_state = None
+            if any(word in detail_change_tokens for word in {"name"}):
+                field_state = "editing-name"
+            elif any(word in detail_change_tokens for word in {"phone", "mobile", "number"}):
+                field_state = "editing-phone"
+            elif "address" in detail_change_tokens or "street" in detail_change_tokens:
+                field_state = "editing-address"
+            elif "district" in detail_change_tokens:
+                field_state = "editing-district"
+            elif any(word in detail_change_tokens for word in {"city", "town"}):
+                field_state = "editing-city"
+
+            if not field_state:
+                return respond(
+                    "You can change the name, phone number, street address, "
+                    "district, or nearest city. Tell me which one to change, "
+                    "or reply 'done'.",
+                    "edit-order",
+                    next_state="editing-order",
+                )
+
+            prompts = {
+                "editing-name": "What is the new full name?",
+                "editing-phone": "What is the new Sri Lankan mobile number?",
+                "editing-address": "What is the new street address?",
+                "editing-district": "What is the new delivery district?",
+                "editing-city": "What is the new nearest city?",
+            }
+            return respond(prompts[field_state], "edit-order", next_state=field_state)
+
+        field = current_state.replace("editing-", "")
+        order_address = dict(editable_order.get("deliveryAddress") or {})
+        changes = {}
+        try:
+            if field == "name":
+                value = parse_customer_name(message)
+                changes["customerName"] = value
+                customer_draft["name"] = value
+            elif field == "phone":
+                normalize_sri_lankan_phone(message)
+                value = message.strip()
+                changes["phoneNumber"] = value
+                customer_draft["phoneNumber"] = value
+            elif field == "address":
+                value = required_text(message.strip(), "Street address", 200)
+                order_address["line1"] = value
+                changes["deliveryAddress"] = order_address
+                customer_draft["address"] = order_address
+            elif field == "district":
+                if not is_known_district(message):
+                    raise ValueError("Please send one of Sri Lanka's 25 districts.")
+                value = district_display_name(message)
+                order_address["district"] = value
+                changes["deliveryAddress"] = order_address
+                customer_draft["address"] = order_address
+            else:
+                value = parse_required_location(message, "nearest city")
+                order_address["city"] = value
+                changes["deliveryAddress"] = order_address
+                customer_draft["address"] = order_address
+        except ValueError as error:
+            return respond(str(error), "edit-order", next_state=current_state)
+
+        try:
+            update_order(
+                database,
+                session["businessId"],
+                editable_order["id"],
+                f"public-chat:{session_id}",
+                changes,
+                editable_statuses=CUSTOMER_CANCELLABLE_STATUSES,
+            )
+        except ApiError as error:
+            if error.code == "order_not_editable":
+                return respond(
+                    customer_order_edit_message(
+                        catalog["business"],
+                        editable_order.get("orderNumber", ""),
+                    ),
+                    "show-order-info",
+                    next_state="completed",
+                )
+            raise
+
+        return respond(
+            "Updated. You can change another detail, or reply 'done' to keep "
+            "the order as updated.",
+            "order-updated",
+            next_state="editing-order",
         )
 
     # The keyword list matches broad words like "deliver" and "shipping", so on
@@ -3976,6 +4237,45 @@ def answer_public_message(database, session_id, provided_token, payload):
             )
 
     if current_state == "completed" or session.get("status") == "completed":
+        change_request = (
+            intent_is("change_order")
+            or "change order" in lowered_message
+            or "edit order" in lowered_message
+            or "modify order" in lowered_message
+            or "change details" in lowered_message
+        )
+        if change_request:
+            editable_order = latest_order_for_session(database, session)
+            if not editable_order:
+                return respond(
+                    "I could not find that order. Please contact the seller directly.",
+                    "show-order-info",
+                    next_state="completed",
+                )
+            if editable_order.get("fulfilmentStatus") != "needs-confirmation":
+                notify_seller_attention(
+                    database,
+                    session_snapshot.reference,
+                    session["businessId"],
+                    f"Customer asked to change confirmed order {editable_order.get('orderNumber', '')}",
+                )
+                return respond(
+                    customer_order_edit_message(
+                        catalog["business"],
+                        editable_order.get("orderNumber", ""),
+                    ),
+                    "show-order-info",
+                    next_state="completed",
+                )
+            return respond(
+                "Your order is still waiting for seller confirmation. You can "
+                "change the name, phone number, street address, district, or "
+                "nearest city. Which detail should I change? Reply 'done' when "
+                "finished.",
+                "edit-order",
+                next_state="editing-order",
+            )
+
         starts_new_order = is_explicit_new_order_request(lowered_message) or intent_is(
             "new_order",
         )

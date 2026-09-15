@@ -589,7 +589,7 @@ def test_an_unrecognised_request_offers_categories_not_the_whole_catalogue(chat,
     assert reply["categories"] == ["Earbuds", "Shoes", "Watches"]
 
 
-def cancellable_chat(chat, monkeypatch, status="confirmed"):
+def cancellable_chat(chat, monkeypatch, status="needs-confirmation"):
     """A session that already owns an order, with status writes captured."""
     calls = []
     chat.session["orderId"] = "o1"
@@ -648,7 +648,7 @@ def test_a_shipped_order_is_not_cancellable_and_the_seller_is_told(chat, monkeyp
     # The parcel is physically moving; only the seller can stop it.
     assert calls == []
     assert chat.state == "completed"
-    assert "already shipped" in reply["message"]
+    assert "contact the seller" in reply["message"]
     assert told
 
 
@@ -720,17 +720,17 @@ def test_a_packed_order_is_escalated_rather_than_self_cancelled(chat, monkeypatc
     # The seller's own rules permit packed -> cancelled, but by then they have
     # picked, boxed and often labelled it. Undoing that work is their call.
     assert calls == []
-    assert "already packed" in reply["message"]
+    assert "contact the seller" in reply["message"]
     assert told
 
 
-def test_a_confirmed_order_is_still_cancellable_by_the_customer(chat, monkeypatch):
+def test_a_confirmed_order_cannot_be_cancelled_by_the_customer(chat, monkeypatch):
     calls = cancellable_chat(chat, monkeypatch, status="confirmed")
 
-    chat.say("cancel my order")
-    chat.say("yes cancel")
+    reply = chat.say("cancel my order")
 
-    assert [order_id for order_id, _payload in calls] == ["o1"]
+    assert calls == []
+    assert "contact the seller" in reply["message"]
 
 
 def test_the_customer_cancel_window_is_narrower_than_the_sellers():
@@ -791,7 +791,7 @@ def test_cancelling_mid_checkout_clears_the_draft(chat, monkeypatch):
 
 
 def test_cancelling_with_no_draft_still_targets_the_placed_order(chat, monkeypatch):
-    calls = cancellable_chat(chat, monkeypatch, status="confirmed")
+    calls = cancellable_chat(chat, monkeypatch)
 
     reply = chat.say("cancel my order")
 

@@ -1311,7 +1311,7 @@ def update_order_status(database, business_id, order_id, uid, payload):
     return get_order(database, business_id, order_id)
 
 
-def update_order(database, business_id, order_id, uid, payload):
+def update_order(database, business_id, order_id, uid, payload, editable_statuses=None):
     """Update seller-editable order fields without changing reserved items."""
     order_reference = (
         database.collection("businesses").document(business_id)
@@ -1323,6 +1323,12 @@ def update_order(database, business_id, order_id, uid, payload):
 
     changes = {"updatedAt": firestore.SERVER_TIMESTAMP, "updatedBy": uid}
     current_order = snapshot.to_dict()
+    if editable_statuses is not None and current_order.get("fulfilmentStatus") not in editable_statuses:
+        raise ApiError(
+            "order_not_editable",
+            "That order has already been confirmed and can no longer be changed by the customer.",
+            409,
+        )
     customer_snapshot = dict(current_order.get("customerSnapshot") or {})
     if "customerName" in payload:
         customer_snapshot["name"] = required_text(payload.get("customerName"), "Customer name", 160)
