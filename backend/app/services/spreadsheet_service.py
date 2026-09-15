@@ -194,17 +194,32 @@ def parse_inventory_workbook(stream):
     variant_rows = _records(workbook["Variants"])
     category_rows = _records(workbook["Categories"])
     variants_by_product = {}
-    seen_skus, seen_barcodes = set(), set()
+    seen_skus = set()
     for row in variant_rows:
         product_id = str(row.get("Product ID") or "").strip()
         sku = str(row.get("SKU") or "").strip().upper()
         barcode = str(row.get("Barcode") or "").strip()
         if not product_id or not sku or not barcode:
             raise ApiError("invalid_inventory_workbook", "Every variant row needs Product ID, SKU and Barcode.", 422)
-        if sku in seen_skus or barcode in seen_barcodes:
-            raise ApiError("invalid_inventory_workbook", f"Duplicate SKU or barcode in workbook: {sku or barcode}", 422)
+        if sku in seen_skus:
+            raise ApiError("invalid_inventory_workbook", f"Duplicate SKU in workbook: {sku}", 422)
         seen_skus.add(sku)
-        seen_barcodes.add(barcode)
+        # A barcode may be shared by variants of one product, but not by
+        # variants belonging to different products in the same workbook.
+        existing_barcode_product = next(
+            (
+                existing_product_id
+                for existing_product_id, existing_variants in variants_by_product.items()
+                if any(item["barcode"] == barcode for item in existing_variants)
+            ),
+            None,
+        )
+        if existing_barcode_product and existing_barcode_product != product_id:
+            raise ApiError(
+                "invalid_inventory_workbook",
+                f"Barcode belongs to multiple products in workbook: {barcode}",
+                422,
+            )
         variants_by_product.setdefault(product_id, []).append({
             "id": str(row.get("Variant ID") or "").strip(),
             "size": str(row.get("Variant / Size") or "").strip(),

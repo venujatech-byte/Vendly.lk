@@ -96,7 +96,6 @@ def validate_product(payload):
     variants = []
     seen_sizes = set()
     seen_skus = set()
-    seen_barcodes = set()
 
     for index, raw_variant in enumerate(raw_variants, start=1):
         try:
@@ -146,16 +145,12 @@ def validate_product(payload):
             raise ApiError("duplicate_size", f"Size {size} is repeated.", 422)
         if normalized_sku in seen_skus:
             raise ApiError("duplicate_sku", f"SKU {sku} is repeated.", 422)
-        if normalized_barcode in seen_barcodes:
-            raise ApiError(
-                "duplicate_barcode",
-                f"Barcode {barcode} is repeated.",
-                422,
-            )
+        # Multiple variants of one product may intentionally share a barcode
+        # when the physical item is sold under one barcode. Barcodes remain
+        # protected by the business-level registry across different products.
 
         seen_sizes.add(normalized_size)
         seen_skus.add(normalized_sku)
-        seen_barcodes.add(normalized_barcode)
         variants.append(
             {
                 "size": size,
@@ -288,6 +283,7 @@ def create_product(database, business_id, uid, payload):
     variant_entries = []
     registry_references = []
 
+    registered_barcode_values = set()
     for variant in product["variants"]:
         variant_reference = variant_collection.document()
         sku_registry = business_reference.collection("skuRegistry").document(
@@ -296,12 +292,11 @@ def create_product(database, business_id, uid, payload):
         barcode_registry = business_reference.collection("barcodeRegistry").document(
             normalize_registry_key(variant["barcode"]),
         )
-        registry_references.extend(
-            [
-                (sku_registry, "sku", variant["sku"]),
-                (barcode_registry, "barcode", variant["barcode"]),
-            ],
-        )
+        registry_references.append((sku_registry, "sku", variant["sku"]))
+        normalized_barcode = normalize_registry_key(variant["barcode"])
+        if normalized_barcode not in registered_barcode_values:
+            registry_references.append((barcode_registry, "barcode", variant["barcode"]))
+            registered_barcode_values.add(normalized_barcode)
         variant_entries.append((variant_reference, variant))
 
     short_code = generate_short_code()
@@ -595,7 +590,6 @@ def update_product(database, business_id, product_id, payload):
         }
         retained_ids = set()
         seen_skus = set()
-        seen_barcodes = set()
         summaries = []
         total_stock = 0
         total_reserved = 0
@@ -612,10 +606,9 @@ def update_product(database, business_id, product_id, payload):
                 raise ApiError("validation_error", str(error), 422) from error
             normalized_sku = normalize_registry_key(sku)
             normalized_barcode = normalize_registry_key(barcode)
-            if normalized_sku in seen_skus or normalized_barcode in seen_barcodes:
-                raise ApiError("duplicate_variant_identifier", "Variant SKUs and barcodes must be unique.", 422)
+            if normalized_sku in seen_skus:
+                raise ApiError("duplicate_variant_identifier", "Variant SKUs must be unique.", 422)
             seen_skus.add(normalized_sku)
-            seen_barcodes.add(normalized_barcode)
 
             snapshot = existing_by_id.get(variant_id)
             if snapshot is None:
@@ -657,7 +650,12 @@ def update_product(database, business_id, product_id, payload):
                 batch.set(registry, {"type": registry_type, "value": value, "productId": product_id, "updatedAt": firestore.SERVER_TIMESTAMP}, merge=True)
             if current.get("sku") and normalize_registry_key(current["sku"]) != normalize_registry_key(sku):
                 batch.delete(business_reference.collection("skuRegistry").document(normalize_registry_key(current["sku"])))
-            if current.get("barcode") and normalize_registry_key(current["barcode"]) != normalize_registry_key(barcode):
+            active_barcodes = {
+                normalize_registry_key(item.get("barcode", ""))
+                for item in raw_variants
+                if item.get("barcode")
+            }
+            if current.get("barcode") and normalize_registry_key(current["barcode"]) != normalize_registry_key(barcode) and normalize_registry_key(current["barcode"]) not in active_barcodes:
                 batch.delete(business_reference.collection("barcodeRegistry").document(normalize_registry_key(current["barcode"])))
             available = stock_on_hand - reserved
             status = stock_status(available, changes.get("lowStockThreshold", current_product.get("lowStockThreshold", 5)))
@@ -674,7 +672,7 @@ def update_product(database, business_id, product_id, payload):
                 old = snapshot.to_dict()
                 if old.get("sku"):
                     batch.delete(business_reference.collection("skuRegistry").document(normalize_registry_key(old["sku"])))
-                if old.get("barcode"):
+                if old.get("barcode") and normalize_registry_key(old["barcode"]) not in active_barcodes:
                     batch.delete(business_reference.collection("barcodeRegistry").document(normalize_registry_key(old["barcode"])))
                 batch.delete(snapshot.reference)
         available_stock = total_stock - total_reserved
