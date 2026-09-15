@@ -279,7 +279,12 @@ export default function CustomSelect({
         ref={triggerRef}
         type="button"
         className="custom-select__trigger"
-        onClick={toggleOpen}
+        onClick={(event) => {
+          event.stopPropagation();
+          toggleOpen();
+        }}
+        onMouseDown={(event) => event.stopPropagation()}
+        onTouchStart={(event) => event.stopPropagation()}
         disabled={disabled}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
@@ -302,6 +307,8 @@ export default function CustomSelect({
           ref={menuRef}
           role="listbox"
           className={`custom-select__menu custom-select__menu--${placement}`}
+          onMouseDown={(event) => event.stopPropagation()}
+          onTouchStart={(event) => event.stopPropagation()}
         >
           {parsedOptions.length === 0 ? (
             <div className="custom-select__empty">No options</div>
@@ -317,7 +324,10 @@ export default function CustomSelect({
                   aria-selected={isSelected}
                   aria-disabled={opt.disabled}
                   className={`custom-select__option ${isSelected ? "is-selected" : ""} ${isHighlighted ? "is-highlighted" : ""} ${opt.disabled ? "is-disabled" : ""}`}
-                  onClick={() => handleSelect(opt)}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    handleSelect(opt);
+                  }}
                   onMouseEnter={() => !opt.disabled && setHighlightedIndex(index)}
                 >
                   <span className="custom-select__option-label">

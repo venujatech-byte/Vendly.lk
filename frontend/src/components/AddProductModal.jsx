@@ -9,6 +9,7 @@ import {
   uploadVariantImage,
 } from "../services/productService";
 import ModalShell from "./ModalShell";
+import CustomSelect from "./CustomSelect";
 import ProductDescriptionEditor from "./ProductDescriptionEditor";
 import "./InventoryForm.css";
 
@@ -247,10 +248,10 @@ function AddProductModal({ isOpen, businessId, categories, product = null, onClo
               <input name="productSize" value={formData.productSize} onChange={updateField} placeholder="Select size..." />
             </label>
             <label>Category <small>(optional)</small>
-              <select name="categoryId" value={formData.categoryId} onChange={updateField}>
+              <CustomSelect name="categoryId" value={formData.categoryId} onChange={updateField}>
                 <option value="">Uncategorized - assign later</option>
                 {activeCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
-              </select>
+              </CustomSelect>
             </label>
             <label>Brand
               <input name="brand" value={formData.brand} onChange={updateField} placeholder="Select brand..." />
