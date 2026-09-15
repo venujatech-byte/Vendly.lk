@@ -257,10 +257,10 @@ function AddProductModal({ isOpen, businessId, categories, product = null, onClo
               <input name="brand" value={formData.brand} onChange={updateField} placeholder="Select brand..." />
             </label>
             <label>Warranty
-              <select name="warrantyPeriodMonths" value={formData.warrantyPeriodMonths} onChange={updateField}>
+              <CustomSelect name="warrantyPeriodMonths" value={formData.warrantyPeriodMonths} onChange={updateField}>
                 <option value="0">None</option><option value="1">1 month</option><option value="3">3 months</option>
                 <option value="6">6 months</option><option value="12">1 year</option><option value="24">2 years</option>
-              </select>
+              </CustomSelect>
             </label>
           </div>
 
