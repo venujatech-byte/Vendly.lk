@@ -264,6 +264,48 @@ def test_recent_months_crosses_year_boundary():
     assert months == ["2025-11", "2025-12", "2026-01", "2026-02"]
 
 
+def test_analytics_calculates_month_over_month_dashboard_changes():
+    analytics = calculate_analytics(
+        [
+            {
+                "fulfilmentStatus": "delivered",
+                "createdAt": "2026-07-10T10:00:00Z",
+                "subtotalMinor": 100000,
+                "discountTotalMinor": 0,
+                "items": [],
+            },
+            {
+                "fulfilmentStatus": "delivered",
+                "createdAt": "2026-08-10T10:00:00Z",
+                "subtotalMinor": 150000,
+                "discountTotalMinor": 0,
+                "items": [],
+            },
+            {
+                "fulfilmentStatus": "returned",
+                "createdAt": "2026-08-11T10:00:00Z",
+                "subtotalMinor": 50000,
+                "discountTotalMinor": 0,
+                "items": [],
+            },
+        ],
+        [],
+        customers=[
+            {"createdAt": "2026-07-02T10:00:00Z"},
+            {"createdAt": "2026-08-02T10:00:00Z"},
+            {"createdAt": "2026-08-03T10:00:00Z"},
+        ],
+        now=datetime(2026, 8, 17, 12, tzinfo=timezone.utc),
+    )
+
+    assert analytics["performance"]["monthOverMonth"] == {
+        "revenuePercent": 50.0,
+        "ordersPercent": 100.0,
+        "customersPercent": 100.0,
+        "conversionRatePercent": -50.0,
+    }
+
+
 def test_warranty_claims_reduce_revenue_only_by_the_saved_claim_impact():
     now = datetime(2026, 8, 17, 12, tzinfo=timezone.utc)
     analytics = calculate_analytics(

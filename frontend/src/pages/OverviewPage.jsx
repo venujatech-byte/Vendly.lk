@@ -1,16 +1,12 @@
 import {
   ArrowRight,
-  ArrowUp,
   BarChart2,
   BarChart3,
   BellRing,
-  Briefcase,
   CircleCheck,
   CircleDollarSign,
   Clock3,
   DollarSign,
-  Footprints,
-  Headphones,
   Package,
   Package2,
   ShoppingBag,
@@ -21,9 +17,7 @@ import {
   Truck,
   Undo2,
   Users,
-  Wallet,
   WalletCards,
-  Watch,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
@@ -58,6 +52,12 @@ function formatOrderDate(value) {
     day: "numeric",
     year: "numeric",
   });
+}
+
+
+function formatTrendPercent(value) {
+  const percent = Number(value) || 0;
+  return `${percent > 0 ? "+" : ""}${percent}%`;
 }
 
 
@@ -143,65 +143,12 @@ function OverviewPage() {
 
   const financials = analytics?.financials ?? {};
   const performance = analytics?.performance ?? {};
+  const monthOverMonth = performance.monthOverMonth ?? {};
 
-  const topProductsList = useMemo(() => {
-    const backendProducts = analytics?.topProducts ?? [];
-    if (backendProducts.length > 0) {
-      return backendProducts.slice(0, 5);
-    }
-    return [
-      {
-        id: "p1",
-        name: "Wireless Headphones",
-        categoryName: "Electronics",
-        quantity: 320,
-        revenueMinor: 1243000,
-        growth: 24,
-        imageUrl: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=160&auto=format&fit=crop&q=80",
-        icon: Headphones,
-      },
-      {
-        id: "p2",
-        name: "Minimal Backpack",
-        categoryName: "Accessories",
-        quantity: 210,
-        revenueMinor: 892000,
-        growth: 18,
-        imageUrl: "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=160&auto=format&fit=crop&q=80",
-        icon: Briefcase,
-      },
-      {
-        id: "p3",
-        name: "Smart Watch",
-        categoryName: "Wearables",
-        quantity: 184,
-        revenueMinor: 845000,
-        growth: 16,
-        imageUrl: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=160&auto=format&fit=crop&q=80",
-        icon: Watch,
-      },
-      {
-        id: "p4",
-        name: "Running Shoes",
-        categoryName: "Footwear",
-        quantity: 160,
-        revenueMinor: 698000,
-        growth: 12,
-        imageUrl: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=160&auto=format&fit=crop&q=80",
-        icon: Footprints,
-      },
-      {
-        id: "p5",
-        name: "Leather Wallet",
-        categoryName: "Accessories",
-        quantity: 122,
-        revenueMinor: 432000,
-        growth: 8,
-        imageUrl: "https://images.unsplash.com/photo-1627123424574-724758594e93?w=160&auto=format&fit=crop&q=80",
-        icon: Wallet,
-      },
-    ];
-  }, [analytics]);
+  const topProductsList = useMemo(
+    () => (analytics?.topProducts ?? []).slice(0, 5),
+    [analytics],
+  );
 
   return (
     <main className="dashboard overview-page">
@@ -225,7 +172,7 @@ function OverviewPage() {
           value={formatAnalyticsMoney(financials.productRevenueMinor)}
           icon={DollarSign}
           tone="green"
-          trend="+18.4%"
+          trend={formatTrendPercent(monthOverMonth.revenuePercent)}
           trendLabel="vs last month"
         />
         <StatCard
@@ -233,7 +180,7 @@ function OverviewPage() {
           value={(analytics?.orderCounts?.all ?? 0).toLocaleString()}
           icon={ShoppingCart}
           tone="blue"
-          trend="+12.8%"
+          trend={formatTrendPercent(monthOverMonth.ordersPercent)}
           trendLabel="vs last month"
         />
         <StatCard
@@ -241,15 +188,15 @@ function OverviewPage() {
           value={(analytics?.customers?.total ?? 0).toLocaleString()}
           icon={Users}
           tone="indigo"
-          trend="+16.9%"
+          trend={formatTrendPercent(monthOverMonth.customersPercent)}
           trendLabel="vs last month"
         />
         <StatCard
           label="Conversion Rate"
-          value={`${performance.deliverySuccessPercent ?? 3.6}%`}
+          value={`${performance.deliverySuccessPercent ?? 0}%`}
           icon={BarChart2}
           tone="cyan"
-          trend="+0.7%"
+          trend={formatTrendPercent(monthOverMonth.conversionRatePercent)}
           trendLabel="vs last month"
         />
       </section>
@@ -342,10 +289,11 @@ function OverviewPage() {
             <Link to="/inventory">View all <ArrowRight size={15} /></Link>
           </header>
           <div className="overview-top-products-list">
-            {!analytics ? null : (
+            {!analytics ? null : topProductsList.length === 0 ? (
+              <p className="overview-empty">Product sales will appear here after your first sale.</p>
+            ) : (
               topProductsList.map((product, index) => {
                 const rank = index + 1;
-                const growth = product.growth ?? Math.max(24 - index * 4, 6);
                 const ProductIcon = product.icon || Package;
                 return (
                   <div className="overview-top-product-row" key={product.id || index}>
@@ -377,10 +325,6 @@ function OverviewPage() {
                     <div className="overview-top-product-stats">
                       <strong>{formatAnalyticsMoney(product.revenueMinor)}</strong>
                       <span>{product.quantity} sold</span>
-                    </div>
-                    <div className="overview-top-product-growth">
-                      <ArrowUp size={11} strokeWidth={2.8} aria-hidden="true" />
-                      +{growth}%
                     </div>
                   </div>
                 );

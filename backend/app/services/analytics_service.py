@@ -120,6 +120,13 @@ def percentage(part, whole):
     return round((part / whole) * 100, 1) if whole else 0
 
 
+def month_over_month_percent(current, previous):
+    """Return a comparable month-over-month change, or zero without a baseline."""
+    if not previous:
+        return 0
+    return round(((current - previous) / previous) * 100, 1)
+
+
 def recent_order_summary(order):
     """Keep the Overview payload small while retaining useful order context."""
     customer = order.get("customerSnapshot", {})
@@ -635,6 +642,12 @@ def calculate_analytics(
     daily_counts = {key: 0 for key in day_keys}
     selected_months = recent_months(now)
     monthly_revenue = {key: 0 for key in selected_months}
+    current_month_key = month_key(now.year, now.month)
+    previous_month_date = now.replace(day=1) - timedelta(days=1)
+    previous_month_key = month_key(previous_month_date.year, previous_month_date.month)
+    monthly_order_counts = {current_month_key: 0, previous_month_key: 0}
+    monthly_delivered_counts = {current_month_key: 0, previous_month_key: 0}
+    monthly_completed_counts = {current_month_key: 0, previous_month_key: 0}
 
     for order in orders:
         status = order.get("fulfilmentStatus", "needs-confirmation")
@@ -644,6 +657,14 @@ def calculate_analytics(
         created_at = as_datetime(order.get("createdAt"))
         if created_at and created_at.date().isoformat() in daily_counts:
             daily_counts[created_at.date().isoformat()] += 1
+
+        order_month = month_key(created_at.year, created_at.month) if created_at else None
+        if order_month in monthly_order_counts:
+            monthly_order_counts[order_month] += 1
+            if status == "delivered":
+                monthly_delivered_counts[order_month] += 1
+            if status in ("delivered", "returned"):
+                monthly_completed_counts[order_month] += 1
 
         if status != "delivered":
             continue
@@ -668,6 +689,40 @@ def calculate_analytics(
             summary["revenueMinor"] += item_financials["revenueMinor"]
             summary["costOfGoodsMinor"] += item_financials["costOfGoodsMinor"]
             summary["grossProfitMinor"] += item_financials["grossProfitMinor"]
+
+    monthly_customer_counts = {current_month_key: 0, previous_month_key: 0}
+    for customer in customers:
+        created_at = as_datetime(customer.get("createdAt"))
+        customer_month = month_key(created_at.year, created_at.month) if created_at else None
+        if customer_month in monthly_customer_counts:
+            monthly_customer_counts[customer_month] += 1
+
+    current_conversion_rate = percentage(
+        monthly_delivered_counts[current_month_key],
+        monthly_completed_counts[current_month_key],
+    )
+    previous_conversion_rate = percentage(
+        monthly_delivered_counts[previous_month_key],
+        monthly_completed_counts[previous_month_key],
+    )
+    month_over_month = {
+        "revenuePercent": month_over_month_percent(
+            monthly_revenue.get(current_month_key, 0),
+            monthly_revenue.get(previous_month_key, 0),
+        ),
+        "ordersPercent": month_over_month_percent(
+            monthly_order_counts[current_month_key],
+            monthly_order_counts[previous_month_key],
+        ),
+        "customersPercent": month_over_month_percent(
+            monthly_customer_counts[current_month_key],
+            monthly_customer_counts[previous_month_key],
+        ),
+        "conversionRatePercent": month_over_month_percent(
+            current_conversion_rate,
+            previous_conversion_rate,
+        ),
+    }
 
     active_orders = [
         order
@@ -810,6 +865,7 @@ def calculate_analytics(
                 gross_profit_minor,
                 product_revenue_minor,
             ),
+            "monthOverMonth": month_over_month,
         },
         "dailyOrders": [
             {"date": key, "count": daily_counts[key]} for key in day_keys

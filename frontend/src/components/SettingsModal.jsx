@@ -58,7 +58,7 @@ const sections = [
     id: "billing",
     label: "Billing",
     icon: CreditCard,
-    description: "Manage your PayHere sandbox payment credentials and checkout tests.",
+    description: "Manage your payments.",
   },
   {
     id: "preferences",

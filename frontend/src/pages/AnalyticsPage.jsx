@@ -66,6 +66,12 @@ function formatMonth(monthString) {
 }
 
 
+function formatTrendPercent(value) {
+  const percent = Number(value) || 0;
+  return `${percent > 0 ? "+" : ""}${percent}%`;
+}
+
+
 function AnalyticsPage() {
   const { business, membership } = useAuth();
   const [analytics, setAnalytics] = useState(null);
@@ -140,6 +146,7 @@ function AnalyticsPage() {
 
   const financials = analytics?.financials ?? {};
   const performance = analytics?.performance ?? {};
+  const monthOverMonth = performance.monthOverMonth ?? {};
   const inventory = analytics?.inventory ?? {};
   const counts = analytics?.orderCounts ?? {};
   const totalOrders = counts.all ?? 0;
@@ -162,7 +169,7 @@ function AnalyticsPage() {
       value: formatAnalyticsMoney(financials.productRevenueMinor),
       icon: Banknote,
       tone: "green",
-      trend: "+18.4%",
+      trend: formatTrendPercent(monthOverMonth.revenuePercent),
       trendLabel: "vs last month",
     },
     {
