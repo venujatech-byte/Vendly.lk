@@ -81,6 +81,32 @@ function ProductImage({ product, imageNumber = 0 }) {
   );
 }
 
+function DescriptionPreview({ description }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const text = String(description || "").trim();
+  const previewLength = 240;
+  const hasMore = text.length > previewLength;
+  const visibleText = !hasMore || isExpanded
+    ? text
+    : `${text.slice(0, previewLength).trimEnd()}…`;
+
+  return (
+    <>
+      <p>{visibleText || "No description added."}</p>
+      {hasMore && (
+        <button
+          type="button"
+          className="inventory-table__description-toggle"
+          aria-expanded={isExpanded}
+          onClick={() => setIsExpanded((current) => !current)}
+        >
+          {isExpanded ? "Show less" : "View full description"}
+        </button>
+      )}
+    </>
+  );
+}
+
 // Expanded content used only by products that have size variants.
 function SizeStockDetails({ product, onViewReviews, onAdjustStock, onEditProduct, onRemoveProduct }) {
   return (
@@ -118,7 +144,7 @@ function SizeStockDetails({ product, onViewReviews, onAdjustStock, onEditProduct
       <div className="inventory-table__size-overview">
         <section>
           <h4>Product Description</h4>
-          <p>{product.description}</p>
+          <DescriptionPreview description={product.description} />
         </section>
 
         <section>
@@ -160,7 +186,7 @@ function SimpleProductDetails({ product, onViewReviews, onAdjustStock, onEditPro
       {/* Product description and photo gallery. */}
       <section className="inventory-table__description">
         <h3>Product Description</h3>
-        <p>{product.description}</p>
+        <DescriptionPreview description={product.description} />
 
         <h3>Product Images</h3>
         <div className="inventory-table__images">

@@ -343,6 +343,23 @@
   color: var(--color-muted);
   font-size: 12px;
   line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.inventory-table__description-toggle {
+  margin: -6px 0 14px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-accent, #2563eb);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.inventory-table__description-toggle:hover {
+  text-decoration: underline;
 }
 
 /* Product images, information lists, reviews, and actions. */
