@@ -112,8 +112,11 @@ function LoginPage() {
         // Keep the new account out of the dashboard until email verification.
         await logoutUser();
 
+        window.alert(
+          `Confirmation email sent to ${formData.email}.\n\nOpen the email and click the confirmation link to verify your account. If you do not see it, check your Spam or Junk folder.`,
+        );
         setSuccessMessage(
-          "Verification email sent. Please check your inbox before logging in.",
+          `Confirmation email sent to ${formData.email}. Open the email and click the confirmation link to verify your account. If you do not see it, check your Spam or Junk folder.`,
         );
 
         return;
@@ -132,6 +135,11 @@ function LoginPage() {
       }, 1000);
 
     } catch (error) {
+      if (error.code === "auth/email-not-verified") {
+        window.alert(
+          "Please verify your account before logging in. Open the confirmation email and click the verification link. Check your Spam or Junk folder if you cannot find it.",
+        );
+      }
       setErrorMessage(getAuthErrorMessage(error));
     } finally {
       setIsSubmitting(false);

@@ -39,16 +39,24 @@ function CustomerAuthGate({ linkType }) {
 
   if (isAuthLoading) {
     return (
-      <main className="customer-auth-gate__loading">
-        <div className="customer-auth-gate__loading-box">
-          <Loader2 size={36} className="customer-auth-gate__loading-spinner" />
-          <p>Loading storefront...</p>
-        </div>
-      </main>
+      <>
+        <main className="customer-auth-gate__loading">
+          <div className="customer-auth-gate__loading-box">
+            <Loader2 size={36} className="customer-auth-gate__loading-spinner" />
+            <p>Loading storefront...</p>
+          </div>
+        </main>
+      </>
     );
   }
 
-  if (user) return <StorefrontPage linkType={linkType} />;
+  if (user) {
+    return (
+      <>
+        <StorefrontPage linkType={linkType} />
+      </>
+    );
+  }
 
   async function run(action) {
     setBusy(true);
@@ -57,6 +65,11 @@ function CustomerAuthGate({ linkType }) {
     try {
       await action();
     } catch (nextError) {
+      if (nextError.code === "auth/email-not-verified") {
+        window.alert(
+          "Please verify your account before logging in. Open the confirmation email and click the verification link. Check your Spam or Junk folder if you cannot find it.",
+        );
+      }
       setError(nextError.message || "Unable to sign in. Please try again.");
     } finally {
       setBusy(false);
@@ -73,7 +86,8 @@ function CustomerAuthGate({ linkType }) {
       await registerWithEmail(name, email, password);
       await logoutUser();
       setMode("login");
-      setSuccess("Verification email sent! Check your inbox, then sign in.");
+      window.alert(`Confirmation email sent to ${email}.\n\nOpen the email and click the confirmation link to verify your account. If you do not see it, check your Spam or Junk folder.`);
+      setSuccess(`Confirmation email sent to ${email}. Open the email and click the confirmation link to verify your account. If you do not see it, check your Spam or Junk folder.`);
     });
   }
 
@@ -251,6 +265,10 @@ function CustomerAuthGate({ linkType }) {
           <span>Secure customer portal &bull; Vendly.lk</span>
         </div>
       </section>
+      <EmailVerificationModal
+        email={verificationNotice}
+        onClose={() => setVerificationNotice("")}
+      />
     </main>
   );
 }
