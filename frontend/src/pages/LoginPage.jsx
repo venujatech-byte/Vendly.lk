@@ -30,6 +30,8 @@ import {
 } from "../services/authService";
 import { saveSellerProfile } from "../services/sellerService";
 import PasswordRequirements from "../components/PasswordRequirements";
+import EmailVerificationPromptModal from "../components/EmailVerificationPromptModal";
+import PasswordStrengthMeter from "../components/PasswordStrengthMeter";
 import { passwordMeetsPolicy } from "../utils/passwordValidation";
 import { useAuth } from "../context/authContextValue";
 import vendlyLoginLogo from "../assets/vendly-logo.png";
@@ -43,9 +45,13 @@ function LoginPage() {
   const navigate = useNavigate();
   const destination = location.state?.from || "/";
 
-  // Redirect if already authenticated
+  // Redirect if already authenticated and verified
   useEffect(() => {
-    if (user && !isAuthLoading) {
+    const isVerified = Boolean(
+      user &&
+      (user.isAnonymous || user.emailVerified || !user.providerData?.some((p) => p.providerId === "password"))
+    );
+    if (user && isVerified && !isAuthLoading) {
       navigate(destination, { replace: true });
     }
   }, [user, isAuthLoading, destination, navigate]);
@@ -65,9 +71,25 @@ function LoginPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [verificationModal, setVerificationModal] = useState({
+    isOpen: false,
+    email: "",
+    mode: "registered", // 'registered' | 'unverified_login'
+  });
 
   const isRegisterMode = formMode === "register";
   const isForgotMode = formMode === "forgot";
+
+  const isPasswordValid = Boolean(formData.password && passwordMeetsPolicy(formData.password));
+  const isConfirmMatch = Boolean(
+    formData.confirmPassword &&
+    formData.confirmPassword === formData.password &&
+    isPasswordValid
+  );
+  const isConfirmMismatch = Boolean(
+    formData.confirmPassword &&
+    formData.confirmPassword !== formData.password
+  );
 
   function handleInputChange(event) {
     const fieldName = event.target.name;
@@ -118,10 +140,18 @@ function LoginPage() {
         // Keep unverified accounts out until confirmation link is clicked
         await logoutUser();
 
-        setSuccessMessage(
-          `Confirmation email sent to ${formData.email}. Please open the email and click the confirmation link to verify your account before logging in.`
-        );
+        const registeredEmail = formData.email;
+        setFormData((prev) => ({ ...prev, password: "", confirmPassword: "" }));
         setFormMode("login");
+        setSuccessMessage(
+          `Confirmation email sent to ${registeredEmail}. Please verify your account via email before logging in.`
+        );
+        // Show verification prompt popup
+        setVerificationModal({
+          isOpen: true,
+          email: registeredEmail,
+          mode: "registered",
+        });
         return;
       }
 
@@ -132,8 +162,14 @@ function LoginPage() {
     } catch (error) {
       if (error.code === "auth/email-not-verified") {
         setErrorMessage(
-          "Please verify your email address before logging in. Check your inbox and spam folder for the confirmation link."
+          "Please verify your account via email before logging in. Check your inbox and spam folder."
         );
+        // Show verification prompt popup for unverified login
+        setVerificationModal({
+          isOpen: true,
+          email: formData.email,
+          mode: "unverified_login",
+        });
       } else {
         setErrorMessage(getAuthErrorMessage(error));
       }
@@ -387,8 +423,18 @@ function LoginPage() {
                     placeholder={isRegisterMode ? "Create strong password" : "Enter password"}
                     autoComplete={isRegisterMode ? "new-password" : "current-password"}
                     minLength={isRegisterMode ? 8 : 6}
+                    className={isRegisterMode && isPasswordValid ? "login-form-panel__input--valid" : ""}
                     required
                   />
+                  {isRegisterMode && isPasswordValid && (
+                    <span
+                      className="login-form-panel__valid-check"
+                      title="Password meets all security requirements"
+                      aria-label="Password valid"
+                    >
+                      <CheckCircle2 size={16} />
+                    </span>
+                  )}
                   <button
                     type="button"
                     className="login-form-panel__toggle-pwd"
@@ -398,6 +444,9 @@ function LoginPage() {
                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
+                {isRegisterMode && (
+                  <PasswordStrengthMeter password={formData.password} />
+                )}
               </div>
             )}
 
@@ -414,9 +463,36 @@ function LoginPage() {
                     onChange={handleInputChange}
                     placeholder="Repeat password"
                     autoComplete="new-password"
+                    className={
+                      isConfirmMatch
+                        ? "login-form-panel__input--valid-alone"
+                        : isConfirmMismatch
+                        ? "login-form-panel__input--invalid"
+                        : ""
+                    }
                     required
                   />
+                  {isConfirmMatch && (
+                    <span
+                      className="login-form-panel__valid-check login-form-panel__valid-check--alone"
+                      title="Passwords match"
+                      aria-label="Passwords match"
+                    >
+                      <CheckCircle2 size={16} />
+                    </span>
+                  )}
                 </div>
+                {isConfirmMatch && (
+                  <div className="login-form-panel__field-hint login-form-panel__field-hint--valid">
+                    <CheckCircle2 size={12} />
+                    <span>Passwords match</span>
+                  </div>
+                )}
+                {isConfirmMismatch && (
+                  <div className="login-form-panel__field-hint login-form-panel__field-hint--invalid">
+                    <span>Passwords do not match</span>
+                  </div>
+                )}
               </div>
             )}
 
@@ -468,6 +544,17 @@ function LoginPage() {
           )}
         </section>
       </div>
+
+      <EmailVerificationPromptModal
+        isOpen={verificationModal.isOpen}
+        email={verificationModal.email}
+        mode={verificationModal.mode}
+        onClose={() => setVerificationModal((prev) => ({ ...prev, isOpen: false }))}
+        onPrimaryAction={() => {
+          setVerificationModal((prev) => ({ ...prev, isOpen: false }));
+          setFormMode("login");
+        }}
+      />
     </main>
   );
 }

@@ -14,6 +14,18 @@ import {
 } from "../services/sellerService";
 import { AuthContext } from "./authContextValue";
 
+function isUserEmailVerified(firebaseUser) {
+  if (!firebaseUser) return false;
+  if (firebaseUser.isAnonymous) return true;
+  const isPasswordUser = firebaseUser.providerData?.some(
+    (p) => p.providerId === "password"
+  );
+  if (isPasswordUser) {
+    return Boolean(firebaseUser.emailVerified);
+  }
+  return true;
+}
+
 function AuthProvider({ children }) {
   // Firebase user currently logged into Vendly.
   const [user, setUser] = useState(null);
@@ -96,6 +108,18 @@ function AuthProvider({ children }) {
       async (currentUser) => {
         setIsAuthLoading(true);
         setAuthenticationError(null);
+
+        // Do not treat unverified email/password accounts as logged in.
+        // This prevents login gates from unmounting or prematurely redirecting.
+        if (currentUser && !isUserEmailVerified(currentUser)) {
+          setUser(null);
+          setSellerProfile(null);
+          setAccount(null);
+          setAccountError(null);
+          setIsAuthLoading(false);
+          return;
+        }
+
         setUser(currentUser);
 
         try {
@@ -132,7 +156,7 @@ function AuthProvider({ children }) {
   async function refreshSellerProfile() {
     setIsAuthLoading(true);
 
-    if (!auth.currentUser) {
+    if (!auth.currentUser || !isUserEmailVerified(auth.currentUser)) {
       setSellerProfile(null);
       setAccount(null);
       setIsAuthLoading(false);

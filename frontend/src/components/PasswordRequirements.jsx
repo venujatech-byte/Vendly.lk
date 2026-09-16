@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Check, Circle, X } from "lucide-react";
-import { PASSWORD_RULES } from "../utils/passwordValidation";
+import { PASSWORD_RULES, passwordMeetsPolicy } from "../utils/passwordValidation";
 import "./PasswordRequirements.css";
 
 function PasswordRequirements({ password = "", confirmPassword = "" }) {
@@ -18,6 +18,8 @@ function PasswordRequirements({ password = "", confirmPassword = "" }) {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen]);
 
+  const isComplete = Boolean(password && passwordMeetsPolicy(password));
+
   return (
     <div
       className="password-requirements-wrapper"
@@ -26,7 +28,7 @@ function PasswordRequirements({ password = "", confirmPassword = "" }) {
     >
       <button
         type="button"
-        className="password-requirements-trigger"
+        className={`password-requirements-trigger ${isComplete ? "is-complete" : ""}`}
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -36,7 +38,7 @@ function PasswordRequirements({ password = "", confirmPassword = "" }) {
         aria-label="Password requirements information"
         aria-expanded={isOpen}
       >
-        <span>?</span>
+        {isComplete ? <Check size={11} className="password-requirements-trigger__check" /> : <span>?</span>}
       </button>
 
       {/* Backdrop for mobile touch dismiss */}

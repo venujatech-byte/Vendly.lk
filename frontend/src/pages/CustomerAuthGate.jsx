@@ -32,6 +32,8 @@ import {
 import { getPublicProduct, getPublicStore } from "../services/publicService";
 import StorefrontPage from "./StorefrontPage";
 import PasswordRequirements from "../components/PasswordRequirements";
+import EmailVerificationPromptModal from "../components/EmailVerificationPromptModal";
+import PasswordStrengthMeter from "../components/PasswordStrengthMeter";
 import { passwordMeetsPolicy } from "../utils/passwordValidation";
 import vendlyLoginLogo from "../assets/vendly-logo.png";
 import googleLogo from "../assets/g.webp";
@@ -54,6 +56,25 @@ function CustomerAuthGate({ linkType }) {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [busy, setBusy] = useState(false);
+  const [verificationModal, setVerificationModal] = useState({
+    isOpen: false,
+    email: "",
+    mode: "registered", // 'registered' | 'unverified_login'
+  });
+
+  const isRegister = mode === "register";
+  const isForgot = mode === "forgot";
+
+  const isPasswordValid = Boolean(password && passwordMeetsPolicy(password));
+  const isConfirmMatch = Boolean(
+    confirmPassword &&
+    confirmPassword === password &&
+    isPasswordValid
+  );
+  const isConfirmMismatch = Boolean(
+    confirmPassword &&
+    confirmPassword !== password
+  );
 
   // Fetch store name if route parameter is available
   useEffect(() => {
@@ -91,8 +112,12 @@ function CustomerAuthGate({ linkType }) {
     );
   }
 
-  // Once authenticated, render storefront directly
-  if (user) {
+  // Once authenticated and verified, render storefront directly
+  const isCustomerVerified = Boolean(
+    user &&
+    (user.isAnonymous || user.emailVerified || !user.providerData?.some((p) => p.providerId === "password"))
+  );
+  if (user && isCustomerVerified) {
     return <StorefrontPage linkType={linkType} />;
   }
 
@@ -105,8 +130,13 @@ function CustomerAuthGate({ linkType }) {
     } catch (nextError) {
       if (nextError.code === "auth/email-not-verified") {
         setError(
-          "Please verify your email address before logging in. Check your inbox and spam folder for the confirmation link."
+          "Please verify your account via email before logging in. Check your inbox and spam folder."
         );
+        setVerificationModal({
+          isOpen: true,
+          email,
+          mode: "unverified_login",
+        });
       } else {
         setError(getAuthErrorMessage(nextError));
       }
@@ -138,14 +168,20 @@ function CustomerAuthGate({ linkType }) {
       if (password !== confirmPassword) {
         throw new Error("Passwords do not match.");
       }
-      await registerWithEmail(name, email, password);
+      const currentEmail = email;
+      await registerWithEmail(name, currentEmail, password);
       await logoutUser();
       setMode("login");
       setPassword("");
       setConfirmPassword("");
       setSuccess(
-        `Confirmation email sent to ${email}. Open the email and click the confirmation link to verify your account before signing in.`
+        `Confirmation email sent to ${currentEmail}. Please verify your account via email before signing in.`
       );
+      setVerificationModal({
+        isOpen: true,
+        email: currentEmail,
+        mode: "registered",
+      });
     });
   }
 
@@ -156,9 +192,6 @@ function CustomerAuthGate({ linkType }) {
     setShowPassword(false);
     setConfirmPassword("");
   }
-
-  const isRegister = mode === "register";
-  const isForgot = mode === "forgot";
 
   return (
     <main className="customer-auth-gate">
@@ -360,8 +393,18 @@ function CustomerAuthGate({ linkType }) {
                     placeholder={isRegister ? "Create strong password" : "Enter your password"}
                     autoComplete={isRegister ? "new-password" : "current-password"}
                     minLength={isRegister ? 8 : 6}
+                    className={isRegister && isPasswordValid ? "customer-form-panel__input--valid" : ""}
                     required
                   />
+                  {isRegister && isPasswordValid && (
+                    <span
+                      className="customer-form-panel__valid-check"
+                      title="Password meets all security requirements"
+                      aria-label="Password valid"
+                    >
+                      <CheckCircle2 size={16} />
+                    </span>
+                  )}
                   <button
                     type="button"
                     className="customer-form-panel__toggle-pwd"
@@ -371,6 +414,9 @@ function CustomerAuthGate({ linkType }) {
                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
+                {isRegister && (
+                  <PasswordStrengthMeter password={password} />
+                )}
               </div>
             )}
 
@@ -386,9 +432,36 @@ function CustomerAuthGate({ linkType }) {
                     onChange={(event) => setConfirmPassword(event.target.value)}
                     placeholder="Repeat your password"
                     autoComplete="new-password"
+                    className={
+                      isConfirmMatch
+                        ? "customer-form-panel__input--valid-alone"
+                        : isConfirmMismatch
+                        ? "customer-form-panel__input--invalid"
+                        : ""
+                    }
                     required
                   />
+                  {isConfirmMatch && (
+                    <span
+                      className="customer-form-panel__valid-check customer-form-panel__valid-check--alone"
+                      title="Passwords match"
+                      aria-label="Passwords match"
+                    >
+                      <CheckCircle2 size={16} />
+                    </span>
+                  )}
                 </div>
+                {isConfirmMatch && (
+                  <div className="customer-form-panel__field-hint customer-form-panel__field-hint--valid">
+                    <CheckCircle2 size={12} />
+                    <span>Passwords match</span>
+                  </div>
+                )}
+                {isConfirmMismatch && (
+                  <div className="customer-form-panel__field-hint customer-form-panel__field-hint--invalid">
+                    <span>Passwords do not match</span>
+                  </div>
+                )}
               </div>
             )}
 
@@ -453,6 +526,17 @@ function CustomerAuthGate({ linkType }) {
           )}
         </section>
       </div>
+
+      <EmailVerificationPromptModal
+        isOpen={verificationModal.isOpen}
+        email={verificationModal.email}
+        mode={verificationModal.mode}
+        onClose={() => setVerificationModal((prev) => ({ ...prev, isOpen: false }))}
+        onPrimaryAction={() => {
+          setVerificationModal((prev) => ({ ...prev, isOpen: false }));
+          setMode("login");
+        }}
+      />
     </main>
   );
 }

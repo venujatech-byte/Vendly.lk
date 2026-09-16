@@ -46,6 +46,9 @@ export async function registerWithEmail(
   // Send an email-verification message.
   await sendEmailVerification(userCredential.user);
 
+  // Keep unverified credentials from lingering in active Firebase auth session
+  await signOut(auth);
+
   return userCredential.user;
 }
 
