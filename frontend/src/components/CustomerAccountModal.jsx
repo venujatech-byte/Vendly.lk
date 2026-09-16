@@ -16,6 +16,7 @@ import {
   X,
 } from "lucide-react";
 import {
+  getAuthErrorMessage,
   loginAsGuest,
   loginWithEmail,
   loginWithGoogle,
@@ -87,7 +88,7 @@ function CustomerAccountModal({ isOpen, onClose, user, storeCode, onOpenChat }) 
         await loginWithEmail(form.email, form.password);
       }
     } catch (authError) {
-      setError(authError.message);
+      setError(getAuthErrorMessage(authError));
     } finally {
       setIsBusy(false);
     }
@@ -99,7 +100,7 @@ function CustomerAccountModal({ isOpen, onClose, user, storeCode, onOpenChat }) 
     try {
       await action();
     } catch (authError) {
-      setError(authError.message);
+      setError(getAuthErrorMessage(authError));
     } finally {
       setIsBusy(false);
     }

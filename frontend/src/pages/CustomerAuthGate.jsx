@@ -1,61 +1,99 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useParams } from "react-router-dom";
 import {
   AlertCircle,
+  ArrowLeft,
   CheckCircle2,
   Eye,
   EyeOff,
+  KeyRound,
   Loader2,
   Lock,
   LogIn,
   Mail,
+  MessageSquare,
   ShieldCheck,
   Sparkles,
+  Store,
+  Truck,
   User,
   UserPlus,
 } from "lucide-react";
 import { useAuth } from "../context/authContextValue";
 import {
+  getAuthErrorMessage,
   loginAsGuest,
   loginWithEmail,
   loginWithGoogle,
   logoutUser,
   registerWithEmail,
+  sendPasswordReset,
 } from "../services/authService";
+import { getPublicProduct, getPublicStore } from "../services/publicService";
 import StorefrontPage from "./StorefrontPage";
-import vendlyLoginLogo from "../assets/logo.png";
+import PasswordRequirements from "../components/PasswordRequirements";
+import { passwordMeetsPolicy } from "../utils/passwordValidation";
+import vendlyLoginLogo from "../assets/vendly-logo.png";
 import googleLogo from "../assets/g.webp";
 import "./CustomerAuthGate.css";
 
 function CustomerAuthGate({ linkType }) {
   const { user, isAuthLoading } = useAuth();
+  const { storeCode, productCode } = useParams();
+
+  // Store/business context
+  const [storeName, setStoreName] = useState("");
+
+  // 'login' | 'register' | 'forgot'
   const [mode, setMode] = useState("login");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [busy, setBusy] = useState(false);
 
+  // Fetch store name if route parameter is available
+  useEffect(() => {
+    let active = true;
+    if (storeCode) {
+      getPublicStore(storeCode)
+        .then((data) => {
+          if (active && data?.store?.name) {
+            setStoreName(data.store.name);
+          }
+        })
+        .catch(() => {});
+    } else if (productCode) {
+      getPublicProduct(productCode)
+        .then((data) => {
+          if (active && data?.store?.name) {
+            setStoreName(data.store.name);
+          }
+        })
+        .catch(() => {});
+    }
+    return () => {
+      active = false;
+    };
+  }, [storeCode, productCode]);
+
   if (isAuthLoading) {
     return (
-      <>
-        <main className="customer-auth-gate__loading">
-          <div className="customer-auth-gate__loading-box">
-            <Loader2 size={36} className="customer-auth-gate__loading-spinner" />
-            <p>Loading storefront...</p>
-          </div>
-        </main>
-      </>
+      <main className="customer-auth-gate__loading">
+        <div className="customer-auth-gate__loading-box">
+          <Loader2 size={36} className="customer-auth-gate__loading-spinner" />
+          <p>Connecting to store...</p>
+        </div>
+      </main>
     );
   }
 
+  // Once authenticated, render storefront directly
   if (user) {
-    return (
-      <>
-        <StorefrontPage linkType={linkType} />
-      </>
-    );
+    return <StorefrontPage linkType={linkType} />;
   }
 
   async function run(action) {
@@ -66,11 +104,12 @@ function CustomerAuthGate({ linkType }) {
       await action();
     } catch (nextError) {
       if (nextError.code === "auth/email-not-verified") {
-        window.alert(
-          "Please verify your account before logging in. Open the confirmation email and click the verification link. Check your Spam or Junk folder if you cannot find it.",
+        setError(
+          "Please verify your email address before logging in. Check your inbox and spam folder for the confirmation link."
         );
+      } else {
+        setError(getAuthErrorMessage(nextError));
       }
-      setError(nextError.message || "Unable to sign in. Please try again.");
     } finally {
       setBusy(false);
     }
@@ -78,16 +117,35 @@ function CustomerAuthGate({ linkType }) {
 
   function submit(event) {
     event.preventDefault();
+
+    if (mode === "forgot") {
+      return run(async () => {
+        await sendPasswordReset(email);
+        setSuccess(
+          `Password reset link sent to ${email}. Check your inbox and spam folder.`
+        );
+      });
+    }
+
     if (mode === "login") {
       return run(() => loginWithEmail(email, password));
     }
 
     return run(async () => {
+      if (!passwordMeetsPolicy(password)) {
+        throw new Error("Choose a password that meets all requirements.");
+      }
+      if (password !== confirmPassword) {
+        throw new Error("Passwords do not match.");
+      }
       await registerWithEmail(name, email, password);
       await logoutUser();
       setMode("login");
-      window.alert(`Confirmation email sent to ${email}.\n\nOpen the email and click the confirmation link to verify your account. If you do not see it, check your Spam or Junk folder.`);
-      setSuccess(`Confirmation email sent to ${email}. Open the email and click the confirmation link to verify your account. If you do not see it, check your Spam or Junk folder.`);
+      setPassword("");
+      setConfirmPassword("");
+      setSuccess(
+        `Confirmation email sent to ${email}. Open the email and click the confirmation link to verify your account before signing in.`
+      );
     });
   }
 
@@ -96,7 +154,11 @@ function CustomerAuthGate({ linkType }) {
     setError("");
     setSuccess("");
     setShowPassword(false);
+    setConfirmPassword("");
   }
+
+  const isRegister = mode === "register";
+  const isForgot = mode === "forgot";
 
   return (
     <main className="customer-auth-gate">
@@ -104,171 +166,293 @@ function CustomerAuthGate({ linkType }) {
       <div className="customer-auth-gate__ambient customer-auth-gate__ambient--1" aria-hidden="true" />
       <div className="customer-auth-gate__ambient customer-auth-gate__ambient--2" aria-hidden="true" />
 
-      <section className="customer-auth-card" aria-labelledby="customer-auth-title">
-        <div className="customer-auth-card__heading">
-          <div className="customer-auth-card__logo-wrap">
-            <img height="76" src={vendlyLoginLogo} alt="Vendly.lk" className="customer-auth-card__logo" />
-            <span className="customer-auth-card__badge">Storefront Customer Portal</span>
+      {/* Main Side-by-Side Split Container */}
+      <div className="customer-auth-layout-card">
+        {/* Left Column: Store Branding & Customer Benefits */}
+        <section className="customer-brand-panel" aria-label="Store information and customer perks">
+          <div className="customer-brand-panel__header">
+            <img src={vendlyLoginLogo} alt="Vendly.lk" className="customer-brand-panel__logo" />
+            <span className="customer-brand-panel__badge">
+              <Store size={13} aria-hidden="true" />
+              <span>{storeName ? `${storeName} • Customer Portal` : "Storefront Customer Portal"}</span>
+            </span>
           </div>
 
-          <h1 id="customer-auth-title" className="customer-auth-card__title">
-            {mode === "login" ? "Welcome to the Store" : "Create Customer Account"}
-          </h1>
-          <p className="customer-auth-card__subtitle">
-            {mode === "login"
-              ? "Sign in to access your chat history, saved cart, and order tracking."
-              : "Sign up to track your deliveries and resume conversations on any device."}
-          </p>
-        </div>
+          <div className="customer-brand-panel__body">
+            <h1 className="customer-brand-panel__title">
+              {storeName ? `Welcome to ${storeName}` : "Welcome to the Store"}
+            </h1>
+            <p className="customer-brand-panel__desc">
+              Sign in or continue as guest to start chatting with our shopping assistant, save your cart, and track deliveries.
+            </p>
 
-        {/* Mode selector */}
-        <div className="customer-auth-card__tabs">
-          <button
-            type="button"
-            className={`customer-auth-card__tab ${mode === "login" ? "customer-auth-card__tab--active" : ""}`}
-            onClick={() => switchMode("login")}
-          >
-            <LogIn size={16} aria-hidden="true" />
-            <span>Sign In</span>
-          </button>
-          <button
-            type="button"
-            className={`customer-auth-card__tab ${mode === "register" ? "customer-auth-card__tab--active" : ""}`}
-            onClick={() => switchMode("register")}
-          >
-            <UserPlus size={16} aria-hidden="true" />
-            <span>Create Account</span>
-          </button>
-        </div>
-
-        <form onSubmit={submit} className="customer-auth-card__form">
-          {mode === "register" && (
-            <div className="customer-auth-card__field">
-              <label htmlFor="customer-name">Full Name</label>
-              <div className="customer-auth-card__input-wrap">
-                <User size={18} className="customer-auth-card__input-icon" aria-hidden="true" />
-                <input
-                  id="customer-name"
-                  type="text"
-                  value={name}
-                  onChange={(event) => setName(event.target.value)}
-                  placeholder="Your full name"
-                  autoComplete="name"
-                  required
-                />
-              </div>
-            </div>
-          )}
-
-          <div className="customer-auth-card__field">
-            <label htmlFor="customer-email">Email Address</label>
-            <div className="customer-auth-card__input-wrap">
-              <Mail size={18} className="customer-auth-card__input-icon" aria-hidden="true" />
-              <input
-                id="customer-email"
-                type="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                placeholder="customer@example.com"
-                autoComplete="email"
-                required
-              />
-            </div>
+            <ul className="customer-brand-panel__features">
+              <li>
+                <div className="customer-brand-panel__feature-icon">
+                  <Sparkles size={16} />
+                </div>
+                <div>
+                  <strong>Instant Guest Access</strong>
+                  <span>Browse and order right away without creating a password</span>
+                </div>
+              </li>
+              <li>
+                <div className="customer-brand-panel__feature-icon">
+                  <MessageSquare size={16} />
+                </div>
+                <div>
+                  <strong>Live AI Chatbot Sync</strong>
+                  <span>Resume questions, deals, and recommendations anytime</span>
+                </div>
+              </li>
+              <li>
+                <div className="customer-brand-panel__feature-icon">
+                  <Truck size={16} />
+                </div>
+                <div>
+                  <strong>Live Courier Tracking</strong>
+                  <span>Track package status from dispatch to your doorstep</span>
+                </div>
+              </li>
+            </ul>
           </div>
 
-          <div className="customer-auth-card__field">
-            <label htmlFor="customer-password">Password</label>
-            <div className="customer-auth-card__input-wrap">
-              <Lock size={18} className="customer-auth-card__input-icon" aria-hidden="true" />
-              <input
-                id="customer-password"
-                type={showPassword ? "text" : "password"}
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                placeholder={mode === "register" ? "At least 6 characters" : "Your password"}
-                autoComplete={mode === "register" ? "new-password" : "current-password"}
-                minLength={6}
-                required
-              />
+          <div className="customer-brand-panel__footer">
+            <ShieldCheck size={14} aria-hidden="true" />
+            <span>Secure Customer Portal &bull; Powered by Vendly.lk</span>
+          </div>
+        </section>
+
+        {/* Right Column: Customer Authentication Form */}
+        <section className="customer-form-panel" aria-label="Customer sign in options">
+          <div className="customer-form-panel__top">
+            <h2 className="customer-form-panel__title">
+              {isForgot
+                ? "Reset Your Password"
+                : isRegister
+                ? "Create Customer Account"
+                : "Sign In to Store"}
+            </h2>
+            <p className="customer-form-panel__subtitle">
+              {isForgot
+                ? "Enter your email to receive recovery instructions."
+                : isRegister
+                ? "Sign up to track orders across devices."
+                : "Access your order history and saved items."}
+            </p>
+          </div>
+
+          {/* Mode Switcher Tabs */}
+          {!isForgot ? (
+            <div className="customer-form-panel__tabs" role="tablist">
               <button
                 type="button"
-                className="customer-auth-card__toggle-pwd"
-                onClick={() => setShowPassword((value) => !value)}
-                aria-label={showPassword ? "Hide password" : "Show password"}
+                role="tab"
+                aria-selected={mode === "login"}
+                className={`customer-form-panel__tab ${mode === "login" ? "customer-form-panel__tab--active" : ""}`}
+                onClick={() => switchMode("login")}
               >
-                {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+                <LogIn size={15} aria-hidden="true" />
+                <span>Sign In</span>
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={mode === "register"}
+                className={`customer-form-panel__tab ${mode === "register" ? "customer-form-panel__tab--active" : ""}`}
+                onClick={() => switchMode("register")}
+              >
+                <UserPlus size={15} aria-hidden="true" />
+                <span>Create Account</span>
               </button>
             </div>
-          </div>
+          ) : (
+            <button
+              type="button"
+              className="customer-form-panel__back-btn"
+              onClick={() => switchMode("login")}
+            >
+              <ArrowLeft size={15} aria-hidden="true" />
+              <span>Back to Sign In</span>
+            </button>
+          )}
 
+          {/* Status Alerts */}
           {error && (
-            <div className="customer-auth-card__alert customer-auth-card__alert--error" role="alert">
-              <AlertCircle size={18} className="customer-auth-card__alert-icon" />
+            <div className="customer-form-panel__alert customer-form-panel__alert--error" role="alert">
+              <AlertCircle size={17} className="customer-form-panel__alert-icon" />
               <span>{error}</span>
             </div>
           )}
 
           {success && (
-            <div className="customer-auth-card__alert customer-auth-card__alert--success" role="status">
-              <CheckCircle2 size={18} className="customer-auth-card__alert-icon" />
+            <div className="customer-form-panel__alert customer-form-panel__alert--success" role="status">
+              <CheckCircle2 size={17} className="customer-form-panel__alert-icon" />
               <span>{success}</span>
             </div>
           )}
 
-          <button className="customer-auth-card__primary" disabled={busy} type="submit">
-            {busy ? (
-              <>
-                <Loader2 size={18} className="customer-auth-card__spinner" />
-                <span>{mode === "login" ? "Signing in..." : "Creating account..."}</span>
-              </>
-            ) : (
-              <>
-                {mode === "login" ? <LogIn size={18} /> : <UserPlus size={18} />}
-                <span>{mode === "login" ? "Sign In" : "Create Account"}</span>
-              </>
+          {/* Email / Password Form */}
+          <form onSubmit={submit} className="customer-form-panel__form">
+            {isRegister && (
+              <div className="customer-form-panel__field">
+                <label htmlFor="customer-name">Full Name</label>
+                <div className="customer-form-panel__input-wrap">
+                  <User size={16} className="customer-form-panel__icon" aria-hidden="true" />
+                  <input
+                    id="customer-name"
+                    type="text"
+                    value={name}
+                    onChange={(event) => setName(event.target.value)}
+                    placeholder="Your full name"
+                    autoComplete="name"
+                    required
+                  />
+                </div>
+              </div>
             )}
-          </button>
-        </form>
 
-        <div className="customer-auth-card__divider">
-          <span>or continue with</span>
-        </div>
+            <div className="customer-form-panel__field">
+              <label htmlFor="customer-email">Email Address</label>
+              <div className="customer-form-panel__input-wrap">
+                <Mail size={16} className="customer-form-panel__icon" aria-hidden="true" />
+                <input
+                  id="customer-email"
+                  type="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  placeholder="customer@example.com"
+                  autoComplete="email"
+                  required
+                />
+              </div>
+            </div>
 
-        <div className="customer-auth-card__social-actions">
-          <button
-            className="customer-auth-card__google"
-            disabled={busy}
-            type="button"
-            onClick={() => run(loginWithGoogle)}
-          >
-            <img width="20" height="20" src={googleLogo} alt="" aria-hidden="true" />
-            <span>Continue with Google</span>
-          </button>
+            {!isForgot && (
+              <div className="customer-form-panel__field">
+                <div className="customer-form-panel__label-row">
+                  <div className="customer-form-panel__label-group">
+                    <label htmlFor="customer-password">Password</label>
+                    {isRegister && (
+                      <PasswordRequirements
+                        password={password}
+                        confirmPassword={confirmPassword}
+                      />
+                    )}
+                  </div>
+                  {mode === "login" && (
+                    <button
+                      type="button"
+                      className="customer-form-panel__forgot-link"
+                      onClick={() => switchMode("forgot")}
+                    >
+                      Forgot password?
+                    </button>
+                  )}
+                </div>
+                <div className="customer-form-panel__input-wrap">
+                  <Lock size={16} className="customer-form-panel__icon" aria-hidden="true" />
+                  <input
+                    id="customer-password"
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    placeholder={isRegister ? "Create strong password" : "Enter your password"}
+                    autoComplete={isRegister ? "new-password" : "current-password"}
+                    minLength={isRegister ? 8 : 6}
+                    required
+                  />
+                  <button
+                    type="button"
+                    className="customer-form-panel__toggle-pwd"
+                    onClick={() => setShowPassword((value) => !value)}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+            )}
 
-          <button
-            className="customer-auth-card__guest"
-            disabled={busy}
-            type="button"
-            onClick={() => run(loginAsGuest)}
-          >
-            <Sparkles size={18} className="customer-auth-card__guest-icon" aria-hidden="true" />
-            <span>Continue as Guest (No password required)</span>
-          </button>
-        </div>
+            {isRegister && (
+              <div className="customer-form-panel__field">
+                <label htmlFor="customer-confirm-password">Confirm Password</label>
+                <div className="customer-form-panel__input-wrap">
+                  <Lock size={16} className="customer-form-panel__icon" aria-hidden="true" />
+                  <input
+                    id="customer-confirm-password"
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(event) => setConfirmPassword(event.target.value)}
+                    placeholder="Repeat your password"
+                    autoComplete="new-password"
+                    required
+                  />
+                </div>
+              </div>
+            )}
 
-        <p className="customer-auth-card__note">
-          Guest accounts automatically store your cart and chat history on this browser. Create an account anytime to sync your orders across devices.
-        </p>
+            <button className="customer-form-panel__submit-btn" disabled={busy} type="submit">
+              {busy ? (
+                <>
+                  <Loader2 size={17} className="customer-form-panel__spinner" />
+                  <span>Processing...</span>
+                </>
+              ) : isForgot ? (
+                <>
+                  <KeyRound size={17} />
+                  <span>Send Reset Link</span>
+                </>
+              ) : isRegister ? (
+                <>
+                  <UserPlus size={17} />
+                  <span>Create Account</span>
+                </>
+              ) : (
+                <>
+                  <LogIn size={17} />
+                  <span>Sign In</span>
+                </>
+              )}
+            </button>
+          </form>
 
-        <div className="customer-auth-card__footer">
-          <ShieldCheck size={14} aria-hidden="true" />
-          <span>Secure customer portal &bull; Vendly.lk</span>
-        </div>
-      </section>
-      <EmailVerificationModal
-        email={verificationNotice}
-        onClose={() => setVerificationNotice("")}
-      />
+          {/* Social & Guest Fast-Track Actions */}
+          {!isForgot && (
+            <>
+              <div className="customer-form-panel__divider">
+                <span>or quick access</span>
+              </div>
+
+              <div className="customer-form-panel__actions">
+                <button
+                  className="customer-form-panel__google-btn"
+                  disabled={busy}
+                  type="button"
+                  onClick={() => run(loginWithGoogle)}
+                >
+                  <img width="18" height="18" src={googleLogo} alt="" aria-hidden="true" />
+                  <span>Continue with Google</span>
+                </button>
+
+                <button
+                  className="customer-form-panel__guest-btn"
+                  disabled={busy}
+                  type="button"
+                  onClick={() => run(loginAsGuest)}
+                >
+                  <Sparkles size={16} className="customer-form-panel__guest-icon" aria-hidden="true" />
+                  <span>Continue as Guest (No password required)</span>
+                </button>
+              </div>
+
+              <small className="customer-form-panel__note">
+                Guest sessions store your cart and chat on this browser. Create an account anytime to sync.
+              </small>
+            </>
+          )}
+        </section>
+      </div>
     </main>
   );
 }

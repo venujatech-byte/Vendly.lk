@@ -210,6 +210,63 @@ export async function sendCurrentUserPasswordReset() {
   await sendPasswordResetEmail(auth, currentUser.email);
 }
 
+// Send a password reset email to any user by email address (for login / forgot password screen).
+export async function sendPasswordReset(email = "") {
+  const cleanEmail = email.trim();
+
+  if (!cleanEmail) {
+    const error = new Error("Please enter your email address.");
+    error.code = "auth/invalid-email";
+    throw error;
+  }
+
+  await sendPasswordResetEmail(auth, cleanEmail);
+}
+
+// Centralized translation of Firebase Authentication error codes to user-friendly messages.
+export function getAuthErrorMessage(error) {
+  if (!error) return "An unexpected error occurred. Please try again.";
+
+  // Handle both Error object with code property or string containing (auth/...)
+  const errorCode =
+    error.code ||
+    (typeof error.message === "string" && error.message.match(/auth\/[a-z0-9-]+/)?.[0]) ||
+    "";
+
+  switch (errorCode) {
+    case "auth/email-already-in-use":
+      return "An account already exists with this email.";
+    case "auth/invalid-email":
+      return "Please enter a valid email address.";
+    case "auth/invalid-credential":
+    case "auth/wrong-password":
+      return "The email or password is incorrect.";
+    case "auth/user-not-found":
+      return "No account found with this email.";
+    case "auth/weak-password":
+      return "Please use a stronger password (at least 6 characters).";
+    case "auth/too-many-requests":
+      return "Too many failed attempts. Please wait a moment or reset your password.";
+    case "auth/network-request-failed":
+      return "Network connection failed. Please check your internet connection.";
+    case "auth/popup-closed-by-user":
+      return "Sign-in was cancelled.";
+    case "auth/popup-blocked":
+      return "Pop-up was blocked by your browser. Please allow pop-ups for this site.";
+    case "auth/email-not-verified":
+      return "Please verify your email address before logging in.";
+    case "auth/user-disabled":
+      return "This account has been disabled. Please contact support.";
+    case "auth/operation-not-allowed":
+      return "This sign-in method is currently not enabled.";
+    default:
+      return (
+        error.message?.replace(/^Firebase:\s*(Error\s*)?(\(auth\/[^)]+\)\.?\s*)?/i, "") ||
+        "Authentication failed. Please try again."
+      );
+  }
+}
+
 // Permanently delete the user's account after verifying their credentials.
 export async function deleteCurrentUserAccount(currentPassword = "") {
   const currentUser = auth.currentUser;
