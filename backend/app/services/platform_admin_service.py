@@ -8,9 +8,82 @@ SELLER_PAGE_SIZE = 25
 
 
 def _collection_count(collection_reference):
-    """Return a Firestore aggregation count without reading every document."""
-    results = collection_reference.count().get()
-    return int(results[0][0].value) if results else 0
+    """Return a Firestore aggregation count, falling back to document streaming if needed."""
+    try:
+        results = collection_reference.count().get()
+        if results and len(results) > 0 and len(results[0]) > 0:
+            val = int(results[0][0].value)
+            if val > 0:
+                return val
+    except Exception:
+        pass
+
+    try:
+        # Fallback for emulator or environments where count() aggregation returns 0 or fails
+        return len(list(collection_reference.select([]).stream()))
+    except Exception:
+        return 0
+
+
+def _total_chats_count(database):
+    """Return total number of chat sessions across all accounts in the system."""
+    # 1. Primary source: top-level publicChatSessions collection in Firestore
+    chats = _collection_count(database.collection("publicChatSessions"))
+    if chats > 0:
+        return chats
+
+    # 2. Check collection groups (e.g. if chats or messages exist as subcollections)
+    for group_name in ("chatSessions", "chats", "messages"):
+        try:
+            group_count = _collection_count(database.collection_group(group_name))
+            if group_count > 0:
+                return group_count
+        except Exception:
+            pass
+
+    # 3. Check Firebase Realtime Database (RTDB) chatMessages
+    try:
+        from app.core.firebase import get_rtdb_reference
+        rtdb_ref = get_rtdb_reference("chatMessages")
+        if rtdb_ref is not None:
+            data = rtdb_ref.get()
+            if isinstance(data, dict) and len(data) > 0:
+                return len(data)
+    except Exception:
+        pass
+
+    try:
+        act_ref = get_rtdb_reference("businessChatActivity")
+        if act_ref is not None:
+            act_data = act_ref.get()
+            if isinstance(act_data, dict) and len(act_data) > 0:
+                return len(act_data)
+    except Exception:
+        pass
+
+    return 0
+
+
+def _seller_chats_count(database, business_id):
+    """Return number of chats belonging to a specific business account."""
+    try:
+        count = _collection_count(
+            database.collection("publicChatSessions").where("businessId", "==", business_id)
+        )
+        if count > 0:
+            return count
+    except Exception:
+        pass
+
+    try:
+        from app.core.firebase import get_rtdb_reference
+        act_ref = get_rtdb_reference(f"businessChatActivity/{business_id}")
+        if act_ref is not None and act_ref.get():
+            return 1
+    except Exception:
+        pass
+
+    return 0
 
 
 def get_seller_dashboard(database, limit=SELLER_PAGE_SIZE, after=None):
@@ -47,6 +120,7 @@ def get_seller_dashboard(database, limit=SELLER_PAGE_SIZE, after=None):
             "orders": _collection_count(snapshot.reference.collection("orders")),
             "products": _collection_count(snapshot.reference.collection("products")),
             "customers": _collection_count(snapshot.reference.collection("customers")),
+            "chats": _seller_chats_count(database, business["id"]),
         }
         sellers.append(
             {
@@ -71,8 +145,8 @@ def get_seller_dashboard(database, limit=SELLER_PAGE_SIZE, after=None):
             "activeSellers": _collection_count(
                 database.collection("businesses").where("status", "==", "active")
             ),
-            "totalChats": _collection_count(database.collection("publicChatSessions")),
-            "chats": _collection_count(database.collection("publicChatSessions")),
+            "totalChats": _total_chats_count(database),
+            "chats": _total_chats_count(database),
             "orders": _collection_count(database.collection_group("orders")),
             "products": _collection_count(database.collection_group("products")),
             "customers": _collection_count(database.collection_group("customers")),
@@ -124,6 +198,7 @@ def get_seller_detail(database, business_id):
             "orders": _collection_count(business_reference.collection("orders")),
             "products": _collection_count(business_reference.collection("products")),
             "customers": _collection_count(business_reference.collection("customers")),
+            "chats": _seller_chats_count(database, business["id"]),
         },
         "recentOrders": [
             {

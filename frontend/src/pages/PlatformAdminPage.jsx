@@ -88,11 +88,11 @@ function PlatformAdminPage() {
 
   function exportVisibleSellers() {
     const rows = [
-      ["Business", "Owner", "Email", "Status", "Joined", "Last activity", "Orders", "Products", "Customers"],
+      ["Business", "Owner", "Email", "Status", "Joined", "Last activity", "Orders", "Products", "Customers", "Chats"],
       ...visibleSellers.map((seller) => [
         seller.businessName, seller.owner.name, seller.owner.email, seller.status,
         formatDate(seller.createdAt), formatDate(seller.lastActivityAt),
-        seller.stats.orders, seller.stats.products, seller.stats.customers,
+        seller.stats.orders, seller.stats.products, seller.stats.customers, seller.stats.chats ?? 0,
       ]),
     ];
     const csv = rows.map((row) => row.map((value) => `"${String(value ?? "").replaceAll('"', '""')}"`).join(",")).join("\n");
@@ -144,15 +144,15 @@ function PlatformAdminPage() {
             </div>
             <div className="platform-admin-page__table-scroll">
               <table>
-                <thead><tr><th>Business</th><th>Owner</th><th>Joined</th><th>Last activity</th><th>Orders</th><th>Products</th><th>Customers</th><th>Status</th><th>Action</th></tr></thead>
+                <thead><tr><th>Business</th><th>Owner</th><th>Joined</th><th>Last activity</th><th>Orders</th><th>Products</th><th>Customers</th><th>Chats</th><th>Status</th><th>Action</th></tr></thead>
                 <tbody>
-                  {!isLoading && visibleSellers.length === 0 ? <tr><td colSpan="9">No sellers match this search.</td></tr> : null}
+                  {!isLoading && visibleSellers.length === 0 ? <tr><td colSpan="10">No sellers match this search.</td></tr> : null}
                   {visibleSellers.map((seller) => (
                     <tr key={seller.id}>
                       <td><strong>{seller.businessName}</strong></td>
                       <td><span>{seller.owner.name}</span><small>{seller.owner.email || "No email recorded"}</small></td>
                       <td>{formatDate(seller.createdAt)}</td><td>{formatDate(seller.lastActivityAt)}</td>
-                      <td>{seller.stats.orders}</td><td>{seller.stats.products}</td><td>{seller.stats.customers}</td>
+                      <td>{seller.stats.orders}</td><td>{seller.stats.products}</td><td>{seller.stats.customers}</td><td>{seller.stats.chats ?? 0}</td>
                       <td><span className={`platform-admin-page__status platform-admin-page__status--${seller.status}`}>{seller.status}</span></td><td><button className="platform-admin-page__view" type="button" onClick={() => openSeller(seller)}>View</button></td>
                     </tr>
                   ))}
@@ -164,7 +164,7 @@ function PlatformAdminPage() {
         </>
       )}
       {isLoadingSeller ? <p className="platform-admin-page__server-note">Loading seller details…</p> : null}
-      {selectedSeller ? <section className="platform-admin-page__seller-detail" aria-label="Seller details"><header><div><h2>{selectedSeller.businessName}</h2><p>{selectedSeller.owner.name} · {selectedSeller.owner.email}</p></div><button type="button" onClick={() => setSelectedSeller(null)} aria-label="Close seller details"><X size={18} /></button></header><div className="platform-admin-page__detail-stats"><strong>{selectedSeller.stats.orders}<small>Orders</small></strong><strong>{selectedSeller.stats.products}<small>Products</small></strong><strong>{selectedSeller.stats.customers}<small>Customers</small></strong></div><h3>Recent orders</h3>{selectedSeller.recentOrders?.length ? <ul>{selectedSeller.recentOrders.map((order) => <li key={order.id}><span>#{order.orderNumber}<small>{formatDate(order.createdAt)}</small></span><span>{order.status}</span></li>)}</ul> : <p className="platform-admin-page__server-note">No orders recorded yet.</p>}</section> : null}
+      {selectedSeller ? <section className="platform-admin-page__seller-detail" aria-label="Seller details"><header><div><h2>{selectedSeller.businessName}</h2><p>{selectedSeller.owner.name} · {selectedSeller.owner.email}</p></div><button type="button" onClick={() => setSelectedSeller(null)} aria-label="Close seller details"><X size={18} /></button></header><div className="platform-admin-page__detail-stats"><strong>{selectedSeller.stats.orders}<small>Orders</small></strong><strong>{selectedSeller.stats.products}<small>Products</small></strong><strong>{selectedSeller.stats.customers}<small>Customers</small></strong><strong>{selectedSeller.stats.chats ?? 0}<small>Chats</small></strong></div><h3>Recent orders</h3>{selectedSeller.recentOrders?.length ? <ul>{selectedSeller.recentOrders.map((order) => <li key={order.id}><span>#{order.orderNumber}<small>{formatDate(order.createdAt)}</small></span><span>{order.status}</span></li>)}</ul> : <p className="platform-admin-page__server-note">No orders recorded yet.</p>}</section> : null}
     </main>
   );
 }
