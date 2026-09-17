@@ -151,7 +151,7 @@ html[data-theme="dark"] .orders-page__share-button:hover svg {
   box-shadow: 0 8px 18px rgba(8, 124, 240, 0.22);
 }
 
-@media (max-width: 760px) {
+@media (max-width: 960px) {
   .orders-page__heading {
     align-items: flex-start;
     flex-direction: column;

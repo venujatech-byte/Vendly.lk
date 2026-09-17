@@ -392,7 +392,7 @@
   .cod-bulk-shared-grid { grid-template-columns: 1fr 1fr; }
 }
 
-@media (max-width: 700px) {
+@media (max-width: 960px) {
   .cod-reconciliation__stats { gap: 8px; }
   .cod-reconciliation__form-grid { grid-template-columns: 1fr; }
   .cod-reconciliation__form-grid .is-wide { grid-column: auto; }

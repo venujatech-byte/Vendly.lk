@@ -41,7 +41,7 @@
   .dead-stock table { min-width: 940px; }
 }
 
-@media (max-width: 700px) {
+@media (max-width: 960px) {
   .dead-stock__stats { gap: 8px; }
   .dead-stock__intro { align-items: flex-start; }
   .dead-stock__intro > svg { width: 20px; }

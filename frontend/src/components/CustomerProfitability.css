@@ -44,7 +44,7 @@
   .customer-profitability table { min-width: 1050px; }
 }
 
-@media (max-width: 700px) {
+@media (max-width: 960px) {
   .customer-profitability__stats { gap: 8px; }
   .customer-profitability__intro { align-items: flex-start; }
   .customer-profitability__intro > svg { width: 20px; }

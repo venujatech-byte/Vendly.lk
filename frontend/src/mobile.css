@@ -1,5 +1,5 @@
-/* Mobile overrides are kept together so desktop component styles stay easy to learn. */
-@media (max-width: 760px) {
+/* Mobile & tablet overrides (covers Galaxy Tab A8 800x1200, iPads, and phones) */
+@media (max-width: 960px) {
   html {
     -webkit-text-size-adjust: 100%;
   }
@@ -440,11 +440,11 @@
 }
 
 
-@media (max-width: 600px) {
+@media (max-width: 960px) {
   .stats-grid {
     display: grid !important;
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    gap: 5px !important;
+    gap: 8px !important;
     width: 100%;
   }
 
@@ -455,7 +455,7 @@
 
 }
 
-@media (max-width: 600px) {
+@media (max-width: 960px) {
   .stat-card__content {
     gap: 2px;
   }

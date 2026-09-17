@@ -346,8 +346,8 @@ html[data-theme="dark"] .stat-card--red,
   }
 }
 
-/* Responsive Mobile Sizing */
-@media (max-width: 600px) {
+/* Responsive Mobile & Tablet Sizing */
+@media (max-width: 960px) {
   .stat-card {
     padding: 14px 15px;
     min-height: 78px;
