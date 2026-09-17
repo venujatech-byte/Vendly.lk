@@ -1,4 +1,4 @@
-import { Activity, Building2, Download, Gauge, Package, RefreshCw, Search, ShoppingCart, UserRound, Users, Wifi, X } from "lucide-react";
+import { Activity, Building2, Download, Gauge, MessageSquare, Package, RefreshCw, Search, ShoppingCart, UserRound, Wifi, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import StatCard from "../components/StatCard";
@@ -125,7 +125,7 @@ function PlatformAdminPage() {
         <>
           <section className="platform-admin-page__stats" aria-label="Platform totals">
             <StatCard label="Registered sellers" value={summary.registeredSellers ?? 0} icon={Building2} tone="blue" />
-            <StatCard label="Active sellers" value={summary.activeSellers ?? 0} icon={Users} tone="green" />
+            <StatCard label="Total chats" value={summary.totalChats ?? summary.chats ?? 0} icon={MessageSquare} tone="green" />
             <StatCard label="Orders" value={summary.orders ?? 0} icon={ShoppingCart} tone="purple" />
             <StatCard label="Products" value={summary.products ?? 0} icon={Package} tone="orange" />
             <StatCard label="Customers" value={summary.customers ?? 0} icon={UserRound} tone="indigo" />

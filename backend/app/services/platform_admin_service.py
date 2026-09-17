@@ -71,6 +71,8 @@ def get_seller_dashboard(database, limit=SELLER_PAGE_SIZE, after=None):
             "activeSellers": _collection_count(
                 database.collection("businesses").where("status", "==", "active")
             ),
+            "totalChats": _collection_count(database.collection("publicChatSessions")),
+            "chats": _collection_count(database.collection("publicChatSessions")),
             "orders": _collection_count(database.collection_group("orders")),
             "products": _collection_count(database.collection_group("products")),
             "customers": _collection_count(database.collection_group("customers")),
