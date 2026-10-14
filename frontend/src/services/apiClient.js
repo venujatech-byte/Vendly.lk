@@ -40,9 +40,6 @@ export async function apiRequest(
   } = {},
 ) {
   const requestHeaders = new Headers(headers);
-requestHeaders.set("ngrok-skip-browser-warning", "true");
-
-
 
   if (requiresAuthentication) {
     const idToken = await getCurrentUserToken();
@@ -122,7 +119,6 @@ export async function apiFileRequest(path) {
 
   const response = await fetch(`${apiBaseUrl}/${path.replace(/^\//, "")}`, {
     headers: { Authorization: `Bearer ${idToken}` },
-    "ngrok-skip-browser-warning": "true",
   });
 
   if (!response.ok) {
