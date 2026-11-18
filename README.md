@@ -94,6 +94,9 @@ python -m venv .venv
 Copy-Item .env.example .env
 ```
 
+On Linux/macOS, run `chmod 600 .env` from the backend directory after creating
+the file. Keep it owned by the account that loads the backend configuration.
+
 Fill in `backend/.env`:
 
 ```text

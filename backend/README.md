@@ -13,6 +13,9 @@ repository root `README.md`.
 1. Create a Firebase service-account JSON file from the Firebase console.
 2. Keep that JSON file outside the repository.
 3. Copy `.env.example` to `.env`.
+   On Linux/macOS, run `chmod 600 .env` so only the account running Flask can
+   read or change server credentials. Keep `.env` out of Git and apply the same
+   permission when creating or replacing it on a server.
 4. Set `FIREBASE_SERVICE_ACCOUNT_PATH` to the JSON file's absolute path.
 5. Set `FIREBASE_PROJECT_ID` and the allowed frontend origins.
 6. Create a free Cloudinary account and set `CLOUDINARY_CLOUD_NAME`,
