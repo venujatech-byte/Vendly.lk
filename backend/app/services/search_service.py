@@ -1,5 +1,6 @@
 import re
 
+from app.core.authorization import membership_has_permission
 from app.services.customer_service import list_customers
 from app.services.order_service import list_orders
 from app.services.product_service import list_products
@@ -121,10 +122,11 @@ def search_records(orders, products, customers, query, limit_per_type=8):
     }
 
 
-def global_search(database, business_id, query):
+def global_search(database, business_id, query, membership):
+    # Exclude forbidden modules before reading records, using the same gates as their list endpoints.
     return search_records(
-        list_orders(database, business_id),
-        list_products(database, business_id),
-        list_customers(database, business_id),
+        list_orders(database, business_id) if membership_has_permission(membership, "orders:read") else [],
+        list_products(database, business_id) if membership_has_permission(membership, "inventory:read") else [],
+        list_customers(database, business_id) if membership_has_permission(membership, "customers:read") else [],
         query,
     )

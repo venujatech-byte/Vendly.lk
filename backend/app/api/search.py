@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, g, jsonify, request
 
 from app.core.auth import require_firebase_user
 from app.core.authorization import require_business_member
@@ -19,6 +19,8 @@ def search_business(business_id):
                 get_firestore_client(),
                 business_id,
                 request.args.get("q", ""),
+                # Use the membership verified by the server, never client-supplied permissions.
+                g.membership,
             ),
         },
     )
