@@ -61,9 +61,10 @@ def analytics_ledger(business_id):
     )
 
 
+# Restrict manual financial entries to owners and admins, even when other staff can read reports.
 @analytics_blueprint.post("/businesses/<business_id>/analytics/ledger/entries")
 @require_firebase_user
-@require_business_member(permission="analytics:read")
+@require_business_member("owner", "admin", permission="analytics:read")
 def analytics_add_ledger_entry(business_id):
     payload = request.get_json(silent=True) or {}
     user_id = g.current_user.get("uid") if hasattr(g, "current_user") and g.current_user else None
@@ -71,9 +72,10 @@ def analytics_add_ledger_entry(business_id):
     return jsonify({"entry": entry}), 201
 
 
+# Deleting financial records requires the same authority as creating them.
 @analytics_blueprint.delete("/businesses/<business_id>/analytics/ledger/entries/<entry_id>")
 @require_firebase_user
-@require_business_member(permission="analytics:read")
+@require_business_member("owner", "admin", permission="analytics:read")
 def analytics_delete_ledger_entry(business_id, entry_id):
     result = delete_ledger_entry(get_firestore_client(), business_id, entry_id)
     return jsonify(result)
