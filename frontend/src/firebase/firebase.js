@@ -1,12 +1,5 @@
-//firestore emulator
-import {
-  getFirestore,
-  connectFirestoreEmulator,
-} from "firebase/firestore";
-import {
-  getStorage,
-  connectStorageEmulator,
-} from "firebase/storage";
+import { getFirestore } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
 import { getDatabase } from "firebase/database";
 
 // Firebase application setup.
@@ -50,11 +43,6 @@ const rtdb = getDatabase(
   firebaseApp,
   import.meta.env.VITE_FIREBASE_DATABASE_URL || undefined,
 );
-
-if (import.meta.env.DEV) {
-  connectFirestoreEmulator(db, "127.0.0.1", 8080);
-  connectStorageEmulator(storage, "127.0.0.1", 9199);
-}
 
 // Export these objects
 export {
