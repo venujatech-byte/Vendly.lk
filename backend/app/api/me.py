@@ -6,6 +6,7 @@ from app.core.firebase import get_firestore_client
 from app.core.serialization import serialize_snapshot
 from app.services.business_service import create_or_get_business
 from app.services.member_service import claim_pending_invitations_for_user
+from app.services import realtime_access_service
 
 
 me_blueprint = Blueprint("me", __name__, url_prefix="/api/v1")
@@ -136,6 +137,10 @@ def get_current_user():
             ).document(uid).set(owner_membership, merge=True)
         membership = {**(membership or {}), **owner_membership}
 
+    # Refresh current membership before the dashboard attaches private RTDB listeners.
+    if business:
+        realtime_access_service.sync_business_member_access(database, business["id"], uid)
+
     return jsonify(
         {
             "user": {
@@ -159,6 +164,8 @@ def delete_current_user():
     uid = g.current_user["uid"]
     database = get_firestore_client()
 
+    # Deny outstanding realtime tokens before attempting account cleanup.
+    realtime_access_service.disable_realtime_user(uid)
     user_ref = database.collection("users").document(uid)
     user_snapshot = user_ref.get()
     if user_snapshot.exists:

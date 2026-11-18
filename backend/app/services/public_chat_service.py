@@ -11,6 +11,7 @@ from google.cloud.firestore_v1.base_query import FieldFilter
 
 from app.core.errors import ApiError
 from app.core.firebase import get_rtdb_reference
+from app.services import realtime_access_service
 from app.core.serialization import serialize_snapshot
 from app.services.customer_service import (
     create_customer,
@@ -2561,6 +2562,8 @@ def create_public_chat_session(database, payload, customer_uid=None):
         },
     )
 
+    # Publish private chat ownership before the browser subscribes or sellers see activity.
+    realtime_access_service.sync_chat_access(session_reference.get())
     try:
         activity_ref = get_rtdb_reference(f"businessChatActivity/{business['id']}")
         if activity_ref is not None:
@@ -2827,6 +2830,8 @@ def claim_public_chat_session(database, session_id, provided_token, customer_uid
         updates["customerEmail"] = customer_email
     snapshot.reference.update(updates)
     session["customerUid"] = customer_uid
+    # Read back the committed owner so concurrent claims cannot publish stale ownership.
+    realtime_access_service.sync_chat_access(snapshot.reference.get())
     if customer_email:
         session["customerEmail"] = customer_email
 
@@ -2878,6 +2883,8 @@ def resume_public_chat_session(database, session_id, customer_uid, customer_emai
         updates["customerEmail"] = customer_email
     snapshot.reference.update(updates)
 
+    # Restore metadata for existing chats before returning the refreshed session.
+    realtime_access_service.sync_chat_access(snapshot.reference.get())
     return {
         "sessionId": snapshot.id,
         "sessionToken": session_token,

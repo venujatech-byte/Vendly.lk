@@ -8,6 +8,7 @@ from google.cloud import firestore as google_firestore
 from app.core.errors import ApiError
 from app.core.serialization import serialize_snapshot
 from app.services.text import optional_text, required_text
+from app.services import realtime_access_service
 
 
 SHORT_CODE_ALPHABET = string.ascii_letters + string.digits
@@ -69,6 +70,8 @@ def create_or_get_business(database, firebase_user, payload):
             },
             merge=True,
         )
+        # Make the owner's private subscriptions available before returning onboarding data.
+        realtime_access_service.sync_business_member_access(database, existing_business.id, uid)
         return serialize_snapshot(existing_business), False
 
     if existing_user.exists:
@@ -82,6 +85,8 @@ def create_or_get_business(database, firebase_user, payload):
             )
 
             if existing_business.exists:
+                # Read current membership rather than trusting the user's saved business link.
+                realtime_access_service.sync_business_member_access(database, default_business_id, uid)
                 return serialize_snapshot(existing_business), False
 
     try:
@@ -170,6 +175,8 @@ def create_or_get_business(database, firebase_user, payload):
 
     create_in_transaction(transaction)
 
+    # Grant realtime reads only after the authoritative business transaction commits.
+    realtime_access_service.sync_business_member_access(database, business_reference.id, uid)
     return serialize_snapshot(business_reference.get()), True
 
 

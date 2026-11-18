@@ -8,6 +8,7 @@ from app.core.firebase import get_rtdb_reference
 from app.core.serialization import serialize_snapshot
 from app.services.ai_service import translate_chat_message
 from app.services.text import required_text
+from app.services import realtime_access_service
 
 
 def _session_reference(database, business_id, session_id):
@@ -15,6 +16,8 @@ def _session_reference(database, business_id, session_id):
     snapshot = reference.get()
     if not snapshot.exists or snapshot.to_dict().get("businessId") != business_id:
         raise ApiError("chat_session_not_found", "Chat conversation not found.", 404)
+    # Repair legacy metadata only after verifying the session's tenant.
+    realtime_access_service.sync_chat_access(snapshot)
     return reference, snapshot.to_dict()
 
 
@@ -116,6 +119,8 @@ def list_chat_sessions(database, business_id, limit=10, before=None):
     snapshots = snapshots[:limit]
     sessions = []
     for snapshot in snapshots:
+        # Seed private read ownership before the inbox subscribes to this page of chats.
+        realtime_access_service.sync_chat_access(snapshot)
         session = serialize_snapshot(snapshot)
         last_message = {}
         if not session.get("lastMessage"):
@@ -173,6 +178,8 @@ def delete_chat_session(database, business_id, session_id):
     """Permanently delete a seller-owned chat and its message subcollection."""
     reference, _session = _session_reference(database, business_id, session_id)
     database.recursive_delete(reference)
+    # A versioned tombstone rejects delayed ownership grants for this deleted session.
+    realtime_access_service.sync_chat_access(reference.get())
     rtdb_ref = get_rtdb_reference(f"chatMessages/{session_id}")
     if rtdb_ref is not None:
         try:

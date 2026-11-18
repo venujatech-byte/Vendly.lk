@@ -5,6 +5,7 @@ from firebase_admin import auth, firestore
 from app.core.errors import ApiError
 from app.core.serialization import serialize_snapshot
 from app.services.text import required_text
+from app.services import realtime_access_service
 
 
 ROLE_PERMISSIONS = {
@@ -322,7 +323,9 @@ def update_member(database, business_id, member_uid, payload, updated_by=None):
             )
         changes["status"] = status
 
-    member_reference.update(changes)
+    # Revoke reduced rights before the edit while preserving unaffected subscriptions.
+    with realtime_access_service.changing_business_member_access(database, business_id, member_uid, changes):
+        member_reference.update(changes)
     return next(
         member
         for member in list_members(database, business_id)
@@ -357,7 +360,9 @@ def remove_member(database, business_id, member_uid, removed_by=None):
             403,
         )
 
-    member_reference.delete()
+    # Keep realtime access blocked until the deleted membership is mirrored.
+    with realtime_access_service.changing_business_member_access(database, business_id, member_uid):
+        member_reference.delete()
 
     # Clean up user's businessIds
     user_reference = database.collection("users").document(member_uid)
@@ -429,19 +434,21 @@ def claim_pending_invitations_for_user(database, firebase_user):
         role = inv.get("role") or "viewer"
         permissions = inv.get("permissions") or ROLE_PERMISSIONS.get(role, ["orders:read"])
 
-        # Create active member document
-        database.collection("businesses").document(business_id).collection("members").document(uid).set(
-            {
-                "uid": uid,
-                "role": role,
-                "permissions": permissions,
-                "status": "active",
-                "invitedBy": inv.get("invitedBy", ""),
-                "joinedAt": firestore.SERVER_TIMESTAMP,
-                "updatedAt": firestore.SERVER_TIMESTAMP,
-            },
-            merge=True,
-        )
+        # Publish the accepted invitation and its realtime rights as one guarded change.
+        membership = {
+            "uid": uid,
+            "role": role,
+            "permissions": permissions,
+            "status": "active",
+            "invitedBy": inv.get("invitedBy", ""),
+            "joinedAt": firestore.SERVER_TIMESTAMP,
+            "updatedAt": firestore.SERVER_TIMESTAMP,
+        }
+        with realtime_access_service.changing_business_member_access(database, business_id, uid, membership):
+            database.collection("businesses").document(business_id).collection("members").document(uid).set(
+                membership,
+                merge=True,
+            )
 
         timestamp = firestore.SERVER_TIMESTAMP
         inv_updates = {

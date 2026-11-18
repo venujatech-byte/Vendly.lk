@@ -248,6 +248,8 @@ function StorefrontPage({ linkType }) {
   const [business, setBusiness] = useState(null);
   const [products, setProducts] = useState([]);
   const [session, setSession] = useState(null);
+  // Wait for server ownership metadata before attaching the private chat listener.
+  const [realtimeChatKey, setRealtimeChatKey] = useState("");
   const [messages, setMessages] = useState([]);
   const [messageCursor, setMessageCursor] = useState(null);
   const [hasMoreMessages, setHasMoreMessages] = useState(false);
@@ -500,11 +502,19 @@ function StorefrontPage({ linkType }) {
   }
 
   useEffect(() => {
+    // Legacy guest chats need a verified claim before their RTDB subscription can read.
+    let isCurrent = true;
+    setRealtimeChatKey("");
     if (!user || !session?.sessionId || !session?.sessionToken) return;
     const userEmail = (!user.isAnonymous && user.email) ? user.email : "";
-    claimPublicChatSession(session.sessionId, session.sessionToken, { email: userEmail }).catch((error) => {
-      setErrorMessage(error.message);
-    });
+    claimPublicChatSession(session.sessionId, session.sessionToken, { email: userEmail })
+      .then(() => {
+        if (isCurrent) setRealtimeChatKey(`${user.uid}:${session.sessionId}`);
+      })
+      .catch((error) => {
+        if (isCurrent) setErrorMessage(error.message);
+      });
+    return () => { isCurrent = false; };
   }, [session?.sessionId, session?.sessionToken, user]);
 
 
@@ -593,7 +603,7 @@ function StorefrontPage({ linkType }) {
 
   // Real-time listener on RTDB for incoming seller, customer, and AI messages
   useEffect(() => {
-    if (!session?.sessionId) return undefined;
+    if (!session?.sessionId || realtimeChatKey !== `${user?.uid}:${session.sessionId}`) return undefined;
 
     let isCurrent = true;
     let unsubscribe = null;
@@ -726,7 +736,7 @@ function StorefrontPage({ linkType }) {
         unsubscribe();
       }
     };
-  }, [session?.sessionId, business?.name]);
+  }, [session?.sessionId, business?.name, user?.uid, realtimeChatKey]);
 
   useEffect(() => {
     localStorage.setItem("vendly-storefront-theme", theme);
