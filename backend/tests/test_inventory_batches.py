@@ -4,6 +4,7 @@ from app.services.inventory_batches import (
     consume_fifo_batches,
     get_active_unit_cost,
     normalize_batches,
+    restore_fifo_batches,
 )
 
 
@@ -68,3 +69,33 @@ def test_normalize_batches_cleans_empty_batches():
     assert len(normalized) == 1
     assert normalized[0]["quantity"] == 3
     assert normalized[0]["unitCostMinor"] == 2000
+
+
+def test_recorded_consumption_keeps_existing_return_contract_and_input_batches():
+    # Existing order/product callers still receive four values without requesting allocations.
+    batches = add_fifo_batch([], 3, 100, timestamp="2026-01-01", batch_id="original")
+    allocations = []
+    result = consume_fifo_batches(batches, 2, consumed_batches=allocations)
+    assert len(result) == 4
+    assert batches[0]["quantity"] == 3
+    assert allocations[0]["quantity"] == 2
+    assert allocations[0]["initialQuantity"] == 3
+    assert restore_fifo_batches(result[0], allocations) == batches
+
+
+def test_consumption_without_batch_coverage_records_the_existing_fallback_cost():
+    batches = add_fifo_batch([], 1, 101, timestamp="2026-01-01", batch_id="original")
+    allocations = []
+    remaining, total, weighted, _active = consume_fifo_batches(batches, 3, consumed_batches=allocations)
+    assert remaining == []
+    assert total == 303
+    assert weighted == 101
+    assert sum(batch["quantity"] for batch in allocations) == 3
+    assert sum(batch["quantity"] * batch["unitCostMinor"] for batch in allocations) == total
+
+
+def test_restoration_keeps_original_fifo_order_for_batches_with_same_arrival_time():
+    # A consumed batch precedes the surviving batch even when their timestamps are identical.
+    first = add_fifo_batch([], 1, 100, timestamp="2026-01-01", batch_id="first")
+    second = add_fifo_batch([], 1, 200, timestamp="2026-01-01", batch_id="second")
+    assert restore_fifo_batches(second, first) == first + second

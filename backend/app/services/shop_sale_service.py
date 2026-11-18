@@ -6,7 +6,9 @@ from google.cloud import firestore as google_firestore
 
 from app.core.errors import ApiError
 from app.core.serialization import serialize_snapshot
-from app.services.inventory_batches import consume_fifo_batches
+from app.services.inventory_batches import (
+    consume_fifo_batches, get_active_unit_cost, normalize_batches, restore_fifo_batches,
+)
 from app.services.numbers import money_to_minor_units, non_negative_integer
 from app.services.product_service import stock_status
 from app.services.text import optional_text, required_text
@@ -127,11 +129,22 @@ def create_shop_sale(database, business_id, uid, payload):
             image_url = variant.get("imageUrl") or (media[0].get("url", "") if media else "")
 
             # FIFO batch consumption for accurate cost of goods sold
-            existing_batches = variant.get("inventoryBatches")
+            default_cost = variant.get("costPriceMinor", product.get("costPriceMinor", 0))
+            existing_batches = normalize_batches(
+                variant.get("inventoryBatches"), variant.get("stockOnHand", 0), default_cost,
+            )
+            # Persist a tie-breaker so later reversals retain the order of same-date arrivals.
+            next_order = max((batch.get("fifoOrder", -1) for batch in existing_batches), default=-1) + 1
+            for batch in existing_batches:
+                if "fifoOrder" not in batch:
+                    batch["fifoOrder"] = next_order
+                    next_order += 1
+            allocations = []
             updated_batches, line_cost, weighted_unit_cost, active_cost = consume_fifo_batches(
                 existing_batches,
                 quantity,
-                variant.get("costPriceMinor", product.get("costPriceMinor", 0)),
+                default_cost,
+                consumed_batches=allocations,
             )
             consumed_variant_batches[variant_snapshot.id] = {
                 "batches": updated_batches,
@@ -148,6 +161,7 @@ def create_shop_sale(database, business_id, uid, payload):
                 "quantity": quantity,
                 "unitPriceMinor": price_minor,
                 "unitCostMinor": weighted_unit_cost,
+                "consumedBatches": allocations,
                 "lineTotalMinor": line_total_minor,
                 "mediaUrl": image_url,
                 **warranty_snapshot(product, warranty_started_at),
@@ -258,6 +272,7 @@ def delete_shop_sale(database, business_id, sale_id, uid):
 
         timestamp = firestore.SERVER_TIMESTAMP
         quantity_by_product = defaultdict(int)
+        restored_variant_batches = {}
         for item in sale.get("items", []):
             quantity = item["quantity"]
             variant_snapshot = variant_snapshots[item["variantId"]]
@@ -265,15 +280,43 @@ def delete_shop_sale(database, business_id, sale_id, uid):
             product = product_snapshots[item["productId"]].to_dict()
             on_hand = variant.get("stockOnHand", 0) + quantity
             available = variant.get("stockAvailable", 0) + quantity
-            current_transaction.update(variant_snapshot.reference, {
+            variant_updates = {
                 "stockOnHand": on_hand, "stockAvailable": available,
                 "stockStatus": stock_status(available, product.get("lowStockThreshold", 0)), "updatedAt": timestamp,
-            })
+            }
+            # Restore the saved cost allocations in the same transaction as the stock reversal.
+            estimated_cost = "consumedBatches" not in item
+            if not estimated_cost:
+                allocations = normalize_batches(item["consumedBatches"])
+                if sum(batch["quantity"] for batch in allocations) != quantity:
+                    raise ApiError("invalid_sale_cost_allocations", "Sale cost allocations need review before stock can be restored.", 409)
+            else:
+                # Older sales only retain an average; identify that estimate instead of inventing original batches.
+                created_at = sale.get("createdAt") or datetime.now(timezone.utc)
+                allocations = [{
+                    "batchId": f"legacy-shop-sale-{sale_id}-{item['variantId']}",
+                    "quantity": quantity, "initialQuantity": quantity,
+                    "unitCostMinor": item.get("unitCostMinor", 0), "estimatedCost": True,
+                    "createdAt": created_at.isoformat() if isinstance(created_at, datetime) else str(created_at),
+                }]
+            existing_batches = normalize_batches(
+                variant.get("inventoryBatches"), variant.get("stockOnHand", 0), variant.get("costPriceMinor", 0),
+            )
+            if estimated_cost:
+                allocations[0]["fifoOrder"] = max((batch.get("fifoOrder", -1) for batch in existing_batches), default=-1) + 1
+            batches = restore_fifo_batches(existing_batches, allocations)
+            active_cost = get_active_unit_cost(batches, variant.get("costPriceMinor", 0))
+            restored_variant_batches[item["variantId"]] = {
+                "inventoryBatches": batches, "costPriceMinor": active_cost,
+            }
+            variant_updates.update(restored_variant_batches[item["variantId"]])
+            current_transaction.update(variant_snapshot.reference, variant_updates)
             current_transaction.set(business_ref.collection("inventoryTransactions").document(), {
                 "productId": item["productId"], "variantId": item["variantId"],
                 "type": "shop-sale-reversal", "quantity": quantity,
                 "stockBefore": on_hand - quantity, "stockAfter": on_hand,
                 "shopSaleId": sale_id, "reference": sale.get("saleNumber", ""),
+                "estimatedCost": estimated_cost or any(batch.get("estimatedCost") is True for batch in allocations),
                 "reason": "Physical shop sale deleted", "performedBy": uid, "createdAt": timestamp,
             })
             quantity_by_product[item["productId"]] += quantity
@@ -288,13 +331,18 @@ def delete_shop_sale(database, business_id, sale_id, uid):
                 available = summary.get("stockAvailable", 0) + amount
                 summaries.append({**summary, "stockOnHand": summary.get("stockOnHand", 0) + amount,
                                   "stockAvailable": available,
-                                  "stockStatus": stock_status(available, product.get("lowStockThreshold", 0))})
+                                  "stockStatus": stock_status(available, product.get("lowStockThreshold", 0)),
+                                  **restored_variant_batches.get(summary.get("id"), {})})
             available_stock = product.get("availableStock", 0) + quantity
-            current_transaction.update(product_snapshot.reference, {
+            product_updates = {
                 "totalStock": product.get("totalStock", 0) + quantity,
                 "availableStock": available_stock, "variantSummaries": summaries,
                 "stockStatus": stock_status(available_stock, product.get("lowStockThreshold", 0)), "updatedAt": timestamp,
-            })
+            }
+            # Keep the product's displayed cost consistent with its restored single variant.
+            if (not product.get("hasSizes") or len(summaries) <= 1) and summaries:
+                product_updates["costPriceMinor"] = summaries[0].get("costPriceMinor", product.get("costPriceMinor", 0))
+            current_transaction.update(product_snapshot.reference, product_updates)
         current_transaction.update(sale_ref, {"status": "voided", "voidedBy": uid, "voidedAt": timestamp, "updatedAt": timestamp})
 
     reverse(transaction)
