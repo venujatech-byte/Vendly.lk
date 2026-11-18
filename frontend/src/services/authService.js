@@ -4,6 +4,7 @@ import {
   deleteUser,
   EmailAuthProvider,
   getIdToken,
+  linkWithCredential,
   reauthenticateWithCredential,
   reauthenticateWithPopup,
   reload,
@@ -15,6 +16,7 @@ import {
   signOut,
   updatePassword,
   updateProfile,
+  updateCurrentUser,
   verifyBeforeUpdateEmail,
 } from "firebase/auth";
 
@@ -25,20 +27,24 @@ import {
 } from "../firebase/firebase";
 import { apiRequest } from "./apiClient";
 
-// Register a seller using an email address and password.
+// Register with email, optionally retaining the customer's existing guest identity.
 export async function registerWithEmail(
   name,
   email,
   password,
+  { linkGuestAccount = false } = {},
 ) {
+  // Customer registration can upgrade a guest in place so its order history keeps the same UID.
   const userCredential =
-    await createUserWithEmailAndPassword(
-      auth,
-      email,
-      password,
-    );
+    linkGuestAccount && auth.currentUser?.isAnonymous
+      ? await linkWithCredential(auth.currentUser, EmailAuthProvider.credential(email, password))
+      : await createUserWithEmailAndPassword(
+        auth,
+        email,
+        password,
+      );
 
-  // Save the seller's name in their Firebase profile.
+  // Save the account holder's name in their Firebase profile.
   await updateProfile(userCredential.user, {
     displayName: name,
   });
@@ -53,33 +59,40 @@ export async function registerWithEmail(
 }
 
 // Login using email and password.
-export async function loginWithEmail(email, password) {
-  const userCredential =
-    await signInWithEmailAndPassword(
-      auth,
-      email,
-      password,
-    );
+export async function loginWithEmail(email, password, { preserveGuestOnFailure = false } = {}) {
+  // An unsuccessful customer sign-in must not discard the identity that owns guest orders.
+  const guestUser = preserveGuestOnFailure && auth.currentUser?.isAnonymous ? auth.currentUser : null;
+  try {
+    const userCredential =
+      await signInWithEmailAndPassword(
+        auth,
+        email,
+        password,
+      );
 
-  const loggedInUser = userCredential.user;
+    const loggedInUser = userCredential.user;
 
-  // Retrieve the latest email-verification status from Firebase.
-  await reload(loggedInUser);
+    // Retrieve the latest email-verification status from Firebase.
+    await reload(loggedInUser);
 
-  // Email/password accounts must verify their address before continuing.
-  if (!loggedInUser.emailVerified) {
-    await signOut(auth);
+    // Email/password accounts must verify their address before continuing.
+    if (!loggedInUser.emailVerified) {
+      await signOut(auth);
 
-    const verificationError = new Error(
-      "Email address has not been verified.",
-    );
+      const verificationError = new Error(
+        "Email address has not been verified.",
+      );
 
-    verificationError.code = "auth/email-not-verified";
+      verificationError.code = "auth/email-not-verified";
 
-    throw verificationError;
+      throw verificationError;
+    }
+
+    return loggedInUser;
+  } catch (error) {
+    if (guestUser && auth.currentUser?.uid !== guestUser.uid) await updateCurrentUser(auth, guestUser);
+    throw error;
   }
-
-  return loggedInUser;
 }
 
 // Login or register using a Google account.

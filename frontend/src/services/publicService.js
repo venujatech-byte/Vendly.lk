@@ -100,6 +100,16 @@ export function submitGuestOrderEmail(storeCode, orderId, email, chatSession) {
   });
 }
 
+// Prove ownership of the previous anonymous account before linking its orders to the signed-in one.
+export function claimGuestCustomerOrders(storeCode, guestIdToken, accountIdToken) {
+  return apiRequest(`/public/stores/${storeCode}/customer/claim-guest-orders`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accountIdToken}` },
+    body: { guestIdToken },
+    requiresAuthentication: false,
+  });
+}
+
 export function resumePublicChatSession(sessionId) {
   return apiRequest(`/public/chat/sessions/${sessionId}/resume`, {
     method: "POST",

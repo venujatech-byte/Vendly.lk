@@ -76,6 +76,16 @@ function CustomerAuthGate({ linkType }) {
     confirmPassword !== password
   );
 
+  // Keep the verification notice on the auth gate when guest registration closes the storefront.
+  function showRegistrationVerification(customerEmail) {
+    setEmail(customerEmail);
+    setMode("login");
+    setPassword("");
+    setConfirmPassword("");
+    setSuccess(`Confirmation email sent to ${customerEmail}. Please verify your account via email before signing in.`);
+    setVerificationModal({ isOpen: true, email: customerEmail, mode: "registered" });
+  }
+
   // Fetch store name if route parameter is available
   useEffect(() => {
     let active = true;
@@ -101,7 +111,8 @@ function CustomerAuthGate({ linkType }) {
     };
   }, [storeCode, productCode]);
 
-  if (isAuthLoading) {
+  // Keep an open guest-to-account sign-in flow mounted while the verified identity changes.
+  if (isAuthLoading && !user) {
     return (
       <main className="customer-auth-gate__loading">
         <div className="customer-auth-gate__loading-box">
@@ -118,7 +129,7 @@ function CustomerAuthGate({ linkType }) {
     (user.isAnonymous || user.emailVerified || !user.providerData?.some((p) => p.providerId === "password"))
   );
   if (user && isCustomerVerified) {
-    return <StorefrontPage linkType={linkType} />;
+    return <StorefrontPage linkType={linkType} onVerificationRequired={showRegistrationVerification} />;
   }
 
   async function run(action) {
@@ -171,17 +182,7 @@ function CustomerAuthGate({ linkType }) {
       const currentEmail = email;
       await registerWithEmail(name, currentEmail, password);
       await logoutUser();
-      setMode("login");
-      setPassword("");
-      setConfirmPassword("");
-      setSuccess(
-        `Confirmation email sent to ${currentEmail}. Please verify your account via email before signing in.`
-      );
-      setVerificationModal({
-        isOpen: true,
-        email: currentEmail,
-        mode: "registered",
-      });
+      showRegistrationVerification(currentEmail);
     });
   }
 

@@ -1,6 +1,7 @@
 import logging
 import httpx
 from flask import current_app
+from app.services.customer_contact_service import customer_order_contact, is_legacy_guest_order
 
 LOGGER = logging.getLogger(__name__)
 
@@ -155,7 +156,8 @@ def send_notification_email(recipient_email, recipient_name, notification_type, 
 
 def send_order_confirmation_email(order, business, recipient_email=None):
     """Send a detailed order confirmation and receipt email to the customer."""
-    customer = order.get("customerSnapshot") or {}
+    # Reuse the customer projection so legacy copied contacts cannot leak through email.
+    customer, address = customer_order_contact(order)
     email = recipient_email or customer.get("email") or customer.get("emailAddress")
     if not email:
         return False
@@ -177,7 +179,6 @@ def send_order_confirmation_email(order, business, recipient_email=None):
         </tr>
         """
 
-    address = order.get("deliveryAddress") or {}
     addr_line = ", ".join(filter(None, [
         address.get("line1"),
         address.get("city"),
@@ -226,7 +227,11 @@ def send_order_confirmation_email(order, business, recipient_email=None):
 
 def send_customer_order_status_email(order, business, new_status, note=None, recipient_email=None):
     """Send an order status tracking update (Confirmed, Packed, Dispatched, Delivered) to the customer."""
-    customer = order.get("customerSnapshot") or {}
+    # A copied historical email is not a verified destination for automatic status notifications.
+    if is_legacy_guest_order(order):
+        return False
+    # Status notifications follow the same contact privacy policy as order confirmations.
+    customer, _address = customer_order_contact(order)
     email = recipient_email or customer.get("email") or customer.get("emailAddress")
     if not email:
         return False

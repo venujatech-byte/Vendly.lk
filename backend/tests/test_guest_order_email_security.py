@@ -60,7 +60,8 @@ def test_verified_owner_can_update_and_receive_receipt(receipt):
     assert result == {"success": True, "email": "owner@example.com"}
     order.update.assert_called_once_with({
         "customerSnapshot": {"name": "Customer", "email": "owner@example.com"},
-    })
+    }, option=database.write_option.return_value)
+    database.write_option.assert_called_once_with(last_update_time=order.get.return_value.update_time)
     assert send.call_args.kwargs["recipient_email"] == "owner@example.com"
 
 

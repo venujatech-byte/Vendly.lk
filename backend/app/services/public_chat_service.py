@@ -13,10 +13,12 @@ from app.core.errors import ApiError
 from app.core.firebase import get_rtdb_reference
 from app.services import realtime_access_service
 from app.core.serialization import serialize_snapshot
+from app.services.customer_contact_service import customer_order_contact
 from app.services.customer_service import (
     create_customer,
     list_customers,
     normalize_sri_lankan_phone,
+    validate_customer,
 )
 from app.services.ai_service import (
     ANSWERED_MARKER,
@@ -2900,6 +2902,8 @@ def resume_public_chat_session(database, session_id, customer_uid, customer_emai
 
 def public_order_confirmation(order):
     """Return only the order fields that the customer is allowed to see."""
+    # Keep internal risk flags and future private snapshot fields out of customer responses.
+    public_customer, delivery_address = customer_order_contact(order)
     return {
         "id": order.get("id"),
         "orderNumber": order.get("orderNumber", ""),
@@ -2929,11 +2933,11 @@ def public_order_confirmation(order):
         "paymentPending": order.get("paymentPending", False),
         "paymentStatus": order.get("paymentStatus", "unpaid"),
         "bankDetails": order.get("bankDetails", {}),
-        "customerSnapshot": order.get("customerSnapshot", {}),
-        "customerEmail": (order.get("customerSnapshot") or {}).get("email") or order.get("customerEmail", ""),
-        "customerName": (order.get("customerSnapshot") or {}).get("name") or order.get("customerName", ""),
+        "customerSnapshot": public_customer,
+        "customerEmail": public_customer["email"],
+        "customerName": public_customer["name"],
         "fulfilmentStatus": order.get("fulfilmentStatus", "needs-confirmation"),
-        "deliveryAddress": order.get("deliveryAddress", {}),
+        "deliveryAddress": delivery_address,
         "courier": order.get("courierSnapshot", {}),
         "waybillNumber": order.get("waybillNumber", ""),
         "createdAt": order.get("createdAt"),
@@ -5826,15 +5830,10 @@ def create_public_chat_order(database, session_id, provided_token, payload):
     if not isinstance(customer_payload, dict):
         raise ApiError("validation_error", "Customer details are required.", 422)
 
-    existing_customers = list_customers(
-        database,
-        session["businessId"],
-        phone=customer_payload.get("phoneNumber"),
-    )
+    # Contact details must come from this checkout or the session owner's Firebase identity.
     email_val = str(
         customer_payload.get("email")
         or payload.get("customerEmail")
-        or session.get("customerEmail")
         or ""
     ).strip()
 
@@ -5845,14 +5844,13 @@ def create_public_chat_order(database, session_id, provided_token, payload):
         except Exception:
             pass
 
+    # Validate required details before matching a phone; a missing phone must never list all customers.
+    customer_contact = validate_customer({**customer_payload, "email": email_val})
+    existing_customers = list_customers(
+        database, session["businessId"], phone=customer_contact["normalizedPhone"],
+    )
     if existing_customers:
         customer = existing_customers[0]
-        if email_val and not customer.get("email"):
-            try:
-                database.collection("businesses").document(session["businessId"]).collection("customers").document(customer["id"]).update({"email": email_val})
-                customer["email"] = email_val
-            except Exception:
-                pass
     else:
         cust_create_payload = dict(customer_payload)
         if email_val:
@@ -5919,7 +5917,7 @@ def create_public_chat_order(database, session_id, provided_token, payload):
         "privateNote": private_note,
         "customerNote": delivery_note,
         "customerUid": session.get("customerUid", ""),
-        "customerEmail": email_val or customer.get("email", ""),
+        "customerEmail": customer_contact["email"],
     }
 
     if session.get("productId"):
@@ -5947,15 +5945,16 @@ def create_public_chat_order(database, session_id, provided_token, payload):
         session["businessId"],
         f"public-chat:{session_id}",
         order_payload,
+        # This validated server argument cannot be selected through the order request body.
+        customer_contact=customer_contact,
     )
     customer_summary = {
         "customerId": customer["id"],
-        "name": customer_payload.get("name") or customer.get("name") or "Customer",
-        "phoneNumber": customer_payload.get("phoneNumber") or customer.get("normalizedPhone", ""),
-        "secondaryPhoneNumber": customer_payload.get("secondaryPhoneNumber", "")
-        or customer.get("normalizedSecondaryPhone", ""),
-        "email": email_val or customer_payload.get("email", "") or customer.get("email", ""),
-        "address": customer_payload.get("address") or customer.get("defaultAddress") or {},
+        "name": customer_contact["name"],
+        "phoneNumber": customer_contact["normalizedPhone"],
+        "secondaryPhoneNumber": customer_contact["normalizedSecondaryPhone"],
+        "email": customer_contact["email"],
+        "address": customer_contact["address"],
     }
     session_update_dict = {
         "status": "completed",

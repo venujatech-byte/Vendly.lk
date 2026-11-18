@@ -237,7 +237,7 @@ function loadMessagesFromSession(sessionId) {
   }
 }
 
-function StorefrontPage({ linkType }) {
+function StorefrontPage({ linkType, onVerificationRequired }) {
   const { user, isAuthLoading } = useAuth();
   const { storeCode, productCode } = useParams();
   const storefrontQuery = new URLSearchParams(window.location.search);
@@ -1517,7 +1517,8 @@ function StorefrontPage({ linkType }) {
     window.setTimeout(() => setCopiedField(""), 1600);
   }
 
-  if (isLoading) {
+  // Preserve the account dialog and its in-memory guest proof during sign-in refreshes.
+  if (isLoading && !(isAccountOpen && business)) {
     return (
       <main className="storefront-loading">
         <span className="storefront-loading__mark">V</span>
@@ -2017,6 +2018,7 @@ function StorefrontPage({ linkType }) {
           business={business}
           order={confirmedOrder}
           chatSession={session}
+          onOpenAccount={() => setIsAccountOpen(true)}
           chatLanguage={chatLanguage}
           closeLabel={storefrontText(chatLanguage).returnToStorefront}
           onClose={() => {
@@ -2033,6 +2035,7 @@ function StorefrontPage({ linkType }) {
         user={user}
         storeCode={business.shortCode}
         onOpenChat={handleResumeChat}
+        onVerificationRequired={onVerificationRequired}
       />
 
       <StorefrontInstructionsModal
@@ -4284,8 +4287,8 @@ function CheckoutModal({
 }
 
 // Keep the original guest credentials available when sending the receipt email.
-function OrderSuccess({ business, order, onClose, closeLabel, chatLanguage, chatSession }) {
-  return <OrderReceipt business={business} order={order} onClose={onClose} closeLabel={closeLabel} chatLanguage={chatLanguage} chatSession={chatSession} />;
+function OrderSuccess({ business, order, onClose, closeLabel, chatLanguage, chatSession, onOpenAccount }) {
+  return <OrderReceipt business={business} order={order} onClose={onClose} closeLabel={closeLabel} chatLanguage={chatLanguage} chatSession={chatSession} onOpenAccount={onOpenAccount} />;
 }
 
 function StorefrontReviewCenter({

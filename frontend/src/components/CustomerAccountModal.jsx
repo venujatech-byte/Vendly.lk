@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   AlertCircle,
   Clock3,
@@ -17,13 +17,14 @@ import {
 } from "lucide-react";
 import {
   getAuthErrorMessage,
+  getCurrentUserToken,
   loginAsGuest,
   loginWithEmail,
   loginWithGoogle,
   logoutUser,
   registerWithEmail,
 } from "../services/authService";
-import { getCustomerChats, getCustomerOrders } from "../services/publicService";
+import { claimGuestCustomerOrders, getCustomerChats, getCustomerOrders } from "../services/publicService";
 import googleLogo from "../assets/g.webp";
 import "./CustomerAccountModal.css";
 
@@ -31,7 +32,7 @@ function readableStatus(value = "") {
   return value.replaceAll("-", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-function CustomerAccountModal({ isOpen, onClose, user, storeCode, onOpenChat }) {
+function CustomerAccountModal({ isOpen, onClose, user, storeCode, onOpenChat, onVerificationRequired }) {
   const [mode, setMode] = useState("login");
   const [tab, setTab] = useState("orders");
   const [form, setForm] = useState({ name: "", email: "", password: "" });
@@ -40,9 +41,11 @@ function CustomerAccountModal({ isOpen, onClose, user, storeCode, onOpenChat }) 
   const [chats, setChats] = useState([]);
   const [error, setError] = useState("");
   const [isBusy, setIsBusy] = useState(false);
+  const pendingGuestToken = useRef(null);
+  const isAccountUser = Boolean(user && !user.isAnonymous);
 
   useEffect(() => {
-    if (!isOpen || !user || !storeCode) return;
+    if (!isOpen || !isAccountUser || !storeCode) return;
     let active = true;
     setIsBusy(true);
     setError("");
@@ -70,9 +73,22 @@ function CustomerAccountModal({ isOpen, onClose, user, storeCode, onOpenChat }) 
     return () => {
       active = false;
     };
-  }, [isOpen, storeCode, user]);
+  }, [isOpen, storeCode, user, isAccountUser]);
 
   if (!isOpen) return null;
+
+  // Keep the guest proof only in memory; an existing account must prove both identities to save history.
+  async function finishSignIn(action) {
+    if (user?.isAnonymous) pendingGuestToken.current = await getCurrentUserToken(true);
+    const signedInUser = await action();
+    if (signedInUser && !signedInUser.isAnonymous && pendingGuestToken.current) {
+      // Bind the destination to this sign-in result, even if another tab changes the active account.
+      const accountIdToken = await signedInUser.getIdToken();
+      await claimGuestCustomerOrders(storeCode, pendingGuestToken.current, accountIdToken);
+      pendingGuestToken.current = null;
+      window.location.reload();
+    }
+  }
 
   async function submit(event) {
     event.preventDefault();
@@ -80,12 +96,13 @@ function CustomerAccountModal({ isOpen, onClose, user, storeCode, onOpenChat }) 
     setError("");
     try {
       if (mode === "register") {
-        await registerWithEmail(form.name, form.email, form.password);
+        await registerWithEmail(form.name, form.email, form.password, { linkGuestAccount: true });
+        onVerificationRequired?.(form.email);
         await logoutUser();
         setError("Check your email and verify your address, then log in.");
         setMode("login");
       } else {
-        await loginWithEmail(form.email, form.password);
+        await finishSignIn(() => loginWithEmail(form.email, form.password, { preserveGuestOnFailure: true }));
       }
     } catch (authError) {
       setError(getAuthErrorMessage(authError));
@@ -98,7 +115,7 @@ function CustomerAccountModal({ isOpen, onClose, user, storeCode, onOpenChat }) 
     setIsBusy(true);
     setError("");
     try {
-      await action();
+      await finishSignIn(action);
     } catch (authError) {
       setError(getAuthErrorMessage(authError));
     } finally {
@@ -117,7 +134,7 @@ function CustomerAccountModal({ isOpen, onClose, user, storeCode, onOpenChat }) 
           <div>
             <UserRound size={20} />
             <div>
-              <strong>{user ? "My account" : "Customer login"}</strong>
+              <strong>{isAccountUser ? "My account" : "Customer login"}</strong>
               <small>Save chats, orders and tracking details</small>
             </div>
           </div>
@@ -126,7 +143,7 @@ function CustomerAccountModal({ isOpen, onClose, user, storeCode, onOpenChat }) 
           </button>
         </header>
 
-        {!user ? (
+        {!isAccountUser ? (
           <div className="customer-account-auth">
             <div className="customer-account-switch">
               <button
@@ -366,6 +383,12 @@ function CustomerAccountModal({ isOpen, onClose, user, storeCode, onOpenChat }) 
           <p className="customer-account-error" role="alert">
             {error}
           </p>
+        )}
+        {/* Retain a failed linking request for an explicit retry without persisting the guest token. */}
+        {isAccountUser && error && pendingGuestToken.current && (
+          <button className="customer-account-primary" type="button" disabled={isBusy} onClick={() => authenticate(() => Promise.resolve(user))}>
+            Retry saving guest orders
+          </button>
         )}
       </section>
     </div>

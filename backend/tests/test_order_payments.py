@@ -291,7 +291,10 @@ def test_guest_payment_choices_cannot_claim_verified_money(monkeypatch, payment_
     public_chat_service.create_public_chat_order(
         database, "session-1", "test-token",
         {
-            "customer": {"phoneNumber": "0712345678"},
+            "customer": {
+                "name": "Guest", "phoneNumber": "0712345678",
+                "address": {"line1": "1 Test Road", "city": "Matara", "district": "Matara"},
+            },
             "courierId": "courier-1",
             "items": [{"variantId": "v-1", "quantity": 1}],
             "paymentMethod": payment_method,

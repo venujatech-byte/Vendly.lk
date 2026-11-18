@@ -25,7 +25,7 @@ function dateLabel(value) {
     : date.toLocaleDateString("en-LK", { year: "numeric", month: "long", day: "numeric" });
 }
 
-export default function OrderReceipt({ business, order, onClose, closeLabel = "Return", chatLanguage = "en", chatSession }) {
+export default function OrderReceipt({ business, order, onClose, closeLabel = "Return", chatLanguage = "en", chatSession, onOpenAccount }) {
   const text = storefrontText(chatLanguage);
   const { user } = useAuth();
   const address = order.deliveryAddress || order.deliveryAddressObject || {};
@@ -152,6 +152,8 @@ export default function OrderReceipt({ business, order, onClose, closeLabel = "R
       </article>
 
       <div className="receipt-actions"><button type="button" onClick={() => downloadReceiptPdf(business, order)}><Download size={17} /> {text.downloadReceipt}</button><button type="button" onClick={onClose}><CircleHelp size={17} /> {closeLabel}</button></div>
+      {/* Offer durable order history after checkout while keeping guest purchasing available. */}
+      {user?.isAnonymous && onOpenAccount && <div className="receipt-actions"><button type="button" onClick={onOpenAccount}>Sign in to save order history</button></div>}
     </section>
   </div>;
 }

@@ -1,6 +1,8 @@
 from flask import Blueprint, g, jsonify, request
+from firebase_admin import auth as firebase_auth
 
 from app.core.auth import optional_firebase_user, require_firebase_user
+from app.core.errors import ApiError
 from app.core.firebase import get_firestore_client
 from app.core.requests import get_json_object
 from app.core.rate_limit import limiter, public_chat_key
@@ -19,6 +21,7 @@ from app.services.customer_portal_service import (
     list_customer_chats,
     list_customer_orders,
     update_order_guest_email,
+    claim_guest_customer_orders,
 )
 
 
@@ -154,6 +157,29 @@ def customer_orders(store_code):
     return jsonify(
         {"orders": list_customer_orders(get_firestore_client(), store_code, g.current_user["uid"])}
     )
+
+
+@public_blueprint.post("/stores/<store_code>/customer/claim-guest-orders")
+@limiter.limit("10 per minute")
+@require_firebase_user
+def claim_guest_orders(store_code):
+    # Both accounts need verified tokens; caller-supplied UIDs and phone numbers prove nothing.
+    if g.current_user.get("firebase", {}).get("sign_in_provider") == "anonymous":
+        raise ApiError("account_required", "Sign in to save guest orders.", 403)
+    payload = get_json_object()
+    try:
+        guest = firebase_auth.verify_id_token(payload.get("guestIdToken") or "", check_revoked=True)
+    except (
+        firebase_auth.InvalidIdTokenError, firebase_auth.ExpiredIdTokenError,
+        firebase_auth.RevokedIdTokenError, firebase_auth.UserDisabledError,
+        firebase_auth.UserNotFoundError, ValueError,
+    ):
+        raise ApiError("invalid_guest_token", "Guest ownership could not be verified.", 401) from None
+    if guest.get("firebase", {}).get("sign_in_provider") != "anonymous":
+        raise ApiError("invalid_guest_token", "A guest session is required.", 403)
+    return jsonify(claim_guest_customer_orders(
+        get_firestore_client(), store_code, guest["uid"], g.current_user["uid"],
+    ))
 
 
 @public_blueprint.get("/stores/<store_code>/customer/orders/<order_id>")

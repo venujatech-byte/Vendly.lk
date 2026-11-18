@@ -1,5 +1,8 @@
 from app.core.errors import ApiError
 from app.core.serialization import serialize_snapshot
+from google.cloud import firestore as google_firestore
+from google.cloud.firestore_v1.base_query import FieldFilter
+from google.api_core.exceptions import FailedPrecondition
 from app.services.public_catalog_service import resolve_short_link
 from app.services.public_chat_service import authorize_public_chat_session, public_order_confirmation
 
@@ -25,6 +28,27 @@ def list_customer_orders(database, store_code, customer_uid):
         return sorted(orders, key=lambda item: str(item.get("createdAt", "")), reverse=True)
     except Exception:
         return []
+
+
+def claim_guest_customer_orders(database, store_code, guest_uid, customer_uid):
+    """Link only orders owned by the separately verified guest identity in this store."""
+    business_id = resolve_store_business_id(database, store_code)
+    orders = database.collection("businesses").document(business_id).collection("orders")
+    claimed = 0
+
+    # Re-check ownership in each transaction so retries cannot steal an already reassigned order.
+    @google_firestore.transactional
+    def claim(current_transaction, reference):
+        snapshot = reference.get(transaction=current_transaction)
+        if not snapshot.exists or snapshot.to_dict().get("customerUid") != guest_uid:
+            return False
+        current_transaction.update(reference, {"customerUid": customer_uid})
+        return True
+
+    if guest_uid != customer_uid:
+        for snapshot in orders.where(filter=FieldFilter("customerUid", "==", guest_uid)).stream():
+            claimed += claim(database.transaction(), snapshot.reference)
+    return {"claimedOrders": claimed}
 
 
 def get_customer_order(database, store_code, customer_uid, order_id):
@@ -129,16 +153,16 @@ def update_order_guest_email(
     customer_snapshot = dict(order_data.get("customerSnapshot") or {})
     customer_snapshot["email"] = email
 
-    order_ref.update({"customerSnapshot": customer_snapshot})
+    # Ownership can change during guest sign-in; reject writes against an outdated authorization read.
+    try:
+        order_ref.update(
+            {"customerSnapshot": customer_snapshot},
+            option=database.write_option(last_update_time=order_snap.update_time),
+        )
+    except FailedPrecondition:
+        raise ApiError("order_changed", "Order changed. Please reload and try again.", 409) from None
 
-    # If customerId exists on order, also update customer doc if email is empty
-    customer_id = order_data.get("customerId")
-    if customer_id:
-        cust_ref = business_ref.collection("customers").document(customer_id)
-        cust_snap = cust_ref.get()
-        if cust_snap.exists and not cust_snap.to_dict().get("email"):
-            cust_ref.update({"email": email})
-
+    # Owning an order does not prove ownership of a customer matched by an unverified phone.
     # Send order confirmation and receipt email to the newly provided guest email
     try:
         from app.services.email_service import send_order_confirmation_email

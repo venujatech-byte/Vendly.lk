@@ -1,9 +1,10 @@
 """Exercise real Firestore SDK transactions without credentials or cloud traffic."""
 
 from copy import deepcopy
+from datetime import datetime, timezone
 from unittest.mock import Mock
 
-from google.api_core.exceptions import Aborted
+from google.api_core.exceptions import Aborted, FailedPrecondition
 from google.auth.credentials import AnonymousCredentials
 from google.cloud import firestore
 from google.cloud.firestore_v1 import types
@@ -44,7 +45,10 @@ class MemoryFirestore:
             self.reads[transaction][path] = self.versions.get(path, 0)
         if path not in self.documents:
             return None
-        return types.Document(name=name, fields=encode_dict(deepcopy(self.documents[path])))
+        return types.Document(
+            name=name, fields=encode_dict(deepcopy(self.documents[path])),
+            update_time=datetime.fromtimestamp(self.versions[path], timezone.utc),
+        )
 
     def get_documents(self, request, **kwargs):
         # Return protobuf snapshots so the SDK builds its normal DocumentSnapshot objects.
@@ -60,10 +64,11 @@ class MemoryFirestore:
         parent = request["parent"]
         prefix = f"{parent}/documents/" if "/documents/" not in parent else f"{parent}/"
         prefix += query.from_[0].collection_id + "/"
-        product_id = query.where.field_filter.value.string_value
+        field = query.where.field_filter.field.field_path
+        expected = query.where.field_filter.value.string_value
         for path, data in list(self.documents.items()):
             name = f"{self.client._database_string}/documents/{path}"
-            if name.startswith(prefix) and data.get("productId") == product_id:
+            if name.startswith(prefix) and data.get(field) == expected:
                 yield types.RunQueryResponse(document=self.snapshot(name, request.get("transaction")))
 
     def commit(self, request, **kwargs):
@@ -71,9 +76,16 @@ class MemoryFirestore:
         if self.before_commit:
             change, self.before_commit = self.before_commit, None
             change(self)
-        for path, version in self.reads[request["transaction"]].items():
+        for path, version in self.reads.get(request.get("transaction"), {}).items():
             if self.versions.get(path, 0) != version:
                 raise Aborted("Concurrent write; transaction must retry")
+        # Apply write preconditions before any mutation, as a Firestore commit does.
+        for write in request["writes"]:
+            expected_time = write.current_document.update_time
+            if expected_time:
+                path = write.update.name.split("/documents/", 1)[1]
+                if self.versions.get(path, 0) != int(expected_time.timestamp()):
+                    raise FailedPrecondition("Document changed since authorization")
         for write in request["writes"]:
             if write.delete:
                 path = write.delete.split("/documents/", 1)[1]
