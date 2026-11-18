@@ -1708,9 +1708,21 @@ def add_items_to_order(database, business_id, order_id, uid, items):
     return get_order(database, business_id, order_id)
 
 
+def _notify_payment_recorded(database, business_id, order_id, order, paid_minor, balance_minor):
+    # Payment is committed; a failed chat must not invite another payment submission.
+    try:
+        send_payment_recorded_chat_message(
+            database, business_id, order_id, order, paid_minor, balance_minor,
+        )
+    except Exception:
+        # shortcut: Failed chat delivery is logged once; add a durable outbox if retries are required.
+        LOGGER.warning("Payment saved, but its customer chat notification could not be delivered.")
+
+
 def record_order_payment(database, business_id, order_id, uid, payload):
     """Record money the seller has actually received against an order.
 
+    The amount remains the cumulative paid total, not an additional transfer.
     The seller enters what landed in their account and attaches the receipt.
     Anything still outstanding becomes the cash-on-delivery amount, so a half
     transfer and a full transfer are the same operation with different numbers
@@ -1749,77 +1761,78 @@ def record_order_payment(database, business_id, order_id, uid, payload):
         database.collection("businesses").document(business_id)
         .collection("orders").document(order_id)
     )
-    snapshot = order_reference.get()
+    event_reference = order_reference.collection("events").document()
 
-    if not snapshot.exists:
-        raise ApiError("order_not_found", "Order not found.", 404)
+    # Re-read payment state on conflicts and commit the amount, receipts and audit event together.
+    @google_firestore.transactional
+    def record_in_transaction(current_transaction):
+        snapshot = order_reference.get(transaction=current_transaction)
 
-    order = snapshot.to_dict()
-    total_minor = order.get("totalAmountMinor", 0)
+        if not snapshot.exists:
+            raise ApiError("order_not_found", "Order not found.", 404)
 
-    # Overpayment is a data-entry slip, and silently accepting it would show a
-    # negative balance to collect on the courier's sheet.
-    if paid_amount_minor > total_minor:
-        raise ApiError(
-            "invalid_payment",
-            "The amount received cannot be more than the order total.",
-            422,
-        )
+        order = snapshot.to_dict()
+        total_minor = order.get("totalAmountMinor", 0)
 
-    balance_minor = total_minor - paid_amount_minor
-    payment_status = "paid" if balance_minor == 0 else "partially-paid"
-    receipts = list(order.get("paymentReceipts") or [])
+        # Overpayment is a data-entry slip, and silently accepting it would show a
+        # negative balance to collect on the courier's sheet.
+        if paid_amount_minor > total_minor:
+            raise ApiError(
+                "invalid_payment",
+                "The amount received cannot be more than the order total.",
+                422,
+            )
 
-    if receipt_url:
-        receipts.append(
+        balance_minor = total_minor - paid_amount_minor
+        payment_status = "paid" if balance_minor == 0 else "partially-paid"
+        receipts = list(order.get("paymentReceipts") or [])
+
+        if receipt_url:
+            receipts.append(
+                {
+                    "url": receipt_url,
+                    "amountMinor": paid_amount_minor,
+                    "recordedBy": uid,
+                    "recordedAt": datetime.now(timezone.utc),
+                },
+            )
+
+        current_transaction.update(
+            order_reference,
             {
-                "url": receipt_url,
-                "amountMinor": paid_amount_minor,
-                "recordedBy": uid,
-                "recordedAt": datetime.now(timezone.utc),
+                "paidAmountMinor": paid_amount_minor,
+                "balanceAmountMinor": balance_minor,
+                "paymentStatus": payment_status,
+                # Settled either way: the rest is collected on delivery, so nothing
+                # is still waiting on a transfer.
+                "paymentPending": False,
+                "paymentReceipts": receipts,
+                "paymentVerifiedBy": uid,
+                "paymentVerifiedAt": firestore.SERVER_TIMESTAMP,
+                "updatedAt": firestore.SERVER_TIMESTAMP,
             },
         )
+        current_transaction.set(
+            event_reference,
+            {
+                "status": order.get("fulfilmentStatus", "needs-confirmation"),
+                "message": (
+                    f"Payment of {paid_amount_minor / 100:,.2f} recorded."
+                    + (
+                        f" Balance {balance_minor / 100:,.2f} to collect on delivery."
+                        if balance_minor
+                        else " Order fully paid."
+                    )
+                    + (f" {note}" if note else "")
+                ),
+                "performedBy": uid,
+                "createdAt": firestore.SERVER_TIMESTAMP,
+            },
+        )
+        return order, balance_minor
 
-    order_reference.update(
-        {
-            "paidAmountMinor": paid_amount_minor,
-            "balanceAmountMinor": balance_minor,
-            "paymentStatus": payment_status,
-            # Settled either way: the rest is collected on delivery, so nothing
-            # is still waiting on a transfer.
-            "paymentPending": False,
-            "paymentReceipts": receipts,
-            "paymentVerifiedBy": uid,
-            "paymentVerifiedAt": firestore.SERVER_TIMESTAMP,
-            "updatedAt": firestore.SERVER_TIMESTAMP,
-        },
-    )
-    # The customer sent a receipt and then heard nothing. Confirming it closes
-    # the loop they started, and says what the courier will still collect.
-    send_payment_recorded_chat_message(
-        database,
-        business_id,
-        order_id,
-        order,
-        paid_amount_minor,
-        balance_minor,
-    )
-    order_reference.collection("events").document().set(
-        {
-            "status": order.get("fulfilmentStatus", "needs-confirmation"),
-            "message": (
-                f"Payment of {paid_amount_minor / 100:,.2f} recorded."
-                + (
-                    f" Balance {balance_minor / 100:,.2f} to collect on delivery."
-                    if balance_minor
-                    else " Order fully paid."
-                )
-                + (f" {note}" if note else "")
-            ),
-            "performedBy": uid,
-            "createdAt": firestore.SERVER_TIMESTAMP,
-        },
-    )
+    order, balance_minor = record_in_transaction(database.transaction())
+    _notify_payment_recorded(database, business_id, order_id, order, paid_amount_minor, balance_minor)
     return get_order(database, business_id, order_id)
 
 
@@ -1834,55 +1847,58 @@ def convert_order_to_cash_on_delivery(database, business_id, order_id, uid):
         database.collection("businesses").document(business_id)
         .collection("orders").document(order_id)
     )
-    snapshot = order_reference.get()
+    event_reference = order_reference.collection("events").document()
 
-    if not snapshot.exists:
-        raise ApiError("order_not_found", "Order not found.", 404)
+    # A concurrent payment must prevent conversion rather than be reset to zero.
+    @google_firestore.transactional
+    def convert_in_transaction(current_transaction):
+        snapshot = order_reference.get(transaction=current_transaction)
 
-    order = snapshot.to_dict()
-    total_minor = order.get("totalAmountMinor", 0)
-    already_paid = order.get("paidAmountMinor", 0)
+        if not snapshot.exists:
+            raise ApiError("order_not_found", "Order not found.", 404)
 
-    # Money already banked cannot be turned into cash the courier collects.
-    if already_paid:
-        raise ApiError(
-            "payment_already_recorded",
-            "Part of this order is already paid, so it cannot be moved to cash "
-            "on delivery. Record the rest of the payment instead.",
-            409,
+        order = snapshot.to_dict()
+        total_minor = order.get("totalAmountMinor", 0)
+        already_paid = order.get("paidAmountMinor", 0)
+
+        # Money already banked cannot be turned into cash the courier collects.
+        if already_paid:
+            raise ApiError(
+                "payment_already_recorded",
+                "Part of this order is already paid, so it cannot be moved to cash "
+                "on delivery. Record the rest of the payment instead.",
+                409,
+            )
+
+        current_transaction.update(
+            order_reference,
+            {
+                "paymentMethod": "cod",
+                "paymentPending": False,
+                "paymentStatus": "unpaid",
+                "paidAmountMinor": 0,
+                "depositAmountMinor": 0,
+                "balanceAmountMinor": total_minor,
+                "updatedAt": firestore.SERVER_TIMESTAMP,
+                "updatedBy": uid,
+            },
         )
+        current_transaction.set(
+            event_reference,
+            {
+                "status": order.get("fulfilmentStatus", "needs-confirmation"),
+                "message": (
+                    "Changed to cash on delivery. The courier collects "
+                    f"{total_minor / 100:,.2f} in full."
+                ),
+                "performedBy": uid,
+                "createdAt": firestore.SERVER_TIMESTAMP,
+            },
+        )
+        return order, total_minor
 
-    order_reference.update(
-        {
-            "paymentMethod": "cod",
-            "paymentPending": False,
-            "paymentStatus": "unpaid",
-            "paidAmountMinor": 0,
-            "depositAmountMinor": 0,
-            "balanceAmountMinor": total_minor,
-            "updatedAt": firestore.SERVER_TIMESTAMP,
-            "updatedBy": uid,
-        },
-    )
-    order_reference.collection("events").document().set(
-        {
-            "status": order.get("fulfilmentStatus", "needs-confirmation"),
-            "message": (
-                "Changed to cash on delivery. The courier collects "
-                f"{total_minor / 100:,.2f} in full."
-            ),
-            "performedBy": uid,
-            "createdAt": firestore.SERVER_TIMESTAMP,
-        },
-    )
-    send_payment_recorded_chat_message(
-        database,
-        business_id,
-        order_id,
-        order,
-        0,
-        total_minor,
-    )
+    order, total_minor = convert_in_transaction(database.transaction())
+    _notify_payment_recorded(database, business_id, order_id, order, 0, total_minor)
     return get_order(database, business_id, order_id)
 
 
@@ -1905,24 +1921,30 @@ def attach_order_payment_receipt(
         database.collection("businesses").document(business_id)
         .collection("orders").document(order_id)
     )
-    snapshot = order_reference.get()
+    # Retry receipt-list changes so attaching proof never drops another seller's receipt.
+    @google_firestore.transactional
+    def attach_in_transaction(current_transaction):
+        snapshot = order_reference.get(transaction=current_transaction)
 
-    if not snapshot.exists:
-        raise ApiError("order_not_found", "Order not found.", 404)
+        if not snapshot.exists:
+            raise ApiError("order_not_found", "Order not found.", 404)
 
-    receipts = list((snapshot.to_dict() or {}).get("paymentReceipts") or [])
-    receipts.append(
-        {
-            "url": receipt_url,
-            "amountMinor": paid_amount_minor,
-            "recordedBy": uid,
-            "recordedAt": datetime.now(timezone.utc),
-        },
-    )
-    order_reference.update(
-        {
-            "paymentReceipts": receipts,
-            "updatedAt": firestore.SERVER_TIMESTAMP,
-        },
-    )
+        receipts = list((snapshot.to_dict() or {}).get("paymentReceipts") or [])
+        receipts.append(
+            {
+                "url": receipt_url,
+                "amountMinor": paid_amount_minor,
+                "recordedBy": uid,
+                "recordedAt": datetime.now(timezone.utc),
+            },
+        )
+        current_transaction.update(
+            order_reference,
+            {
+                "paymentReceipts": receipts,
+                "updatedAt": firestore.SERVER_TIMESTAMP,
+            },
+        )
+
+    attach_in_transaction(database.transaction())
     return get_order(database, business_id, order_id)

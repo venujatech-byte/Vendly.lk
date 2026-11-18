@@ -8,6 +8,8 @@ from unittest.mock import Mock
 
 import pytest
 
+from firestore_memory import MemoryFirestore
+
 from app.core.errors import ApiError
 from app.services import order_service, public_chat_service
 from app.services.order_service import record_order_payment, validate_order_request
@@ -27,75 +29,11 @@ def base_request(**overrides):
     }
 
 
-class FakeEvents:
-    def __init__(self):
-        self.written = []
-
-    def document(self):
-        return self
-
-    def set(self, data):
-        self.written.append(data)
-
-
-class FakeOrderReference:
-    def __init__(self, order):
-        self.order = order
-        self.updates = []
-        self.events = FakeEvents()
-
-    def get(self):
-        return FakeSnapshot(self.order)
-
-    def update(self, changes):
-        self.updates.append(changes)
-        self.order.update(changes)
-
-    def collection(self, _name):
-        return self.events
-
-
-class FakeSnapshot:
-    def __init__(self, order):
-        self.order = order
-
-    @property
-    def exists(self):
-        return self.order is not None
-
-    def to_dict(self):
-        return dict(self.order or {})
-
-
-class FakeDatabase:
-    def __init__(self, reference):
-        self.reference = reference
-
-    def collection(self, _name):
-        return self
-
-    def document(self, _name=None):
-        return self if _name != "order-1" else self.reference
-
-
-class FakeBusinessChain:
-    """Resolves businesses/<id>/orders/<id> down to the one order reference."""
-
-    def __init__(self, reference):
-        self.reference = reference
-
-    def collection(self, _name):
-        return self
-
-    def document(self, name=None):
-        if name == "order-1":
-            return self.reference
-        return self
-
-
 def make_database(order):
-    reference = FakeOrderReference(order)
-    return FakeBusinessChain(reference), reference
+    # Keep existing payment scenarios on real SDK transactions with in-memory RPCs.
+    store = MemoryFirestore()
+    store.put("businesses/biz/orders/order-1", order)
+    return store.client, store
 
 
 def test_a_promised_transfer_is_not_recorded_as_money():
@@ -119,8 +57,7 @@ def test_recording_the_full_amount_leaves_nothing_to_collect(monkeypatch):
         "paymentStatus": "pending-payment",
         "fulfilmentStatus": "needs-confirmation",
     }
-    database, reference = make_database(order)
-    monkeypatch.setattr(order_service, "get_order", lambda *a: reference.order)
+    database, store = make_database(order)
     monkeypatch.setattr(
         order_service, "send_payment_recorded_chat_message", lambda *a: None,
     )
@@ -142,8 +79,7 @@ def test_a_part_payment_leaves_the_rest_as_cash_on_delivery(monkeypatch):
         "paymentStatus": "pending-payment",
         "fulfilmentStatus": "needs-confirmation",
     }
-    database, reference = make_database(order)
-    monkeypatch.setattr(order_service, "get_order", lambda *a: reference.order)
+    database, store = make_database(order)
     monkeypatch.setattr(
         order_service, "send_payment_recorded_chat_message", lambda *a: None,
     )
@@ -182,8 +118,7 @@ def test_zero_is_refused(monkeypatch):
 
 def test_the_receipt_is_kept_for_later_viewing(monkeypatch):
     order = {"totalAmountMinor": 180000, "fulfilmentStatus": "needs-confirmation"}
-    database, reference = make_database(order)
-    monkeypatch.setattr(order_service, "get_order", lambda *a: reference.order)
+    database, store = make_database(order)
     monkeypatch.setattr(
         order_service, "send_payment_recorded_chat_message", lambda *a: None,
     )
@@ -199,7 +134,7 @@ def test_the_receipt_is_kept_for_later_viewing(monkeypatch):
 
     # Both slips are kept. A customer who pays in two transfers has two
     # receipts, and the seller may need either of them later.
-    assert len(reference.order["paymentReceipts"]) == 2
+    assert len(store.documents["businesses/biz/orders/order-1"]["paymentReceipts"]) == 2
 
 
 def test_an_order_awaiting_a_transfer_cannot_be_confirmed():
@@ -227,8 +162,7 @@ def test_the_customer_is_told_their_payment_arrived(monkeypatch):
         "orderNumber": "VD-000018",
         "fulfilmentStatus": "needs-confirmation",
     }
-    database, reference = make_database(order)
-    monkeypatch.setattr(order_service, "get_order", lambda *a: reference.order)
+    database, store = make_database(order)
     monkeypatch.setattr(
         order_service,
         "send_payment_recorded_chat_message",
@@ -255,8 +189,7 @@ def test_changing_to_cash_on_delivery_frees_the_order(monkeypatch):
         "paidAmountMinor": 0,
         "fulfilmentStatus": "needs-confirmation",
     }
-    database, reference = make_database(order)
-    monkeypatch.setattr(order_service, "get_order", lambda *a: reference.order)
+    database, store = make_database(order)
     monkeypatch.setattr(
         order_service, "send_payment_recorded_chat_message", lambda *a: None,
     )
@@ -299,8 +232,7 @@ def test_the_customer_is_told_about_the_change_not_a_zero_payment(monkeypatch):
         "orderNumber": "VD-000019",
         "fulfilmentStatus": "needs-confirmation",
     }
-    database, reference = make_database(order)
-    monkeypatch.setattr(order_service, "get_order", lambda *a: reference.order)
+    database, store = make_database(order)
     monkeypatch.setattr(
         order_service,
         "send_payment_recorded_chat_message",
