@@ -91,7 +91,7 @@ def validate_member_payload(payload, require_email=True):
             {"allowedRoles": sorted(list(ROLE_PERMISSIONS) + ["custom"])},
         )
 
-    # Check for custom permissions in payload
+    # Preserve granular grants; adding a module alias would turn read access into writes.
     custom_perms = payload.get("permissions")
     if custom_perms is not None and isinstance(custom_perms, list):
         cleaned_permissions = set()
@@ -103,9 +103,6 @@ def validate_member_payload(payload, require_email=True):
                 cleaned_permissions.update(MODULE_PERMISSIONS[perm_str])
             elif perm_str in AVAILABLE_PERMISSIONS:
                 cleaned_permissions.add(perm_str)
-                prefix = perm_str.split(":", 1)[0]
-                if prefix in MODULE_PERMISSIONS:
-                    cleaned_permissions.add(prefix)
         permissions = sorted(list(cleaned_permissions))
     else:
         permissions = ROLE_PERMISSIONS.get(role, ["orders:read", "inventory:read"])

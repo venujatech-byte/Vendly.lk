@@ -38,7 +38,13 @@ def membership_has_permission(membership, required_permission):
         return True
 
     resource = required_permission.split(":", 1)[0]
-    return f"{resource}:*" in permissions or resource in permissions
+    if f"{resource}:*" in permissions:
+        return True
+
+    # Older validation added bare aliases to granular grants; those aliases must not widen access.
+    return resource in permissions and not any(
+        item.startswith(f"{resource}:") for item in permissions
+    )
 
 
 def require_business_member(*allowed_roles, permission=None):
