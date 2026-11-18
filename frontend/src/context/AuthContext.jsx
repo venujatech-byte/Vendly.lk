@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useRef,
   useState,
 } from "react";
 
@@ -8,6 +9,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "../firebase/firebase";
 import { getCurrentAccount } from "../services/accountService";
 import { createBusiness } from "../services/businessService";
+import { invalidateReadCache } from "../services/readCache";
 import {
   clearPendingSellerProfile,
   getSellerProfile,
@@ -27,6 +29,8 @@ function isUserEmailVerified(firebaseUser) {
 }
 
 function AuthProvider({ children }) {
+  // Invalidate outstanding account loads whenever the Firebase session changes.
+  const authVersion = useRef(0);
   // Firebase user currently logged into Vendly.
   const [user, setUser] = useState(null);
 
@@ -45,11 +49,14 @@ function AuthProvider({ children }) {
   // Prevent pages from loading before Firebase checks the session.
   const [isAuthLoading, setIsAuthLoading] = useState(true);
 
-  async function loadAccount(currentUser) {
+  async function loadAccount(currentUser, version) {
+    const isCurrentSession = () => authVersion.current === version && auth.currentUser?.uid === currentUser.uid;
     let legacyProfile = await getSellerProfile(currentUser);
+    if (!isCurrentSession()) return;
 
     try {
       let currentAccount = await getCurrentAccount();
+      if (!isCurrentSession()) return;
 
       if (
         !legacyProfile &&
@@ -72,7 +79,9 @@ function AuthProvider({ children }) {
           businessName: legacyProfile.businessName,
         });
 
+        if (!isCurrentSession()) return;
         currentAccount = await getCurrentAccount();
+        if (!isCurrentSession()) return;
       }
 
       setAccount(currentAccount);
@@ -92,6 +101,7 @@ function AuthProvider({ children }) {
         return;
       }
     } catch (error) {
+      if (!isCurrentSession()) return;
       console.error("Vendly account could not be loaded:", error);
       setAccount(null);
       setAccountError(error);
@@ -106,16 +116,19 @@ function AuthProvider({ children }) {
     const unsubscribe = onAuthStateChanged(
       auth,
       async (currentUser) => {
+        const version = ++authVersion.current;
+        // Clear the previous session's cached and pending business reads before exposing this identity.
+        invalidateReadCache("");
         setIsAuthLoading(true);
         setAuthenticationError(null);
+        setAccount(null);
+        setSellerProfile(null);
+        setAccountError(null);
 
         // Do not treat unverified email/password accounts as logged in.
         // This prevents login gates from unmounting or prematurely redirecting.
         if (currentUser && !isUserEmailVerified(currentUser)) {
           setUser(null);
-          setSellerProfile(null);
-          setAccount(null);
-          setAccountError(null);
           setIsAuthLoading(false);
           return;
         }
@@ -124,20 +137,20 @@ function AuthProvider({ children }) {
 
         try {
           if (currentUser) {
-            await loadAccount(currentUser);
-          } else {
-            setSellerProfile(null);
-            setAccount(null);
-            setAccountError(null);
+            await loadAccount(currentUser, version);
           }
         } catch (error) {
+          if (authVersion.current !== version) return;
           console.error("Seller profile could not be loaded:", error);
           setSellerProfile(null);
         } finally {
-          setIsAuthLoading(false);
+          if (authVersion.current === version) setIsAuthLoading(false);
         }
       },
       (error) => {
+        authVersion.current += 1;
+        // An authentication failure must also discard any previously authenticated read cache.
+        invalidateReadCache("");
         console.error("Firebase authentication could not be initialized:", error);
         setUser(null);
         setSellerProfile(null);
@@ -149,11 +162,17 @@ function AuthProvider({ children }) {
     );
 
     // Stop the Firebase listener when this component is removed.
-    return unsubscribe;
+    return () => {
+      authVersion.current += 1;
+      unsubscribe();
+    };
   }, []);
 
   // Refresh profile data after the seller finishes business setup.
   async function refreshSellerProfile() {
+    const version = authVersion.current;
+    // A refreshed membership must not reuse reads made under its previous access rights.
+    invalidateReadCache("");
     setIsAuthLoading(true);
 
     if (!auth.currentUser || !isUserEmailVerified(auth.currentUser)) {
@@ -164,9 +183,9 @@ function AuthProvider({ children }) {
     }
 
     try {
-      await loadAccount(auth.currentUser);
+      await loadAccount(auth.currentUser, version);
     } finally {
-      setIsAuthLoading(false);
+      if (authVersion.current === version) setIsAuthLoading(false);
     }
   }
 
