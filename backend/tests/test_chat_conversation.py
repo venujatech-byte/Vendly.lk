@@ -156,6 +156,8 @@ def chat(monkeypatch):
 
     patches = {
         "authorize_public_chat_session": lambda *a, **k: (snapshot, session),
+        # Keep real message saves on fake Firestore instead of contacting live RTDB.
+        "get_rtdb_reference": lambda *a, **k: None,
         "save_chat_message": lambda *a, **k: None,
         "session_catalog": lambda *a: {"business": {"name": "VS Tech", "storefrontFaq": ""},
                                        "products": products},
