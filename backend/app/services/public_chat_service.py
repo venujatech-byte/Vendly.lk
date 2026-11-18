@@ -5853,6 +5853,7 @@ def create_public_chat_order(database, session_id, provided_token, payload):
         customer = create_customer(database, session["businessId"], cust_create_payload)
     try:
         delivery_note = optional_text(payload.get("deliveryNote"), 500)
+        payment_method = optional_text(payload.get("paymentMethod"), 40) or "cod"
     except ValueError as error:
         raise ApiError("validation_error", str(error), 422) from error
 
@@ -5902,10 +5903,10 @@ def create_public_chat_order(database, session_id, provided_token, payload):
         # is deliberately left at zero: nothing has actually been received yet,
         # and marking money as paid before it arrives is a far worse error than
         # a seller having to confirm it.
-        "paymentMethod": payload.get("paymentMethod") or "cod",
-        # A transfer the customer has promised but not sent. Recorded as an
-        # intention so the seller knows to expect it, never as money received.
-        "paymentPending": payload.get("paymentPending") is True,
+        "paymentMethod": payment_method,
+        # Guest transfer choices are always pending, regardless of the client's paid claim.
+        "paymentPending": payment_method in {"paid", "deposit"}
+        or payload.get("paymentPending") is True,
         "source": "chatbot",
         "discountAmount": 0,
         "privateNote": private_note,

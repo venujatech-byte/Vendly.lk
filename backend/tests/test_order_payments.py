@@ -4,10 +4,12 @@ The rule underneath all of these: a promise is not money. An order marked paid
 before the transfer lands is a parcel shipped for free if it never arrives.
 """
 
+from unittest.mock import Mock
+
 import pytest
 
 from app.core.errors import ApiError
-from app.services import order_service
+from app.services import order_service, public_chat_service
 from app.services.order_service import record_order_payment, validate_order_request
 
 
@@ -334,3 +336,44 @@ def test_a_seller_typed_part_payment_is_a_deposit():
 
     assert request["paymentMethod"] == "deposit"
     assert request["depositMinor"] == 45000
+
+
+@pytest.mark.parametrize("payment_method", ["paid", "deposit", " paid ", " deposit ", "cod", None])
+@pytest.mark.parametrize("pending_fields", [{}, {"paymentPending": False}, {"paymentPending": True}])
+def test_guest_payment_choices_cannot_claim_verified_money(monkeypatch, payment_method, pending_fields):
+    # Fake every external boundary so checkout cannot access live customer or bank data.
+    database = Mock()
+    database.collection.return_value.document.return_value.get.return_value.exists = False
+    snapshot = Mock()
+    monkeypatch.setattr(
+        public_chat_service, "authorize_public_chat_session",
+        lambda *a: (snapshot, {"businessId": "biz"}),
+    )
+    monkeypatch.setattr(
+        public_chat_service, "list_customers", lambda *a, **k: [{"id": "cust-1"}],
+    )
+    create_order = Mock(return_value={"id": "order-1"})
+    monkeypatch.setattr(public_chat_service, "create_order", create_order)
+
+    # Exercise the shared guest checkout path with forged payment amounts and flags.
+    public_chat_service.create_public_chat_order(
+        database, "session-1", "test-token",
+        {
+            "customer": {"phoneNumber": "0712345678"},
+            "courierId": "courier-1",
+            "items": [{"variantId": "v-1", "quantity": 1}],
+            "paymentMethod": payment_method,
+            "depositAmount": 1800,
+            "paidAmountMinor": 180000,
+            **pending_fields,
+        },
+    )
+
+    # Verify the actual order validator receives transfer intent, never received money.
+    request = validate_order_request(create_order.call_args.args[3])
+    method = payment_method.strip() if payment_method else "cod"
+    assert request["paymentMethod"] == method
+    assert request["paymentPending"] is (
+        method in {"paid", "deposit"} or pending_fields.get("paymentPending") is True
+    )
+    assert request["depositMinor"] == 0
