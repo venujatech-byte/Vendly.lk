@@ -98,6 +98,9 @@ def validate_product(payload):
     seen_skus = set()
 
     for index, raw_variant in enumerate(raw_variants, start=1):
+        # Validate nested rows before accessing fields so malformed JSON cannot crash creation.
+        if not isinstance(raw_variant, dict):
+            raise ApiError("validation_error", f"Stock row {index} must be a JSON object.", 422)
         try:
             size = optional_text(raw_variant.get("size"), 40)
             sku = required_text(raw_variant.get("sku"), f"SKU in row {index}", 80).upper()
@@ -582,6 +585,9 @@ def update_product(database, business_id, product_id, payload):
             # Validate incoming identifiers before building document paths or queuing any writes.
             identifiers = []
             for index, raw_variant in enumerate(raw_variants, start=1):
+                # Reject non-object rows before identifier reads or any transactional writes.
+                if not isinstance(raw_variant, dict):
+                    raise ApiError("validation_error", f"Stock row {index} must be a JSON object.", 422)
                 try:
                     identifiers.append((
                         required_text(raw_variant.get("sku"), f"SKU in row {index}", 80).upper(),

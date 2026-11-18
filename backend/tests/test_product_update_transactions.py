@@ -131,7 +131,7 @@ def test_concurrent_reservation_prevents_variant_removal(store):
     assert store.documents[second_path]["stockReserved"] == 1
 
 
-@pytest.mark.parametrize("variants", [[], "invalid", [{"sku": "", "barcode": "BAR-A"}], [{"sku": "x" * 81, "barcode": "BAR-A"}]])
+@pytest.mark.parametrize("variants", [[], "invalid", [None], [[]], ["invalid"], [1], [True], [{"sku": "", "barcode": "BAR-A"}], [{"sku": "x" * 81, "barcode": "BAR-A"}]])
 def test_invalid_variants_leave_stock_unchanged(store, variants):
     before = deepcopy(store.documents)
     with pytest.raises(ApiError) as error:

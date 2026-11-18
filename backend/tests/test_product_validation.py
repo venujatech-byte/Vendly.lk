@@ -57,3 +57,27 @@ def test_product_without_sizes_requires_one_stock_row():
         validate_product(payload)
 
     assert error.value.code == "validation_error"
+
+
+@pytest.mark.parametrize("row", [None, [], "invalid", 1, True])
+def test_product_creation_rejects_non_object_variant_rows(row):
+    # Reject invalid nested shapes before any .get access or product creation.
+    payload = valid_product_payload()
+    payload["variants"] = [row]
+    with pytest.raises(ApiError) as error:
+        validate_product(payload)
+    assert error.value.code == "validation_error"
+    assert error.value.status_code == 422
+
+
+@pytest.mark.parametrize("field, value", [
+    ("costPrice", "NaN"), ("sellingPrice", "Infinity"), ("weightKg", "sNaN"),
+    ("lowStockThreshold", float("inf")), ("costPrice", "1e1000000"),
+])
+def test_product_numeric_errors_become_api_validation_failures(field, value):
+    payload = valid_product_payload()
+    payload[field] = value
+    with pytest.raises(ApiError) as error:
+        validate_product(payload)
+    assert error.value.code == "validation_error"
+    assert error.value.status_code == 422

@@ -3,6 +3,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 
 from firebase_admin import firestore
+from app.services.numbers import MAX_INTEGER
 
 LOGGER = logging.getLogger(__name__)
 
@@ -986,7 +987,7 @@ def _minor_units(value):
     """Coerce saved money values without allowing malformed data to break analytics."""
     try:
         return max(int(value or 0), 0)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return 0
 
 
@@ -1296,12 +1297,15 @@ def record_ledger_entry(database, business_id, payload, user_id=None):
     if raw_amount is None and payload.get("amount") is not None:
         try:
             raw_amount = int(round(float(payload.get("amount")) * 100))
-        except (ValueError, TypeError):
+        except (ValueError, TypeError, OverflowError):
             raise ApiError("validation_error", "Invalid amount.", 422)
 
     amount_minor = _minor_units(raw_amount)
     if amount_minor <= 0:
         raise ApiError("validation_error", "Amount must be greater than 0.", 422)
+    # Manual ledger amounts must fit the same integer storage used by other money fields.
+    if amount_minor > MAX_INTEGER:
+        raise ApiError("validation_error", "Amount is outside the supported range.", 422)
 
     description = str(payload.get("description") or payload.get("title") or "").strip()
     if not description:

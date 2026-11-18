@@ -5,6 +5,7 @@ from flask import Blueprint, g, jsonify, request, send_file
 from app.core.auth import require_firebase_user
 from app.core.authorization import require_business_member
 from app.core.firebase import get_firestore_client
+from app.core.requests import get_json_object
 from app.services.analytics_service import (
     delete_ledger_entry,
     get_analytics_version,
@@ -47,7 +48,7 @@ def analytics_monthly_target(business_id):
     target = update_monthly_revenue_target(
         get_firestore_client(),
         business_id,
-        request.get_json(silent=True) or {},
+        get_json_object(),
     )
     return jsonify({"monthlyTargetMinor": target})
 
@@ -66,7 +67,8 @@ def analytics_ledger(business_id):
 @require_firebase_user
 @require_business_member("owner", "admin", permission="analytics:read")
 def analytics_add_ledger_entry(business_id):
-    payload = request.get_json(silent=True) or {}
+    # Validate the request shape before financial fields reach the ledger service.
+    payload = get_json_object()
     user_id = g.current_user.get("uid") if hasattr(g, "current_user") and g.current_user else None
     entry = record_ledger_entry(get_firestore_client(), business_id, payload, user_id=user_id)
     return jsonify({"entry": entry}), 201
@@ -99,7 +101,7 @@ def analytics_update_cod_reconciliation(business_id, order_id):
             get_firestore_client(),
             business_id,
             order_id,
-            request.get_json(silent=True) or {},
+            get_json_object(),
             g.current_user["uid"],
         ),
     })
@@ -113,7 +115,7 @@ def analytics_bulk_update_cod_reconciliation(business_id):
         "reconciliation": update_bulk_cod_settlements(
             get_firestore_client(),
             business_id,
-            request.get_json(silent=True) or {},
+            get_json_object(),
             g.current_user["uid"],
         ),
     })

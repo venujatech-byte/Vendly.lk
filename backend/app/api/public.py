@@ -127,7 +127,8 @@ def public_chat_order(session_id):
 @public_blueprint.post("/chat/sessions/<session_id>/claim")
 @require_firebase_user
 def claim_public_chat(session_id):
-    payload = request.get_json(silent=True) or {}
+    # Validate the optional claim data before reading any client-supplied fields.
+    payload = get_json_object()
     user_email = g.current_user.get("email") or payload.get("email") or ""
     result = claim_public_chat_session(
         get_firestore_client(),
