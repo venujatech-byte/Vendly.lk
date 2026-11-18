@@ -90,11 +90,13 @@ export function sendPublicChatImage(sessionId, sessionToken, image, caption = ""
   });
 }
 
-export function submitGuestOrderEmail(storeCode, orderId, email) {
+// Send existing ownership credentials before changing the receipt destination.
+export function submitGuestOrderEmail(storeCode, orderId, email, chatSession) {
   return apiRequest(`/public/stores/${storeCode}/orders/${orderId}/email`, {
     method: "POST",
-    body: { email },
-    requiresAuthentication: false,
+    headers: chatSession?.sessionToken ? { "X-Chat-Session-Token": chatSession.sessionToken } : {},
+    body: { email, sessionId: chatSession?.sessionId },
+    requiresAuthentication: "optional",
   });
 }
 

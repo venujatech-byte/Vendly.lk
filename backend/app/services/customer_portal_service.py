@@ -1,7 +1,7 @@
 from app.core.errors import ApiError
 from app.core.serialization import serialize_snapshot
 from app.services.public_catalog_service import resolve_short_link
-from app.services.public_chat_service import public_order_confirmation
+from app.services.public_chat_service import authorize_public_chat_session, public_order_confirmation
 
 
 def resolve_store_business_id(database, store_code):
@@ -82,10 +82,17 @@ def list_customer_chats(database, store_code, customer_uid):
         return []
 
 
-def update_order_guest_email(database, store_code, order_id, email):
+def update_order_guest_email(
+    database, store_code, order_id, email, *, customer_uid=None,
+    session_id=None, session_token=None,
+):
     email = str(email or "").strip().lower()
     if not email or "@" not in email or "." not in email:
         raise ApiError("validation_error", "Please provide a valid email address.", 422)
+
+    # A public order ID is not proof of ownership; require identity or chat credentials.
+    if not customer_uid and not (session_id and session_token):
+        raise ApiError("authentication_required", "Order ownership is required.", 401)
 
     business_id = resolve_store_business_id(database, store_code)
     business_ref = database.collection("businesses").document(business_id)
@@ -95,6 +102,30 @@ def update_order_guest_email(database, store_code, order_id, email):
         raise ApiError("order_not_found", "Order not found.", 404)
 
     order_data = order_snap.to_dict()
+    # Bound orders belong only to their verified customer; legacy guests prove the original session.
+    if order_data.get("customerUid"):
+        if order_data["customerUid"] != customer_uid:
+            raise ApiError("order_not_found", "Order not found.", 404)
+    else:
+        if not (session_id and session_token):
+            raise ApiError("order_not_found", "Order not found.", 404)
+        try:
+            _, session = authorize_public_chat_session(
+                database, session_id, session_token, allow_closed=True,
+            )
+        except ApiError:
+            raise ApiError("order_not_found", "Order not found.", 404) from None
+        owned_orders = list(session.get("orderIds") or [])
+        if session.get("orderId"):
+            owned_orders.append(session["orderId"])
+        if (
+            session.get("businessId") != business_id
+            or order_id not in owned_orders
+            or (session.get("customerUid") and session["customerUid"] != customer_uid)
+        ):
+            raise ApiError("order_not_found", "Order not found.", 404)
+
+    # Only an authorized customer can change the receipt destination or trigger email.
     customer_snapshot = dict(order_data.get("customerSnapshot") or {})
     customer_snapshot["email"] = email
 

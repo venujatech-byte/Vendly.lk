@@ -174,6 +174,7 @@ def customer_chats(store_code):
 
 @public_blueprint.post("/stores/<store_code>/orders/<order_id>/email")
 @limiter.limit("10 per minute")
+@optional_firebase_user
 def submit_guest_order_email(store_code, order_id):
     payload = get_json_object()
     email = payload.get("email")
@@ -182,5 +183,9 @@ def submit_guest_order_email(store_code, order_id):
         store_code,
         order_id,
         email,
+        # Use verified identity and the original chat secret, never a caller-supplied UID.
+        customer_uid=(g.current_user or {}).get("uid"),
+        session_id=payload.get("sessionId"),
+        session_token=request.headers.get("X-Chat-Session-Token"),
     )
     return jsonify(result), 200

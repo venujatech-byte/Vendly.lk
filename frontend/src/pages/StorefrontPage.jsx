@@ -2016,6 +2016,7 @@ function StorefrontPage({ linkType }) {
         <OrderSuccess
           business={business}
           order={confirmedOrder}
+          chatSession={session}
           chatLanguage={chatLanguage}
           closeLabel={storefrontText(chatLanguage).returnToStorefront}
           onClose={() => {
@@ -4282,8 +4283,9 @@ function CheckoutModal({
   );
 }
 
-function OrderSuccess({ business, order, onClose, closeLabel, chatLanguage }) {
-  return <OrderReceipt business={business} order={order} onClose={onClose} closeLabel={closeLabel} chatLanguage={chatLanguage} />;
+// Keep the original guest credentials available when sending the receipt email.
+function OrderSuccess({ business, order, onClose, closeLabel, chatLanguage, chatSession }) {
+  return <OrderReceipt business={business} order={order} onClose={onClose} closeLabel={closeLabel} chatLanguage={chatLanguage} chatSession={chatSession} />;
 }
 
 function StorefrontReviewCenter({

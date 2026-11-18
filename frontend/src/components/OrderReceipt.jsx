@@ -25,7 +25,7 @@ function dateLabel(value) {
     : date.toLocaleDateString("en-LK", { year: "numeric", month: "long", day: "numeric" });
 }
 
-export default function OrderReceipt({ business, order, onClose, closeLabel = "Return", chatLanguage = "en" }) {
+export default function OrderReceipt({ business, order, onClose, closeLabel = "Return", chatLanguage = "en", chatSession }) {
   const text = storefrontText(chatLanguage);
   const { user } = useAuth();
   const address = order.deliveryAddress || order.deliveryAddressObject || {};
@@ -44,15 +44,15 @@ export default function OrderReceipt({ business, order, onClose, closeLabel = "R
   const shouldPromptForEmail = !hasEmail && !isDashboardOrder && (user?.isAnonymous || !user);
 
   useEffect(() => {
-    // If order was created without an email, but the customer is signed in with email:
+    // Attach the signed-in customer's email only on customer receipts, never the seller's.
     const targetEmail = loggedInUserEmail;
     const orderHasEmail = Boolean(customer.email || order.customerEmail || order.email);
-    if (targetEmail && !orderHasEmail && !emailSubmitted && business?.shortCode && (order.id || order.orderId)) {
-      submitGuestOrderEmail(business.shortCode, order.id || order.orderId, targetEmail)
+    if (!isDashboardOrder && targetEmail && !orderHasEmail && !emailSubmitted && business?.shortCode && (order.id || order.orderId)) {
+      submitGuestOrderEmail(business.shortCode, order.id || order.orderId, targetEmail, chatSession)
         .then(() => setEmailSubmitted(true))
         .catch((err) => console.warn("Auto-attaching user email to order failed:", err));
     }
-  }, [loggedInUserEmail, customer.email, order, business?.shortCode, emailSubmitted]);
+  }, [loggedInUserEmail, customer.email, order, business?.shortCode, emailSubmitted, isDashboardOrder, chatSession]);
 
   async function handleEmailSubmit(event) {
     event.preventDefault();
@@ -60,7 +60,8 @@ export default function OrderReceipt({ business, order, onClose, closeLabel = "R
     setEmailSubmitting(true);
     setEmailError("");
     try {
-      await submitGuestOrderEmail(business.shortCode, order.id || order.orderId, emailInput.trim());
+      // Reuse the order's chat credentials for older guest orders without a Firebase UID.
+      await submitGuestOrderEmail(business.shortCode, order.id || order.orderId, emailInput.trim(), chatSession);
       setEmailSubmitted(true);
     } catch (err) {
       setEmailError(err.message || "Could not save email. Please try again.");
