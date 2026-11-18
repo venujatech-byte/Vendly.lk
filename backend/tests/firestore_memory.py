@@ -8,7 +8,7 @@ from google.api_core.exceptions import Aborted, FailedPrecondition
 from google.auth.credentials import AnonymousCredentials
 from google.cloud import firestore
 from google.cloud.firestore_v1 import types
-from google.cloud.firestore_v1._helpers import decode_dict, encode_dict
+from google.cloud.firestore_v1._helpers import decode_dict, decode_value, encode_dict
 
 
 class MemoryFirestore:
@@ -19,6 +19,7 @@ class MemoryFirestore:
         self.documents = {}
         self.versions = {}
         self.reads = {}
+        self.read_states = {}
         self.attempts = 0
         self.before_commit = None
         self.commits = 0
@@ -39,25 +40,28 @@ class MemoryFirestore:
         self.reads[transaction] = {}
         return types.BeginTransactionResponse(transaction=transaction)
 
-    def snapshot(self, name, transaction=None):
+    def snapshot(self, name, transaction=None, documents=None):
         path = name.split("/documents/", 1)[1]
         if transaction:
             self.reads[transaction][path] = self.versions.get(path, 0)
-        if path not in self.documents:
+        documents = self.documents if documents is None else documents
+        if path not in documents:
             return None
         return types.Document(
-            name=name, fields=encode_dict(deepcopy(self.documents[path])),
+            name=name, fields=encode_dict(deepcopy(documents[path])),
             update_time=datetime.fromtimestamp(self.versions[path], timezone.utc),
         )
 
     def get_documents(self, request, **kwargs):
         # Return protobuf snapshots so the SDK builds its normal DocumentSnapshot objects.
+        read_time = datetime.now(timezone.utc)
+        self.read_states[read_time] = deepcopy(self.documents)
         for name in request["documents"]:
             document = self.snapshot(name, request.get("transaction"))
             if document is None:
-                yield types.BatchGetDocumentsResponse(missing=name)
+                yield types.BatchGetDocumentsResponse(missing=name, read_time=read_time)
             else:
-                yield types.BatchGetDocumentsResponse(found=document)
+                yield types.BatchGetDocumentsResponse(found=document, read_time=read_time)
 
     def query(self, request, **kwargs):
         query = request["structured_query"]
@@ -67,19 +71,44 @@ class MemoryFirestore:
         field = query.where.field_filter.field.field_path
         expected = query.where.field_filter.value.string_value
         matches = []
-        for path, data in list(self.documents.items()):
+        read_time = request.get("read_time")
+        documents = self.read_states[read_time] if read_time else self.documents
+        for path, data in list(documents.items()):
             name = f"{self.client._database_string}/documents/{path}"
-            if name.startswith(prefix) and (not field or data.get(field) == expected):
+            if name.startswith(prefix) and "/" not in name[len(prefix):] and (not field or data.get(field) == expected):
                 matches.append((name, data))
-        # Match Firestore ordering/limits for notification history without bypassing SDK queries.
-        for order in reversed(query.order_by):
+        # Match the server's document-name tie-breaker and snapshot cursor across report pages.
+        orders = list(query.order_by)
+        if not any(order.field.field_path == "__name__" for order in orders):
+            orders.append(types.StructuredQuery.Order(
+                field=types.StructuredQuery.FieldReference(field_path="__name__"),
+                direction=orders[-1].direction if orders else types.StructuredQuery.Direction.ASCENDING,
+            ))
+
+        def value_for(item, field_path):
+            return item[0] if field_path == "__name__" else item[1][field_path]
+
+        for order in reversed(orders):
             field_path = order.field.field_path
-            matches = [item for item in matches if field_path in item[1]]
-            matches.sort(key=lambda item: item[1][field_path], reverse=order.direction == types.StructuredQuery.Direction.DESCENDING)
+            if field_path != "__name__":
+                matches = [item for item in matches if field_path in item[1]]
+            matches.sort(key=lambda item: value_for(item, field_path), reverse=order.direction == types.StructuredQuery.Direction.DESCENDING)
+
+        if query.start_at.values:
+            cursor = [value.reference_value or decode_value(value, self.client) for value in query.start_at.values]
+
+            def after_cursor(item):
+                for order, value in zip(orders, cursor):
+                    actual = value_for(item, order.field.field_path)
+                    if actual != value:
+                        return actual < value if order.direction == types.StructuredQuery.Direction.DESCENDING else actual > value
+                return query.start_at.before
+
+            matches = [item for item in matches if after_cursor(item)]
         if query.limit:
             matches = matches[:query.limit]
         for name, _data in matches:
-            yield types.RunQueryResponse(document=self.snapshot(name, request.get("transaction")))
+            yield types.RunQueryResponse(document=self.snapshot(name, request.get("transaction"), documents))
 
     def commit(self, request, **kwargs):
         # Inject a real competing state change immediately before the first commit.

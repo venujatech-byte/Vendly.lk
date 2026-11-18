@@ -4,7 +4,7 @@ from firebase_admin import firestore
 
 from app.core.errors import ApiError
 from app.core.serialization import serialize_snapshot
-from app.services.analytics_service import as_datetime
+from app.services.analytics_service import as_datetime, stream_report_snapshots
 
 
 def _minor(value):
@@ -111,8 +111,10 @@ def build_cod_reconciliation(orders, settlements=None, now=None, overdue_days=7)
 
 def get_cod_reconciliation(database, business_id):
     reference = database.collection("businesses").document(business_id)
-    orders = [serialize_snapshot(item) for item in reference.collection("orders").limit(2000).stream()]
-    settlements = [serialize_snapshot(item) for item in reference.collection("codSettlements").limit(2000).stream()]
+    # Match orders and settlements at one server read time while exhausting both bounded scans.
+    read_time = reference.get().read_time
+    orders = [serialize_snapshot(item) for item in stream_report_snapshots(reference.collection("orders"), read_time)]
+    settlements = [serialize_snapshot(item) for item in stream_report_snapshots(reference.collection("codSettlements"), read_time)]
     return build_cod_reconciliation(orders, settlements)
 
 

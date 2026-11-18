@@ -6,6 +6,19 @@ from firebase_admin import firestore
 from app.services.numbers import MAX_INTEGER
 
 LOGGER = logging.getLogger(__name__)
+REPORT_BATCH_SIZE = 500
+
+
+def stream_report_snapshots(query, read_time):
+    """Read every report document in bounded pages at one consistent server read time."""
+    query = query.limit(REPORT_BATCH_SIZE)
+    while True:
+        snapshots = list(query.stream(read_time=read_time))
+        yield from snapshots
+        if len(snapshots) < REPORT_BATCH_SIZE:
+            return
+        # Snapshot cursors include the document name, preserving rows with equal ordered values.
+        query = query.start_after(snapshots[-1])
 
 
 def bump_analytics_version(database, business_id):
@@ -916,21 +929,23 @@ def calculate_analytics(
 
 def get_business_analytics(database, business_id):
     business_reference = database.collection("businesses").document(business_id)
-    business = business_reference.get().to_dict() or {}
+    # Pin all financial inputs to the business read so concurrent writes cannot move between pages.
+    business_snapshot = business_reference.get()
+    business = business_snapshot.to_dict() or {}
+    read_time = business_snapshot.read_time
     orders = [
         serialize_snapshot(snapshot)
-        for snapshot in business_reference.collection("orders")
-        .order_by("createdAt", direction="DESCENDING")
-        .limit(1000)
-        .stream()
+        for snapshot in stream_report_snapshots(
+            business_reference.collection("orders").order_by("createdAt", direction="DESCENDING"), read_time,
+        )
     ]
     products = [
         serialize_snapshot(snapshot)
-        for snapshot in business_reference.collection("products").limit(1000).stream()
+        for snapshot in stream_report_snapshots(business_reference.collection("products"), read_time)
     ]
     customers = [
         serialize_snapshot(snapshot)
-        for snapshot in business_reference.collection("customers").limit(1000).stream()
+        for snapshot in stream_report_snapshots(business_reference.collection("customers"), read_time)
     ]
     notifications = [
         snapshot.to_dict()
@@ -938,13 +953,11 @@ def get_business_analytics(database, business_id):
     ]
     warranty_claims = [
         serialize_snapshot(snapshot)
-        for snapshot in business_reference.collection("warrantyClaims").limit(1000).stream()
+        for snapshot in stream_report_snapshots(business_reference.collection("warrantyClaims"), read_time)
     ]
     shop_sales = [
         serialize_snapshot(snapshot)
-        for snapshot in business_reference.collection("shopSales")
-        .limit(1000)
-        .stream()
+        for snapshot in stream_report_snapshots(business_reference.collection("shopSales"), read_time)
     ]
     return calculate_analytics(
         orders,
@@ -1246,29 +1259,27 @@ def build_transaction_ledger(
 
 def get_business_ledger(database, business_id):
     business_reference = database.collection("businesses").document(business_id)
+    # Use one server snapshot across every collection contributing to the ledger balance.
+    read_time = business_reference.get().read_time
     orders = [
         serialize_snapshot(snapshot)
-        for snapshot in business_reference.collection("orders").limit(1000).stream()
+        for snapshot in stream_report_snapshots(business_reference.collection("orders"), read_time)
     ]
     shop_sales = [
         serialize_snapshot(snapshot)
-        for snapshot in business_reference.collection("shopSales").limit(1000).stream()
+        for snapshot in stream_report_snapshots(business_reference.collection("shopSales"), read_time)
     ]
     warranty_claims = [
         serialize_snapshot(snapshot)
-        for snapshot in business_reference.collection("warrantyClaims").limit(1000).stream()
+        for snapshot in stream_report_snapshots(business_reference.collection("warrantyClaims"), read_time)
     ]
     inventory_transactions = [
         serialize_snapshot(snapshot)
-        for snapshot in business_reference.collection("inventoryTransactions")
-        .limit(2000)
-        .stream()
+        for snapshot in stream_report_snapshots(business_reference.collection("inventoryTransactions"), read_time)
     ]
     manual_entries = [
         serialize_snapshot(snapshot)
-        for snapshot in business_reference.collection("ledgerEntries")
-        .limit(2000)
-        .stream()
+        for snapshot in stream_report_snapshots(business_reference.collection("ledgerEntries"), read_time)
     ]
     return build_transaction_ledger(
         orders,
