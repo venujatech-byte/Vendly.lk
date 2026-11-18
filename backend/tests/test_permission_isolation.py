@@ -8,7 +8,7 @@ from app import create_app
 from app.core.authorization import membership_has_permission
 from app.core.errors import ApiError
 from app.services.business_assistant_service import require_permission
-from app.services.member_service import MODULE_PERMISSIONS, validate_member_payload
+from app.services.member_service import MODULE_PERMISSIONS, ROLE_PERMISSIONS, validate_member_payload
 
 
 @pytest.mark.parametrize("module", [*MODULE_PERMISSIONS, "messages"])
@@ -42,6 +42,56 @@ def test_explicit_full_module_selections_keep_their_access(module):
 @pytest.mark.parametrize("permissions", [["orders"], ["orders:*"], ["*"], ["orders", "orders:read", "orders:*"]])
 def test_explicit_full_access_remains_valid(permissions):
     assert membership_has_permission({"role": "custom", "permissions": permissions}, "orders:manage")
+
+
+@pytest.mark.parametrize("role", ROLE_PERMISSIONS)
+@pytest.mark.parametrize("overrides", [["*"], ["orders", "inventory", "analytics"], [], "invalid"])
+def test_preset_roles_ignore_client_permission_overrides(role, overrides):
+    # A forged request cannot widen a preset even if an older form sends module IDs.
+    member = validate_member_payload({"role": role, "permissions": overrides}, require_email=False)
+    assert member["permissions"] == ROLE_PERMISSIONS[role]
+    if role == "viewer":
+        assert membership_has_permission(member, "orders:read")
+        assert not membership_has_permission(member, "orders:manage")
+
+
+@pytest.mark.parametrize("payload", [{}, {"status": "inactive"}])
+def test_unrelated_member_updates_preserve_existing_permissions(monkeypatch, payload):
+    from app.services import member_service
+
+    # Exercise the update service while keeping all persistence and realtime calls mocked.
+    database = Mock()
+    business = database.collection.return_value.document.return_value
+    business.get.return_value.exists = True
+    business.get.return_value.to_dict.return_value = {"ownerUid": "owner-a"}
+    member_ref = business.collection.return_value.document.return_value
+    member_ref.get.return_value.exists = True
+    original = {"role": "viewer", "permissions": ["orders", "orders:*"], "status": "active"}
+    member_ref.get.return_value.to_dict.return_value = original
+    monkeypatch.setattr(member_service, "list_members", lambda *args: [{"id": "staff-a", **original}])
+    member_service.update_member(database, "business-a", "staff-a", payload, updated_by="owner-a")
+    changes = member_ref.update.call_args.args[0]
+    assert "role" not in changes
+    assert "permissions" not in changes
+
+
+def test_reselecting_a_preset_applies_server_grants(monkeypatch):
+    from app.services import member_service
+
+    database = Mock()
+    business = database.collection.return_value.document.return_value
+    business.get.return_value.exists = True
+    business.get.return_value.to_dict.return_value = {"ownerUid": "owner-a"}
+    member_ref = business.collection.return_value.document.return_value
+    member_ref.get.return_value.exists = True
+    member_ref.get.return_value.to_dict.return_value = {"role": "custom", "permissions": ["*"]}
+    monkeypatch.setattr(member_service, "list_members", lambda *args: [{"id": "staff-a"}])
+    member_service.update_member(
+        database, "business-a", "staff-a", {"role": "viewer", "permissions": ["*"]}, updated_by="owner-a",
+    )
+    changes = member_ref.update.call_args.args[0]
+    assert changes["role"] == "viewer"
+    assert changes["permissions"] == ROLE_PERMISSIONS["viewer"]
 
 
 def test_granular_modules_do_not_affect_each_other():

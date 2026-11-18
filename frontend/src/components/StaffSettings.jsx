@@ -30,52 +30,16 @@ import {
 import CustomSelect from "./CustomSelect";
 import "./StaffSettings.css";
 
-export const PERMISSION_OPTIONS = [
-  { id: "orders", label: "Orders & Fulfillment", description: "View and process customer orders" },
-  { id: "inventory", label: "Products & Stock", description: "Manage products, variants, and stock" },
-  { id: "customers", label: "Customers & Chat", description: "Access customer contacts and chat conversations" },
-  { id: "couriers", label: "Couriers & Delivery", description: "Manage courier partners and shipments" },
-  { id: "analytics", label: "Analytics & Reports", description: "View store performance metrics and reports" },
-  { id: "reviews", label: "Product Reviews", description: "Moderate customer reviews and feedback" },
-];
-
-const ALL_PERMISSION_IDS = PERMISSION_OPTIONS.map((p) => p.id);
-
-const DEFAULT_ROLE_PERMISSIONS = {
-  admin: ALL_PERMISSION_IDS,
-  order_manager: ["orders", "customers", "couriers"],
-  inventory_manager: ["inventory", "reviews", "orders"],
-  support: ["orders", "customers"],
-  viewer: ["orders", "inventory", "analytics"],
-  custom: ["orders"],
-};
-
-export function normalizePermissionsToModuleIds(permissions, role) {
-  if (!Array.isArray(permissions)) {
-    return DEFAULT_ROLE_PERMISSIONS[role] || [];
-  }
-  if (permissions.includes("*")) {
-    return ALL_PERMISSION_IDS;
-  }
-  const result = new Set();
-  for (const perm of permissions) {
-    const raw = String(perm).toLowerCase().trim();
-    if (ALL_PERMISSION_IDS.includes(raw)) {
-      result.add(raw);
-    }
-    const prefix = raw.split(":")[0];
-    if (ALL_PERMISSION_IDS.includes(prefix)) {
-      result.add(prefix);
-    }
-    if (prefix === "messages") {
-      result.add("customers");
-    }
-  }
-  if (result.size === 0 && DEFAULT_ROLE_PERMISSIONS[role]) {
-    return DEFAULT_ROLE_PERMISSIONS[role];
-  }
-  return Array.from(result);
-}
+// Keep permission submission separate from the module checkbox display.
+import {
+  ALL_PERMISSION_IDS,
+  DEFAULT_ROLE_PERMISSIONS,
+  PERMISSION_OPTIONS,
+  normalizePermissionsToModuleIds,
+  permissionsForStaffRole,
+  staffPermissionPayload,
+  toggleStaffModule,
+} from "../services/staffPermissions";
 
 const staffRoles = [
   ["admin", "Admin (Full Access)"],
@@ -115,6 +79,9 @@ function StaffSettings({ businessId, currentRole }) {
   const [editPermissions, setEditPermissions] = useState([]);
   const [editRole, setEditRole] = useState("order_manager");
   const [isUpdatingMember, setIsUpdatingMember] = useState(false);
+  const [editPermissionsChanged, setEditPermissionsChanged] = useState(false);
+  const selectedModules = normalizePermissionsToModuleIds(selectedPermissions, selectedRole);
+  const editModules = normalizePermissionsToModuleIds(editPermissions, editRole);
 
   // Deletion confirmation state
   const [memberToRemove, setMemberToRemove] = useState(null);
@@ -143,33 +110,22 @@ function StaffSettings({ businessId, currentRole }) {
 
   function handleRoleChange(newRole) {
     setSelectedRole(newRole);
-    if (DEFAULT_ROLE_PERMISSIONS[newRole]) {
-      setSelectedPermissions(DEFAULT_ROLE_PERMISSIONS[newRole]);
-    }
+    setSelectedPermissions((current) => permissionsForStaffRole(newRole, current));
     if (newRole === "custom") {
       setShowCustomPermissions(true);
     }
   }
 
+  // A module override becomes Custom without broadening untouched permissions.
   function togglePermission(permId) {
-    setSelectedPermissions((current) => {
-      const updated = current.includes(permId)
-        ? current.filter((id) => id !== permId)
-        : [...current, permId];
-      if (selectedRole !== "custom") {
-        setSelectedRole("custom");
-      }
-      return updated;
-    });
+    setSelectedPermissions((current) => toggleStaffModule(current, permId));
+    setSelectedRole("custom");
   }
 
   function toggleEditPermission(permId) {
-    setEditPermissions((current) => {
-      const updated = current.includes(permId)
-        ? current.filter((id) => id !== permId)
-        : [...current, permId];
-      return updated;
-    });
+    setEditPermissions((current) => toggleStaffModule(current, permId));
+    setEditRole("custom");
+    setEditPermissionsChanged(true);
   }
 
   async function handleAddStaff(event) {
@@ -188,8 +144,7 @@ function StaffSettings({ businessId, currentRole }) {
     try {
       const payload = {
         email: targetEmail,
-        role: selectedRole,
-        permissions: selectedPermissions,
+        ...staffPermissionPayload(selectedRole, selectedPermissions),
       };
 
       const result = await addBusinessMember(businessId, payload);
@@ -261,9 +216,10 @@ function StaffSettings({ businessId, currentRole }) {
 
   function startEditMember(member) {
     setEditingMember(member);
-    const existingPerms = normalizePermissionsToModuleIds(member.permissions, member.role);
-    setEditPermissions(existingPerms);
+    // Retain original grants; opening the editor must not convert reads to full modules.
+    setEditPermissions(Array.isArray(member.permissions) ? member.permissions : DEFAULT_ROLE_PERMISSIONS[member.role] || []);
     setEditRole(member.role || "custom");
+    setEditPermissionsChanged(false);
   }
 
   async function saveMemberPermissions() {
@@ -271,10 +227,9 @@ function StaffSettings({ businessId, currentRole }) {
     setIsUpdatingMember(true);
     setErrorMessage("");
     try {
-      const updated = await updateBusinessMember(businessId, editingMember.id, {
-        role: editRole,
-        permissions: editPermissions,
-      });
+      // An unchanged save sends no role or grant changes, preserving legacy assignments.
+      const payload = staffPermissionPayload(editRole, editPermissions, editPermissionsChanged);
+      const updated = await updateBusinessMember(businessId, editingMember.id, payload);
       setMembers((current) =>
         current.map((m) => (m.id === editingMember.id ? { ...m, ...updated } : m)),
       );
@@ -420,7 +375,7 @@ function StaffSettings({ businessId, currentRole }) {
                   <div className="staff-settings__custom-title-row">
                     <strong>Modular Access Controls</strong>
                     <span className="staff-settings__badge">
-                      {selectedPermissions.length} of {PERMISSION_OPTIONS.length} selected
+                      {selectedModules.length} of {PERMISSION_OPTIONS.length} selected
                     </span>
                   </div>
                   <div className="staff-settings__quick-links">
@@ -450,7 +405,7 @@ function StaffSettings({ businessId, currentRole }) {
 
                 <div className="staff-settings__permissions-grid">
                   {PERMISSION_OPTIONS.map((perm) => {
-                    const isChecked = selectedPermissions.includes(perm.id);
+                    const isChecked = selectedModules.includes(perm.id);
                     return (
                       <label
                         key={perm.id}
@@ -673,9 +628,8 @@ function StaffSettings({ businessId, currentRole }) {
                   onChange={(e) => {
                     const newR = e.target.value;
                     setEditRole(newR);
-                    if (DEFAULT_ROLE_PERMISSIONS[newR]) {
-                      setEditPermissions(DEFAULT_ROLE_PERMISSIONS[newR]);
-                    }
+                    setEditPermissionsChanged(true);
+                    setEditPermissions((current) => permissionsForStaffRole(newR, current));
                   }}
                 >
                   {staffRoles.map(([val, label]) => (
@@ -691,14 +645,18 @@ function StaffSettings({ businessId, currentRole }) {
                   <div className="staff-settings__custom-title-row">
                     <label>Modular Permissions</label>
                     <span className="staff-settings__badge">
-                      {editPermissions.length} of {PERMISSION_OPTIONS.length} active
+                      {editModules.length} of {PERMISSION_OPTIONS.length} active
                     </span>
                   </div>
                   <div className="staff-settings__quick-links">
                     <button
                       type="button"
                       className="staff-settings__text-btn"
-                      onClick={() => setEditPermissions(ALL_PERMISSION_IDS)}
+                      onClick={() => {
+                        setEditPermissions(ALL_PERMISSION_IDS);
+                        setEditRole("custom");
+                        setEditPermissionsChanged(true);
+                      }}
                     >
                       Select All
                     </button>
@@ -706,7 +664,11 @@ function StaffSettings({ businessId, currentRole }) {
                     <button
                       type="button"
                       className="staff-settings__text-btn"
-                      onClick={() => setEditPermissions([])}
+                      onClick={() => {
+                        setEditPermissions([]);
+                        setEditRole("custom");
+                        setEditPermissionsChanged(true);
+                      }}
                     >
                       Clear
                     </button>
@@ -714,7 +676,7 @@ function StaffSettings({ businessId, currentRole }) {
                 </div>
                 <div className="staff-settings__permissions-grid">
                   {PERMISSION_OPTIONS.map((perm) => {
-                    const isChecked = editPermissions.includes(perm.id);
+                    const isChecked = editModules.includes(perm.id);
                     return (
                       <label
                         key={perm.id}

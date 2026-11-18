@@ -91,9 +91,11 @@ def validate_member_payload(payload, require_email=True):
             {"allowedRoles": sorted(list(ROLE_PERMISSIONS) + ["custom"])},
         )
 
-    # Preserve granular grants; adding a module alias would turn read access into writes.
+    # Preset roles use server-defined grants; only Custom accepts permission overrides.
     custom_perms = payload.get("permissions")
-    if custom_perms is not None and isinstance(custom_perms, list):
+    if role in ROLE_PERMISSIONS:
+        permissions = list(ROLE_PERMISSIONS[role])
+    elif isinstance(custom_perms, list):
         cleaned_permissions = set()
         for perm in custom_perms:
             perm_str = str(perm).strip().lower()
@@ -105,7 +107,7 @@ def validate_member_payload(payload, require_email=True):
                 cleaned_permissions.add(perm_str)
         permissions = sorted(list(cleaned_permissions))
     else:
-        permissions = ROLE_PERMISSIONS.get(role, ["orders:read", "inventory:read"])
+        permissions = ["orders:read", "inventory:read"]
 
     return {"email": email, "role": role, "permissions": permissions}
 
