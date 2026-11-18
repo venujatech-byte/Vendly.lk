@@ -8,11 +8,32 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.core.config import Settings
-from app.core.firebase import get_firestore_client, initialize_firebase
+from app.core.firebase import get_firestore_client, get_rtdb_reference, initialize_firebase
 from app.services import realtime_access_service as access
+from app.services.notification_permissions import NOTIFICATION_SCOPES, notification_scope
 
 
-def backfill(database, existing, apply=False):
+def notification_plan(business_data):
+    """Preserve existing live history while moving each payload into its authorized scope."""
+    plan = {}
+    for business_id, data in business_data.items():
+        # Completed businesses must not resurrect removed alerts from retained legacy copies.
+        notifications = {} if data.get("notificationFeedsMigrated") is True else dict(data.get("notifications") or {})
+        # Already migrated/current feed records take precedence over old, unscoped copies.
+        for records in (data.get("notificationFeeds") or {}).values():
+            notifications.update(records or {})
+        if not notifications:
+            continue
+        groups = {scope: {} for scope in NOTIFICATION_SCOPES}
+        for notification_id, notification in notifications.items():
+            if not isinstance(notification, dict):
+                raise ValueError("Invalid notification record; review the source before applying.")
+            groups[notification_scope(notification)][notification_id] = notification
+        plan[business_id] = groups
+    return plan
+
+
+def backfill(database, existing, business_data, apply=False):
     """Include old metadata keys so removed members/chats receive denial tombstones."""
     existing_members = existing.get("members") or {}
     members = set()
@@ -29,7 +50,12 @@ def backfill(database, existing, apply=False):
         bool((existing_members.get(business_id) or {}).get(uid, {}).get("pending"))
         for business_id, uid in members
     )
-    result = {"memberships": len(members), "chats": len(chat_ids), "pendingMemberships": pending_count}
+    feeds = notification_plan(business_data)
+    result = {
+        "memberships": len(members), "chats": len(chat_ids), "pendingMemberships": pending_count,
+        "notificationBusinesses": len(feeds),
+        "notifications": sum(len(records) for groups in feeds.values() for records in groups.values()),
+    }
     if not apply:
         return result
 
@@ -41,6 +67,11 @@ def backfill(database, existing, apply=False):
     for session_id in sorted(chat_ids):
         snapshot = database.collection("publicChatSessions").document(session_id).get()
         access.sync_chat_access(snapshot)
+    # All writers must remain stopped until both scoped permissions and historical payloads are ready.
+    for business_id, groups in feeds.items():
+        get_rtdb_reference(f"businesses/{business_id}").update({
+            "notificationFeeds": groups, "notificationFeedsMigrated": True,
+        })
     return result
 
 
@@ -61,7 +92,8 @@ def main():
     try:
         initialize_firebase(settings)
         existing = access.access_reference("").get() or {}
-        counts = backfill(get_firestore_client(), existing, apply=args.apply)
+        business_data = get_rtdb_reference("businesses").get() or {}
+        counts = backfill(get_firestore_client(), existing, business_data, apply=args.apply)
     except Exception:
         print("Migration stopped without a successful completion. Keep private rules undeployed until permissions are verified.", file=sys.stderr)
         return 1

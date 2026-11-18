@@ -37,8 +37,8 @@ def migration_data():
 
 def test_dry_run_counts_stale_records_without_writing(migration_data):
     database, existing = migration_data
-    result = migration.backfill(database, existing)
-    assert result == {"memberships": 3, "chats": 2, "pendingMemberships": 1}
+    result = migration.backfill(database, existing, {})
+    assert result == {"memberships": 3, "chats": 2, "pendingMemberships": 1, "notificationBusinesses": 0, "notifications": 0}
     access.sync_business_member_access.assert_not_called()
     access.sync_chat_access.assert_not_called()
     access.disable_realtime_user.assert_not_called()
@@ -46,7 +46,7 @@ def test_dry_run_counts_stale_records_without_writing(migration_data):
 
 def test_apply_repairs_existing_barriers_and_includes_deleted_records(migration_data):
     database, existing = migration_data
-    migration.backfill(database, existing, apply=True)
+    migration.backfill(database, existing, {}, apply=True)
     access.sync_business_member_access.assert_has_calls([
         call(database, "biz", "active", None),
         call(database, "biz", "removed", None),
@@ -65,3 +65,47 @@ def test_apply_requires_maintenance_before_any_cloud_initialization(monkeypatch)
         migration.main()
     assert error.value.code == 2
     initialize.assert_not_called()
+
+
+def test_notification_backfill_preserves_history_and_current_read_state(migration_data, monkeypatch):
+    database, existing = migration_data
+    data = {"biz": {
+        "notifications": {
+            "order": {"type": "new-order", "message": "Order preview", "isRead": False, "createdAt": 1},
+            "chat": {"type": "chat-needs-attention", "message": "Chat preview", "createdAt": 2},
+            "unknown": {"type": "future-alert", "message": "Management preview", "createdAt": 3},
+        },
+        "notificationFeeds": {"orders": {"order": {"type": "new-order", "message": "Order preview", "isRead": True, "createdAt": 1}}},
+    }}
+    writer = Mock()
+    getter = Mock(return_value=writer)
+    monkeypatch.setattr(migration, "get_rtdb_reference", getter)
+    counts = migration.backfill(database, existing, data)
+    assert counts["notifications"] == 3 and counts["notificationBusinesses"] == 1
+    getter.assert_not_called()
+    plan = migration.notification_plan(data)
+    assert plan["biz"]["orders"]["order"]["isRead"] is True
+    assert plan["biz"]["customers"]["chat"]["message"] == "Chat preview"
+    assert plan["biz"]["management"]["unknown"]["createdAt"] == 3
+    migration.backfill(database, existing, data, apply=True)
+    getter.assert_called_once_with("businesses/biz")
+    writer.update.assert_called_once_with({"notificationFeeds": plan["biz"], "notificationFeedsMigrated": True})
+    assert migration.notification_plan({"biz": {"notificationFeeds": plan["biz"]}}) == plan
+
+
+def test_repeated_migration_cannot_resurrect_removed_alerts():
+    plan = migration.notification_plan({"biz": {
+        "notificationFeedsMigrated": True,
+        "notifications": {"removed": {"type": "ai-status", "message": "Old resolved warning"}},
+        "notificationFeeds": {"orders": {"current": {"type": "new-order", "isRead": True}}},
+    }})
+    assert plan["biz"]["management"] == {}
+    assert set(plan["biz"]["orders"]) == {"current"}
+
+
+def test_malformed_notification_backfill_stops_before_writing(migration_data):
+    database, existing = migration_data
+    with pytest.raises(ValueError, match="Invalid notification record"):
+        migration.backfill(database, existing, {"biz": {"notifications": {"bad": "invalid"}}}, apply=True)
+    access.sync_business_member_access.assert_not_called()
+    access.sync_chat_access.assert_not_called()

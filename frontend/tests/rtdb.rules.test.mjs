@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import process from "node:process";
 import { after, before, test } from "node:test";
 import { initializeApp, deleteApp } from "firebase/app";
+import { subscribeNotificationFeeds } from "../src/services/realtimeNotifications.js";
 import { connectDatabaseEmulator, get, getDatabase, goOffline, onValue, ref, set } from "firebase/database";
 
 // Refuse real hosts/projects so fixture seeding cannot overwrite live data.
@@ -41,12 +42,12 @@ before(async () => {
     _access: {
       members: {
         "biz-a": {
-          seller: { chats: true, notifications: true },
-          viewer: { chats: false, notifications: true },
-          inactive: { chats: false, notifications: false },
-          blocked: { chats: false, notifications: false, pending: true },
+          seller: { chats: true, notifications: { orders: true, customers: true, management: true } },
+          viewer: { chats: false, notifications: { orders: true, customers: false, management: false } },
+          inactive: { chats: false, notifications: { orders: false, customers: false, management: false } },
+          blocked: { chats: false, notifications: { orders: false, customers: false, management: false }, pending: true },
         },
-        "biz-b": { "other-seller": { chats: true, notifications: true } },
+        "biz-b": { "other-seller": { chats: true, notifications: { orders: true, customers: true, management: true } } },
       },
       chats: {
         "chat-a": { businessId: "biz-a", customerUid: "guest-a" },
@@ -58,7 +59,17 @@ before(async () => {
       "chat-b": { first: { role: "customer", message: "Private B", createdAt: "2026-01-01" } },
       "unmapped-chat": { first: { message: "No ownership metadata" } },
     },
-    businesses: { "biz-a": { notifications: { first: { message: "Private A" } } }, "biz-b": { notifications: { first: { message: "Private B" } } } },
+    businesses: {
+      "biz-a": {
+        notifications: { first: { message: "Legacy private A" } },
+        notificationFeeds: {
+          orders: { first: { title: "Order A", type: "new-order", createdAt: 1 } },
+          customers: { chat: { title: "Private customer A", type: "chat-needs-attention", createdAt: 2 } },
+          management: { system: { title: "Private system A", type: "ai-status", createdAt: 3 } },
+        },
+      },
+      "biz-b": { notifications: { first: { message: "Legacy private B" } }, notificationFeeds: { orders: { first: { title: "Order B" } } } },
+    },
     businessChatActivity: { "biz-a": { sessionId: "chat-a" }, "biz-b": { sessionId: "chat-b" } },
     customerOrderUpdates: { "store-a": {
       "guest-a": { "order-a": { fulfilmentStatus: "shipped" } },
@@ -76,7 +87,7 @@ after(async () => {
 
 test("unauthenticated callers cannot read any private path", { timeout: 10000 }, async () => {
   const db = client();
-  for (const path of ["chatMessages/chat-a", "businesses/biz-a/notifications", "businessChatActivity/biz-a", "customerOrderUpdates/store-a/guest-a"]) {
+  for (const path of ["chatMessages/chat-a", "businesses/biz-a/notifications", "businesses/biz-a/notificationFeeds/orders", "businessChatActivity/biz-a", "customerOrderUpdates/store-a/guest-a"]) {
     await assert.rejects(get(ref(db, path)), /permission[ _]denied/i);
   }
 });
@@ -92,17 +103,20 @@ test("anonymous customers read only their own chat and order updates", { timeout
 
 test("authorized staff read their tenant's chats, inbox signal and notifications", { timeout: 10000 }, async () => {
   const db = client("seller");
-  for (const path of ["chatMessages/chat-a", "businessChatActivity/biz-a", "businesses/biz-a/notifications"]) {
+  for (const path of ["chatMessages/chat-a", "businessChatActivity/biz-a", "businesses/biz-a/notificationFeeds/orders", "businesses/biz-a/notificationFeeds/customers", "businesses/biz-a/notificationFeeds/management"]) {
     assert.equal((await get(ref(db, path))).exists(), true);
   }
-  for (const path of ["chatMessages/chat-b", "businessChatActivity/biz-b", "businesses/biz-b/notifications", "customerOrderUpdates/store-a/guest-a"]) {
+  for (const path of ["chatMessages/chat-b", "businessChatActivity/biz-b", "businesses/biz-b/notifications", "businesses/biz-b/notificationFeeds/orders", "businesses/biz-a/notifications", "customerOrderUpdates/store-a/guest-a"]) {
     await assert.rejects(get(ref(db, path)), /permission[ _]denied/i);
   }
 });
 
 test("a member without customer read permission cannot read chats or activity", { timeout: 10000 }, async () => {
   const db = client("viewer");
-  assert.equal((await get(ref(db, "businesses/biz-a/notifications"))).exists(), true);
+  assert.equal((await get(ref(db, "businesses/biz-a/notificationFeeds/orders"))).exists(), true);
+  await assert.rejects(get(ref(db, "businesses/biz-a/notificationFeeds/customers")), /permission[ _]denied/i);
+  await assert.rejects(get(ref(db, "businesses/biz-a/notificationFeeds/management")), /permission[ _]denied/i);
+  await assert.rejects(get(ref(db, "businesses/biz-a/notifications")), /permission[ _]denied/i);
   await assert.rejects(get(ref(db, "chatMessages/chat-a")), /permission[ _]denied/i);
   await assert.rejects(get(ref(db, "businessChatActivity/biz-a")), /permission[ _]denied/i);
 });
@@ -111,6 +125,7 @@ test("inactive, removed and temporarily blocked staff cannot read business recor
   for (const uid of ["inactive", "removed", "blocked"]) {
     const db = client(uid);
     await assert.rejects(get(ref(db, "businesses/biz-a/notifications")), /permission[ _]denied/i);
+    await assert.rejects(get(ref(db, "businesses/biz-a/notificationFeeds/orders")), /permission[ _]denied/i);
     await assert.rejects(get(ref(db, "chatMessages/chat-a")), /permission[ _]denied/i);
   }
 });
@@ -175,5 +190,87 @@ test("unchanged read permissions keep the existing listener open during an edit"
     unsubscribe();
     await admin("_access/members/biz-a/seller/pending", null);
     await admin("chatMessages/chat-a/after-edit", null);
+  }
+});
+
+test("members can read only their own notification flags and cannot forge grants", { timeout: 10000 }, async () => {
+  const db = client("viewer");
+  assert.deepEqual((await get(ref(db, "_access/members/biz-a/viewer/notifications"))).val(), {
+    orders: true, customers: false, management: false,
+  });
+  for (const path of ["_access/members/biz-a", "_access/members/biz-a/viewer", "_access/members/biz-a/seller/notifications"]) {
+    await assert.rejects(get(ref(db, path)), /permission[ _]denied/i);
+  }
+  await assert.rejects(set(ref(db, "_access/members/biz-a/viewer/notifications/management"), true), /permission[ _]denied/i);
+  await assert.rejects(set(ref(db, "businesses/biz-a/notificationFeeds/orders/forged"), { title: "Forged" }), /permission[ _]denied/i);
+});
+
+test("legacy broad grants and unknown scope names cannot expose payloads", { timeout: 10000 }, async () => {
+  await admin("_access/members/biz-a/legacy", { notifications: true });
+  await admin("_access/members/biz-a/seller/notifications/unrecognized", true);
+  await admin("businesses/biz-a/notificationFeeds/unrecognized", { private: { message: "Private" } });
+  try {
+    const legacy = client("legacy");
+    await assert.rejects(get(ref(legacy, "businesses/biz-a/notifications")), /permission[ _]denied/i);
+    await assert.rejects(get(ref(legacy, "businesses/biz-a/notificationFeeds/orders")), /permission[ _]denied/i);
+    await assert.rejects(get(ref(client("seller"), "businesses/biz-a/notificationFeeds/unrecognized")), /permission[ _]denied/i);
+  } finally {
+    await admin("_access/members/biz-a/legacy", null);
+    await admin("_access/members/biz-a/seller/notifications/unrecognized", null);
+    await admin("businesses/biz-a/notificationFeeds/unrecognized", null);
+  }
+});
+
+test("production subscriptions follow grants and revocations without reopening unchanged feeds", { timeout: 15000 }, async () => {
+  const db = client("viewer");
+  let firstOrder, customerGranted, orderRevoked, customerUpdated, orderRestored;
+  const first = new Promise((resolve) => { firstOrder = resolve; });
+  const granted = new Promise((resolve) => { customerGranted = resolve; });
+  const revoked = new Promise((resolve) => { orderRevoked = resolve; });
+  const updated = new Promise((resolve) => { customerUpdated = resolve; });
+  const restored = new Promise((resolve) => { orderRestored = resolve; });
+  const orderEvents = [];
+  const errors = [];
+  let revoking = false;
+  const unsubscribe = subscribeNotificationFeeds(db, "biz-a", "viewer", {
+    onPermissions(scopes) {
+      assert.equal(scopes.includes("management"), false);
+      if (revoking && !scopes.includes("orders")) orderRevoked();
+    },
+    onFeed(scope, records) {
+      if (scope === "orders") {
+        orderEvents.push(records);
+        firstOrder();
+        if (records.some((record) => record.id === "after-revoke")) orderRestored();
+      }
+      if (scope === "customers") {
+        customerGranted();
+        if (records.some((record) => record.id === "after-revoke")) customerUpdated();
+      }
+    },
+    onError: (error) => errors.push(error),
+  });
+  try {
+    await first;
+    await admin("_access/members/biz-a/viewer/notifications/customers", true);
+    await granted;
+    assert.equal(orderEvents.length, 1, "An unchanged order grant must keep its listener open.");
+    revoking = true;
+    await admin("_access/members/biz-a/viewer/notifications/orders", false);
+    await revoked;
+    const previousOrderEvents = orderEvents.length;
+    await admin("businesses/biz-a/notificationFeeds/orders/after-revoke", { title: "Hidden while revoked", type: "new-order" });
+    await admin("businesses/biz-a/notificationFeeds/customers/after-revoke", { title: "Allowed chat", type: "chat-needs-attention" });
+    await updated;
+    assert.equal(orderEvents.length, previousOrderEvents);
+    revoking = false;
+    await admin("_access/members/biz-a/viewer/notifications/orders", true);
+    await restored;
+    assert.equal(errors.length, 0);
+  } finally {
+    unsubscribe();
+    await admin("_access/members/biz-a/viewer/notifications", { orders: true, customers: false, management: false });
+    await admin("businesses/biz-a/notificationFeeds/orders/after-revoke", null);
+    await admin("businesses/biz-a/notificationFeeds/customers/after-revoke", null);
   }
 });

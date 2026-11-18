@@ -4,20 +4,37 @@
     ".write": false,
     "_access": {
       ".read": false,
-      ".write": false
+      ".write": false,
+      "members": {
+        "$businessId": {
+          "$uid": {
+            "notifications": {
+              ".read": "auth != null && root.child('_access/disabledUsers').child(auth.uid).val() !== true && (auth.token.firebase.sign_in_provider !== 'password' || auth.token.email_verified === true) && auth.uid === $uid"
+            }
+          }
+        }
+      }
     },
     "chatMessages": {
       "$sessionId": {
         ".read": "auth != null && root.child('_access/disabledUsers').child(auth.uid).val() !== true && (auth.token.firebase.sign_in_provider !== 'password' || auth.token.email_verified === true) && (root.child('_access/chats').child($sessionId).child('customerUid').val() === auth.uid || (root.child('_access/members').child(root.child('_access/chats').child($sessionId).child('businessId').val()).child(auth.uid).child('chats').val() === true))",
         ".write": false,
-        ".indexOn": ["createdAt"]
+        ".indexOn": [
+          "createdAt"
+        ]
       }
     },
     "businesses": {
       "$businessId": {
         "notifications": {
-          ".read": "auth != null && root.child('_access/disabledUsers').child(auth.uid).val() !== true && (auth.token.firebase.sign_in_provider !== 'password' || auth.token.email_verified === true) && root.child('_access/members').child($businessId).child(auth.uid).child('notifications').val() === true",
+          ".read": false,
           ".write": false
+        },
+        "notificationFeeds": {
+          "$scope": {
+            ".read": "($scope === 'orders' || $scope === 'customers' || $scope === 'management') && auth != null && root.child('_access/disabledUsers').child(auth.uid).val() !== true && (auth.token.firebase.sign_in_provider !== 'password' || auth.token.email_verified === true) && root.child('_access/members').child($businessId).child(auth.uid).child('notifications').child($scope).val() === true",
+            ".write": false
+          }
         }
       }
     },

@@ -101,6 +101,7 @@ def get_notifications(business_id):
     notifications = list_notifications(
         get_firestore_client(),
         business_id,
+        g.membership,
         unread_only=request.args.get("unread") == "true",
     )
     return jsonify({"notifications": notifications})
@@ -116,5 +117,6 @@ def read_notification(business_id, notification_id):
         get_firestore_client(),
         business_id,
         notification_id,
+        g.membership,
     )
     return jsonify({"notification": notification})

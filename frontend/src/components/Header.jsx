@@ -32,7 +32,7 @@ import {
   markNotificationRead,
 } from "../services/notificationService";
 import { searchBusiness } from "../services/searchService";
-import { ref as dbRef, onValue } from "firebase/database";
+import { subscribeNotificationFeeds } from "../services/realtimeNotifications";
 import { rtdb } from "../firebase/firebase";
 
 
@@ -179,7 +179,7 @@ function Header({
   const profileMenuReference = useRef(null);
   const knownNotificationIdsReference = useRef(new Set());
   const notificationsLoadedReference = useRef(false);
-  const { sellerProfile, business, membership } = useAuth();
+  const { sellerProfile, business, membership, user } = useAuth();
   const businessName = sellerProfile?.businessName ?? "Your Business";
   const businessInitials = businessName
     .split(/\s+/)
@@ -244,14 +244,18 @@ function Header({
 
   useEffect(() => {
     let requestIsCurrent = true;
-    let unsubscribeRtdb = null;
+    let allowedScopes = new Set();
+    let initialRecords = [];
+    let permissionsLoaded = false;
+    const liveRecords = new Map();
+    const liveIdsByScope = new Map();
+    const removedIds = new Set();
 
-    if (!business?.id) {
-      setNotifications([]);
-      knownNotificationIdsReference.current = new Set();
-      notificationsLoadedReference.current = false;
-      return undefined;
-    }
+    // Clear another identity's cached previews before loading the current membership's feeds.
+    setNotifications([]);
+    knownNotificationIdsReference.current = new Set();
+    notificationsLoadedReference.current = false;
+    if (!business?.id || !user?.uid) return undefined;
 
     function showDeviceNotification(notification) {
       if (!("Notification" in window) || window.Notification.permission !== "granted") return;
@@ -267,74 +271,72 @@ function Header({
       };
     }
 
+    // Keep the existing history/preview merge, excluding every scope that the server has revoked.
+    function publishNotifications() {
+      const records = new Map();
+      for (const record of initialRecords) {
+        if (allowedScopes.has(record.scope) && !removedIds.has(record.id)) records.set(record.id, record);
+      }
+      liveRecords.forEach((record, id) => {
+        if (allowedScopes.has(record.scope)) records.set(id, { ...records.get(id), ...record });
+      });
+      setNotifications([...records.values()].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)));
+    }
+
     async function loadInitialNotifications() {
       try {
         const records = await getNotifications(business.id);
         if (!requestIsCurrent) return;
-
-        knownNotificationIdsReference.current = new Set(
-          records.map((notification) => notification.id),
-        );
+        initialRecords = records;
+        records.forEach((record) => knownNotificationIdsReference.current.add(record.id));
         notificationsLoadedReference.current = true;
-        setNotifications(records);
-      } catch (error) {
-        console.error("Notifications could not be loaded:", error);
+        publishNotifications();
+      } catch {
+        if (requestIsCurrent) console.error("Notifications could not be loaded.");
       }
     }
 
     loadInitialNotifications();
-
-    try {
-      const businessNotifRef = dbRef(rtdb, `businesses/${business.id}/notifications`);
-      unsubscribeRtdb = onValue(businessNotifRef, (snapshot) => {
+    const unsubscribe = subscribeNotificationFeeds(rtdb, business.id, user.uid, {
+      onPermissions(scopes) {
         if (!requestIsCurrent) return;
-        if (!snapshot.exists()) return;
-        const data = snapshot.val();
-        if (!data || typeof data !== "object") return;
-
-        const liveList = Object.values(data);
-        if (liveList.length === 0) return;
-
-        if (notificationsLoadedReference.current) {
-          liveList
-            .filter(
-              (notification) =>
-                !notification.isRead &&
-                !knownNotificationIdsReference.current.has(notification.id),
-            )
-            .forEach(showDeviceNotification);
-        }
-
-        liveList.forEach((notification) => {
-          if (notification.id) {
-            knownNotificationIdsReference.current.add(notification.id);
+        const changed = scopes.length !== allowedScopes.size || scopes.some((scope) => !allowedScopes.has(scope));
+        allowedScopes = new Set(scopes);
+        liveRecords.forEach((record, id) => {
+          if (!allowedScopes.has(record.scope)) liveRecords.delete(id);
+        });
+        publishNotifications();
+        if (permissionsLoaded && changed) loadInitialNotifications();
+        permissionsLoaded = true;
+      },
+      onFeed(scope, records) {
+        if (!requestIsCurrent || !allowedScopes.has(scope)) return;
+        const ids = new Set(records.map((record) => record.id));
+        // Remove recovered/deleted alerts without discarding API-only history records.
+        for (const id of liveIdsByScope.get(scope) || []) {
+          if (!ids.has(id) && liveRecords.get(id)?.scope === scope) {
+            liveRecords.delete(id);
+            removedIds.add(id);
           }
+        }
+        liveIdsByScope.set(scope, ids);
+        records.forEach((record) => {
+          if (notificationsLoadedReference.current && !record.isRead && !knownNotificationIdsReference.current.has(record.id)) {
+            showDeviceNotification(record);
+          }
+          knownNotificationIdsReference.current.add(record.id);
+          removedIds.delete(record.id);
+          liveRecords.set(record.id, record);
         });
+        publishNotifications();
+      },
+      onError() {
+        if (requestIsCurrent) console.error("Realtime notification access could not be established.");
+      },
+    });
 
-        setNotifications((current) => {
-          const map = new Map();
-          current.forEach((n) => map.set(n.id, n));
-          liveList.forEach((n) => {
-            const existing = map.get(n.id) || {};
-            map.set(n.id, { ...existing, ...n });
-          });
-          const merged = Array.from(map.values());
-          return merged.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
-        });
-      }, (err) => {
-        console.error("RTDB notification subscription error:", err);
-      });
-    } catch (rtdbErr) {
-      console.warn("RTDB notification subscription could not be established:", rtdbErr);
-    }
-
-    return () => {
-      requestIsCurrent = false;
-      if (typeof unsubscribeRtdb === "function") {
-        unsubscribeRtdb();
-      }
-    };
-  }, [business?.id, navigate]);
+    return () => { requestIsCurrent = false; unsubscribe(); };
+  }, [business?.id, membership, navigate, user?.uid]);
 
   async function requestDeviceNotificationPermission() {
     if ("Notification" in window && window.Notification.permission === "default") {

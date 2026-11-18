@@ -66,10 +66,20 @@ class MemoryFirestore:
         prefix += query.from_[0].collection_id + "/"
         field = query.where.field_filter.field.field_path
         expected = query.where.field_filter.value.string_value
+        matches = []
         for path, data in list(self.documents.items()):
             name = f"{self.client._database_string}/documents/{path}"
-            if name.startswith(prefix) and data.get(field) == expected:
-                yield types.RunQueryResponse(document=self.snapshot(name, request.get("transaction")))
+            if name.startswith(prefix) and (not field or data.get(field) == expected):
+                matches.append((name, data))
+        # Match Firestore ordering/limits for notification history without bypassing SDK queries.
+        for order in reversed(query.order_by):
+            field_path = order.field.field_path
+            matches = [item for item in matches if field_path in item[1]]
+            matches.sort(key=lambda item: item[1][field_path], reverse=order.direction == types.StructuredQuery.Direction.DESCENDING)
+        if query.limit:
+            matches = matches[:query.limit]
+        for name, _data in matches:
+            yield types.RunQueryResponse(document=self.snapshot(name, request.get("transaction")))
 
     def commit(self, request, **kwargs):
         # Inject a real competing state change immediately before the first commit.

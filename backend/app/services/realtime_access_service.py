@@ -6,6 +6,7 @@ from uuid import uuid4
 from app.core.authorization import membership_has_permission
 from app.core.errors import ApiError
 from app.core.firebase import get_rtdb_reference
+from app.services.notification_permissions import notification_permissions
 
 
 def access_reference(path):
@@ -65,7 +66,7 @@ def sync_business_member_access(database, business_id, uid, change_id=None):
     active = member.get("status") == "active"
     payload = {
         "version": _version(snapshot),
-        "notifications": active,
+        "notifications": notification_permissions(member),
         "chats": active and membership_has_permission(member, "customers:read"),
     }
     published = _publish(access_reference(f"members/{business_id}/{uid}"), payload, change_id)
@@ -97,13 +98,21 @@ def changing_business_member_access(database, business_id, uid, changes=None):
         member = snapshot.to_dict() if snapshot.exists else {}
         next_member = {**member, **changes} if changes is not None else {}
         active = next_member.get("status") == "active"
+        next_notifications = notification_permissions(next_member)
 
         def revoke(current):
             if not current or current.get("changeId") != change_id:
                 raise ApiError("realtime_access_conflict", "Membership permissions changed concurrently. Please retry.", 409)
+            # Legacy broad grants must never become scoped grants without a fresh membership read.
+            current_notifications = current.get("notifications")
+            if not isinstance(current_notifications, dict):
+                current_notifications = {}
             return {
                 **current,
-                "notifications": current.get("notifications") is True and active,
+                "notifications": {
+                    scope: current_notifications.get(scope) is True and allowed
+                    for scope, allowed in next_notifications.items()
+                },
                 "chats": current.get("chats") is True and active and membership_has_permission(next_member, "customers:read"),
             }
 

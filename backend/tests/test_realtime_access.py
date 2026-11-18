@@ -79,7 +79,18 @@ def test_member_read_rights_follow_current_backend_permissions(store, member, ch
     database, _ = database_for(snapshot(member))
     result = access.sync_business_member_access(database, "biz", "staff")
     assert result["chats"] is chats
-    assert result["notifications"] is notifications
+    assert any(result["notifications"].values()) is notifications
+
+
+def test_notification_scope_revocation_keeps_unaffected_readers_live(store):
+    member = {"role": "custom", "status": "active", "permissions": ["orders:read", "customers:read"]}
+    database, reference = database_for(snapshot(member, 1))
+    access.sync_business_member_access(database, "biz", "staff")
+    with access.changing_business_member_access(database, "biz", "staff", {"permissions": ["orders:read"]}):
+        rights = store.values["_access/members/biz/staff"]["notifications"]
+        assert rights == {"orders": True, "customers": False, "management": False}
+        reference.get.return_value = snapshot({**member, "permissions": ["orders:read"]}, 2)
+    assert store.values["_access/members/biz/staff"]["notifications"] == rights
 
 
 def test_delayed_grant_cannot_overwrite_deleted_membership(store):
@@ -103,7 +114,7 @@ def test_membership_edit_blocks_refreshes_until_revocation_is_published(store):
         assert error.value.code == "realtime_access_conflict"
         reference.get.return_value = snapshot(None, 2)
     result = store.values["_access/members/biz/staff"]
-    assert result["chats"] is False and result["notifications"] is False
+    assert result["chats"] is False and not any(result["notifications"].values())
     assert "pending" not in result
 
 
@@ -123,7 +134,7 @@ def test_unchanged_permissions_keep_live_reads_during_an_edit(store):
     access.sync_business_member_access(database, "biz", "staff")
     with access.changing_business_member_access(database, "biz", "staff", {"status": "active"}):
         rights = store.values["_access/members/biz/staff"]
-        assert rights["chats"] is True and rights["notifications"] is True
+        assert rights["chats"] is True and all(rights["notifications"].values())
 
 
 def test_retry_after_committed_transaction_is_idempotent(store):
@@ -159,7 +170,7 @@ def test_failed_final_sync_leaves_access_blocked_for_explicit_repair(store):
     assert error.value.status_code == 503
     assert store.values["_access/members/biz/staff"]["pending"] is True
     assert store.values["_access/members/biz/staff"]["chats"] is False
-    assert store.values["_access/members/biz/staff"]["notifications"] is False
+    assert not any(store.values["_access/members/biz/staff"]["notifications"].values())
 
 
 def test_delayed_chat_snapshot_cannot_restore_a_deleted_chat(store):
@@ -222,4 +233,4 @@ def test_staff_service_revokes_reads_before_changing_firestore(store, monkeypatc
     else:
         member_service.remove_member(database, "biz", "staff", removed_by="owner")
     assert store.values["_access/members/biz/staff"]["chats"] is False
-    assert store.values["_access/members/biz/staff"]["notifications"] is False
+    assert not any(store.values["_access/members/biz/staff"]["notifications"].values())

@@ -1,4 +1,5 @@
 from io import BytesIO
+from google.api_core.exceptions import FailedPrecondition
 import logging
 import time
 
@@ -19,6 +20,9 @@ from app.services.fraud_service import (
     global_registry_increment,
 )
 from app.services.text import optional_text, required_text
+from app.services.notification_permissions import (
+    NOTIFICATION_SCOPES, can_read_notification, notification_permissions, notification_scope,
+)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -572,6 +576,7 @@ def sync_ai_failure_notification(database, business_id, status):
         # Recovered. Leaving a stale warning up is how a notification becomes
         # something people learn to ignore.
         reference.delete()
+        remove_rtdb_business_notification(business_id, AI_STATUS_NOTIFICATION_ID)
         return
 
     title, message = AI_FAILURE_NOTIFICATIONS.get(
@@ -604,7 +609,7 @@ def sync_ai_failure_notification(database, business_id, status):
 
 def push_rtdb_business_notification(business_id, notification_id, notification_data):
     """Write an active notification to RTDB for real-time delivery with 0 Firestore reads."""
-    rtdb_ref = get_rtdb_reference(f"businesses/{business_id}/notifications")
+    rtdb_ref = get_rtdb_reference(f"businesses/{business_id}/notificationFeeds")
     if rtdb_ref is None:
         return
     try:
@@ -619,19 +624,22 @@ def push_rtdb_business_notification(business_id, notification_id, notification_d
             "chatSessionId": str(notification_data.get("chatSessionId") or "").strip(),
             "orderId": str(notification_data.get("orderId") or "").strip(),
         }
-        rtdb_ref.child(notification_id).set(data)
+        # Move a reused ID atomically so a changed type cannot remain in a less restricted feed.
+        updates = {f"{scope}/{notification_id}": None for scope in NOTIFICATION_SCOPES}
+        updates[f"{notification_scope(data)}/{notification_id}"] = data
+        rtdb_ref.update(updates)
     except Exception as err:
         LOGGER.warning("Could not push notification to RTDB for business %s: %s", business_id, err)
 
 
 def remove_rtdb_business_notification(business_id, notification_id):
-    """Remove a notification from RTDB when dismissed or recovered."""
-    rtdb_ref = get_rtdb_reference(f"businesses/{business_id}/notifications/{notification_id}")
-    if rtdb_ref is not None:
+    """Remove a recovered alert from every scoped realtime feed."""
+    reference = get_rtdb_reference(f"businesses/{business_id}/notificationFeeds")
+    if reference is not None:
         try:
-            rtdb_ref.delete()
+            reference.update({f"{scope}/{notification_id}": None for scope in NOTIFICATION_SCOPES})
         except Exception:
-            pass
+            LOGGER.warning("Could not remove a realtime notification.")
 
 
 def get_business_owner_email(database, business_id):
@@ -708,7 +716,10 @@ def dispatch_notification(database, business_id, notification_id, notification_d
             LOGGER.warning("Failed to dispatch email for notification %s: %s", notification_id, err)
 
 
-def list_notifications(database, business_id, unread_only=False):
+def list_notifications(database, business_id, membership, unread_only=False):
+    # Memberships with no notification rights must not load private records at all.
+    if not any(notification_permissions(membership).values()):
+        return []
     snapshots = (
         database.collection("businesses")
         .document(business_id)
@@ -717,7 +728,12 @@ def list_notifications(database, business_id, unread_only=False):
         .limit(50)
         .stream()
     )
-    notifications = [serialize_snapshot(snapshot) for snapshot in snapshots]
+    # Label only authorized records so the browser can clear revoked categories from its cache.
+    notifications = []
+    for snapshot in snapshots:
+        notification = serialize_snapshot(snapshot)
+        if can_read_notification(membership, notification):
+            notifications.append({**notification, "scope": notification_scope(notification)})
 
     if unread_only:
         notifications = [item for item in notifications if not item.get("isRead")]
@@ -725,7 +741,7 @@ def list_notifications(database, business_id, unread_only=False):
     return notifications
 
 
-def mark_notification_read(database, business_id, notification_id):
+def mark_notification_read(database, business_id, notification_id, membership):
     reference = (
         database.collection("businesses")
         .document(business_id)
@@ -733,18 +749,31 @@ def mark_notification_read(database, business_id, notification_id):
         .document(notification_id)
     )
 
-    if not reference.get().exists:
+    snapshot = reference.get()
+    if not snapshot.exists or not can_read_notification(membership, snapshot.to_dict()):
         raise ApiError("notification_not_found", "Notification not found.", 404)
 
-    reference.update({"isRead": True, "readAt": firestore.SERVER_TIMESTAMP})
+    # A concurrent type change must not let a stale permission check mark a private alert as read.
+    try:
+        reference.update(
+            {"isRead": True, "readAt": firestore.SERVER_TIMESTAMP},
+            option=database.write_option(last_update_time=snapshot.update_time),
+        )
+    except FailedPrecondition:
+        raise ApiError("notification_changed", "Notification changed. Please retry.", 409) from None
 
-    # Sync read status to RTDB so connected browsers update immediately without polling
-    rtdb_ref = get_rtdb_reference(f"businesses/{business_id}/notifications/{notification_id}")
+    latest = reference.get()
+    if not latest.exists or not can_read_notification(membership, latest.to_dict()):
+        raise ApiError("notification_not_found", "Notification not found.", 404)
+    notification = serialize_snapshot(latest)
+
+    # Keep existing read-state synchronization inside the same permission-protected feed.
+    scope = notification_scope(notification)
+    rtdb_ref = get_rtdb_reference(f"businesses/{business_id}/notificationFeeds/{scope}/{notification_id}")
     if rtdb_ref is not None:
         try:
             rtdb_ref.update({"isRead": True, "readAt": int(time.time() * 1000)})
         except Exception:
-            pass
+            LOGGER.warning("Could not synchronize notification read status.")
 
-    return serialize_snapshot(reference.get())
-
+    return {**notification, "scope": scope}
