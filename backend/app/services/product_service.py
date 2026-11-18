@@ -472,255 +472,280 @@ def create_product(database, business_id, uid, payload):
 
 
 def update_product(database, business_id, product_id, payload):
-    """Update shared product information without changing SKU or stock history."""
-    business_reference = database.collection("businesses").document(business_id)
-    product_reference = business_reference.collection("products").document(product_id)
-    product_snapshot = product_reference.get()
+    """Update product fields while protecting stock reservations and identifier ownership."""
+    # Retry the complete calculation if a checkout, stock adjustment or identifier claim conflicts.
+    @google_firestore.transactional
+    def update_in_transaction(current_transaction):
+        business_reference = database.collection("businesses").document(business_id)
+        product_reference = business_reference.collection("products").document(product_id)
+        product_snapshot = product_reference.get(transaction=current_transaction)
 
-    if not product_snapshot.exists:
-        raise ApiError("product_not_found", "Product not found.", 404)
+        if not product_snapshot.exists:
+            raise ApiError("product_not_found", "Product not found.", 404)
 
-    current_product = product_snapshot.to_dict()
-    changes = {"updatedAt": firestore.SERVER_TIMESTAMP}
+        current_product = product_snapshot.to_dict()
+        changes = {"updatedAt": firestore.SERVER_TIMESTAMP}
 
-    try:
-        if "name" in payload:
-            changes["name"] = required_text(payload.get("name"), "Product name", 160)
-            changes["slug"] = slugify(changes["name"]) or product_id.lower()
-        if "colourName" in payload:
-            changes["colourName"] = optional_text(payload.get("colourName"), 80)
-        if "colourHex" in payload:
-            changes["colourHex"] = optional_text(payload.get("colourHex"), 20)
-        if "productType" in payload:
-            changes["productType"] = optional_text(payload.get("productType"), 100)
-        if "productSize" in payload:
-            changes["productSize"] = optional_text(payload.get("productSize"), 80)
-        if "brand" in payload:
-            changes["brand"] = optional_text(payload.get("brand"), 100)
-        if "supplierId" in payload:
-            changes["supplierId"] = optional_text(payload.get("supplierId"), 120)
-        if "description" in payload:
-            changes["description"] = optional_text(payload.get("description"), 4000)
-        if "aiDescription" in payload:
-            changes["aiDescription"] = optional_text(payload.get("aiDescription"), 4000)
-        if "taxCategory" in payload:
-            changes["taxCategory"] = optional_text(payload.get("taxCategory"), 60)
-        if "costPrice" in payload:
-            changes["costPriceMinor"] = money_to_minor_units(
-                payload.get("costPrice"),
-                "Cost price",
-            )
-        if "sellingPrice" in payload:
-            changes["sellingPriceMinor"] = money_to_minor_units(
-                payload.get("sellingPrice"),
-                "Selling price",
-                allow_zero=False,
-            )
-        if "compareAtPrice" in payload:
-            changes["compareAtPriceMinor"] = money_to_minor_units(
-                payload.get("compareAtPrice"),
-                "Compare-at price",
-            )
-        if "weightKg" in payload:
-            changes["weightGrams"] = kilograms_to_grams(payload.get("weightKg"))
-        if "lowStockThreshold" in payload:
-            changes["lowStockThreshold"] = non_negative_integer(
-                payload.get("lowStockThreshold"),
-                "Low-stock threshold",
-            )
-        if "warrantyPeriodMonths" in payload:
-            changes["warrantyPeriodMonths"] = non_negative_integer(payload.get("warrantyPeriodMonths"), "Warranty period")
-        if "warrantyNotes" in payload:
-            changes["warrantyNotes"] = optional_text(payload.get("warrantyNotes"), 500)
-    except ValueError as error:
-        raise ApiError("validation_error", str(error), 422) from error
-
-    if "status" in payload:
-        if payload.get("status") not in {"active", "archived", "draft"}:
-            raise ApiError(
-                "validation_error",
-                "Product status must be active, draft or archived.",
-                422,
-            )
-        changes["status"] = payload["status"]
-
-    if "categoryId" in payload:
         try:
-            category_id = optional_text(payload.get("categoryId"), 120)
+            if "name" in payload:
+                changes["name"] = required_text(payload.get("name"), "Product name", 160)
+                changes["slug"] = slugify(changes["name"]) or product_id.lower()
+            if "colourName" in payload:
+                changes["colourName"] = optional_text(payload.get("colourName"), 80)
+            if "colourHex" in payload:
+                changes["colourHex"] = optional_text(payload.get("colourHex"), 20)
+            if "productType" in payload:
+                changes["productType"] = optional_text(payload.get("productType"), 100)
+            if "productSize" in payload:
+                changes["productSize"] = optional_text(payload.get("productSize"), 80)
+            if "brand" in payload:
+                changes["brand"] = optional_text(payload.get("brand"), 100)
+            if "supplierId" in payload:
+                changes["supplierId"] = optional_text(payload.get("supplierId"), 120)
+            if "description" in payload:
+                changes["description"] = optional_text(payload.get("description"), 4000)
+            if "aiDescription" in payload:
+                changes["aiDescription"] = optional_text(payload.get("aiDescription"), 4000)
+            if "taxCategory" in payload:
+                changes["taxCategory"] = optional_text(payload.get("taxCategory"), 60)
+            if "costPrice" in payload:
+                changes["costPriceMinor"] = money_to_minor_units(
+                    payload.get("costPrice"),
+                    "Cost price",
+                )
+            if "sellingPrice" in payload:
+                changes["sellingPriceMinor"] = money_to_minor_units(
+                    payload.get("sellingPrice"),
+                    "Selling price",
+                    allow_zero=False,
+                )
+            if "compareAtPrice" in payload:
+                changes["compareAtPriceMinor"] = money_to_minor_units(
+                    payload.get("compareAtPrice"),
+                    "Compare-at price",
+                )
+            if "weightKg" in payload:
+                changes["weightGrams"] = kilograms_to_grams(payload.get("weightKg"))
+            if "lowStockThreshold" in payload:
+                changes["lowStockThreshold"] = non_negative_integer(
+                    payload.get("lowStockThreshold"),
+                    "Low-stock threshold",
+                )
+            if "warrantyPeriodMonths" in payload:
+                changes["warrantyPeriodMonths"] = non_negative_integer(payload.get("warrantyPeriodMonths"), "Warranty period")
+            if "warrantyNotes" in payload:
+                changes["warrantyNotes"] = optional_text(payload.get("warrantyNotes"), 500)
         except ValueError as error:
             raise ApiError("validation_error", str(error), 422) from error
-        if category_id:
-            category_snapshot = business_reference.collection("categories").document(
-                category_id,
-            ).get()
 
-            if (
-                not category_snapshot.exists
-                or category_snapshot.to_dict().get("status") != "active"
-            ):
-                raise ApiError("invalid_category", "Choose an active category.", 422)
+        if "status" in payload:
+            if payload.get("status") not in {"active", "archived", "draft"}:
+                raise ApiError(
+                    "validation_error",
+                    "Product status must be active, draft or archived.",
+                    422,
+                )
+            changes["status"] = payload["status"]
 
-            changes["categoryId"] = category_id
-            changes["categoryName"] = category_snapshot.to_dict().get("name", "")
-        else:
-            changes["categoryId"] = ""
-            changes["categoryName"] = "Uncategorized"
-
-    variants = list(
-        business_reference.collection("productVariants")
-        .where(filter=FieldFilter("productId", "==", product_id))
-        .stream(),
-    )
-    batch = database.batch()
-
-    if "variants" in payload:
-        raw_variants = payload.get("variants")
-        if not isinstance(raw_variants, list) or not raw_variants:
-            raise ApiError("validation_error", "At least one variant is required.", 422)
-        existing_by_id = {snapshot.id: snapshot for snapshot in variants}
-        existing_by_sku = {
-            normalize_registry_key(snapshot.to_dict().get("sku", "")): snapshot
-            for snapshot in variants
-            if snapshot.to_dict().get("sku")
-        }
-        existing_by_barcode = {
-            normalize_registry_key(snapshot.to_dict().get("barcode", "")): snapshot
-            for snapshot in variants
-            if snapshot.to_dict().get("barcode")
-        }
-        retained_ids = set()
-        seen_skus = set()
-        summaries = []
-        total_stock = 0
-        total_reserved = 0
-        for index, raw_variant in enumerate(raw_variants, start=1):
+        if "categoryId" in payload:
             try:
-                variant_id = optional_text(raw_variant.get("id"), 120)
-                size = optional_text(raw_variant.get("size"), 40)
-                sku = required_text(raw_variant.get("sku"), f"SKU in row {index}", 80).upper()
-                barcode = required_text(raw_variant.get("barcode"), f"Barcode in row {index}", 80)
-                stock_on_hand = non_negative_integer(raw_variant.get("stock", 0), f"Stock in row {index}")
-                cost_minor = money_to_minor_units(raw_variant.get("costPrice", payload.get("costPrice")), f"Cost price in row {index}")
-                selling_minor = money_to_minor_units(raw_variant.get("sellingPrice", payload.get("sellingPrice")), f"Selling price in row {index}", allow_zero=False)
+                category_id = optional_text(payload.get("categoryId"), 120)
             except ValueError as error:
                 raise ApiError("validation_error", str(error), 422) from error
-            normalized_sku = normalize_registry_key(sku)
-            normalized_barcode = normalize_registry_key(barcode)
-            if normalized_sku in seen_skus:
-                raise ApiError("duplicate_variant_identifier", "Variant SKUs must be unique.", 422)
-            seen_skus.add(normalized_sku)
+            if category_id:
+                category_snapshot = business_reference.collection("categories").document(
+                    category_id,
+                ).get(transaction=current_transaction)
 
-            snapshot = existing_by_id.get(variant_id)
-            if snapshot is None:
-                sku_match = existing_by_sku.get(normalized_sku)
-                barcode_match = existing_by_barcode.get(normalized_barcode)
-                if sku_match and barcode_match and sku_match.id != barcode_match.id:
-                    raise ApiError(
-                        "variant_identifier_conflict",
-                        "The SKU and barcode belong to different variants.",
-                        409,
-                    )
-                snapshot = sku_match or barcode_match
-            if snapshot:
-                current = snapshot.to_dict()
-                reserved = current.get("stockReserved", 0)
-                if stock_on_hand < reserved:
-                    raise ApiError("insufficient_adjustable_stock", "Variant stock cannot be below reserved stock.", 409)
-                reference = snapshot.reference
-                retained_ids.add(snapshot.id)
-                image_url = (
-                    optional_text(raw_variant.get("imageUrl"), 2000)
-                    if "imageUrl" in raw_variant
-                    else current.get("imageUrl", "")
-                )
-                created_at = current.get("createdAt")
+                if (
+                    not category_snapshot.exists
+                    or category_snapshot.to_dict().get("status") != "active"
+                ):
+                    raise ApiError("invalid_category", "Choose an active category.", 422)
+
+                changes["categoryId"] = category_id
+                changes["categoryName"] = category_snapshot.to_dict().get("name", "")
             else:
-                current = {}
-                reserved = 0
-                reference = business_reference.collection("productVariants").document()
-                variant_id = reference.id
-                image_url = optional_text(raw_variant.get("imageUrl"), 2000)
-                created_at = firestore.SERVER_TIMESTAMP
-            sku_registry = business_reference.collection("skuRegistry").document(normalize_registry_key(sku))
-            barcode_registry = business_reference.collection("barcodeRegistry").document(normalize_registry_key(barcode))
-            for registry, registry_type, value in ((sku_registry, "sku", sku), (barcode_registry, "barcode", barcode)):
-                registry_snapshot = registry.get()
-                if registry_snapshot.exists and registry_snapshot.to_dict().get("productId") != product_id:
-                    raise ApiError(f"{registry_type}_already_exists", f"{registry_type.upper()} {value} is already in use.", 409)
-                batch.set(registry, {"type": registry_type, "value": value, "productId": product_id, "updatedAt": firestore.SERVER_TIMESTAMP}, merge=True)
-            if current.get("sku") and normalize_registry_key(current["sku"]) != normalize_registry_key(sku):
-                batch.delete(business_reference.collection("skuRegistry").document(normalize_registry_key(current["sku"])))
-            active_barcodes = {
-                normalize_registry_key(item.get("barcode", ""))
-                for item in raw_variants
-                if item.get("barcode")
-            }
-            if current.get("barcode") and normalize_registry_key(current["barcode"]) != normalize_registry_key(barcode) and normalize_registry_key(current["barcode"]) not in active_barcodes:
-                batch.delete(business_reference.collection("barcodeRegistry").document(normalize_registry_key(current["barcode"])))
-            available = stock_on_hand - reserved
-            status = stock_status(available, changes.get("lowStockThreshold", current_product.get("lowStockThreshold", 5)))
-            variant_data = {"productId": product_id, "size": size, "sku": sku, "barcode": barcode, "costPriceMinor": cost_minor, "sellingPriceMinor": selling_minor, "weightGrams": changes.get("weightGrams", current_product.get("weightGrams", 0)), "stockOnHand": stock_on_hand, "stockReserved": reserved, "stockAvailable": available, "stockStatus": status, "status": "active", "imageUrl": image_url, "createdAt": created_at, "updatedAt": firestore.SERVER_TIMESTAMP}
-            batch.set(reference, variant_data, merge=True)
-            summaries.append({"id": variant_id, "size": size, "sku": sku, "barcode": barcode, "stockOnHand": stock_on_hand, "stockReserved": reserved, "stockAvailable": available, "stockStatus": status, "costPriceMinor": cost_minor, "sellingPriceMinor": selling_minor, "imageUrl": image_url})
-            total_stock += stock_on_hand
-            total_reserved += reserved
+                changes["categoryId"] = ""
+                changes["categoryName"] = "Uncategorized"
 
-        for variant_id, snapshot in existing_by_id.items():
-            if variant_id not in retained_ids and snapshot.to_dict().get("stockReserved", 0) > 0:
-                raise ApiError("variant_in_use", "A variant reserved by an order cannot be removed.", 409)
-            if variant_id not in retained_ids:
-                old = snapshot.to_dict()
-                if old.get("sku"):
-                    batch.delete(business_reference.collection("skuRegistry").document(normalize_registry_key(old["sku"])))
-                if old.get("barcode") and normalize_registry_key(old["barcode"]) not in active_barcodes:
-                    batch.delete(business_reference.collection("barcodeRegistry").document(normalize_registry_key(old["barcode"])))
-                batch.delete(snapshot.reference)
-        available_stock = total_stock - total_reserved
-        changes.update({"hasSizes": payload.get("hasSizes") is True, "variantSummaries": summaries, "totalStock": total_stock, "reservedStock": total_reserved, "availableStock": available_stock, "stockStatus": stock_status(available_stock, changes.get("lowStockThreshold", current_product.get("lowStockThreshold", 5)))})
-    shared_variant_changes = {
-        field: changes[field]
-        for field in ("costPriceMinor", "sellingPriceMinor", "weightGrams")
-        if field in changes and (field == "weightGrams" or "variants" not in payload)
-    }
-
-    if "lowStockThreshold" in changes:
-        threshold = changes["lowStockThreshold"]
-        changes["stockStatus"] = stock_status(
-            current_product.get("availableStock", 0),
-            threshold,
+        variants = list(
+            business_reference.collection("productVariants")
+            .where(filter=FieldFilter("productId", "==", product_id))
+            .stream(transaction=current_transaction),
         )
-        if "variants" not in payload:
-            changes["variantSummaries"] = [
-            {
-                **summary,
-                "stockStatus": stock_status(
-                    summary.get("stockAvailable", 0),
-                    threshold,
-                ),
-            }
-            for summary in current_product.get("variantSummaries", [])
+
+        if "variants" in payload:
+            raw_variants = payload.get("variants")
+            if not isinstance(raw_variants, list) or not raw_variants:
+                raise ApiError("validation_error", "At least one variant is required.", 422)
+            # Validate incoming identifiers before building document paths or queuing any writes.
+            identifiers = []
+            for index, raw_variant in enumerate(raw_variants, start=1):
+                try:
+                    identifiers.append((
+                        required_text(raw_variant.get("sku"), f"SKU in row {index}", 80).upper(),
+                        required_text(raw_variant.get("barcode"), f"Barcode in row {index}", 80),
+                    ))
+                except ValueError as error:
+                    raise ApiError("validation_error", str(error), 422) from error
+
+            # Read old and incoming registry keys before writes so concurrent claims cannot be lost.
+            registry_snapshots = {}
+            registry_rows = [
+                *({"sku": sku, "barcode": barcode} for sku, barcode in identifiers),
+                *(snapshot.to_dict() for snapshot in variants),
             ]
+            for row in registry_rows:
+                for registry_type in ("sku", "barcode"):
+                    key = normalize_registry_key(str(row.get(registry_type) or ""))
+                    if key and (registry_type, key) not in registry_snapshots:
+                        registry = business_reference.collection(f"{registry_type}Registry").document(key)
+                        registry_snapshots[registry_type, key] = registry.get(transaction=current_transaction)
 
-    batch.update(product_reference, changes)
-
-    if shared_variant_changes or "lowStockThreshold" in changes:
-        timestamp = firestore.SERVER_TIMESTAMP
-
-        for variant in variants:
-            variant_changes = {
-                **shared_variant_changes,
-                "updatedAt": timestamp,
+            existing_by_id = {snapshot.id: snapshot for snapshot in variants}
+            existing_by_sku = {
+                normalize_registry_key(snapshot.to_dict().get("sku", "")): snapshot
+                for snapshot in variants
+                if snapshot.to_dict().get("sku")
             }
+            existing_by_barcode = {
+                normalize_registry_key(snapshot.to_dict().get("barcode", "")): snapshot
+                for snapshot in variants
+                if snapshot.to_dict().get("barcode")
+            }
+            retained_ids = set()
+            seen_skus = set()
+            summaries = []
+            total_stock = 0
+            total_reserved = 0
+            for index, raw_variant in enumerate(raw_variants, start=1):
+                try:
+                    variant_id = optional_text(raw_variant.get("id"), 120)
+                    size = optional_text(raw_variant.get("size"), 40)
+                    sku, barcode = identifiers[index - 1]
+                    stock_on_hand = non_negative_integer(raw_variant.get("stock", 0), f"Stock in row {index}")
+                    cost_minor = money_to_minor_units(raw_variant.get("costPrice", payload.get("costPrice")), f"Cost price in row {index}")
+                    selling_minor = money_to_minor_units(raw_variant.get("sellingPrice", payload.get("sellingPrice")), f"Selling price in row {index}", allow_zero=False)
+                except ValueError as error:
+                    raise ApiError("validation_error", str(error), 422) from error
+                normalized_sku = normalize_registry_key(sku)
+                normalized_barcode = normalize_registry_key(barcode)
+                if normalized_sku in seen_skus:
+                    raise ApiError("duplicate_variant_identifier", "Variant SKUs must be unique.", 422)
+                seen_skus.add(normalized_sku)
 
-            if "lowStockThreshold" in changes:
-                variant_changes["stockStatus"] = stock_status(
-                    variant.to_dict().get("stockAvailable", 0),
-                    changes["lowStockThreshold"],
-                )
+                snapshot = existing_by_id.get(variant_id)
+                if snapshot is None:
+                    sku_match = existing_by_sku.get(normalized_sku)
+                    barcode_match = existing_by_barcode.get(normalized_barcode)
+                    if sku_match and barcode_match and sku_match.id != barcode_match.id:
+                        raise ApiError(
+                            "variant_identifier_conflict",
+                            "The SKU and barcode belong to different variants.",
+                            409,
+                        )
+                    snapshot = sku_match or barcode_match
+                if snapshot:
+                    current = snapshot.to_dict()
+                    reserved = current.get("stockReserved", 0)
+                    if stock_on_hand < reserved:
+                        raise ApiError("insufficient_adjustable_stock", "Variant stock cannot be below reserved stock.", 409)
+                    reference = snapshot.reference
+                    retained_ids.add(snapshot.id)
+                    image_url = (
+                        optional_text(raw_variant.get("imageUrl"), 2000)
+                        if "imageUrl" in raw_variant
+                        else current.get("imageUrl", "")
+                    )
+                    created_at = current.get("createdAt")
+                else:
+                    current = {}
+                    reserved = 0
+                    reference = business_reference.collection("productVariants").document()
+                    variant_id = reference.id
+                    image_url = optional_text(raw_variant.get("imageUrl"), 2000)
+                    created_at = firestore.SERVER_TIMESTAMP
+                sku_registry = business_reference.collection("skuRegistry").document(normalize_registry_key(sku))
+                barcode_registry = business_reference.collection("barcodeRegistry").document(normalize_registry_key(barcode))
+                for registry, registry_type, value in ((sku_registry, "sku", sku), (barcode_registry, "barcode", barcode)):
+                    registry_snapshot = registry_snapshots[registry_type, normalize_registry_key(value)]
+                    if registry_snapshot.exists and registry_snapshot.to_dict().get("productId") != product_id:
+                        raise ApiError(f"{registry_type}_already_exists", f"{registry_type.upper()} {value} is already in use.", 409)
+                    current_transaction.set(registry, {"type": registry_type, "value": value, "productId": product_id, "updatedAt": firestore.SERVER_TIMESTAMP}, merge=True)
+                if current.get("sku") and normalize_registry_key(current["sku"]) != normalize_registry_key(sku):
+                    current_transaction.delete(business_reference.collection("skuRegistry").document(normalize_registry_key(current["sku"])))
+                active_barcodes = {
+                    normalize_registry_key(item.get("barcode", ""))
+                    for item in raw_variants
+                    if item.get("barcode")
+                }
+                if current.get("barcode") and normalize_registry_key(current["barcode"]) != normalize_registry_key(barcode) and normalize_registry_key(current["barcode"]) not in active_barcodes:
+                    current_transaction.delete(business_reference.collection("barcodeRegistry").document(normalize_registry_key(current["barcode"])))
+                available = stock_on_hand - reserved
+                status = stock_status(available, changes.get("lowStockThreshold", current_product.get("lowStockThreshold", 5)))
+                variant_data = {"productId": product_id, "size": size, "sku": sku, "barcode": barcode, "costPriceMinor": cost_minor, "sellingPriceMinor": selling_minor, "weightGrams": changes.get("weightGrams", current_product.get("weightGrams", 0)), "stockOnHand": stock_on_hand, "stockReserved": reserved, "stockAvailable": available, "stockStatus": status, "status": "active", "imageUrl": image_url, "createdAt": created_at, "updatedAt": firestore.SERVER_TIMESTAMP}
+                current_transaction.set(reference, variant_data, merge=True)
+                summaries.append({"id": variant_id, "size": size, "sku": sku, "barcode": barcode, "stockOnHand": stock_on_hand, "stockReserved": reserved, "stockAvailable": available, "stockStatus": status, "costPriceMinor": cost_minor, "sellingPriceMinor": selling_minor, "imageUrl": image_url})
+                total_stock += stock_on_hand
+                total_reserved += reserved
 
-            batch.update(variant.reference, variant_changes)
+            for variant_id, snapshot in existing_by_id.items():
+                if variant_id not in retained_ids and snapshot.to_dict().get("stockReserved", 0) > 0:
+                    raise ApiError("variant_in_use", "A variant reserved by an order cannot be removed.", 409)
+                if variant_id not in retained_ids:
+                    old = snapshot.to_dict()
+                    if old.get("sku"):
+                        current_transaction.delete(business_reference.collection("skuRegistry").document(normalize_registry_key(old["sku"])))
+                    if old.get("barcode") and normalize_registry_key(old["barcode"]) not in active_barcodes:
+                        current_transaction.delete(business_reference.collection("barcodeRegistry").document(normalize_registry_key(old["barcode"])))
+                    current_transaction.delete(snapshot.reference)
+            available_stock = total_stock - total_reserved
+            changes.update({"hasSizes": payload.get("hasSizes") is True, "variantSummaries": summaries, "totalStock": total_stock, "reservedStock": total_reserved, "availableStock": available_stock, "stockStatus": stock_status(available_stock, changes.get("lowStockThreshold", current_product.get("lowStockThreshold", 5)))})
+        shared_variant_changes = {
+            field: changes[field]
+            for field in ("costPriceMinor", "sellingPriceMinor", "weightGrams")
+            if field in changes and (field == "weightGrams" or "variants" not in payload)
+        }
 
-    batch.commit()
+        if "lowStockThreshold" in changes:
+            threshold = changes["lowStockThreshold"]
+            changes["stockStatus"] = stock_status(
+                current_product.get("availableStock", 0),
+                threshold,
+            )
+            if "variants" not in payload:
+                changes["variantSummaries"] = [
+                {
+                    **summary,
+                    "stockStatus": stock_status(
+                        summary.get("stockAvailable", 0),
+                        threshold,
+                    ),
+                }
+                for summary in current_product.get("variantSummaries", [])
+                ]
+
+        current_transaction.update(product_reference, changes)
+
+        if shared_variant_changes or "lowStockThreshold" in changes:
+            timestamp = firestore.SERVER_TIMESTAMP
+
+            for variant in variants:
+                variant_changes = {
+                    **shared_variant_changes,
+                    "updatedAt": timestamp,
+                }
+
+                if "lowStockThreshold" in changes:
+                    variant_changes["stockStatus"] = stock_status(
+                        variant.to_dict().get("stockAvailable", 0),
+                        changes["lowStockThreshold"],
+                    )
+
+                current_transaction.update(variant.reference, variant_changes)
+
+    update_in_transaction(database.transaction())
     return get_product(database, business_id, product_id)
 
 
