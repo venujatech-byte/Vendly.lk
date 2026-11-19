@@ -44,3 +44,10 @@ export function invalidateReadCache(prefix, keepPrefix) {
     if (key.startsWith(prefix) && (keepPrefix == null || !key.startsWith(keepPrefix))) pending.delete(key);
   }
 }
+
+
+// Bound completed search-query entries without evicting other modules, tenants or pending loads.
+export function limitReadCache(prefix, maximumEntries) {
+  const keys = [...cache.keys()].filter((key) => key.startsWith(prefix));
+  for (const key of keys.slice(0, Math.max(0, keys.length - maximumEntries))) cache.delete(key);
+}

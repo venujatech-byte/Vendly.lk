@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { beforeEach, test } from "node:test";
 
-import { cachedRequest, getReadCacheSession, invalidateReadCache } from "./readCache.js";
+import { cachedRequest, getReadCacheSession, invalidateReadCache, limitReadCache } from "./readCache.js";
 
 // Control completion order without timers or network requests.
 function deferred() {
@@ -133,4 +133,23 @@ test("clearing the session detaches all pending keys without disturbing subseque
   old.resolve("owner customers");
   await first;
   assert.equal(await cachedRequest("customers:shop:", () => assert.fail("old session returned")), "staff customers");
+});
+
+
+// Search retention must not evict product caches, another tenant's results or independent pending work.
+test("query retention discards oldest completed entries only within its business prefix", async () => {
+  await cachedRequest("search:shop-a:old", () => "old", Infinity);
+  await cachedRequest("search:shop-b:other", () => "other", Infinity);
+  await cachedRequest("products:shop-a:revision", () => "products", Infinity);
+  await cachedRequest("search:shop-a:current", () => "current", Infinity);
+  const late = deferred();
+  const pending = cachedRequest("search:shop-a:pending", () => late.promise, Infinity);
+  limitReadCache("search:shop-a:", 1);
+  assert.equal(await cachedRequest("search:shop-a:current", () => assert.fail("current result evicted")), "current");
+  assert.equal(await cachedRequest("search:shop-b:other", () => assert.fail("other tenant evicted")), "other");
+  assert.equal(await cachedRequest("products:shop-a:revision", () => assert.fail("product cache evicted")), "products");
+  assert.equal(cachedRequest("search:shop-a:pending", () => assert.fail("pending request detached")), pending);
+  late.resolve("late");
+  await pending;
+  assert.equal(await cachedRequest("search:shop-a:old", () => "reloaded"), "reloaded");
 });

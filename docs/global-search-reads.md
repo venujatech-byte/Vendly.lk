@@ -54,3 +54,8 @@ Deploy the backend only after approval. Older workers return the same results
 but continue doing full scans. Verify ordinary, sparse, Unicode and no-match
 header searches with owner/staff accounts in real clients before production
 use. Real web/mobile, load tests and actual billing remain unverified.
+
+
+The separate [search cache follow-up](search-cache-revisions.md) reuses repeated
+queries using existing revisions and current read permissions. The scan behavior
+and limits described above still apply when that cache misses.

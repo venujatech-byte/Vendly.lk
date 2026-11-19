@@ -1,6 +1,9 @@
+import hashlib
+import json
 import re
 
 from app.core.authorization import membership_has_permission
+from app.services.cache_revision_service import get_cache_revision
 from app.services.customer_service import stream_customers
 from app.services.order_service import stream_orders
 from app.services.product_service import stream_products
@@ -129,6 +132,27 @@ def search_records(orders, products, customers, query, limit_per_type=8):
         "products": product_results[:limit_per_type],
         "customers": customer_results[:limit_per_type],
     }
+
+
+def search_scope(membership):
+    # Include only server-granted modules so permission changes cannot reuse broader cached results.
+    return ",".join(
+        collection for collection, permission in (
+            ("orders", "orders:read"), ("products", "inventory:read"), ("customers", "customers:read"),
+        )
+        if membership_has_permission(membership, permission)
+    )
+
+
+def get_search_revision(database, business_id, membership):
+    # Reuse existing atomic markers; search caching needs no extra writes or collection scans.
+    scope = search_scope(membership)
+    revisions = {
+        collection: get_cache_revision(database, business_id, collection)
+        for collection in scope.split(",") if collection
+    }
+    revision = hashlib.sha256(json.dumps(revisions, sort_keys=True).encode()).hexdigest()
+    return {"revision": revision, "scope": scope}
 
 
 def global_search(database, business_id, query, membership):
