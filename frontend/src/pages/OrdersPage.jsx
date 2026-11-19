@@ -191,6 +191,7 @@ function OrdersPage() {
 
   useEffect(() => {
     let requestIsCurrent = true;
+    const controller = new AbortController();
 
     async function loadOrders() {
       if (!business?.id) {
@@ -212,18 +213,16 @@ function OrdersPage() {
           ...(routeDateFrom ? { dateFrom: routeDateFrom } : {}),
           ...(routeDateTo ? { dateTo: routeDateTo } : {}),
           ...(routeCourier ? { courierId: routeCourier } : {}),
-        });
+        }, { signal: controller.signal });
 
         if (requestIsCurrent) {
           setOrders(orderRecords);
         }
       } catch (error) {
+        if (!requestIsCurrent) return;
         console.error("Orders could not be loaded:", error);
-
-        if (requestIsCurrent) {
-          setOrdersError(error);
-          setOrders([]);
-        }
+        setOrdersError(error);
+        setOrders([]);
       } finally {
         if (requestIsCurrent) setIsLoading(false);
       }
@@ -232,6 +231,8 @@ function OrdersPage() {
     loadOrders();
     return () => {
       requestIsCurrent = false;
+      // Stop obsolete page requests when the tenant or active filters change.
+      controller.abort();
     };
   }, [business?.id, filters, routeSearch, routeDateFrom, routeDateTo, routeCourier]);
 

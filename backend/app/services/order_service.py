@@ -24,6 +24,7 @@ from app.services.chat_event_service import (
     send_payment_recorded_chat_message,
 )
 from app.services.inventory_batches import consume_fifo_batches
+from app.services.analytics_service import stream_report_snapshots
 from app.services.numbers import money_to_minor_units, non_negative_integer
 from app.services.product_service import stock_status
 from app.services.text import optional_text, required_text
@@ -56,6 +57,7 @@ STATUS_TRANSITIONS = {
     "returned": set(),
     "cancelled": set(),
 }
+ORDER_PAGE_SIZE = 200
 
 
 def returned_customer_risk(returned_order_count):
@@ -244,11 +246,13 @@ def list_orders(
         .document(business_id)
         .collection("orders")
     )
+    # Internal callers such as exports must filter the complete dataset, not a single API page.
     orders = [
         serialize_snapshot(snapshot)
-        for snapshot in collection.order_by("createdAt", direction="DESCENDING")
-        .limit(200)
-        .stream()
+        for snapshot in stream_report_snapshots(
+            collection.order_by("createdAt", direction="DESCENDING"),
+            collection.parent.get().read_time,
+        )
     ]
 
     return filter_orders(
@@ -259,6 +263,37 @@ def list_orders(
         date_to=date_to,
         courier_id=courier_id,
     )
+
+
+def list_orders_page(
+    database, business_id, *, after=None, status=None, search=None,
+    date_from=None, date_to=None, courier_id=None,
+):
+    """Return one bounded scan page; clients continue even when its filter matches are empty."""
+    collection = database.collection("businesses").document(business_id).collection("orders")
+    query = collection.order_by("createdAt", direction="DESCENDING")
+    if after:
+        # Cursors identify only a document inside this authenticated tenant, never a caller-supplied path.
+        if (
+            not isinstance(after, str) or "/" in after or len(after.encode("utf-8")) > 1500
+            or after in {".", ".."} or (after.startswith("__") and after.endswith("__"))
+        ):
+            raise ApiError("invalid_order_cursor", "The order cursor is invalid. Reload the orders list.", 422)
+        cursor = collection.document(after).get()
+        if not cursor.exists or "createdAt" not in (cursor.to_dict() or {}):
+            raise ApiError("invalid_order_cursor", "The order cursor is no longer available. Reload the orders list.", 422)
+        query = query.start_after(cursor)
+    snapshots = list(query.limit(ORDER_PAGE_SIZE).stream())
+    has_more = len(snapshots) == ORDER_PAGE_SIZE
+    return {
+        "orders": filter_orders(
+            [serialize_snapshot(snapshot) for snapshot in snapshots],
+            status=status, search=search, date_from=date_from, date_to=date_to, courier_id=courier_id,
+        ),
+        "hasMore": has_more,
+        # Advance using scanned rows, so sparse searches do not stop at an empty matching page.
+        "nextCursor": snapshots[-1].id if has_more else None,
+    }
 
 
 def get_order(database, business_id, order_id):

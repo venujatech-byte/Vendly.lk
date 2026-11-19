@@ -110,7 +110,7 @@ export function mapOrderForTable(order) {
   };
 }
 
-export async function getOrders(businessId, filters = {}) {
+export async function getOrders(businessId, filters = {}, { signal } = {}) {
   const parameters = new URLSearchParams();
 
   if (filters.status) parameters.set("status", filters.status);
@@ -118,11 +118,27 @@ export async function getOrders(businessId, filters = {}) {
   if (filters.dateFrom) parameters.set("dateFrom", filters.dateFrom);
   if (filters.dateTo) parameters.set("dateTo", filters.dateTo);
   if (filters.courierId) parameters.set("courierId", filters.courierId);
-  const query = parameters.toString();
-  const response = await apiRequest(
-    `/businesses/${businessId}/orders${query ? `?${query}` : ""}`,
-  );
-  return response.orders.map(mapOrderForTable);
+  const orders = new Map();
+  const cursors = new Set();
+  // Finish every scan page before publishing data, preserving whole-list sorting and summary cards.
+  while (true) {
+    signal?.throwIfAborted();
+    const query = parameters.toString();
+    const response = await apiRequest(
+      `/businesses/${businessId}/orders${query ? `?${query}` : ""}`,
+      { signal },
+    );
+    signal?.throwIfAborted();
+    for (const order of response.orders) orders.set(order.id, order);
+    if (!response.hasMore) break;
+    // Fail rather than loop forever if a server returns a missing or repeated continuation cursor.
+    if (typeof response.nextCursor !== "string" || !response.nextCursor || cursors.has(response.nextCursor)) {
+      throw new Error("Orders could not be loaded. Reload the orders list.");
+    }
+    cursors.add(response.nextCursor);
+    parameters.set("after", response.nextCursor);
+  }
+  return [...orders.values()].map(mapOrderForTable);
 }
 
 export async function createOrder(businessId, orderData) {

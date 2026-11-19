@@ -8,7 +8,7 @@ from app.services.media_service import upload_review_data_url
 from app.services.order_service import (
     create_order,
     get_order,
-    list_orders,
+    list_orders_page,
     attach_order_payment_receipt,
     record_order_payment,
     update_order_status,
@@ -24,16 +24,18 @@ orders_blueprint = Blueprint("orders", __name__, url_prefix="/api/v1")
 @require_firebase_user
 @require_business_member(permission="orders:read")
 def get_orders(business_id):
-    orders = list_orders(
+    # Bound each response while retaining the same tenant and read-permission checks on every page.
+    result = list_orders_page(
         get_firestore_client(),
         business_id,
+        after=request.args.get("after"),
         status=request.args.get("status"),
         search=request.args.get("search"),
         date_from=request.args.get("dateFrom"),
         date_to=request.args.get("dateTo"),
         courier_id=request.args.get("courierId"),
     )
-    return jsonify({"orders": orders})
+    return jsonify(result)
 
 
 @orders_blueprint.post("/businesses/<business_id>/orders")
