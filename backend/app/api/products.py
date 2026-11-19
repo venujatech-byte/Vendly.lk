@@ -12,7 +12,7 @@ from app.services.product_service import (
     adjust_variant_stock,
     create_product,
     get_product,
-    list_products,
+    list_products_page,
     update_product,
 )
 from app.services.analytics_service import bump_analytics_version
@@ -31,13 +31,15 @@ products_blueprint = Blueprint("products", __name__, url_prefix="/api/v1")
 @require_firebase_user
 @require_business_member(permission="inventory:read")
 def get_products(business_id):
-    products = list_products(
+    # Bound each private list response while checking tenant membership/read permission on every page.
+    result = list_products_page(
         get_firestore_client(),
         business_id,
+        after=request.args.get("after"),
         category_id=request.args.get("categoryId"),
         status=request.args.get("status"),
     )
-    return jsonify({"products": products})
+    return jsonify(result)
 
 
 @products_blueprint.get("/businesses/<business_id>/inventory-export.xlsx")

@@ -70,10 +70,23 @@ export async function getProducts(businessId, filters = {}) {
 
   const query = searchParameters.toString();
   return cachedRequest(`products:${businessId}:${query}`, async () => {
-    const response = await apiRequest(
-      `/businesses/${businessId}/products${query ? `?${query}` : ""}`,
-    );
-    return response.products.map(mapProductForInventory);
+    const products = new Map();
+    const cursors = new Set();
+    // Publish/cache the complete filtered list so sorting, totals and product selectors retain all rows.
+    while (true) {
+      const pageQuery = searchParameters.toString();
+      const response = await apiRequest(
+        `/businesses/${businessId}/products${pageQuery ? `?${pageQuery}` : ""}`,
+      );
+      for (const product of response.products) products.set(product.id, product);
+      if (!response.hasMore) break;
+      if (typeof response.nextCursor !== "string" || !response.nextCursor || cursors.has(response.nextCursor)) {
+        throw new Error("Products could not be loaded. Reload the inventory list.");
+      }
+      cursors.add(response.nextCursor);
+      searchParameters.set("after", response.nextCursor);
+    }
+    return [...products.values()].map(mapProductForInventory);
   }, 60 * 1000);
 }
 

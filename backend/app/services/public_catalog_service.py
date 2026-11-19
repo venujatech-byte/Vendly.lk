@@ -118,7 +118,8 @@ def get_public_store(database, short_code):
     if not business_snapshot.exists or business_snapshot.to_dict().get("status") != "active":
         raise ApiError("store_not_found", "This Vendly store is unavailable.", 404)
 
-    products = list_products(database, business_snapshot.id, status="active")
+    # Keep the public catalogue's existing bound while authenticated inventory lists load all pages.
+    products = list_products(database, business_snapshot.id, status="active", limit=200)
     store_data = {
         "business": public_business(business_snapshot),
         "products": [public_product(product) for product in products],

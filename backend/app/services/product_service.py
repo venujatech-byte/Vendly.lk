@@ -6,6 +6,7 @@ from google.cloud.firestore_v1.base_query import FieldFilter
 
 from app.core.errors import ApiError
 from app.core.serialization import serialize_snapshot
+from app.services.analytics_service import stream_report_snapshots
 from app.services.business_service import generate_short_code
 from app.services.inventory_batches import (
     add_fifo_batch,
@@ -20,6 +21,9 @@ from app.services.numbers import (
     non_negative_integer,
 )
 from app.services.text import optional_text, required_text, slugify
+
+
+PRODUCT_PAGE_SIZE = 200
 
 
 def stock_status(stock, threshold):
@@ -230,7 +234,8 @@ def validate_product(payload):
     }
 
 
-def list_products(database, business_id, category_id=None, status=None):
+def _product_query(database, business_id, category_id=None, status=None):
+    """Share existing category/status query semantics between complete lists and API pages."""
     query = (
         database.collection("businesses")
         .document(business_id)
@@ -242,7 +247,40 @@ def list_products(database, business_id, category_id=None, status=None):
     if status:
         query = query.where(filter=FieldFilter("status", "==", status))
 
-    return [serialize_snapshot(snapshot) for snapshot in query.limit(200).stream()]
+    return query
+
+
+def list_products(database, business_id, category_id=None, status=None, *, limit=None):
+    query = _product_query(database, business_id, category_id, status)
+    if limit is not None:
+        # Public catalogue callers retain their existing explicit cap rather than exposing the full scan.
+        snapshots = query.limit(limit).stream()
+    else:
+        # Internal inventory/search callers receive all matching records from bounded consistent scans.
+        read_time = database.collection("businesses").document(business_id).get().read_time
+        snapshots = stream_report_snapshots(query, read_time)
+    return [serialize_snapshot(snapshot) for snapshot in snapshots]
+
+
+def list_products_page(database, business_id, *, category_id=None, status=None, after=None):
+    """Return one bounded product page with the existing filters and default document-ID order."""
+    query = _product_query(database, business_id, category_id, status).order_by("__name__")
+    if after:
+        # Cursor values are local IDs only; the server fixes every query/reference to this tenant.
+        if (
+            not isinstance(after, str) or "/" in after or len(after.encode("utf-8")) > 1500
+            or after in {".", ".."} or (after.startswith("__") and after.endswith("__"))
+        ):
+            raise ApiError("invalid_product_cursor", "The product cursor is invalid. Reload the inventory list.", 422)
+        reference = database.collection("businesses").document(business_id).collection("products").document(after)
+        query = query.start_after({"__name__": reference})
+    snapshots = list(query.limit(PRODUCT_PAGE_SIZE).stream())
+    has_more = len(snapshots) == PRODUCT_PAGE_SIZE
+    return {
+        "products": [serialize_snapshot(snapshot) for snapshot in snapshots],
+        "hasMore": has_more,
+        "nextCursor": snapshots[-1].id if has_more else None,
+    }
 
 
 def get_product(database, business_id, product_id):

@@ -68,14 +68,22 @@ class MemoryFirestore:
         parent = request["parent"]
         prefix = f"{parent}/documents/" if "/documents/" not in parent else f"{parent}/"
         prefix += query.from_[0].collection_id + "/"
-        field = query.where.field_filter.field.field_path
-        expected = query.where.field_filter.value.string_value
+        # Support the existing AND/equality product filters without silently ignoring composite queries.
+        filters = list(query.where.composite_filter.filters) or [query.where]
+        if query.where.composite_filter.filters:
+            assert query.where.composite_filter.op == types.StructuredQuery.CompositeFilter.Operator.AND
+        conditions = []
+        for item in filters:
+            field = item.field_filter.field.field_path
+            if field:
+                assert item.field_filter.op == types.StructuredQuery.FieldFilter.Operator.EQUAL
+                conditions.append((field, decode_value(item.field_filter.value, self.client)))
         matches = []
         read_time = request.get("read_time")
         documents = self.read_states[read_time] if read_time else self.documents
         for path, data in list(documents.items()):
             name = f"{self.client._database_string}/documents/{path}"
-            if name.startswith(prefix) and "/" not in name[len(prefix):] and (not field or data.get(field) == expected):
+            if name.startswith(prefix) and "/" not in name[len(prefix):] and all(data.get(field) == expected for field, expected in conditions):
                 matches.append((name, data))
         # Match the server's document-name tie-breaker and snapshot cursor across report pages.
         orders = list(query.order_by)
