@@ -100,3 +100,37 @@ def test_claims_keep_existing_financial_formulas_and_source_snapshot(store, clai
     assert result["sourceNumber"] == "SS-000001"
     assert result["customerName"] == "Synthetic customer"
     assert result["createdBy"] == "seller"
+
+
+@pytest.mark.parametrize("expenses,expected", [
+    ({"otherExpensesMinor": 500}, 500),
+    ({"otherExpensesMinor": "500"}, 500),
+    ({"otherExpensesMinor": 0}, 0),
+    ({"otherExpensesMinor": 2**63 - 1}, 2**63 - 1),
+    ({}, 0),
+    ({"otherExpenses": "5.25"}, 525),
+    ({"otherExpenses": "5.25", "otherExpensesMinor": 900}, 525),
+    ({"otherExpenses": 0, "otherExpensesMinor": "invalid"}, 0),
+])
+def test_expense_fields_preserve_their_units_and_whole_rupee_precedence(store, expenses, expected):
+    # Remove the fixture's whole-rupee field to exercise older callers and omitted expenses.
+    request = payload()
+    request.pop("otherExpenses")
+    result = create_warranty_claim(store.client, "business-a", "seller", {**request, **expenses})
+    assert result["otherExpensesMinor"] == expected
+    assert result["totalExpensesMinor"] == result["revenueImpactMinor"] == expected
+
+
+@pytest.mark.parametrize("value", [-1, 1.5, "1.5", True, None, "bad", float("nan"), float("inf"), [], {}, 2**63])
+def test_invalid_minor_unit_expenses_are_rejected_before_any_database_access(store, value):
+    request = payload(otherExpensesMinor=value)
+    request.pop("otherExpenses")
+    before = deepcopy(store.documents)
+    with pytest.raises(ApiError) as error:
+        create_warranty_claim(store.client, "business-a", "seller", request)
+    assert error.value.status_code == 422
+    assert error.value.code == "validation_error"
+    assert store.documents == before
+    store.client._firestore_api.begin_transaction.assert_not_called()
+    store.client._firestore_api.batch_get_documents.assert_not_called()
+    store.client._firestore_api.commit.assert_not_called()

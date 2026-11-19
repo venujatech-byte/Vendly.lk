@@ -367,7 +367,11 @@ def create_warranty_claim(database, business_id, uid, payload):
         claim_quantity = non_negative_integer(payload.get("claimQuantity", 1), "Claim quantity")
         claim_type = required_text(payload.get("claimType", "supplier-warranty"), "Claim handling", 30)
         repair_cost_minor = money_to_minor_units(payload.get("repairCost", 0), "Repair cost")
-        other_expenses_minor = money_to_minor_units(payload.get("otherExpenses", payload.get("otherExpensesMinor", 0)), "Other expenses")
+        # Preserve whole-rupee precedence; the older minor-unit field is already converted.
+        if "otherExpenses" in payload:
+            other_expenses_minor = money_to_minor_units(payload["otherExpenses"], "Other expenses")
+        else:
+            other_expenses_minor = non_negative_integer(payload.get("otherExpensesMinor", 0), "Other expenses")
         reason = required_text(payload.get("reason"), "Warranty reason", 300)
         details = optional_text(payload.get("details"), 1500)
         other_expenses_notes = optional_text(payload.get("otherExpensesNotes", payload.get("expenseNotes")), 500)
