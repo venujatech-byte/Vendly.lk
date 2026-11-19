@@ -10,7 +10,7 @@ from firestore_memory import MemoryFirestore
 from app import create_app
 from app.core.errors import ApiError
 from app.services import media_service, order_service, spreadsheet_service
-from app.services.product_revision_service import get_product_revision
+from app.services.cache_revision_service import get_cache_revision
 from app.services.product_service import adjust_variant_stock, create_product, update_product
 from app.services.review_service import moderate_review
 from app.services.shop_sale_service import create_shop_sale, delete_shop_sale
@@ -60,7 +60,7 @@ def store(monkeypatch):
 
 
 def revision(store):
-    return get_product_revision(store.client, "business-a")
+    return get_cache_revision(store.client, "business-a", "products")
 
 
 def create_order(store):

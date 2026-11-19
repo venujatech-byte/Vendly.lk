@@ -8,6 +8,7 @@ from app.core.errors import ApiError
 from app.core.serialization import serialize_snapshot
 from app.core.serialization import serialize_value
 from app.services.customer_service import normalize_sri_lankan_phone
+from app.services.cache_revision_service import mark_cache_changed
 from app.services.text import optional_text
 
 
@@ -124,6 +125,8 @@ def report_customer(database, business_id, customer_id, uid, payload):
             },
         )
 
+        mark_cache_changed(database, business_id, "customers", current_transaction)
+
     report_in_transaction(transaction)
     return serialize_snapshot(report_reference.get())
 
@@ -147,7 +150,10 @@ def change_customer_fraud_risk(database, business_id, customer_id, payload):
     if not customer_reference.get().exists:
         raise ApiError("customer_not_found", "Customer not found.", 404)
 
-    customer_reference.update(
+    # Keep the risk edit and its revision in one commit.
+    batch = database.batch()
+    batch.update(
+        customer_reference,
         {
             "manualFraudRiskLevel": risk_level,
             "riskLevel": risk_level,
@@ -155,6 +161,8 @@ def change_customer_fraud_risk(database, business_id, customer_id, payload):
             "updatedAt": firestore.SERVER_TIMESTAMP,
         },
     )
+    mark_cache_changed(database, business_id, "customers", batch)
+    batch.commit()
     return serialize_snapshot(customer_reference.get())
 
 
@@ -193,6 +201,7 @@ def remove_customer_from_fraud_list(database, business_id, customer_id):
             global_registry_increment(report_count=-len(reports)),
             merge=True,
         )
+    mark_cache_changed(database, business_id, "customers", batch)
     batch.commit()
     return {"customerId": customer_id, "removed": True}
 

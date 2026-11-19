@@ -25,7 +25,7 @@ from app.services.chat_event_service import (
 )
 from app.services.inventory_batches import consume_fifo_batches
 from app.services.analytics_service import stream_report_snapshots
-from app.services.product_revision_service import mark_products_changed
+from app.services.cache_revision_service import mark_cache_changed
 from app.services.numbers import money_to_minor_units, non_negative_integer
 from app.services.product_service import stock_status
 from app.services.text import optional_text, required_text
@@ -639,7 +639,7 @@ def create_order(database, business_id, uid, payload, *, customer_contact=None):
             )
 
         # Order reservations also change cached inventory, including orders placed by the mobile app.
-        mark_products_changed(database, business_id, current_transaction)
+        mark_cache_changed(database, business_id, "products", current_transaction)
 
         if request_data["depositMinor"] > total_minor:
             raise ApiError("invalid_deposit", "Deposit cannot exceed the order total.", 422)
@@ -765,6 +765,7 @@ def create_order(database, business_id, uid, payload, *, customer_contact=None):
                 },
             )
         current_transaction.update(customer_reference, customer_changes)
+        mark_cache_changed(database, business_id, "customers", current_transaction)
         current_transaction.update(
             courier_reference,
             {
@@ -1150,7 +1151,7 @@ def update_order_status(database, business_id, order_id, uid, payload):
 
         # Only stock-changing transitions affect the product cache.
         if product_snapshots:
-            mark_products_changed(database, business_id, current_transaction)
+            mark_cache_changed(database, business_id, "products", current_transaction)
 
         order_changes = {
             "fulfilmentStatus": new_status,
@@ -1239,6 +1240,10 @@ def update_order_status(database, business_id, order_id, uid, payload):
                     global_registry_increment(returned_count=1),
                     merge=True,
                 )
+
+        # Customer totals and return risk change only on these terminal transitions.
+        if new_status in {"delivered", "returned"} and customer_snapshot and customer_snapshot.exists:
+            mark_cache_changed(database, business_id, "customers", current_transaction)
 
         if courier_snapshot and courier_snapshot.exists and new_status in {"delivered", "returned"}:
             courier = courier_snapshot.to_dict()
@@ -1701,7 +1706,7 @@ def add_items_to_order(database, business_id, order_id, uid, items):
                 },
             )
 
-        mark_products_changed(database, business_id, current_transaction)
+        mark_cache_changed(database, business_id, "products", current_transaction)
         subtotal_minor = sum(line["lineTotalMinor"] for line in existing_items)
         total_weight_grams = sum(
             line.get("unitWeightGrams", 0) * line["quantity"]

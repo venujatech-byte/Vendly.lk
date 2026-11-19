@@ -14,7 +14,7 @@ from werkzeug.utils import secure_filename
 
 from app.core.errors import ApiError
 from app.services.product_service import get_product
-from app.services.product_revision_service import mark_products_changed
+from app.services.cache_revision_service import mark_cache_changed
 
 
 ALLOWED_MEDIA_TYPES = {
@@ -368,7 +368,7 @@ def upload_product_media(
     # Publish media metadata and its cache revision in one batch after upload succeeds.
     batch = database.batch()
     batch.update(product_reference, changes)
-    mark_products_changed(database, business_id, batch)
+    mark_cache_changed(database, business_id, "products", batch)
     batch.commit()
     return get_product(database, business_id, product_id)
 
@@ -386,6 +386,6 @@ def upload_variant_image(database, business_id, product_id, variant_id, upload, 
     summaries = [{**summary, "imageUrl": media["url"]} if summary.get("id") == variant_id else summary for summary in product.get("variantSummaries", [])]
     batch.update(database.collection("businesses").document(business_id).collection("products").document(product_id), {"variantSummaries": summaries, "updatedAt": firestore.SERVER_TIMESTAMP})
     # The image, product summary and revision must be observed as one committed change.
-    mark_products_changed(database, business_id, batch)
+    mark_cache_changed(database, business_id, "products", batch)
     batch.commit()
     return get_product(database, business_id, product_id)

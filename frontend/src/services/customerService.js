@@ -1,5 +1,5 @@
 import { apiRequest } from "./apiClient";
-import { cachedRequest, invalidateReadCache } from "./readCache";
+import { cachedRequest, getReadCacheSession, invalidateReadCache } from "./readCache";
 
 // Match Firestore's UTF-8 name ordering without changing the table's existing locale-based sort controls.
 const nameEncoder = new TextEncoder();
@@ -15,7 +15,17 @@ function compareCustomerNames(left, right) {
 }
 
 export async function getCustomers(businessId, search = "") {
-  return cachedRequest(`customers:${businessId}:${search.trim().toLowerCase()}`, async () => {
+  // Recheck permission and backend freshness before reusing session-memory customer data.
+  const session = getReadCacheSession();
+  const { revision } = await apiRequest(`/businesses/${businessId}/customers/cache/version`);
+  if (session !== getReadCacheSession()) throw new DOMException("The login session changed.", "AbortError");
+  if (typeof revision !== "string" || !revision || revision.length > 128) {
+    throw new Error("Customer freshness could not be verified.");
+  }
+  const prefix = `customers:${businessId}:${encodeURIComponent(revision)}:`;
+  // Keep current search variants while detaching data and pending loads from obsolete revisions.
+  invalidateReadCache(`customers:${businessId}:`, prefix);
+  return cachedRequest(`${prefix}${search.trim().toLowerCase()}`, async () => {
     const parameters = new URLSearchParams();
     if (search) parameters.set("search", search);
     const customers = new Map();
@@ -34,7 +44,7 @@ export async function getCustomers(businessId, search = "") {
     }
     // ID pages arrive in ID order; restore the original default name order and stable ID tie-breaker.
     return [...customers.values()].sort(compareCustomerNames);
-  }, search ? 15 * 1000 : 60 * 1000);
+  }, Infinity);
 }
 
 // Export the customer records already returned by the secured business API.
@@ -112,6 +122,7 @@ export async function reportCustomer(businessId, customerId) {
       },
     },
   );
+  invalidateReadCache(`customers:${businessId}:`);
   return response.fraudReport;
 }
 
@@ -127,12 +138,15 @@ export async function changeFraudRiskLevel(businessId, customerId, riskLevel) {
     `/businesses/${businessId}/customers/${customerId}/fraud-risk`,
     { method: "PATCH", body: { riskLevel } },
   );
+  invalidateReadCache(`customers:${businessId}:`);
   return response.customer;
 }
 
 export async function removeFromFraudList(businessId, customerId) {
-  return apiRequest(
+  const response = await apiRequest(
     `/businesses/${businessId}/customers/${customerId}/fraud-profile`,
     { method: "DELETE" },
   );
+  invalidateReadCache(`customers:${businessId}:`);
+  return response;
 }

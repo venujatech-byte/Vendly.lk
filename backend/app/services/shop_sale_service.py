@@ -11,7 +11,7 @@ from app.services.inventory_batches import (
 )
 from app.services.numbers import money_to_minor_units, non_negative_integer
 from app.services.product_service import stock_status
-from app.services.product_revision_service import mark_products_changed
+from app.services.cache_revision_service import mark_cache_changed
 from app.services.text import optional_text, required_text
 from app.services.warranty import warranty_is_active, warranty_snapshot
 
@@ -233,7 +233,7 @@ def create_shop_sale(database, business_id, uid, payload):
             current_transaction.update(product_snapshot.reference, product_updates)
 
         # Stock and its cache revision commit together for shop sales from either client.
-        mark_products_changed(database, business_id, current_transaction)
+        mark_cache_changed(database, business_id, "products", current_transaction)
         total_minor = subtotal_minor - discount_minor
         current_transaction.set(sale_ref, {
             "saleNumber": sale_number, "source": "physical-shop", "status": "completed",
@@ -347,7 +347,7 @@ def delete_shop_sale(database, business_id, sale_id, uid):
                 product_updates["costPriceMinor"] = summaries[0].get("costPriceMinor", product.get("costPriceMinor", 0))
             current_transaction.update(product_snapshot.reference, product_updates)
         if quantity_by_product:
-            mark_products_changed(database, business_id, current_transaction)
+            mark_cache_changed(database, business_id, "products", current_transaction)
         current_transaction.update(sale_ref, {"status": "voided", "voidedBy": uid, "voidedAt": timestamp, "updatedAt": timestamp})
 
     reverse(transaction)

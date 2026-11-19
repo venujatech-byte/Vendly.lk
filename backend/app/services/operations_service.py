@@ -19,6 +19,7 @@ from app.services.fraud_service import (
     global_fraud_reference,
     global_registry_increment,
 )
+from app.services.cache_revision_service import mark_cache_changed
 from app.services.text import optional_text, required_text
 from app.services.notification_permissions import (
     NOTIFICATION_SCOPES, can_read_notification, notification_permissions, notification_scope,
@@ -153,6 +154,9 @@ def create_fraud_report(database, business_id, order_id, uid, payload):
                     "updatedAt": timestamp,
                 },
             )
+
+            # Publish customer risk changes with the order fraud report.
+            mark_cache_changed(database, business_id, "customers", current_transaction)
 
         current_transaction.set(
             notification_reference,

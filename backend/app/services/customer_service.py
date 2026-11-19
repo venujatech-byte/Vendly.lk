@@ -7,6 +7,7 @@ from google.cloud.firestore_v1.base_query import FieldFilter
 from app.core.errors import ApiError
 from app.core.serialization import serialize_snapshot
 from app.services.analytics_service import stream_report_snapshots
+from app.services.cache_revision_service import mark_cache_changed
 from app.services.text import optional_text, required_text
 
 
@@ -223,6 +224,8 @@ def create_customer(database, business_id, payload):
             },
         )
 
+        mark_cache_changed(database, business_id, "customers", current_transaction)
+
     create_in_transaction(transaction)
     return get_customer(database, business_id, customer_reference.id)
 
@@ -267,5 +270,9 @@ def update_customer(database, business_id, customer_id, payload):
             )
         changes["status"] = payload["status"]
 
-    customer_reference.update(changes)
+    # Commit contact edits and their cache revision together.
+    batch = database.batch()
+    batch.update(customer_reference, changes)
+    mark_cache_changed(database, business_id, "customers", batch)
+    batch.commit()
     return get_customer(database, business_id, customer_id)

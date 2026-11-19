@@ -4,6 +4,7 @@ from app.core.auth import require_firebase_user
 from app.core.authorization import require_business_member
 from app.core.firebase import get_firestore_client
 from app.core.requests import get_json_object
+from app.services.cache_revision_service import get_cache_revision
 from app.services.customer_service import (
     create_customer,
     get_customer,
@@ -34,6 +35,14 @@ def get_customers(business_id):
         search=request.args.get("search"),
     )
     return jsonify(result)
+
+
+# Verify current customer-read access before allowing reuse of browser-cached customer data.
+@customers_blueprint.get("/businesses/<business_id>/customers/cache/version")
+@require_firebase_user
+@require_business_member(permission="customers:read")
+def customers_version(business_id):
+    return jsonify({"revision": get_cache_revision(get_firestore_client(), business_id, "customers")})
 
 
 @customers_blueprint.get("/businesses/<business_id>/fraud-customers")

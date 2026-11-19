@@ -16,7 +16,7 @@ from app.services.product_service import (
     update_product,
 )
 from app.services.analytics_service import bump_analytics_version
-from app.services.product_revision_service import get_product_revision
+from app.services.cache_revision_service import get_cache_revision
 from app.services.media_service import upload_product_media, upload_variant_image
 from app.services.ai_service import generate_product_description
 from app.services.spreadsheet_service import (
@@ -33,7 +33,7 @@ products_blueprint = Blueprint("products", __name__, url_prefix="/api/v1")
 @require_business_member(permission="inventory:read")
 def inventory_version(business_id):
     # Revalidate current access before permitting the client to reuse cached inventory.
-    return jsonify({"revision": get_product_revision(get_firestore_client(), business_id)})
+    return jsonify({"revision": get_cache_revision(get_firestore_client(), business_id, "products")})
 
 
 @products_blueprint.get("/businesses/<business_id>/products")

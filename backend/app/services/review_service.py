@@ -7,7 +7,7 @@ from app.core.serialization import serialize_snapshot
 from app.services.customer_service import normalize_sri_lankan_phone
 from app.services.media_service import upload_review_data_url
 from app.services.numbers import non_negative_integer
-from app.services.product_revision_service import mark_products_changed
+from app.services.cache_revision_service import mark_cache_changed
 from app.services.public_catalog_service import resolve_short_link
 from app.services.text import optional_text, required_text
 
@@ -355,7 +355,7 @@ def moderate_review(database, business_id, review_id, uid, payload):
 
             # Approved product ratings are displayed in cached inventory summaries too.
             if review.get("type") == "product":
-                mark_products_changed(database, business_id, current_transaction)
+                mark_cache_changed(database, business_id, "products", current_transaction)
 
     update_in_transaction(transaction)
     return serialize_snapshot(review_reference.get())

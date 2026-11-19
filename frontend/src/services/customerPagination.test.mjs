@@ -7,7 +7,13 @@ import { invalidateReadCache } from "./readCache.js";
 // Exercise the real customer loader and cache offline; replace only authenticated HTTP requests.
 let respond;
 const calls = [];
+const versionCalls = [];
+let respondVersion;
 globalThis.__vendlyCustomerPageRequest = async (path, options) => {
+  if (path.endsWith("/customers/cache/version")) {
+    versionCalls.push(path);
+    return respondVersion();
+  }
   calls.push({ path, options });
   return respond(new URL(path, "https://synthetic.example"), options);
 };
@@ -28,7 +34,7 @@ const hook = registerHooks({
     return nextLoad(url, context);
   },
 });
-const { getCustomers, updateCustomer, downloadCustomersCsv } = await import(moduleUrl.href);
+const { getCustomers, createCustomer, updateCustomer, reportCustomer, changeFraudRiskLevel, removeFromFraudList, downloadCustomersCsv } = await import(moduleUrl.href);
 hook.deregister();
 
 function deferred() {
@@ -37,7 +43,12 @@ function deferred() {
   return { promise, resolve };
 }
 
-beforeEach(() => { invalidateReadCache(""); calls.length = 0; });
+beforeEach(() => {
+  invalidateReadCache("");
+  calls.length = 0;
+  versionCalls.length = 0;
+  respondVersion = () => ({ revision: "revision-1" });
+});
 
 test("all scan pages load before name sorting, including empty matching pages", async () => {
   const first = Array.from({ length: 200 }, (_, index) => ({ id: `customer-${index}`, name: `Name ${String(199 - index).padStart(3, "0")}` }));
@@ -140,16 +151,17 @@ test("invalidated old pages cannot replace a newer account's cached result", asy
   assert.equal(calls.length, 3);
 });
 
-test("search and unfiltered list TTLs remain unchanged", async (t) => {
+test("unchanged search and unfiltered lists remain reusable beyond the former TTLs", async (t) => {
   let now = 1000;
   t.mock.method(Date, "now", () => now);
   respond = () => ({ customers: [], hasMore: false });
   await getCustomers("shop-a");
   await getCustomers("shop-a", "query");
-  now += 16000;
+  now += 24 * 60 * 60 * 1000;
   await getCustomers("shop-a");
   await getCustomers("shop-a", "query");
-  assert.equal(calls.length, 3);
+  assert.equal(calls.length, 2);
+  assert.equal(versionCalls.length, 4);
 });
 
 test("CSV export includes customers from every API page", async (t) => {
@@ -167,3 +179,67 @@ test("CSV export includes customers from every API page", async (t) => {
   assert.equal(csv.split("\r\n").length, 202);
   assert.ok(csv.includes('"Later customer"'));
 });
+
+
+// Revisions cover cross-device writes without serving cached data after revoked access or logout.
+test("a changed revision reloads each search while keeping other businesses isolated", async () => {
+  respond = () => ({ customers: [{ id: "old", name: "Original" }], hasMore: false });
+  await getCustomers("shop-a");
+  await getCustomers("shop-a", "query");
+  await getCustomers("shop-b");
+  respondVersion = () => ({ revision: "revision-2" });
+  respond = () => ({ customers: [{ id: "new", name: "Mobile edit" }], hasMore: false });
+  assert.equal((await getCustomers("shop-a"))[0].name, "Mobile edit");
+  assert.equal((await getCustomers("shop-a", "query"))[0].name, "Mobile edit");
+  respondVersion = () => ({ revision: "revision-1" });
+  assert.equal((await getCustomers("shop-b"))[0].name, "Original");
+  assert.equal(calls.length, 5);
+});
+
+test("failed permission checks and malformed revisions never serve cached customer details", async () => {
+  respond = () => ({ customers: [{ id: "a", name: "Private" }], hasMore: false });
+  await getCustomers("shop-a");
+  respondVersion = () => { throw new Error("Access revoked"); };
+  await assert.rejects(getCustomers("shop-a"), /Access revoked/);
+  for (const revision of [null, "", 4, "x".repeat(129)]) {
+    respondVersion = () => ({ revision });
+    await assert.rejects(getCustomers("shop-a"), /freshness could not be verified/);
+  }
+  assert.equal(calls.length, 1);
+});
+
+test("a revision arriving after logout cannot start loading or recreate the customer cache", async () => {
+  const version = deferred();
+  respondVersion = () => version.promise;
+  const oldLoad = getCustomers("shop-a");
+  invalidateReadCache("");
+  version.resolve({ revision: "revision-1" });
+  await assert.rejects(oldLoad, { name: "AbortError" });
+  assert.equal(calls.length, 0);
+  respondVersion = () => ({ revision: "revision-1" });
+  respond = () => ({ customers: [], hasMore: false });
+  await getCustomers("shop-a");
+  assert.equal(calls.length, 1);
+});
+
+for (const [name, mutate] of [
+  ["create", () => createCustomer("shop-a", {})],
+  ["fraud report", () => reportCustomer("shop-a", "a")],
+  ["fraud risk", () => changeFraudRiskLevel("shop-a", "a", "high")],
+  ["remove fraud profile", () => removeFromFraudList("shop-a", "a")],
+]) {
+  test(`successful ${name} invalidates customers; failed changes retain the existing cache`, async () => {
+    respond = (_url, options) => {
+      if (options?.method) throw new Error("Rejected change");
+      return { customers: [{ id: "a", name: "Original" }], hasMore: false };
+    };
+    const original = await getCustomers("shop-a");
+    await assert.rejects(mutate(), /Rejected change/);
+    assert.equal(await getCustomers("shop-a"), original);
+    respond = (_url, options) => options?.method ? { customer: {}, fraudReport: {} }
+      : { customers: [{ id: "a", name: "Changed" }], hasMore: false };
+    await mutate();
+    assert.equal((await getCustomers("shop-a"))[0].name, "Changed");
+    assert.equal(calls.length, 4);
+  });
+}
