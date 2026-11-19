@@ -28,7 +28,7 @@ const hook = registerHooks({
     return nextLoad(url, context);
   },
 });
-const { getProducts, createProduct } = await import(moduleUrl.href);
+const { getProducts, createProduct, updateProduct, updateProductStatus, uploadVariantImage, generateProductDescription } = await import(moduleUrl.href);
 hook.deregister();
 
 function deferred() {
@@ -151,6 +151,68 @@ test("the existing 60-second product cache TTL is retained", async (t) => {
   await getProducts("shop-a");
   assert.equal(calls.length, 1);
   now += 1001;
+  await getProducts("shop-a");
+  assert.equal(calls.length, 2);
+});
+
+// Every mutation affecting product summaries must invalidate all of this business's filter caches.
+for (const [name, mutate] of [
+  ["product edits", () => updateProduct("shop-a", "a", { name: "Updated product" })],
+  ["status changes", () => updateProductStatus("shop-a", "a", "archived")],
+  ["variant image uploads", () => uploadVariantImage("shop-a", "a", "variant-a", new Blob(["synthetic image"]))],
+]) {
+  test(`${name} discard stale cached product lists after success`, async () => {
+    respond = (_url, options) => options?.method
+      ? { product: { id: "a", name: "Updated product" } }
+      : { products: [{ id: "a", name: "Original product" }], hasMore: false };
+    await getProducts("shop-a", { categoryId: "cat-a" });
+    await getProducts("shop-a", { status: "active" });
+    await getProducts("shop-b");
+    await mutate();
+    respond = () => ({ products: [{ id: "a", name: "Updated product" }], hasMore: false });
+    assert.equal((await getProducts("shop-a", { categoryId: "cat-a" }))[0].name, "Updated product");
+    assert.equal((await getProducts("shop-a", { status: "active" }))[0].name, "Updated product");
+    assert.equal((await getProducts("shop-b"))[0].name, "Original product");
+    assert.equal(calls.length, 6);
+  });
+}
+
+test("failed edits preserve the existing cache without triggering unnecessary reloads", async () => {
+  respond = (_url, options) => {
+    if (options?.method === "PATCH") throw new Error("Synthetic edit failure");
+    return { products: [{ id: "a", name: "Original product" }], hasMore: false };
+  };
+  await getProducts("shop-a");
+  await assert.rejects(updateProduct("shop-a", "a", { name: "Rejected edit" }), /Synthetic edit failure/);
+  assert.equal((await getProducts("shop-a"))[0].name, "Original product");
+  assert.equal(calls.length, 2);
+});
+
+test("a late pre-edit page cannot repopulate the cache after a successful edit", async () => {
+  const entered = deferred();
+  const later = deferred();
+  respond = (url, options) => {
+    if (options?.method === "PATCH") return { product: { id: "a", name: "Updated" } };
+    if (url.searchParams.has("after")) { entered.resolve(); return later.promise; }
+    return { products: [{ id: "a", name: "Old" }], hasMore: true, nextCursor: "cursor-1" };
+  };
+  const oldLoad = getProducts("shop-a");
+  await entered.promise;
+  await updateProduct("shop-a", "a", { name: "Updated" });
+  respond = () => ({ products: [{ id: "a", name: "Updated" }], hasMore: false });
+  const freshLoad = getProducts("shop-a");
+  later.resolve({ products: [{ id: "older-page", name: "Old" }], hasMore: false });
+  await Promise.all([oldLoad, freshLoad]);
+  assert.deepEqual((await getProducts("shop-a")).map(({ name }) => name), ["Updated"]);
+  assert.equal(calls.length, 4);
+});
+
+test("generating an unsaved AI description does not invalidate unchanged inventory", async () => {
+  respond = (_url, options) => options?.method === "POST"
+    ? { productInfo: { description: "Synthetic generated description" } }
+    : { products: [{ id: "a", name: "Original" }], hasMore: false };
+  await getProducts("shop-a");
+  await generateProductDescription("shop-a", { name: "Draft product" });
   await getProducts("shop-a");
   assert.equal(calls.length, 2);
 });

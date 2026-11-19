@@ -108,8 +108,7 @@ export async function generateProductDescription(businessId, productDetails) {
       body: productDetails,
     },
   );
-  invalidateReadCache(`products:${businessId}:`);
-
+  // Generating draft text does not change stored inventory or invalidate its cache.
   return response.productInfo || {
     product_name: productDetails.name,
     brand: productDetails.brand || null,
@@ -147,6 +146,8 @@ export async function uploadVariantImage(businessId, productId, variantId, file)
     `/businesses/${businessId}/products/${productId}/variants/${variantId}/image`,
     { method: "POST", body: formData },
   );
+  // The new variant image is also part of cached inventory summaries.
+  invalidateReadCache(`products:${businessId}:`);
   return mapProductForInventory(response.product);
 }
 
@@ -159,6 +160,8 @@ export async function updateProduct(businessId, productId, changes) {
     },
   );
 
+  // Clear every cached product filter only after the edit succeeds, including delegated status changes.
+  invalidateReadCache(`products:${businessId}:`);
   return mapProductForInventory(response.product);
 }
 
