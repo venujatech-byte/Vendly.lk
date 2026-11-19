@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { beforeEach, test } from "node:test";
 
-import { cachedRequest, invalidateReadCache } from "./readCache.js";
+import { cachedRequest, getReadCacheSession, invalidateReadCache } from "./readCache.js";
 
 // Control completion order without timers or network requests.
 function deferred() {
@@ -12,6 +12,28 @@ function deferred() {
 }
 
 beforeEach(() => invalidateReadCache(""));
+
+test("revision invalidation preserves current filters and other businesses but removes obsolete cached/pending loads", async () => {
+  const old = deferred();
+  await cachedRequest("products:shop:old:active", () => "old", Infinity);
+  const late = cachedRequest("products:shop:old:category", () => old.promise, Infinity);
+  await cachedRequest("products:shop:new:active", () => "current", Infinity);
+  await cachedRequest("products:other:old:active", () => "other", Infinity);
+  invalidateReadCache("products:shop:", "products:shop:new:");
+  assert.equal(await cachedRequest("products:shop:new:active", () => assert.fail("current revision evicted")), "current");
+  assert.equal(await cachedRequest("products:other:old:active", () => assert.fail("other business evicted")), "other");
+  old.resolve("late old data");
+  await late;
+  assert.equal(await cachedRequest("products:shop:old:category", () => "reloaded"), "reloaded");
+});
+
+test("only full session clears advance the async cache session generation", () => {
+  const initial = getReadCacheSession();
+  invalidateReadCache("products:shop:");
+  assert.equal(getReadCacheSession(), initial);
+  invalidateReadCache("");
+  assert.equal(getReadCacheSession(), initial + 1);
+});
 
 test("cache reuses successful values and deduplicates pending reads", async () => {
   const response = deferred();

@@ -1,6 +1,12 @@
 const cache = new Map();
 const pending = new Map();
 const DEFAULT_TTL = 60 * 1000;
+let sessionGeneration = 0;
+
+// Async version checks must not recreate a cache after logout/account change cleared it.
+export function getReadCacheSession() {
+  return sessionGeneration;
+}
 
 export function cachedRequest(key, loader, ttl = DEFAULT_TTL) {
   // Prune expired keys even when callers move on to different searches or report versions.
@@ -27,12 +33,13 @@ export function cachedRequest(key, loader, ttl = DEFAULT_TTL) {
   return request;
 }
 
-export function invalidateReadCache(prefix) {
+export function invalidateReadCache(prefix, keepPrefix) {
+  if (prefix === "") sessionGeneration += 1;
   for (const key of cache.keys()) {
-    if (key.startsWith(prefix)) cache.delete(key);
+    if (key.startsWith(prefix) && (keepPrefix == null || !key.startsWith(keepPrefix))) cache.delete(key);
   }
-  // Detach matching in-flight loads so the next caller starts a fresh request.
+  // Detach invalidated loads so late responses cannot restore stale data or displace current requests.
   for (const key of pending.keys()) {
-    if (key.startsWith(prefix)) pending.delete(key);
+    if (key.startsWith(prefix) && (keepPrefix == null || !key.startsWith(keepPrefix))) pending.delete(key);
   }
 }

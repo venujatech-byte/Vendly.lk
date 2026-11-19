@@ -7,7 +7,14 @@ import { invalidateReadCache } from "./readCache.js";
 // Use the actual loader, cache and inventory mapping; replace only its authenticated HTTP boundary.
 let respond;
 const calls = [];
+const versionCalls = [];
+let respondVersion;
 globalThis.__vendlyProductPageRequest = async (path, options) => {
+  // Keep document-data requests separate from the cheap authorized revision checks.
+  if (path.endsWith("/inventory/version")) {
+    versionCalls.push(path);
+    return respondVersion();
+  }
   calls.push({ path, options });
   return respond(new URL(path, "https://synthetic.example"), options);
 };
@@ -37,7 +44,12 @@ function deferred() {
   return { promise, resolve };
 }
 
-beforeEach(() => { invalidateReadCache(""); calls.length = 0; });
+beforeEach(() => {
+  invalidateReadCache("");
+  calls.length = 0;
+  versionCalls.length = 0;
+  respondVersion = () => ({ revision: "revision-1" });
+});
 
 test("complete pages retain category/status filters, server order and inventory mapping", async () => {
   const first = Array.from({ length: 200 }, (_, index) => ({ id: `product-${index}`, name: `Product ${index}` }));
@@ -142,7 +154,7 @@ test("a previous session's late pages cannot repopulate the new session's cache"
   assert.equal(calls.length, 3);
 });
 
-test("the existing 60-second product cache TTL is retained", async (t) => {
+test("unchanged inventory remains cached past the old expiry while each use validates the revision", async (t) => {
   let now = 1000;
   t.mock.method(Date, "now", () => now);
   respond = () => ({ products: [], hasMore: false });
@@ -152,7 +164,45 @@ test("the existing 60-second product cache TTL is retained", async (t) => {
   assert.equal(calls.length, 1);
   now += 1001;
   await getProducts("shop-a");
-  assert.equal(calls.length, 2);
+  now += 24 * 60 * 60 * 1000;
+  await getProducts("shop-a");
+  assert.equal(calls.length, 1);
+  assert.equal(versionCalls.length, 4);
+});
+
+test("a revision changed by another client reloads data and discards previous revision caches", async () => {
+  respond = () => ({ products: [{ id: "a", name: "Original" }], hasMore: false });
+  await getProducts("shop-a", { status: "active" });
+  await getProducts("shop-a", { categoryId: "cat-a" });
+  respondVersion = () => ({ revision: "revision-2" });
+  respond = () => ({ products: [{ id: "a", name: "Changed by mobile" }], hasMore: false });
+  assert.equal((await getProducts("shop-a", { status: "active" }))[0].name, "Changed by mobile");
+  assert.equal((await getProducts("shop-a", { categoryId: "cat-a" }))[0].name, "Changed by mobile");
+  assert.equal(calls.length, 4);
+});
+
+test("a failed permission/revision check never serves previously cached inventory", async () => {
+  respond = () => ({ products: [{ id: "a", name: "Private" }], hasMore: false });
+  await getProducts("shop-a");
+  respondVersion = () => { throw new Error("Access revoked"); };
+  await assert.rejects(getProducts("shop-a"), /Access revoked/);
+  assert.equal(calls.length, 1);
+});
+
+test("logout during a revision check cannot recreate old-session data after the cache was cleared", async () => {
+  const pending = deferred();
+  respondVersion = () => pending.promise;
+  const load = getProducts("shop-a");
+  invalidateReadCache("");
+  pending.resolve({ revision: "old-session" });
+  await assert.rejects(load, { name: "AbortError" });
+  assert.equal(calls.length, 0);
+});
+
+test("invalid revision responses fail instead of creating a permanently reusable unknown cache", async () => {
+  respondVersion = () => ({});
+  await assert.rejects(getProducts("shop-a"), /freshness could not be verified/);
+  assert.equal(calls.length, 0);
 });
 
 // Every mutation affecting product summaries must invalidate all of this business's filter caches.

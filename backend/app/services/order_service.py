@@ -25,6 +25,7 @@ from app.services.chat_event_service import (
 )
 from app.services.inventory_batches import consume_fifo_batches
 from app.services.analytics_service import stream_report_snapshots
+from app.services.product_revision_service import mark_products_changed
 from app.services.numbers import money_to_minor_units, non_negative_integer
 from app.services.product_service import stock_status
 from app.services.text import optional_text, required_text
@@ -637,6 +638,9 @@ def create_order(database, business_id, uid, payload, *, customer_contact=None):
                 product_updates,
             )
 
+        # Order reservations also change cached inventory, including orders placed by the mobile app.
+        mark_products_changed(database, business_id, current_transaction)
+
         if request_data["depositMinor"] > total_minor:
             raise ApiError("invalid_deposit", "Deposit cannot exceed the order total.", 422)
 
@@ -1143,6 +1147,10 @@ def update_order_status(database, business_id, order_id, uid, payload):
                         "updatedAt": timestamp,
                     },
                 )
+
+        # Only stock-changing transitions affect the product cache.
+        if product_snapshots:
+            mark_products_changed(database, business_id, current_transaction)
 
         order_changes = {
             "fulfilmentStatus": new_status,
@@ -1693,6 +1701,7 @@ def add_items_to_order(database, business_id, order_id, uid, items):
                 },
             )
 
+        mark_products_changed(database, business_id, current_transaction)
         subtotal_minor = sum(line["lineTotalMinor"] for line in existing_items)
         total_weight_grams = sum(
             line.get("unitWeightGrams", 0) * line["quantity"]

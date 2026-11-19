@@ -7,6 +7,7 @@ from google.cloud.firestore_v1.base_query import FieldFilter
 from app.core.errors import ApiError
 from app.core.serialization import serialize_snapshot
 from app.services.analytics_service import stream_report_snapshots
+from app.services.product_revision_service import mark_products_changed
 from app.services.business_service import generate_short_code
 from app.services.inventory_batches import (
     add_fifo_batch,
@@ -508,6 +509,9 @@ def create_product(database, business_id, uid, payload):
             },
         )
 
+        # Product data and its browser-cache revision must become visible together.
+        mark_products_changed(database, business_id, current_transaction)
+
     create_in_transaction(transaction)
     return get_product(database, business_id, product_reference.id)
 
@@ -771,6 +775,7 @@ def update_product(database, business_id, product_id, payload):
                 ]
 
         current_transaction.update(product_reference, changes)
+        mark_products_changed(database, business_id, current_transaction)
 
         if shared_variant_changes or "lowStockThreshold" in changes:
             timestamp = firestore.SERVER_TIMESTAMP
@@ -977,6 +982,8 @@ def adjust_variant_stock(
                 "createdAt": timestamp,
             },
         )
+
+        mark_products_changed(database, business_id, current_transaction)
 
     adjust_in_transaction(transaction)
     return get_product(database, business_id, product_id)

@@ -14,6 +14,7 @@ from werkzeug.utils import secure_filename
 
 from app.core.errors import ApiError
 from app.services.product_service import get_product
+from app.services.product_revision_service import mark_products_changed
 
 
 ALLOWED_MEDIA_TYPES = {
@@ -364,7 +365,11 @@ def upload_product_media(
     if not existing_media and uploaded_media:
         changes["primaryMediaPath"] = uploaded_media[0]["path"]
 
-    product_reference.update(changes)
+    # Publish media metadata and its cache revision in one batch after upload succeeds.
+    batch = database.batch()
+    batch.update(product_reference, changes)
+    mark_products_changed(database, business_id, batch)
+    batch.commit()
     return get_product(database, business_id, product_id)
 
 
@@ -376,7 +381,11 @@ def upload_variant_image(database, business_id, product_id, variant_id, upload, 
     if not variant_snapshot.exists or variant_snapshot.to_dict().get("productId") != product_id:
         raise ApiError("variant_not_found", "Product variant not found.", 404)
     media = upload_to_cloudinary(upload, business_id, product_id, cloudinary_config or {})
-    variant_reference.update({"imageUrl": media["url"], "imagePath": media["path"], "updatedAt": firestore.SERVER_TIMESTAMP})
+    batch = database.batch()
+    batch.update(variant_reference, {"imageUrl": media["url"], "imagePath": media["path"], "updatedAt": firestore.SERVER_TIMESTAMP})
     summaries = [{**summary, "imageUrl": media["url"]} if summary.get("id") == variant_id else summary for summary in product.get("variantSummaries", [])]
-    database.collection("businesses").document(business_id).collection("products").document(product_id).update({"variantSummaries": summaries, "updatedAt": firestore.SERVER_TIMESTAMP})
+    batch.update(database.collection("businesses").document(business_id).collection("products").document(product_id), {"variantSummaries": summaries, "updatedAt": firestore.SERVER_TIMESTAMP})
+    # The image, product summary and revision must be observed as one committed change.
+    mark_products_changed(database, business_id, batch)
+    batch.commit()
     return get_product(database, business_id, product_id)

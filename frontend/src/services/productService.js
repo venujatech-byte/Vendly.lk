@@ -1,5 +1,5 @@
 import { apiFileRequest, apiRequest } from "./apiClient";
-import { cachedRequest, invalidateReadCache } from "./readCache";
+import { cachedRequest, getReadCacheSession, invalidateReadCache } from "./readCache";
 
 function minorUnitsToAmount(value = 0) {
   return value / 100;
@@ -59,6 +59,13 @@ export function mapProductForInventory(product) {
 }
 
 export async function getProducts(businessId, filters = {}) {
+  // Read permission and the small revision marker are checked even when product data is cached.
+  const session = getReadCacheSession();
+  const { revision } = await apiRequest(`/businesses/${businessId}/inventory/version`);
+  if (session !== getReadCacheSession()) throw new DOMException("The login session changed.", "AbortError");
+  if (typeof revision !== "string" || !revision || revision.length > 128) {
+    throw new Error("Inventory freshness could not be verified.");
+  }
   const searchParameters = new URLSearchParams();
 
   if (filters.categoryId) {
@@ -69,7 +76,11 @@ export async function getProducts(businessId, filters = {}) {
   }
 
   const query = searchParameters.toString();
-  return cachedRequest(`products:${businessId}:${query}`, async () => {
+  const prefix = `products:${businessId}:${encodeURIComponent(revision)}:`;
+  // Remove obsolete revision data and pending loads while keeping other filters for the current revision.
+  invalidateReadCache(`products:${businessId}:`, prefix);
+  // Session memory remains reusable until a revision change, mutation or auth event invalidates it.
+  return cachedRequest(`${prefix}${query}`, async () => {
     const products = new Map();
     const cursors = new Set();
     // Publish/cache the complete filtered list so sorting, totals and product selectors retain all rows.
@@ -87,7 +98,7 @@ export async function getProducts(businessId, filters = {}) {
       searchParameters.set("after", response.nextCursor);
     }
     return [...products.values()].map(mapProductForInventory);
-  }, 60 * 1000);
+  }, Infinity);
 }
 
 export async function createProduct(businessId, productData) {
