@@ -383,46 +383,54 @@ def create_warranty_claim(database, business_id, uid, payload):
     if claim_type != "shop-repair" and repair_cost_minor:
         raise ApiError("validation_error", "Repair cost is only used for shop repairs.", 422)
     business_ref = database.collection("businesses").document(business_id)
-    source_snapshot = business_ref.collection(collection_name).document(source_id).get()
-    if not source_snapshot.exists:
-        raise ApiError("sale_not_found", "The original order or shop sale was not found.", 404)
-    source = source_snapshot.to_dict()
-    source_items = source.get("items", [])
-    if item_index >= len(source_items):
-        raise ApiError("item_not_found", "The selected item is not part of this sale.", 422)
-    item = source_items[item_index]
-    if claim_quantity > item.get("quantity", 0):
-        raise ApiError("validation_error", "Claim quantity cannot exceed the purchased quantity.", 422)
-
-    # Store the exact financial impact with the claim so it remains auditable
-    # even if a seller edits the product price later.
-    base_impact_minor = 0
-    if claim_type == "shop-warranty":
-        base_impact_minor = item.get("unitPriceMinor", 0) * claim_quantity
-    elif claim_type == "shop-repair":
-        base_impact_minor = repair_cost_minor
-    
-    total_expenses_minor = base_impact_minor + other_expenses_minor
-    revenue_impact_minor = total_expenses_minor
-
-    business = business_ref.get().to_dict() or {}
-    sequence = business.get("nextWarrantyClaimSequence", 1)
+    source_ref = business_ref.collection(collection_name).document(source_id)
     claim_ref = business_ref.collection("warrantyClaims").document()
-    timestamp = firestore.SERVER_TIMESTAMP
-    claim_ref.set({
-        "claimNumber": f"WC-{sequence:06d}", "sourceType": source_type, "sourceId": source_id,
-        "sourceNumber": source.get("orderNumber") or source.get("saleNumber"),
-        "customerName": source.get("customerSnapshot", {}).get("name") or source.get("customerName", "Walk-in customer"),
-        "phoneNumber": source.get("customerSnapshot", {}).get("phoneNumber") or source.get("phoneNumber", ""),
-        "item": item, "itemIndex": item_index, "claimQuantity": claim_quantity,
-        "claimType": claim_type, "repairCostMinor": repair_cost_minor,
-        "otherExpensesMinor": other_expenses_minor,
-        "otherExpensesNotes": other_expenses_notes,
-        "revenueImpactMinor": revenue_impact_minor,
-        "totalExpensesMinor": total_expenses_minor,
-        "reason": reason, "details": details, "status": "open",
-        "createdBy": uid, "createdAt": timestamp, "updatedAt": timestamp,
-    })
-    business_ref.update({"nextWarrantyClaimSequence": sequence + 1, "updatedAt": timestamp})
+    transaction = database.transaction()
+
+    # Recheck the source and reserve the claim number in the same atomic save.
+    @google_firestore.transactional
+    def save(current_transaction):
+        source_snapshot = source_ref.get(transaction=current_transaction)
+        if not source_snapshot.exists:
+            raise ApiError("sale_not_found", "The original order or shop sale was not found.", 404)
+        source = source_snapshot.to_dict()
+        source_items = source.get("items", [])
+        if item_index >= len(source_items):
+            raise ApiError("item_not_found", "The selected item is not part of this sale.", 422)
+        item = source_items[item_index]
+        if claim_quantity > item.get("quantity", 0):
+            raise ApiError("validation_error", "Claim quantity cannot exceed the purchased quantity.", 422)
+
+        # Store the exact financial impact with the claim so it remains auditable
+        # even if a seller edits the product price later.
+        base_impact_minor = 0
+        if claim_type == "shop-warranty":
+            base_impact_minor = item.get("unitPriceMinor", 0) * claim_quantity
+        elif claim_type == "shop-repair":
+            base_impact_minor = repair_cost_minor
+
+        total_expenses_minor = base_impact_minor + other_expenses_minor
+        revenue_impact_minor = total_expenses_minor
+
+        business = business_ref.get(transaction=current_transaction).to_dict() or {}
+        sequence = business.get("nextWarrantyClaimSequence", 1)
+        timestamp = firestore.SERVER_TIMESTAMP
+        current_transaction.set(claim_ref, {
+            "claimNumber": f"WC-{sequence:06d}", "sourceType": source_type, "sourceId": source_id,
+            "sourceNumber": source.get("orderNumber") or source.get("saleNumber"),
+            "customerName": source.get("customerSnapshot", {}).get("name") or source.get("customerName", "Walk-in customer"),
+            "phoneNumber": source.get("customerSnapshot", {}).get("phoneNumber") or source.get("phoneNumber", ""),
+            "item": item, "itemIndex": item_index, "claimQuantity": claim_quantity,
+            "claimType": claim_type, "repairCostMinor": repair_cost_minor,
+            "otherExpensesMinor": other_expenses_minor,
+            "otherExpensesNotes": other_expenses_notes,
+            "revenueImpactMinor": revenue_impact_minor,
+            "totalExpensesMinor": total_expenses_minor,
+            "reason": reason, "details": details, "status": "open",
+            "createdBy": uid, "createdAt": timestamp, "updatedAt": timestamp,
+        })
+        current_transaction.update(business_ref, {"nextWarrantyClaimSequence": sequence + 1, "updatedAt": timestamp})
+
+    save(transaction)
     return serialize_snapshot(claim_ref.get())
 
