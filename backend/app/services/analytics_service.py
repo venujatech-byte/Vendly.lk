@@ -989,9 +989,12 @@ def update_monthly_revenue_target(database, business_id, payload):
         )
 
     business_reference = database.collection("businesses").document(business_id)
+    # Save the target and cache version together so other clients refresh the forecast after this change.
     business_reference.update({
         "monthlyRevenueTargetMinor": target,
         "updatedAt": firestore.SERVER_TIMESTAMP,
+        "analyticsVersion": firestore.Increment(1),
+        "analyticsUpdatedAt": firestore.SERVER_TIMESTAMP,
     })
     return target
 
