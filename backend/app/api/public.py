@@ -48,6 +48,8 @@ def start_public_chat():
         get_firestore_client(),
         get_json_object(),
         (g.current_user or {}).get("uid"),
+        # Only verified registered accounts share a store-wide conversation.
+        share_customer_chat=bool(g.current_user) and g.current_user.get("firebase", {}).get("sign_in_provider") != "anonymous",
     )
     return jsonify(session), 201
 
@@ -78,6 +80,7 @@ def public_chat_message(session_id):
 # Uploading costs storage and an outbound request, so it is limited far more
 # tightly than sending text.
 @limiter.limit("10 per minute", key_func=public_chat_key)
+@optional_firebase_user
 def public_chat_image(session_id):
     response = attach_public_chat_image(
         get_firestore_client(),
@@ -90,6 +93,7 @@ def public_chat_image(session_id):
 
 @public_blueprint.get("/chat/sessions/<session_id>/messages")
 @limiter.limit("120 per minute", key_func=public_chat_key)
+@optional_firebase_user
 def public_chat_messages(session_id):
     messages = get_public_chat_messages(
         get_firestore_client(),

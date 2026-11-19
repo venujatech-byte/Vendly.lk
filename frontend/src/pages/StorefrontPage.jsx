@@ -14,7 +14,6 @@ import {
   Mail,
   MapPin,
   Menu,
-  MoreVertical,
   MessageCircleQuestion,
   Mic,
   MicOff,
@@ -63,6 +62,7 @@ import OrderReceipt from "../components/OrderReceipt";
 import CustomerAccountModal from "../components/CustomerAccountModal";
 import StorefrontInstructionsModal from "../components/StorefrontInstructionsModal";
 import { useAuth } from "../context/authContextValue";
+import { chatSessionStorageKey, chatCartFromSummary } from "../services/storefrontChat";
 import { useChatSessionRecovery } from "../hooks/useChatSessionRecovery";
 import { claimPublicChatSession } from "../services/publicService";
 import { ref as dbRef, onValue, query, limitToLast } from "firebase/database";
@@ -212,12 +212,6 @@ function getInitialTheme() {
     : "light";
 }
 
-function chatSessionStorageKey(storeCode, productCode, user) {
-  const customerKey = user?.uid || "guest";
-  const linkKey = productCode ? `product:${productCode}` : `store:${storeCode}`;
-  return `vendly-chat-session:${linkKey}:${customerKey}`;
-}
-
 function saveMessagesToSession(sessionId, msgs) {
   try {
     if (!sessionId) return;
@@ -250,7 +244,7 @@ function StorefrontPage({ linkType, onVerificationRequired }) {
   const [products, setProducts] = useState([]);
   const [session, setSession] = useState(null);
   // Persist renewed credentials under the same account/store key without clearing history.
-  const sessionStorageKey = chatSessionStorageKey(storeCode, activeProductCode, user);
+  const sessionStorageKey = chatSessionStorageKey(storeCode, activeProductCode, user, business?.id);
   const runChatRequest = useChatSessionRecovery(session, user, sessionStorageKey, (renewed) => {
     localStorage.setItem(sessionStorageKey, JSON.stringify(renewed));
     setSession(renewed);
@@ -280,13 +274,14 @@ function StorefrontPage({ linkType, onVerificationRequired }) {
   // took the whole page down the moment it opened.
   const text = storefrontText(chatLanguage);
   const [cart, setCart] = useState([]);
+  // Untouched shared carts stay on the server until the customer edits them locally.
+  const cartEditedRef = useRef(false);
   const [customer, setCustomer] = useState(EMPTY_CUSTOMER);
   const [activeView, setActiveView] = useState(getInitialView);
   const [theme, setTheme] = useState(getInitialTheme);
   const [searchText, setSearchText] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isChatMenuOpen, setIsChatMenuOpen] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -370,6 +365,8 @@ function StorefrontPage({ linkType, onVerificationRequired }) {
 
         setBusiness(catalog.business);
         const customerOrderResponse = await getCustomerOrders(catalog.business.shortCode).catch(() => ({ orders: [] }));
+        // Do not resolve or adopt a saved conversation after this account/link has changed.
+        if (!requestIsCurrent) return;
         setCustomerOrders(customerOrderResponse.orders || []);
         setProducts(
           linkType === "product" ? [catalog.product] : catalog.products,
@@ -384,11 +381,25 @@ function StorefrontPage({ linkType, onVerificationRequired }) {
           storeCode,
           activeProductCode,
           user,
+          catalog.business.id,
         );
-        const savedSession = JSON.parse(
-          localStorage.getItem(sessionKey) || "null",
+        let savedSession = JSON.parse(
+          localStorage.getItem(sessionKey) || localStorage.getItem(chatSessionStorageKey(storeCode, activeProductCode, user)) || "null",
         );
 
+        // Upgrade a legacy browser key through the server's transactional store-wide lookup.
+        if (savedSession?.sessionId && user?.uid && !user.isAnonymous && !savedSession.sharedConversation) {
+          savedSession = await createPublicChatSession({
+            storeCode: catalog.business.shortCode, productCode: activeProductCode || undefined,
+            language: savedChatLanguage(),
+          });
+          if (!requestIsCurrent) return;
+          localStorage.setItem(sessionKey, JSON.stringify(savedSession));
+        }
+        cartEditedRef.current = false;
+        if (savedSession?.sharedConversation && savedSession.cartSummary) {
+          setCart((current) => chatCartFromSummary(savedSession.cartSummary, current, catalog.products || [catalog.product]));
+        }
         if (savedSession?.sessionId && savedSession?.sessionToken) {
           setSession(savedSession);
           const cached =
@@ -497,15 +508,6 @@ function StorefrontPage({ linkType, onVerificationRequired }) {
     } finally {
       setIsLoadingOlderMessages(false);
     }
-  }
-
-  function clearStorefrontChat() {
-    if (!session || !window.confirm("Clear this chat from this device and start a new conversation?")) return;
-    localStorage.removeItem(chatSessionStorageKey(storeCode, activeProductCode, user));
-    if (session?.sessionId) {
-      sessionStorage.removeItem(`vendly-chat-messages:${session.sessionId}`);
-    }
-    window.location.reload();
   }
 
   useEffect(() => {
@@ -916,6 +918,7 @@ function StorefrontPage({ linkType, onVerificationRequired }) {
   function addToCart(product, variant) {
     if (!variant || variant.availableStock < 1) return;
 
+    cartEditedRef.current = true;
     setCart((current) => {
       const existing = current.find((item) => item.variantId === variant.id);
 
@@ -947,6 +950,7 @@ function StorefrontPage({ linkType, onVerificationRequired }) {
   }
 
   function updateCartQuantity(variantId, amount) {
+    cartEditedRef.current = true;
     setCart((current) =>
       current
         .map((item) => {
@@ -969,7 +973,10 @@ function StorefrontPage({ linkType, onVerificationRequired }) {
       language: savedChatLanguage(),
     });
     setSession(newSession);
-    const sessionKey = chatSessionStorageKey(storeCode, activeProductCode, user);
+    if (newSession.sharedConversation && newSession.cartSummary && !cartEditedRef.current) {
+      setCart((current) => chatCartFromSummary(newSession.cartSummary, current, products));
+    }
+    const sessionKey = chatSessionStorageKey(storeCode, activeProductCode, user, business?.id);
     localStorage.setItem(sessionKey, JSON.stringify(newSession));
     return newSession;
   }
@@ -1042,10 +1049,10 @@ function StorefrontPage({ linkType, onVerificationRequired }) {
         active.sessionToken,
         cleanMessage,
         {
-          cart: cart.map((item) => ({
-            variantId: item.variantId,
-            quantity: item.quantity,
-          })),
+          ...(!activeSession.sharedConversation || cartEditedRef.current ? {
+            cart: cart.map((item) => ({ variantId: item.variantId, quantity: item.quantity })),
+          } : {}),
+          productCode: activeProductCode || undefined,
           customerEmail: currentEmail,
           customer: {
             ...customer,
@@ -1072,34 +1079,7 @@ function StorefrontPage({ linkType, onVerificationRequired }) {
         // The chat can add items itself now ("mata GM2 pro dekak ona"), so the
         // server's cart wins. Without this the added line stays invisible and
         // the next message uploads the stale local cart over the top of it.
-        setCart((current) =>
-          response.cartSummary.map((line) => {
-            const existing = current.find(
-              (item) => item.variantId === line.variantId,
-            );
-            // A line the chat added has no local entry, so its stock ceiling
-            // comes from the catalogue. Falling back to the ordered quantity
-            // would freeze the "+" button on that row.
-            const catalogueVariant = products
-              .flatMap((product) => product.variants || [])
-              .find((variant) => variant.id === line.variantId);
-
-            return {
-              ...existing,
-              variantId: line.variantId,
-              productName: line.productName,
-              size: line.size,
-              sku: line.sku,
-              imageUrl: line.imageUrl || existing?.imageUrl || "",
-              sellingPriceMinor: line.unitPriceMinor,
-              availableStock:
-                catalogueVariant?.availableStock ??
-                existing?.availableStock ??
-                line.quantity,
-              quantity: line.quantity,
-            };
-          }),
-        );
+        setCart((current) => chatCartFromSummary(response.cartSummary, current, products));
       }
 
       setSession((current) => ({
@@ -1446,7 +1426,7 @@ function StorefrontPage({ linkType, onVerificationRequired }) {
       setIsLoading(true);
       const resumedSession = await resumePublicChatSession(chat.id);
       setSession(resumedSession);
-      const sessionKey = chatSessionStorageKey(storeCode, activeProductCode, user);
+      const sessionKey = chatSessionStorageKey(storeCode, activeProductCode, user, business?.id);
       localStorage.setItem(sessionKey, JSON.stringify(resumedSession));
 
       const result = await getPublicChatMessages(
@@ -1656,27 +1636,6 @@ function StorefrontPage({ linkType, onVerificationRequired }) {
                 and in the top bar, where the composer has room for typing. */}
             {activeView === "chatbot" && (
               <>
-                <div className="storefront-topbar__chat-menu">
-                  <button
-                    className="storefront-icon-button"
-                    type="button"
-                    aria-label="Chat actions"
-                    aria-expanded={isChatMenuOpen}
-                    onClick={() => setIsChatMenuOpen((open) => !open)}
-                  >
-                    <MoreVertical size={20} />
-                  </button>
-                  {isChatMenuOpen && (
-                    <div className="storefront-chat-menu" role="menu">
-                      <button type="button" role="menuitem" onClick={() => {
-                        setIsChatMenuOpen(false);
-                        clearStorefrontChat();
-                      }}>
-                        Clear chat
-                      </button>
-                    </div>
-                  )}
-                </div>
                 <button
                   className="storefront-icon-button storefront-topbar__language"
                   type="button"
@@ -1887,7 +1846,6 @@ function StorefrontPage({ linkType, onVerificationRequired }) {
             hasMoreMessages={hasMoreMessages}
             isLoadingOlderMessages={isLoadingOlderMessages}
             onLoadOlderMessages={loadOlderChatMessages}
-            onClearChat={clearStorefrontChat}
             messageText={messageText}
             isSending={isSending}
             messagesEndRef={messagesEndRef}
@@ -3292,7 +3250,6 @@ function ChatbotView({
   hasMoreMessages,
   isLoadingOlderMessages,
   onLoadOlderMessages,
-  onClearChat,
   messageText,
   isSending,
   isListening,

@@ -52,7 +52,8 @@ export function getPublicChatMessages(sessionId, sessionToken, { before = "", si
   if (since) params.set("since", since);
   return apiRequest(`/public/chat/sessions/${sessionId}/messages?${params}`, {
     headers: { "X-Chat-Session-Token": sessionToken },
-    requiresAuthentication: false,
+    // Verified owners can read a shared chat after another device rotates its token.
+    requiresAuthentication: "optional",
   });
 }
 
@@ -86,7 +87,7 @@ export function sendPublicChatImage(sessionId, sessionToken, image, caption = ""
     method: "POST",
     headers: { "X-Chat-Session-Token": sessionToken },
     body: { image, caption },
-    requiresAuthentication: false,
+    requiresAuthentication: "optional",
   });
 }
 

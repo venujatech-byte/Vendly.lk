@@ -68,7 +68,8 @@ class MemoryFirestore:
     def query(self, request, **kwargs):
         query = request["structured_query"]
         parent = request["parent"]
-        prefix = f"{parent}/documents/" if "/documents/" not in parent else f"{parent}/"
+        # Root collection queries already include the terminal /documents in their parent.
+        prefix = f"{parent}/" if parent.endswith("/documents") or "/documents/" in parent else f"{parent}/documents/"
         prefix += query.from_[0].collection_id + "/"
         # Support the existing AND/equality product filters without silently ignoring composite queries.
         filters = list(query.where.composite_filter.filters) or [query.where]

@@ -199,6 +199,21 @@ def test_a_product_question_does_not_touch_the_cart(chat):
     assert chat.state == "browsing"
 
 
+@pytest.mark.parametrize("link,expected", [("shoe-link", "shoes"), ("foreign-link", "buds")])
+def test_shared_chat_product_link_context_is_limited_to_this_stores_catalogue(chat, monkeypatch, link, expected):
+    # A new product link may change the subject, but never resolve another seller's product.
+    products = catalogue()
+    products[1]["shortCode"] = "shoe-link"
+    monkeypatch.setattr(public_chat_service, "session_catalog", lambda *_: {"products": products, "business": {"name": "VS Tech"}})
+    chat.session.update({"sharedConversation": True, "selectedProductId": "buds"})
+    chat.intent_holder["value"] = {"intent": "product_question", "language": "en"}
+    response = answer_public_message(FakeBusinessDatabase(chat.bank), "session-1", "token", {
+        "message": "tell me about this product", "productCode": link,
+    })
+    assert response["product"]["id"] == expected
+    assert chat.cart == []
+
+
 def test_ordering_asks_the_quantity_before_adding_anything(chat):
     reply = chat.say("mata GM2 pro ona", intent="start_order",
                      productQuery="GM2 pro", quantity=0, quantityMode="total")

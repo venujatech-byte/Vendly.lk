@@ -6,7 +6,8 @@ import unicodedata
 from datetime import datetime, timedelta, timezone
 
 from firebase_admin import auth as firebase_auth, firestore
-from flask import current_app
+from flask import current_app, g, has_request_context
+from google.cloud import firestore as google_firestore
 from google.cloud.firestore_v1.base_query import FieldFilter
 
 from app.core.errors import ApiError
@@ -2507,7 +2508,55 @@ def token_hash(token):
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
-def create_public_chat_session(database, payload, customer_uid=None):
+def _shared_customer_chat(database, business_id, customer_uid, new_reference, new_session):
+    """Reserve one conversation per verified customer/store without merging old histories."""
+    pointer = database.collection("businesses").document(business_id).collection("customerChats").document(customer_uid)
+
+    @google_firestore.transactional
+    def save(transaction):
+        pointer_snapshot = pointer.get(transaction=transaction)
+        snapshot = None
+        if pointer_snapshot.exists:
+            reference = database.collection("publicChatSessions").document(pointer_snapshot.to_dict()["sessionId"])
+            snapshot = reference.get(transaction=transaction)
+            if snapshot.exists:
+                current = snapshot.to_dict()
+                if current.get("customerUid") != customer_uid or current.get("businessId") != business_id:
+                    raise ApiError("chat_session_owner_mismatch", "The saved conversation does not belong to this customer and store.", 409)
+        else:
+            # First use only: adopt the latest matching legacy chat, without reading its messages.
+            candidates = list(database.collection("publicChatSessions")
+                .where(filter=FieldFilter("customerUid", "==", customer_uid))
+                .where(filter=FieldFilter("businessId", "==", business_id))
+                .stream(transaction=transaction))
+            if candidates:
+                snapshot = max(candidates, key=lambda item: str(item.to_dict().get("updatedAt") or item.to_dict().get("createdAt") or ""))
+
+        # A deleted shared chat starts fresh; older archived conversations stay untouched.
+        if snapshot is not None and snapshot.exists:
+            reference = snapshot.reference
+            current = snapshot.to_dict()
+            updates = {
+                "tokenHash": new_session["tokenHash"], "expiresAt": new_session["expiresAt"],
+                "status": "active", "updatedAt": new_session["updatedAt"], "sharedConversation": True,
+                "productId": None,
+            }
+            if new_session.get("productId"):
+                updates["selectedProductId"] = new_session["productId"]
+            transaction.update(reference, updates)
+            current = {**current, **updates}
+        else:
+            reference = new_reference
+            current = {**new_session, "productId": None, "sharedConversation": True}
+            transaction.set(reference, current)
+        if not pointer_snapshot.exists or pointer_snapshot.to_dict().get("sessionId") != reference.id:
+            transaction.set(pointer, {"sessionId": reference.id})
+        return reference, current
+
+    return save(database.transaction())
+
+
+def create_public_chat_session(database, payload, customer_uid=None, *, share_customer_chat=False):
     store_code = payload.get("storeCode")
     product_code = payload.get("productCode")
 
@@ -2543,28 +2592,33 @@ def create_public_chat_session(database, payload, customer_uid=None):
     session_reference = database.collection("publicChatSessions").document()
     session_token = secrets.token_urlsafe(32)
     now = datetime.now(timezone.utc)
-    session_reference.set(
-        {
-            "businessId": business["id"],
-            "productId": product["id"] if product else None,
-            "selectedProductId": product["id"] if product else None,
-            "tokenHash": token_hash(session_token),
-            "state": "browsing",
-            # A returning visitor's browser supplies this; otherwise the first
-            # customer message settles it.
-            "language": greeting_language or "en",
-            "cart": [],
-            "customerDraft": {},
-            "customerUid": customer_uid,
-            "status": "active",
-            "unreadBySeller": 0,
-            "aiPaused": False,
-            "needsSellerAttention": False,
-            "createdAt": now,
-            "updatedAt": now,
-            "expiresAt": now + timedelta(hours=24),
-        },
-    )
+    new_session = {
+        "businessId": business["id"],
+        "productId": product["id"] if product else None,
+        "selectedProductId": product["id"] if product else None,
+        "tokenHash": token_hash(session_token),
+        "state": "browsing",
+        # A returning visitor's browser supplies this; otherwise the first
+        # customer message settles it.
+        "language": greeting_language or "en",
+        "cart": [],
+        "customerDraft": {},
+        "customerUid": customer_uid,
+        "status": "active",
+        "unreadBySeller": 0,
+        "aiPaused": False,
+        "needsSellerAttention": False,
+        "createdAt": now,
+        "updatedAt": now,
+        "expiresAt": now + timedelta(hours=24),
+    }
+    if customer_uid and share_customer_chat:
+        session_reference, saved_session = _shared_customer_chat(
+            database, business["id"], customer_uid, session_reference, new_session,
+        )
+    else:
+        session_reference.set(new_session)
+        saved_session = new_session
 
     # Publish private chat ownership before the browser subscribes or sellers see activity.
     realtime_access_service.sync_chat_access(session_reference.get())
@@ -2589,7 +2643,7 @@ def create_public_chat_session(database, payload, customer_uid=None):
             "සිංහලෙන් හෝ தமிழில் கேட்கலாம්."
         )
 
-    return {
+    response = {
         "sessionId": session_reference.id,
         "sessionToken": session_token,
         "business": business,
@@ -2601,6 +2655,16 @@ def create_public_chat_session(database, payload, customer_uid=None):
         # category. A product-specific link still opens that product directly.
         "products": [product] if product else [],
     }
+    if saved_session.get("sharedConversation"):
+        # Restore the adopted customer's cart without fetching any old message history.
+        cart = saved_session.get("cart", [])
+        products = get_public_store(database, business["shortCode"])["products"] if cart else []
+        response.update({
+            "sharedConversation": True, "state": saved_session.get("state", "browsing"),
+            "cart": cart, "customerDraft": saved_session.get("customerDraft", {}),
+            "cartSummary": summarize_chat_cart(cart, products),
+        })
+    return response
 
 
 def authorize_public_chat_session(
@@ -2623,7 +2687,10 @@ def authorize_public_chat_session(
 
     session = snapshot.to_dict()
 
-    if not hmac.compare_digest(
+    # Shared chats remain usable across devices after token rotation, using verified ownership.
+    verified_uid = (getattr(g, "current_user", None) or {}).get("uid") if has_request_context() else None
+    verified_shared_owner = session.get("sharedConversation") and verified_uid and session.get("customerUid") == verified_uid
+    if not verified_shared_owner and not hmac.compare_digest(
         session.get("tokenHash", ""),
         token_hash(provided_token),
     ):
@@ -2909,6 +2976,7 @@ def resume_public_chat_session(database, session_id, customer_uid, customer_emai
         "businessId": session.get("businessId"),
         "productId": session.get("productId"),
         "language": session.get("language", "en"),
+        "sharedConversation": bool(session.get("sharedConversation")),
     }
 
 
@@ -4970,7 +5038,11 @@ def answer_public_message(database, session_id, provided_token, payload):
     explicitly_selected_product = (
         matching_products[0] if len(matching_products) == 1 else None
     )
-    remembered_product_id = session.get("productId") or session.get(
+    # Resolve shared-chat product links only against this store's already-loaded catalogue.
+    linked_product_id = next((product["id"] for product in products
+        if session.get("sharedConversation") and payload.get("productCode")
+        and product.get("shortCode") == payload["productCode"]), None)
+    remembered_product_id = linked_product_id or session.get("productId") or session.get(
         "selectedProductId",
     )
     remembered_product = next(
