@@ -1,4 +1,5 @@
 import { apiRequest } from "./apiClient";
+import { cachedRequest, getReadCacheSession, invalidateReadCache } from "./readCache";
 import { customerNoteFromPrivateNote } from "./orderNotes";
 
 function formatCurrency(minorUnits = 0) {
@@ -111,6 +112,15 @@ export function mapOrderForTable(order) {
 }
 
 export async function getOrders(businessId, filters = {}, { signal } = {}) {
+  // Validate current access and shared backend freshness before returning cached business orders.
+  signal?.throwIfAborted();
+  const session = getReadCacheSession();
+  const { revision } = await apiRequest(`/businesses/${businessId}/orders/cache/version`, { signal });
+  signal?.throwIfAborted();
+  if (session !== getReadCacheSession()) throw new DOMException("The login session changed.", "AbortError");
+  if (typeof revision !== "string" || !revision || revision.length > 128) {
+    throw new Error("Order freshness could not be verified.");
+  }
   const parameters = new URLSearchParams();
 
   if (filters.status) parameters.set("status", filters.status);
@@ -118,27 +128,34 @@ export async function getOrders(businessId, filters = {}, { signal } = {}) {
   if (filters.dateFrom) parameters.set("dateFrom", filters.dateFrom);
   if (filters.dateTo) parameters.set("dateTo", filters.dateTo);
   if (filters.courierId) parameters.set("courierId", filters.courierId);
-  const orders = new Map();
-  const cursors = new Set();
-  // Finish every scan page before publishing data, preserving whole-list sorting and summary cards.
-  while (true) {
-    signal?.throwIfAborted();
-    const query = parameters.toString();
-    const response = await apiRequest(
-      `/businesses/${businessId}/orders${query ? `?${query}` : ""}`,
-      { signal },
-    );
-    signal?.throwIfAborted();
-    for (const order of response.orders) orders.set(order.id, order);
-    if (!response.hasMore) break;
-    // Fail rather than loop forever if a server returns a missing or repeated continuation cursor.
-    if (typeof response.nextCursor !== "string" || !response.nextCursor || cursors.has(response.nextCursor)) {
-      throw new Error("Orders could not be loaded. Reload the orders list.");
+  const prefix = `orders:${businessId}:${encodeURIComponent(revision)}:`;
+  invalidateReadCache(`orders:${businessId}:`, prefix);
+  // Do not share in-flight loads: each Orders view owns and cancels its own page requests.
+  const result = await cachedRequest(`${prefix}${parameters.toString()}`, async () => {
+    const orders = new Map();
+    const cursors = new Set();
+    // Finish every scan page before publishing data, preserving whole-list sorting and summary cards.
+    while (true) {
+      signal?.throwIfAborted();
+      const query = parameters.toString();
+      const response = await apiRequest(
+        `/businesses/${businessId}/orders${query ? `?${query}` : ""}`,
+        { signal },
+      );
+      signal?.throwIfAborted();
+      for (const order of response.orders) orders.set(order.id, order);
+      if (!response.hasMore) break;
+      // Fail rather than loop forever if a server returns a missing or repeated continuation cursor.
+      if (typeof response.nextCursor !== "string" || !response.nextCursor || cursors.has(response.nextCursor)) {
+        throw new Error("Orders could not be loaded. Reload the orders list.");
+      }
+      cursors.add(response.nextCursor);
+      parameters.set("after", response.nextCursor);
     }
-    cursors.add(response.nextCursor);
-    parameters.set("after", response.nextCursor);
-  }
-  return [...orders.values()].map(mapOrderForTable);
+    return [...orders.values()].map(mapOrderForTable);
+  }, Infinity, false);
+  signal?.throwIfAborted();
+  return result;
 }
 
 export async function createOrder(businessId, orderData) {
@@ -146,6 +163,7 @@ export async function createOrder(businessId, orderData) {
     method: "POST",
     body: orderData,
   });
+  invalidateReadCache(`orders:${businessId}:`);
   return mapOrderForTable(response.order);
 }
 
@@ -154,6 +172,7 @@ export async function recordOrderPayment(businessId, orderId, payment) {
     `/businesses/${businessId}/orders/${orderId}/payment`,
     { method: "PATCH", body: payment },
   );
+  invalidateReadCache(`orders:${businessId}:`);
   return mapOrderForTable(response.order);
 }
 
@@ -165,6 +184,7 @@ export async function updateOrderStatus(businessId, orderId, status, note = "") 
       body: { status, note },
     },
   );
+  invalidateReadCache(`orders:${businessId}:`);
   return mapOrderForTable(response.order);
 }
 
@@ -172,10 +192,12 @@ export async function removeOrder(businessId, orderId) {
   const response = await apiRequest(`/businesses/${businessId}/orders/${orderId}`, {
     method: "DELETE",
   });
+  invalidateReadCache(`orders:${businessId}:`);
   return mapOrderForTable(response.order);
 }
 
 export async function updateOrder(businessId, orderId, changes) {
   const response = await apiRequest(`/businesses/${businessId}/orders/${orderId}`, { method: "PATCH", body: changes });
+  invalidateReadCache(`orders:${businessId}:`);
   return mapOrderForTable(response.order);
 }

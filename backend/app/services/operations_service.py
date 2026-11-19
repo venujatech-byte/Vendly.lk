@@ -171,6 +171,8 @@ def create_fraud_report(database, business_id, order_id, uid, payload):
             },
         )
 
+        mark_cache_changed(database, business_id, "orders", current_transaction)
+
     create_in_transaction(transaction)
     dispatch_notification(
         database=None,
@@ -260,6 +262,8 @@ def record_courier_issue(database, business_id, order_id, uid, payload):
             },
         )
 
+        mark_cache_changed(database, business_id, "orders", current_transaction)
+
     create_in_transaction(transaction)
     return serialize_snapshot(issue_reference.get())
 
@@ -327,6 +331,8 @@ def generate_waybill(database, business_id, order_id, uid):
                 courier_reference,
                 {"nextWaybillSequence": sequence + 1, "updatedAt": timestamp},
             )
+
+        mark_cache_changed(database, business_id, "orders", current_transaction)
 
     generate_in_transaction(transaction)
     return get_order(database, business_id, order_id)

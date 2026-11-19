@@ -1,4 +1,5 @@
 from app.core.errors import ApiError
+from app.services.cache_revision_service import mark_cache_changed
 from app.core.serialization import serialize_snapshot
 from google.cloud import firestore as google_firestore
 from google.cloud.firestore_v1.base_query import FieldFilter
@@ -43,6 +44,7 @@ def claim_guest_customer_orders(database, store_code, guest_uid, customer_uid):
         if not snapshot.exists or snapshot.to_dict().get("customerUid") != guest_uid:
             return False
         current_transaction.update(reference, {"customerUid": customer_uid})
+        mark_cache_changed(database, business_id, "orders", current_transaction)
         return True
 
     if guest_uid != customer_uid:
@@ -155,10 +157,14 @@ def update_order_guest_email(
 
     # Ownership can change during guest sign-in; reject writes against an outdated authorization read.
     try:
-        order_ref.update(
+        batch = database.batch()
+        batch.update(
+            order_ref,
             {"customerSnapshot": customer_snapshot},
             option=database.write_option(last_update_time=order_snap.update_time),
         )
+        mark_cache_changed(database, business_id, "orders", batch)
+        batch.commit()
     except FailedPrecondition:
         raise ApiError("order_changed", "Order changed. Please reload and try again.", 409) from None
 

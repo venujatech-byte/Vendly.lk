@@ -10,6 +10,7 @@ from flask import current_app
 from google.cloud.firestore_v1.base_query import FieldFilter
 
 from app.core.errors import ApiError
+from app.services.cache_revision_service import mark_cache_changed
 from app.core.firebase import get_rtdb_reference
 from app.services import realtime_access_service
 from app.core.serialization import serialize_snapshot
@@ -2843,13 +2844,17 @@ def claim_public_chat_session(database, session_id, provided_token, customer_uid
             order_update["customerEmail"] = customer_email
             order_update["customerSnapshot.email"] = customer_email
         try:
-            (
+            # Keep claimed order ownership/email and the seller's cache revision atomic.
+            order_reference = (
                 database.collection("businesses")
                 .document(session["businessId"])
                 .collection("orders")
                 .document(session["orderId"])
-                .update(order_update)
             )
+            batch = database.batch()
+            batch.update(order_reference, order_update)
+            mark_cache_changed(database, session["businessId"], "orders", batch)
+            batch.commit()
         except Exception:
             pass
     return {"sessionId": snapshot.id, "claimed": True}

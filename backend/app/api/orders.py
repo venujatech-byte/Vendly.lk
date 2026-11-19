@@ -14,6 +14,7 @@ from app.services.order_service import (
     update_order_status,
     update_order,
 )
+from app.services.cache_revision_service import get_cache_revision
 from app.services.analytics_service import bump_analytics_version
 
 
@@ -36,6 +37,14 @@ def get_orders(business_id):
         courier_id=request.args.get("courierId"),
     )
     return jsonify(result)
+
+
+# Recheck current order-read permission before allowing browser-cached order reuse.
+@orders_blueprint.get("/businesses/<business_id>/orders/cache/version")
+@require_firebase_user
+@require_business_member(permission="orders:read")
+def orders_version(business_id):
+    return jsonify({"revision": get_cache_revision(get_firestore_client(), business_id, "orders")})
 
 
 @orders_blueprint.post("/businesses/<business_id>/orders")

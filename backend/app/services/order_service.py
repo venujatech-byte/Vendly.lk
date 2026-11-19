@@ -838,6 +838,8 @@ def create_order(database, business_id, uid, payload, *, customer_contact=None):
                 },
             )
 
+        mark_cache_changed(database, business_id, "orders", current_transaction)
+
     create_in_transaction(transaction)
     created_order = get_order(database, business_id, order_reference.id)
 
@@ -1175,6 +1177,7 @@ def update_order_status(database, business_id, order_id, uid, payload):
             order_changes["stockReservationStatus"] = "sold"
 
         current_transaction.update(order_reference, order_changes)
+        mark_cache_changed(database, business_id, "orders", current_transaction)
 
         # A customer cancelling is news to the seller: stock has just been
         # released, anything already picked has to be put back, and a courier
@@ -1453,7 +1456,11 @@ def update_order(database, business_id, order_id, uid, payload, editable_statuse
             changes["courierId"] = ""
             changes["courierSnapshot"] = {}
 
-    order_reference.update(changes)
+    # Publish seller edits and cache freshness in the same commit.
+    batch = database.batch()
+    batch.update(order_reference, changes)
+    mark_cache_changed(database, business_id, "orders", batch)
+    batch.commit()
 
     if "waybillNumber" in changes and changes["waybillNumber"]:
         waybill_reference = (
@@ -1762,6 +1769,8 @@ def add_items_to_order(database, business_id, order_id, uid, items):
             },
         )
 
+        mark_cache_changed(database, business_id, "orders", current_transaction)
+
     apply(database.transaction())
     return get_order(database, business_id, order_id)
 
@@ -1887,6 +1896,7 @@ def record_order_payment(database, business_id, order_id, uid, payload):
                 "createdAt": firestore.SERVER_TIMESTAMP,
             },
         )
+        mark_cache_changed(database, business_id, "orders", current_transaction)
         return order, balance_minor
 
     order, balance_minor = record_in_transaction(database.transaction())
@@ -1953,6 +1963,7 @@ def convert_order_to_cash_on_delivery(database, business_id, order_id, uid):
                 "createdAt": firestore.SERVER_TIMESTAMP,
             },
         )
+        mark_cache_changed(database, business_id, "orders", current_transaction)
         return order, total_minor
 
     order, total_minor = convert_in_transaction(database.transaction())
@@ -2003,6 +2014,8 @@ def attach_order_payment_receipt(
                 "updatedAt": firestore.SERVER_TIMESTAMP,
             },
         )
+
+        mark_cache_changed(database, business_id, "orders", current_transaction)
 
     attach_in_transaction(database.transaction())
     return get_order(database, business_id, order_id)

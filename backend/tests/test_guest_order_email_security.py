@@ -48,7 +48,7 @@ def test_order_ids_and_other_identities_cannot_redirect_receipts(receipt, identi
         portal.update_order_guest_email(
             database, "store", "order-a", "attacker@example.com", customer_uid=identity,
         )
-    order.update.assert_not_called()
+    database.batch.return_value.update.assert_not_called()
     send.assert_not_called()
 
 
@@ -58,7 +58,7 @@ def test_verified_owner_can_update_and_receive_receipt(receipt):
         database, "store", "order-a", " Owner@Example.com ", customer_uid="customer-a",
     )
     assert result == {"success": True, "email": "owner@example.com"}
-    order.update.assert_called_once_with({
+    database.batch.return_value.update.assert_called_once_with(order, {
         "customerSnapshot": {"name": "Customer", "email": "owner@example.com"},
     }, option=database.write_option.return_value)
     database.write_option.assert_called_once_with(last_update_time=order.get.return_value.update_time)
@@ -76,7 +76,7 @@ def test_legacy_guest_can_use_original_order_session(receipt, legacy_field):
         database, "store", "order-a", "guest@example.com",
         session_id="session-a", session_token="original-secret",
     )
-    order.update.assert_called_once()
+    database.batch.return_value.update.assert_called_once()
     send.assert_called_once()
 
 
@@ -113,13 +113,13 @@ def test_invalid_ownership_never_writes_or_sends(receipt, failure):
             session_id="session-a", session_token=token,
         )
     assert error.value.status_code == 404
-    order.update.assert_not_called()
+    database.batch.return_value.update.assert_not_called()
     send.assert_not_called()
 
 
 @pytest.mark.parametrize("identity", [None, "customer-a", "customer-b", "revoked"])
 def test_email_route_verifies_identity_and_ignores_payload_uid(receipt, monkeypatch, identity):
-    _, order, _, send = receipt
+    database, order, _, send = receipt
     verify = Mock(return_value={"uid": identity})
     if identity == "revoked":
         verify.side_effect = RevokedIdTokenError("Revoked")
@@ -134,13 +134,13 @@ def test_email_route_verifies_identity_and_ignores_payload_uid(receipt, monkeypa
     if identity:
         verify.assert_called_once_with("test-token", check_revoked=True)
     if identity != "customer-a":
-        order.update.assert_not_called()
+        database.batch.return_value.update.assert_not_called()
         send.assert_not_called()
 
 
 @pytest.mark.parametrize("identity", [None, "customer-a"])
 def test_email_route_accepts_original_legacy_session_credentials(receipt, monkeypatch, identity):
-    _, order, session, send = receipt
+    database, order, session, send = receipt
     # Exercise the HTTP header and body together with the real session-token verifier.
     order.get.return_value.to_dict.return_value.pop("customerUid")
     if identity:
@@ -157,5 +157,5 @@ def test_email_route_accepts_original_legacy_session_credentials(receipt, monkey
         json={"email": "guest@example.com", "sessionId": "session-a"},
     )
     assert response.status_code == 200
-    order.update.assert_called_once()
+    database.batch.return_value.update.assert_called_once()
     send.assert_called_once()

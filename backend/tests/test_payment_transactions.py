@@ -94,7 +94,9 @@ def test_rejected_payment_and_audit_commit_leaves_no_partial_writes(store, cod):
 
     def reject_commit(request, **kwargs):
         names = {write.update.name.split("/documents/", 1)[1] for write in request["writes"]}
-        assert len(names) == 2
+        # Payment state, audit event and cache freshness must succeed or fail together.
+        assert len(names) == 3
+        assert "businesses/business-a/_cacheVersions/orders" in names
         assert ORDER in names
         assert any(name.startswith(f"{ORDER}/events/") for name in names)
         raise PermissionDenied("Simulated audit write rejection")

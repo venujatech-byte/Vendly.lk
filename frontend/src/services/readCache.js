@@ -8,7 +8,7 @@ export function getReadCacheSession() {
   return sessionGeneration;
 }
 
-export function cachedRequest(key, loader, ttl = DEFAULT_TTL) {
+export function cachedRequest(key, loader, ttl = DEFAULT_TTL, deduplicate = true) {
   // Prune expired keys even when callers move on to different searches or report versions.
   const now = Date.now();
   for (const [cachedKey, entry] of cache) {
@@ -16,7 +16,8 @@ export function cachedRequest(key, loader, ttl = DEFAULT_TTL) {
   }
   const existing = cache.get(key);
   if (existing) return Promise.resolve(existing.value);
-  if (pending.has(key)) return pending.get(key);
+  // Independently cancellable callers must not inherit another caller's aborted request.
+  if (deduplicate && pending.has(key)) return pending.get(key);
 
   const request = Promise.resolve().then(loader).then((value) => {
     // An invalidated request must neither repopulate data nor remove its replacement request.

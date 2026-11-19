@@ -1,5 +1,6 @@
 import { apiFileRequest, apiRequest } from "./apiClient";
 import { mapOrderForTable } from "./orderService";
+import { invalidateReadCache } from "./readCache";
 
 
 export async function generateOrderWaybill(businessId, orderId) {
@@ -7,6 +8,7 @@ export async function generateOrderWaybill(businessId, orderId) {
     `/businesses/${businessId}/orders/${orderId}/waybill`,
     { method: "POST" },
   );
+  invalidateReadCache(`orders:${businessId}:`);
   return mapOrderForTable(response.order);
 }
 
@@ -16,6 +18,7 @@ export async function reportFraudOrder(businessId, orderId, reason, note = "") {
     `/businesses/${businessId}/orders/${orderId}/fraud-report`,
     { method: "POST", body: { type: reason, note } },
   );
+  invalidateReadCache(`orders:${businessId}:`);
   return response.fraudReport;
 }
 
@@ -30,6 +33,7 @@ export async function reportCourierIssue(
     `/businesses/${businessId}/orders/${orderId}/courier-issues`,
     { method: "POST", body: { type: issueType, note } },
   );
+  invalidateReadCache(`orders:${businessId}:`);
   return response.courierIssue;
 }
 

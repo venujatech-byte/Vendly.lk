@@ -12,7 +12,7 @@ the Firebase identity and current `inventory:read` membership, then reads
 An unchanged revision reuses the matching filtered product list in browser
 memory. A different revision removes previous revision entries/pending loads
 and fetches the requested list again. Time alone no longer expires product
-data. Other caches retain their existing expiry policy. Product mutations and
+data. Caches without revision tracking retain their existing expiry policy. Product mutations and
 logout/account changes still invalidate cached entries; late old-session
 revision responses cannot recreate them. No persistent disk cache is enabled.
 
