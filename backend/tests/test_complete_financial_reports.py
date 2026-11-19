@@ -8,7 +8,7 @@ from firestore_memory import MemoryFirestore
 from app.services.analytics_service import (
     REPORT_BATCH_SIZE, get_business_analytics, get_business_ledger, stream_report_snapshots,
 )
-from app.services.cod_reconciliation_service import get_cod_reconciliation
+from app.services.cod_reconciliation_service import build_cod_reconciliation, get_cod_reconciliation
 
 
 BUSINESS = "businesses/business-a"
@@ -132,6 +132,52 @@ def test_reconciliation_matches_orders_and_settlements_beyond_2000_records():
     assert_bounded_snapshot_reads(store)
 
 
+def test_reconciliation_skips_non_delivered_reads_without_changing_results():
+    store = store_for_report()
+    statuses = ["confirmed", "shipped", "returned", "cancelled", None, "Delivered", ["delivered"]]
+    for index in range(1001):
+        data = {**order(), "fulfilmentStatus": "delivered" if index < 10 else statuses[index % len(statuses)]}
+        if index == 0:
+            data["paymentMethod"] = "paid"
+        elif index == 1:
+            data["balanceAmountMinor"] = 0
+        elif index == 2:
+            # Legacy delivered orders without a creation date must remain in reconciliation.
+            data.pop("createdAt")
+        if index == 1000:
+            data.pop("fulfilmentStatus")
+        store.put(f"{BUSINESS}/orders/order-{index:04d}", data)
+    store.put(f"{BUSINESS}/codSettlements/order-0003", {
+        "orderId": "order-0003", "amountCollectedMinor": 100,
+        "courierChargeMinor": 10, "receivedSettlementMinor": 90,
+    })
+    store.put("businesses/business-b/orders/private-order", order())
+    full_orders = [
+        {"id": path.rsplit("/", 1)[1], **data}
+        for path, data in sorted(store.documents.items()) if path.startswith(f"{BUSINESS}/orders/")
+    ]
+    expected = build_cod_reconciliation(full_orders, [{
+        "id": "order-0003", **store.documents[f"{BUSINESS}/codSettlements/order-0003"],
+    }])
+    query = store.query
+    returned_orders = 0
+
+    # Count records returned by the SDK transport, rather than just records accepted by the builder.
+    def count_query(request, **kwargs):
+        nonlocal returned_orders
+        rows = list(query(request, **kwargs))
+        if request["structured_query"].from_[0].collection_id == "orders":
+            returned_orders += len(rows)
+        return iter(rows)
+
+    store.client._firestore_api.run_query.side_effect = count_query
+    assert get_cod_reconciliation(store.client, "business-a") == expected
+    assert expected["summary"]["orderCount"] == 8
+    assert returned_orders == 10
+    store.client._firestore_api.commit.assert_not_called()
+    assert_bounded_snapshot_reads(store)
+
+
 @pytest.mark.parametrize("report", [get_business_analytics, get_business_ledger, get_cod_reconciliation])
 def test_concurrent_changes_cannot_move_records_between_report_pages(report):
     store = store_for_report()
@@ -144,10 +190,10 @@ def test_concurrent_changes_cannot_move_records_between_report_pages(report):
         nonlocal changed
         if request["structured_query"].start_at.values and not changed:
             changed = True
-            # Change amounts/order dates and delete/create rows while a report is between pages.
+            # Change status, amounts/order dates and delete/create rows between report pages.
             store.put(f"{BUSINESS}/orders/order-0500", {
                 **order(), "createdAt": datetime(2027, 1, 1, tzinfo=timezone.utc),
-                "subtotalMinor": 999999, "totalAmountMinor": 999999,
+                "subtotalMinor": 999999, "totalAmountMinor": 999999, "fulfilmentStatus": "cancelled",
             })
             del store.documents[f"{BUSINESS}/orders/order-0000"]
             store.put(f"{BUSINESS}/orders/zz-new-order", order())
@@ -170,7 +216,8 @@ def test_concurrent_changes_cannot_move_records_between_report_pages(report):
     assert_bounded_snapshot_reads(store)
 
 
-def test_later_page_failure_does_not_return_a_partial_financial_report():
+@pytest.mark.parametrize("report", [get_business_ledger, get_cod_reconciliation])
+def test_later_page_failure_does_not_return_a_partial_financial_report(report):
     store = store_for_report()
     for index in range(501):
         store.put(f"{BUSINESS}/orders/order-{index:04d}", order())
@@ -183,4 +230,4 @@ def test_later_page_failure_does_not_return_a_partial_financial_report():
 
     store.client._firestore_api.run_query.side_effect = failed_page
     with pytest.raises(RuntimeError, match="Synthetic page failure"):
-        get_business_ledger(store.client, "business-a")
+        report(store.client, "business-a")

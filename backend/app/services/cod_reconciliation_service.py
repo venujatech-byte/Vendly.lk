@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
 from firebase_admin import firestore
+from google.cloud.firestore_v1.base_query import FieldFilter
 
 from app.core.errors import ApiError
 from app.core.serialization import serialize_snapshot
@@ -113,7 +114,9 @@ def get_cod_reconciliation(database, business_id):
     reference = database.collection("businesses").document(business_id)
     # Match orders and settlements at one server read time while exhausting both bounded scans.
     read_time = reference.get().read_time
-    orders = [serialize_snapshot(item) for item in stream_report_snapshots(reference.collection("orders"), read_time)]
+    # Only delivered orders can contribute; exclude other statuses before paying to read their documents.
+    query = reference.collection("orders").where(filter=FieldFilter("fulfilmentStatus", "==", "delivered"))
+    orders = [serialize_snapshot(item) for item in stream_report_snapshots(query, read_time)]
     settlements = [serialize_snapshot(item) for item in stream_report_snapshots(reference.collection("codSettlements"), read_time)]
     return build_cod_reconciliation(orders, settlements)
 
