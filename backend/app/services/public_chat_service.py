@@ -2886,9 +2886,11 @@ def resume_public_chat_session(database, session_id, customer_uid, customer_emai
             pass
 
     session_token = secrets.token_urlsafe(32)
+    # Renew the owned chat for the same 24-hour window used by new sessions.
     updates = {
         "tokenHash": token_hash(session_token),
         "status": "active",
+        "expiresAt": datetime.now(timezone.utc) + timedelta(hours=24),
         "updatedAt": firestore.SERVER_TIMESTAMP,
     }
     if customer_email and not session.get("customerEmail"):
