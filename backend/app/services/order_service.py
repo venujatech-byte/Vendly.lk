@@ -3,6 +3,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 
 from firebase_admin import auth as firebase_auth, firestore
+from google.api_core.exceptions import FailedPrecondition
 from google.cloud import firestore as google_firestore
 from google.cloud.firestore_v1.base_query import FieldFilter
 
@@ -1458,32 +1459,36 @@ def update_order(database, business_id, order_id, uid, payload, editable_statuse
             changes["courierId"] = ""
             changes["courierSnapshot"] = {}
 
-    # Publish seller edits and cache freshness in the same commit.
+    # Reject edits based on an outdated order instead of overwriting another edit or confirmation.
     batch = database.batch()
-    batch.update(order_reference, changes)
+    batch.update(order_reference, changes, option=database.write_option(last_update_time=snapshot.update_time))
     mark_cache_changed(database, business_id, "orders", batch)
-    batch.commit()
 
     if "waybillNumber" in changes and changes["waybillNumber"]:
+        # The waybill must contain the edited values and commit atomically with the order.
+        edited_order = {**current_order, **changes}
         waybill_reference = (
             database.collection("businesses").document(business_id)
             .collection("waybills").document(order_id)
         )
-        waybill_reference.set(
-            {
-                "waybillNumber": changes["waybillNumber"],
-                "orderId": order_id,
-                "orderNumber": current_order.get("orderNumber", ""),
-                "courierId": current_order.get("courierId", ""),
-                "courierSnapshot": current_order.get("courierSnapshot", {}),
-                "customerSnapshot": current_order.get("customerSnapshot", {}),
-                "deliveryAddress": current_order.get("deliveryAddress", {}),
-                "totalWeightGrams": current_order.get("totalWeightGrams", 0),
-                "updatedBy": uid,
-                "updatedAt": firestore.SERVER_TIMESTAMP,
-            },
-            merge=True,
-        )
+        waybill_changes = {
+            "waybillNumber": changes["waybillNumber"],
+            "orderId": order_id,
+            "orderNumber": edited_order.get("orderNumber", ""),
+            "courierId": edited_order.get("courierId", ""),
+            "courierSnapshot": edited_order.get("courierSnapshot", {}),
+            "customerSnapshot": edited_order.get("customerSnapshot", {}),
+            "deliveryAddress": edited_order.get("deliveryAddress", {}),
+            "totalWeightGrams": edited_order.get("totalWeightGrams", 0),
+            "updatedBy": uid,
+            "updatedAt": firestore.SERVER_TIMESTAMP,
+        }
+        # Replace complete snapshot maps while preserving unrelated top-level waybill metadata.
+        batch.set(waybill_reference, waybill_changes, merge=list(waybill_changes))
+    try:
+        batch.commit()
+    except FailedPrecondition:
+        raise ApiError("order_changed", "Order changed. Please reload and try again.", 409) from None
     return get_order(database, business_id, order_id)
 
 
