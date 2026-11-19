@@ -63,6 +63,7 @@ import OrderReceipt from "../components/OrderReceipt";
 import CustomerAccountModal from "../components/CustomerAccountModal";
 import StorefrontInstructionsModal from "../components/StorefrontInstructionsModal";
 import { useAuth } from "../context/authContextValue";
+import { useChatSessionRecovery } from "../hooks/useChatSessionRecovery";
 import { claimPublicChatSession } from "../services/publicService";
 import { ref as dbRef, onValue, query, limitToLast } from "firebase/database";
 import { rtdb } from "../firebase/firebase";
@@ -248,6 +249,12 @@ function StorefrontPage({ linkType, onVerificationRequired }) {
   const [business, setBusiness] = useState(null);
   const [products, setProducts] = useState([]);
   const [session, setSession] = useState(null);
+  // Persist renewed credentials under the same account/store key without clearing history.
+  const sessionStorageKey = chatSessionStorageKey(storeCode, activeProductCode, user);
+  const runChatRequest = useChatSessionRecovery(session, user, sessionStorageKey, (renewed) => {
+    localStorage.setItem(sessionStorageKey, JSON.stringify(renewed));
+    setSession(renewed);
+  });
   // Wait for server ownership metadata before attaching the private chat listener.
   const [realtimeChatKey, setRealtimeChatKey] = useState("");
   const [messages, setMessages] = useState([]);
@@ -459,10 +466,10 @@ function StorefrontPage({ linkType, onVerificationRequired }) {
     setIsLoadingOlderMessages(true);
     try {
       const earliestId = messages.find((m) => m.id)?.id;
-      const result = await getPublicChatMessages(session.sessionId, session.sessionToken, {
+      const result = await runChatRequest(session, (active) => getPublicChatMessages(active.sessionId, active.sessionToken, {
         before: earliestId || messageCursor || undefined,
         limit: 10,
-      });
+      }));
       const olderMessages = (result.messages || []).map((message) => ({
         id: message.id,
         role: message.role,
@@ -507,7 +514,7 @@ function StorefrontPage({ linkType, onVerificationRequired }) {
     setRealtimeChatKey("");
     if (!user || !session?.sessionId || !session?.sessionToken) return;
     const userEmail = (!user.isAnonymous && user.email) ? user.email : "";
-    claimPublicChatSession(session.sessionId, session.sessionToken, { email: userEmail })
+    runChatRequest(session, (active) => claimPublicChatSession(active.sessionId, active.sessionToken, { email: userEmail }))
       .then(() => {
         if (isCurrent) setRealtimeChatKey(`${user.uid}:${session.sessionId}`);
       })
@@ -977,11 +984,11 @@ function StorefrontPage({ linkType, onVerificationRequired }) {
     try {
       const activeSession = await ensureChatSession();
       const { url } = await compressUploadImage(file);
-      const response = await sendPublicChatImage(
-        activeSession.sessionId,
-        activeSession.sessionToken,
+      const response = await runChatRequest(activeSession, (active) => sendPublicChatImage(
+        active.sessionId,
+        active.sessionToken,
         url,
-      );
+      ));
       setMessages((current) => {
         const list = current || [];
         const customerImg = { role: "customer", text: "", imageUrl: response.imageUrl };
@@ -1030,9 +1037,9 @@ function StorefrontPage({ linkType, onVerificationRequired }) {
       const activeSession = await ensureChatSession();
       const userEmail = (!user?.isAnonymous && user?.email) ? user.email : "";
       const currentEmail = customer.email || userEmail || "";
-      const response = await sendPublicChatMessage(
-        activeSession.sessionId,
-        activeSession.sessionToken,
+      const response = await runChatRequest(activeSession, (active) => sendPublicChatMessage(
+        active.sessionId,
+        active.sessionToken,
         cleanMessage,
         {
           cart: cart.map((item) => ({
@@ -1045,7 +1052,7 @@ function StorefrontPage({ linkType, onVerificationRequired }) {
             email: currentEmail,
           },
         },
-      );
+      ));
 
       if (response.customerDraft) {
         setCustomer((current) => ({
@@ -1362,9 +1369,9 @@ function StorefrontPage({ linkType, onVerificationRequired }) {
     setErrorMessage("");
 
     try {
-      const response = await createPublicChatOrder(
-        session.sessionId,
-        session.sessionToken,
+      const response = await runChatRequest(session, (active) => createPublicChatOrder(
+        active.sessionId,
+        active.sessionToken,
         {
           customer: {
             name: customer.name,
@@ -1389,7 +1396,7 @@ function StorefrontPage({ linkType, onVerificationRequired }) {
             quantity: item.quantity,
           })),
         },
-      );
+      ));
       setConfirmedOrder(response.order);
       setIsCheckoutOpen(false);
       setIsCartOpen(false);
