@@ -6,7 +6,11 @@ from google.cloud.firestore_v1.base_query import FieldFilter
 
 from app.core.errors import ApiError
 from app.core.serialization import serialize_snapshot
+from app.services.analytics_service import stream_report_snapshots
 from app.services.text import optional_text, required_text
+
+
+CUSTOMER_PAGE_SIZE = 200
 
 
 def normalize_sri_lankan_phone(value):
@@ -99,10 +103,16 @@ def list_customers(database, business_id, phone=None, search=None):
         ).limit(1)
         return [serialize_snapshot(snapshot) for snapshot in query.stream()]
 
+    # Internal search callers need the full name-ordered list while exact phone lookup stays bounded above.
     customers = [
         serialize_snapshot(snapshot)
-        for snapshot in collection.order_by("name").limit(200).stream()
+        for snapshot in stream_report_snapshots(collection.order_by("name"), collection.parent.get().read_time)
     ]
+    return filter_customers(customers, search)
+
+
+def filter_customers(customers, search=None):
+    """Keep archive and substring-search behavior shared by complete lists and API pages."""
     customers = [
         customer
         for customer in customers
@@ -119,6 +129,32 @@ def list_customers(database, business_id, phone=None, search=None):
         ]
 
     return customers
+
+
+def list_customers_page(database, business_id, *, phone=None, search=None, after=None):
+    """Scan one bounded page using immutable IDs so customer renames cannot move the cursor."""
+    if phone:
+        # Preserve the existing exact lookup, including its normalization and single-result limit.
+        return {"customers": list_customers(database, business_id, phone=phone), "hasMore": False, "nextCursor": None}
+    collection = database.collection("businesses").document(business_id).collection("customers")
+    query = collection.order_by("__name__")
+    if after:
+        # Accept only a local document ID; the server always supplies the authenticated tenant path.
+        if (
+            not isinstance(after, str) or "/" in after or len(after.encode("utf-8")) > 1500
+            or after in {".", ".."} or (after.startswith("__") and after.endswith("__"))
+        ):
+            raise ApiError("invalid_customer_cursor", "The customer cursor is invalid. Reload the customers list.", 422)
+        # A document-name cursor still works if that customer was deleted between requests.
+        query = query.start_after({"__name__": collection.document(after)})
+    snapshots = list(query.limit(CUSTOMER_PAGE_SIZE).stream())
+    has_more = len(snapshots) == CUSTOMER_PAGE_SIZE
+    return {
+        # The old name-ordered query excluded records without a name field; retain that behavior.
+        "customers": filter_customers([serialize_snapshot(item) for item in snapshots if "name" in item.to_dict()], search),
+        "hasMore": has_more,
+        "nextCursor": snapshots[-1].id if has_more else None,
+    }
 
 
 def get_customer(database, business_id, customer_id):

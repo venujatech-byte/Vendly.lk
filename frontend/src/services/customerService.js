@@ -1,11 +1,39 @@
 import { apiRequest } from "./apiClient";
 import { cachedRequest, invalidateReadCache } from "./readCache";
 
+// Match Firestore's UTF-8 name ordering without changing the table's existing locale-based sort controls.
+const nameEncoder = new TextEncoder();
+function compareCustomerNames(left, right) {
+  if (left.name == null && right.name != null) return -1;
+  if (right.name == null && left.name != null) return 1;
+  const leftName = nameEncoder.encode(left.name ?? "");
+  const rightName = nameEncoder.encode(right.name ?? "");
+  for (let index = 0; index < Math.min(leftName.length, rightName.length); index += 1) {
+    if (leftName[index] !== rightName[index]) return leftName[index] - rightName[index];
+  }
+  return leftName.length - rightName.length;
+}
+
 export async function getCustomers(businessId, search = "") {
-  const query = search ? `?search=${encodeURIComponent(search)}` : "";
   return cachedRequest(`customers:${businessId}:${search.trim().toLowerCase()}`, async () => {
-    const response = await apiRequest(`/businesses/${businessId}/customers${query}`);
-    return response.customers;
+    const parameters = new URLSearchParams();
+    if (search) parameters.set("search", search);
+    const customers = new Map();
+    const cursors = new Set();
+    // Cache only the complete list so tables, exports and customer selectors never see one scan page.
+    while (true) {
+      const query = parameters.toString();
+      const response = await apiRequest(`/businesses/${businessId}/customers${query ? `?${query}` : ""}`);
+      for (const customer of response.customers) customers.set(customer.id, customer);
+      if (!response.hasMore) break;
+      if (typeof response.nextCursor !== "string" || !response.nextCursor || cursors.has(response.nextCursor)) {
+        throw new Error("Customers could not be loaded. Reload the customers list.");
+      }
+      cursors.add(response.nextCursor);
+      parameters.set("after", response.nextCursor);
+    }
+    // ID pages arrive in ID order; restore the original default name order and stable ID tie-breaker.
+    return [...customers.values()].sort(compareCustomerNames);
   }, search ? 15 * 1000 : 60 * 1000);
 }
 

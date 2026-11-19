@@ -7,7 +7,7 @@ from app.core.requests import get_json_object
 from app.services.customer_service import (
     create_customer,
     get_customer,
-    list_customers,
+    list_customers_page,
     update_customer,
 )
 from app.services.fraud_service import (
@@ -25,13 +25,15 @@ customers_blueprint = Blueprint("customers", __name__, url_prefix="/api/v1")
 @require_firebase_user
 @require_business_member(permission="customers:read")
 def get_customers(business_id):
-    customers = list_customers(
+    # Recheck tenant membership and read permission for every bounded customer page.
+    result = list_customers_page(
         get_firestore_client(),
         business_id,
+        after=request.args.get("after"),
         phone=request.args.get("phone"),
         search=request.args.get("search"),
     )
-    return jsonify({"customers": customers})
+    return jsonify(result)
 
 
 @customers_blueprint.get("/businesses/<business_id>/fraud-customers")
