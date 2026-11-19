@@ -1,14 +1,25 @@
 import { apiFileRequest, apiRequest } from "./apiClient";
-import { cachedRequest } from "./readCache";
+import { cachedRequest, getReadCacheSession, invalidateReadCache } from "./readCache";
 
 
 export async function getAnalyticsOverview(businessId) {
-  const versionResponse = await apiRequest(`/businesses/${businessId}/analytics/version`);
-  const version = versionResponse.analyticsVersion ?? 0;
-  return cachedRequest(`analytics:${businessId}:${version}`, async () => {
+  // Check current read access and shared source revisions before reusing a private analytics report.
+  const session = getReadCacheSession();
+  const { analyticsRevision } = await apiRequest(`/businesses/${businessId}/analytics/version?includeRevision=1`);
+  if (session !== getReadCacheSession()) throw new DOMException("The login session changed.", "AbortError");
+  if (typeof analyticsRevision !== "string" || !/^[a-f0-9]{64}$/.test(analyticsRevision)) {
+    throw new Error("Analytics freshness could not be verified.");
+  }
+  const prefix = `analytics:${businessId}:${analyticsRevision}:`;
+  invalidateReadCache(`analytics:${businessId}:`, prefix);
+  // Retain the existing expiry because forecast periods and stock age change even without writes.
+  const analytics = await cachedRequest(`${prefix}overview`, async () => {
     const response = await apiRequest(`/businesses/${businessId}/analytics/overview`);
+    if (session !== getReadCacheSession()) throw new DOMException("The login session changed.", "AbortError");
     return response.analytics;
   }, 30 * 60 * 1000);
+  if (session !== getReadCacheSession()) throw new DOMException("The login session changed.", "AbortError");
+  return analytics;
 }
 
 

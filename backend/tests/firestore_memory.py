@@ -53,11 +53,13 @@ class MemoryFirestore:
         )
 
     def get_documents(self, request, **kwargs):
-        # Return protobuf snapshots so the SDK builds its normal DocumentSnapshot objects.
-        read_time = datetime.now(timezone.utc)
-        self.read_states[read_time] = deepcopy(self.documents)
+        # Honor pinned batch reads while returning normal SDK snapshots.
+        read_time = request.get("read_time") or datetime.now(timezone.utc)
+        if not request.get("read_time"):
+            self.read_states[read_time] = deepcopy(self.documents)
+        documents = self.read_states[read_time]
         for name in request["documents"]:
-            document = self.snapshot(name, request.get("transaction"))
+            document = self.snapshot(name, request.get("transaction"), documents)
             if document is None:
                 yield types.BatchGetDocumentsResponse(missing=name, read_time=read_time)
             else:

@@ -9,6 +9,7 @@ from app.core.requests import get_json_object
 from app.services.analytics_service import (
     delete_ledger_entry,
     get_analytics_version,
+    get_analytics_cache_revision,
     get_business_analytics,
     get_business_ledger,
     record_ledger_entry,
@@ -28,6 +29,11 @@ analytics_blueprint = Blueprint("analytics", __name__, url_prefix="/api/v1")
 @require_firebase_user
 @require_business_member(permission="analytics:read")
 def analytics_version(business_id):
+    # Opted-in web clients track shared writers while existing clients retain their numeric version response.
+    if request.args.get("includeRevision") == "1":
+        response = jsonify(get_analytics_cache_revision(get_firestore_client(), business_id))
+        response.headers["Cache-Control"] = "no-store"
+        return response
     return jsonify({"analyticsVersion": get_analytics_version(get_firestore_client(), business_id)})
 
 

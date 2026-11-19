@@ -1,9 +1,12 @@
 from collections import defaultdict
+import hashlib
+import json
 import logging
 from datetime import datetime, timedelta, timezone
 
 from firebase_admin import firestore
 from app.services.numbers import MAX_INTEGER
+from app.services.cache_revision_service import cache_revision_reference
 
 LOGGER = logging.getLogger(__name__)
 REPORT_BATCH_SIZE = 500
@@ -38,6 +41,20 @@ def get_analytics_version(database, business_id):
     snapshot = database.collection("businesses").document(business_id).get()
     data = snapshot.to_dict() or {}
     return data.get("analyticsVersion", 0)
+
+
+def get_analytics_cache_revision(database, business_id):
+    # Bind legacy invalidations and existing source markers to one read time without scanning report data.
+    snapshot = database.collection("businesses").document(business_id).get()
+    version = (snapshot.to_dict() or {}).get("analyticsVersion", 0)
+    revisions = dict.fromkeys(("orders", "products", "customers"), "0")
+    references = [cache_revision_reference(database, business_id, collection) for collection in revisions]
+    for marker in database.get_all(references, read_time=snapshot.read_time):
+        revisions[marker.id] = (marker.to_dict() or {}).get("revision", "0")
+    revisions["analyticsVersion"] = version
+    revision = hashlib.sha256(json.dumps(revisions, sort_keys=True).encode()).hexdigest()
+    return {"analyticsVersion": version, "analyticsRevision": revision}
+
 
 from app.core.errors import ApiError
 from app.core.serialization import serialize_snapshot
