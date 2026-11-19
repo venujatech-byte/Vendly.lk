@@ -104,12 +104,16 @@ def list_customers(database, business_id, phone=None, search=None):
         ).limit(1)
         return [serialize_snapshot(snapshot) for snapshot in query.stream()]
 
-    # Internal search callers need the full name-ordered list while exact phone lookup stays bounded above.
-    customers = [
-        serialize_snapshot(snapshot)
-        for snapshot in stream_report_snapshots(collection.order_by("name"), collection.parent.get().read_time)
-    ]
-    return filter_customers(customers, search)
+    return filter_customers(stream_customers(database, business_id), search)
+
+
+def stream_customers(database, business_id):
+    # Preserve name ordering and archive exclusion while allowing global search to stop reading early.
+    collection = database.collection("businesses").document(business_id).collection("customers")
+    for snapshot in stream_report_snapshots(collection.order_by("name"), collection.parent.get().read_time):
+        customer = serialize_snapshot(snapshot)
+        if customer.get("status", "active") != "archived":
+            yield customer
 
 
 def filter_customers(customers, search=None):

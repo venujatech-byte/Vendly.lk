@@ -233,6 +233,20 @@ def filter_orders(
     return orders
 
 
+def stream_orders(database, business_id):
+    collection = (
+        database.collection("businesses")
+        .document(business_id)
+        .collection("orders")
+    )
+    # Keep server ordering and one read time while callers stop after enough matches.
+    for snapshot in stream_report_snapshots(
+        collection.order_by("createdAt", direction="DESCENDING"),
+        collection.parent.get().read_time,
+    ):
+        yield serialize_snapshot(snapshot)
+
+
 def list_orders(
     database,
     business_id,
@@ -242,19 +256,7 @@ def list_orders(
     date_to=None,
     courier_id=None,
 ):
-    collection = (
-        database.collection("businesses")
-        .document(business_id)
-        .collection("orders")
-    )
-    # Internal callers such as exports must filter the complete dataset, not a single API page.
-    orders = [
-        serialize_snapshot(snapshot)
-        for snapshot in stream_report_snapshots(
-            collection.order_by("createdAt", direction="DESCENDING"),
-            collection.parent.get().read_time,
-        )
-    ]
+    orders = list(stream_orders(database, business_id))
 
     return filter_orders(
         orders,

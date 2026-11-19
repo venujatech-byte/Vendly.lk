@@ -251,16 +251,22 @@ def _product_query(database, business_id, category_id=None, status=None):
     return query
 
 
-def list_products(database, business_id, category_id=None, status=None, *, limit=None):
+def stream_products(database, business_id, category_id=None, status=None, *, limit=None):
     query = _product_query(database, business_id, category_id, status)
     if limit is not None:
         # Public catalogue callers retain their existing explicit cap rather than exposing the full scan.
         snapshots = query.limit(limit).stream()
     else:
-        # Internal inventory/search callers receive all matching records from bounded consistent scans.
+        # List callers exhaust consistent bounded scans; search can stop after enough matches.
         read_time = database.collection("businesses").document(business_id).get().read_time
         snapshots = stream_report_snapshots(query, read_time)
-    return [serialize_snapshot(snapshot) for snapshot in snapshots]
+    for snapshot in snapshots:
+        yield serialize_snapshot(snapshot)
+
+
+def list_products(database, business_id, category_id=None, status=None, *, limit=None):
+    # Existing catalogue/export callers retain complete lists and their explicit public caps.
+    return list(stream_products(database, business_id, category_id, status, limit=limit))
 
 
 def list_products_page(database, business_id, *, category_id=None, status=None, after=None):

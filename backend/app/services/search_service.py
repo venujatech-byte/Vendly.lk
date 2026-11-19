@@ -1,9 +1,9 @@
 import re
 
 from app.core.authorization import membership_has_permission
-from app.services.customer_service import list_customers
-from app.services.order_service import list_orders
-from app.services.product_service import list_products
+from app.services.customer_service import stream_customers
+from app.services.order_service import stream_orders
+from app.services.product_service import stream_products
 
 MAX_SEARCH_QUERY_LENGTH = 80
 CONTROL_CHARS_PATTERN = re.compile(r"[\x00-\x1f\x7f-\x9f]")
@@ -68,6 +68,9 @@ def search_records(orders, products, customers, query, limit_per_type=8):
                     "waybillNumber": order.get("waybillNumber", ""),
                 },
             )
+            # Later records cannot change the existing first-match result limit.
+            if len(order_results) == limit_per_type:
+                break
 
     product_results = []
     for product in products:
@@ -95,6 +98,9 @@ def search_records(orders, products, customers, query, limit_per_type=8):
                     "status": product.get("stockStatus", ""),
                 },
             )
+            # Later records cannot change the existing first-match result limit.
+            if len(product_results) == limit_per_type:
+                break
 
     customer_results = []
     for customer in customers:
@@ -114,6 +120,9 @@ def search_records(orders, products, customers, query, limit_per_type=8):
                     "riskLevel": customer.get("riskLevel", "low"),
                 },
             )
+            # Later records cannot change the existing first-match result limit.
+            if len(customer_results) == limit_per_type:
+                break
 
     return {
         "orders": order_results[:limit_per_type],
@@ -123,10 +132,13 @@ def search_records(orders, products, customers, query, limit_per_type=8):
 
 
 def global_search(database, business_id, query, membership):
-    # Exclude forbidden modules before reading records, using the same gates as their list endpoints.
+    # Invalid/short searches return the same empty result without reading business collections.
+    if len(sanitize_search_query(query).casefold()) < 2:
+        return {"orders": [], "products": [], "customers": []}
+    # Exclude forbidden modules before constructing lazy scans; each stops after eight matches.
     return search_records(
-        list_orders(database, business_id) if membership_has_permission(membership, "orders:read") else [],
-        list_products(database, business_id) if membership_has_permission(membership, "inventory:read") else [],
-        list_customers(database, business_id) if membership_has_permission(membership, "customers:read") else [],
+        stream_orders(database, business_id) if membership_has_permission(membership, "orders:read") else [],
+        stream_products(database, business_id) if membership_has_permission(membership, "inventory:read") else [],
+        stream_customers(database, business_id) if membership_has_permission(membership, "customers:read") else [],
         query,
     )

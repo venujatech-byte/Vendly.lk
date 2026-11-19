@@ -23,7 +23,7 @@ def search_api(monkeypatch):
         "products": Mock(return_value=[{"id": "product-a", "name": "Match product"}]),
         "customers": Mock(return_value=[{"id": "customer-a", "name": "Match customer", "normalizedPhone": "94771234567"}]),
     }
-    for category, function in [("orders", "list_orders"), ("products", "list_products"), ("customers", "list_customers")]:
+    for category, function in [("orders", "stream_orders"), ("products", "stream_products"), ("customers", "stream_customers")]:
         monkeypatch.setattr(search_service, function, loaders[category])
     return create_app({"TESTING": True}).test_client(), database, member, loaders
 
@@ -82,5 +82,20 @@ def test_search_requires_authentication(search_api):
     client, database, _, loaders = search_api
     assert client.get("/api/v1/businesses/business-a/search?q=Match").status_code == 401
     database.collection.assert_not_called()
+    for loader in loaders.values():
+        loader.assert_not_called()
+
+
+@pytest.mark.parametrize("query", ["", " <b>x</b> "])
+def test_short_searches_still_verify_membership_but_never_load_module_data(search_api, query):
+    client, database, member, loaders = search_api
+    member.to_dict.return_value.update(role="owner")
+    response = client.get(
+        "/api/v1/businesses/business-a/search", query_string={"q": query},
+        headers={"Authorization": "Bearer test-token"},
+    )
+    assert response.status_code == 200
+    assert response.get_json()["results"] == {"orders": [], "products": [], "customers": []}
+    member.to_dict.assert_called_once()
     for loader in loaders.values():
         loader.assert_not_called()
