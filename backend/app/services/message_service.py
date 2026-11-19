@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 
 from firebase_admin import firestore
+from google.cloud.firestore_v1.base_query import FieldFilter
 from flask import current_app
 
 from app.core.errors import ApiError
@@ -105,9 +106,10 @@ def _customer_details(database, session):
 
 
 def list_chat_sessions(database, business_id, limit=10, before=None):
+    # Keep the paginated conversation query scoped to this business.
     query = (
         database.collection("publicChatSessions")
-        .where("businessId", "==", business_id)
+        .where(filter=FieldFilter("businessId", "==", business_id))
         .order_by("updatedAt", direction="DESCENDING")
     )
     if before:

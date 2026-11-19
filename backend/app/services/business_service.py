@@ -4,6 +4,7 @@ import re
 
 from firebase_admin import firestore
 from google.cloud import firestore as google_firestore
+from google.cloud.firestore_v1.base_query import FieldFilter
 
 from app.core.errors import ApiError
 from app.core.serialization import serialize_snapshot
@@ -31,7 +32,7 @@ def create_or_get_business(database, firebase_user, payload):
     # logging in on another device or browser.
     owner_businesses = list(
         database.collection("businesses")
-        .where("ownerUid", "==", uid)
+        .where(filter=FieldFilter("ownerUid", "==", uid))
         .limit(1)
         .stream()
     )

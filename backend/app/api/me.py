@@ -1,5 +1,6 @@
 from flask import Blueprint, g, jsonify
 from firebase_admin import auth
+from google.cloud.firestore_v1.base_query import FieldFilter
 
 from app.core.auth import require_firebase_user
 from app.core.firebase import get_firestore_client
@@ -90,7 +91,7 @@ def get_current_user():
     if not business:
         owner_businesses = list(
             database.collection("businesses")
-            .where("ownerUid", "==", uid)
+            .where(filter=FieldFilter("ownerUid", "==", uid))
             .limit(1)
             .stream()
         )

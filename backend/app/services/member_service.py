@@ -1,6 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 from firebase_admin import auth, firestore
+from google.cloud.firestore_v1.base_query import FieldFilter
 
 from app.core.errors import ApiError
 from app.core.serialization import serialize_snapshot
@@ -151,11 +152,12 @@ def list_members(database, business_id):
 
 
 def list_invitations(database, business_id):
+    # Fetch pending invitations only, within this business.
     snapshots = (
         database.collection("businesses")
         .document(business_id)
         .collection("invitations")
-        .where("status", "==", "pending")
+        .where(filter=FieldFilter("status", "==", "pending"))
         .stream()
     )
     invitations = []
@@ -201,8 +203,8 @@ def add_member(database, business_id, invited_by, payload):
     # 2. Check if an active invitation already exists for this email in this business
     existing_invitations = list(
         business_reference.collection("invitations")
-        .where("email", "==", member_data["email"])
-        .where("status", "==", "pending")
+        .where(filter=FieldFilter("email", "==", member_data["email"]))
+        .where(filter=FieldFilter("status", "==", "pending"))
         .stream()
     )
     if existing_invitations:
@@ -413,10 +415,11 @@ def claim_pending_invitations_for_user(database, firebase_user):
         return []
 
     try:
+        # Match pending invitations to the verified user's email.
         invitations = list(
             database.collection("businessInvitations")
-            .where("email", "==", email)
-            .where("status", "==", "pending")
+            .where(filter=FieldFilter("email", "==", email))
+            .where(filter=FieldFilter("status", "==", "pending"))
             .stream()
         )
     except Exception:

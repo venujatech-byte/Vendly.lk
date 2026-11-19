@@ -1,5 +1,7 @@
 """Read-only reporting used by the internal Vendly platform dashboard."""
 
+from google.cloud.firestore_v1.base_query import FieldFilter
+
 from app.core.serialization import serialize_snapshot
 from app.core.errors import ApiError
 
@@ -68,7 +70,7 @@ def _seller_chats_count(database, business_id):
     """Return number of chats belonging to a specific business account."""
     try:
         count = _collection_count(
-            database.collection("publicChatSessions").where("businessId", "==", business_id)
+            database.collection("publicChatSessions").where(filter=FieldFilter("businessId", "==", business_id))
         )
         if count > 0:
             return count
@@ -143,7 +145,7 @@ def get_seller_dashboard(database, limit=SELLER_PAGE_SIZE, after=None):
             # totals accurate even when the seller table is paginated.
             "registeredSellers": _collection_count(database.collection("businesses")),
             "activeSellers": _collection_count(
-                database.collection("businesses").where("status", "==", "active")
+                database.collection("businesses").where(filter=FieldFilter("status", "==", "active"))
             ),
             "totalChats": _total_chats_count(database),
             "chats": _total_chats_count(database),

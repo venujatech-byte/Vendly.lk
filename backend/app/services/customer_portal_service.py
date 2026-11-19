@@ -18,11 +18,12 @@ def resolve_store_business_id(database, store_code):
 def list_customer_orders(database, store_code, customer_uid):
     try:
         business_id = resolve_store_business_id(database, store_code)
+        # Restrict order history to this customer in the selected store.
         snapshots = (
             database.collection("businesses")
             .document(business_id)
             .collection("orders")
-            .where("customerUid", "==", customer_uid)
+            .where(filter=FieldFilter("customerUid", "==", customer_uid))
             .stream()
         )
         orders = [public_order_confirmation(serialize_snapshot(item)) for item in snapshots]
@@ -70,9 +71,10 @@ def get_customer_order(database, store_code, customer_uid, order_id):
 def list_customer_chats(database, store_code, customer_uid):
     try:
         business_id = resolve_store_business_id(database, store_code)
+        # Filter by customer before the existing store check below.
         snapshots = (
             database.collection("publicChatSessions")
-            .where("customerUid", "==", customer_uid)
+            .where(filter=FieldFilter("customerUid", "==", customer_uid))
             .stream()
         )
         chats = []

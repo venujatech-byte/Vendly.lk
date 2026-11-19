@@ -432,7 +432,8 @@ def latest_order_for_session(database, session):
     if not customer_uid:
         return None
 
-    snapshots = orders_reference.where("customerUid", "==", customer_uid).stream()
+    # Fall back to orders owned by this customer when no linked order is found.
+    snapshots = orders_reference.where(filter=FieldFilter("customerUid", "==", customer_uid)).stream()
     orders = [{"id": item.id, **item.to_dict()} for item in snapshots]
     if not orders:
         return None
