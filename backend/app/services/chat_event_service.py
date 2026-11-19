@@ -115,6 +115,9 @@ def send_chat_message_to_order_sessions(
     the single field is how sessions written before the list existed are still
     reachable. Deduplicated by document id, since a recent order matches both.
     """
+    # Import at call time because the storefront service also uses these event helpers.
+    from app.services.public_chat_service import save_chat_message
+
     session_collection = database.collection("publicChatSessions")
     snapshots = {}
 
@@ -140,22 +143,14 @@ def send_chat_message_to_order_sessions(
             message,
             session.get("language", "en"),
         )
-        snapshot.reference.collection("messages").document().set(
-            {
-                "role": "seller",
-                "message": session_message,
-                "metadata": {"automated": True, **metadata},
-                "createdAt": firestore.SERVER_TIMESTAMP,
-            },
-        )
-        snapshot.reference.set(
-            {
-                "lastMessage": session_message,
-                "lastMessageRole": "seller",
-                "updatedAt": firestore.SERVER_TIMESTAMP,
-                **(session_changes or {}),
-            },
-            merge=True,
+        # Use the live chat transport while preserving delivery-review state and metadata.
+        save_chat_message(
+            snapshot.reference,
+            "seller",
+            session_message,
+            {"automated": True, **metadata},
+            session=session,
+            session_updates=session_changes,
         )
 
 

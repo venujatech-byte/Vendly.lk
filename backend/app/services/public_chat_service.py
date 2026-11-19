@@ -2729,7 +2729,7 @@ def remembered_turns(session):
     return list(session.get("recentTurns") or [])[-CONVERSATION_MEMORY_TURNS:]
 
 
-def save_chat_message(session_reference, role, message, metadata=None, session=None):
+def save_chat_message(session_reference, role, message, metadata=None, session=None, session_updates=None):
     session_id = getattr(session_reference, "id", None) or "session"
     now_iso = datetime.now(timezone.utc).isoformat()
     msg_data = {
@@ -2765,6 +2765,7 @@ def save_chat_message(session_reference, role, message, metadata=None, session=N
             pass
 
     # Fallback to Firestore subcollection only if RTDB write could not complete
+    # shortcut: Outage messages stay in Firestore; add split-history recovery when approved.
     if not saved_to_rtdb:
         session_reference.collection("messages").document().set(
             {
@@ -2788,7 +2789,8 @@ def save_chat_message(session_reference, role, message, metadata=None, session=N
     # every turn. Written as a whole list rather than appended: ArrayUnion
     # deduplicates, and a conversation is full of repeated turns - "skip",
     # "2", "yes" - which would silently vanish from the history.
-    if session is not None:
+    # Automated notices did not change AI memory before using this shared writer.
+    if session is not None and not (metadata or {}).get("automated"):
         turns = list(session.get("recentTurns") or [])
         turns.append(
             {"role": role, "text": str(message or "")[:CONVERSATION_MEMORY_CHARS]},
@@ -2800,6 +2802,8 @@ def save_chat_message(session_reference, role, message, metadata=None, session=N
         session_changes["recentTurns"] = turns
     if role == "customer":
         session_changes["unreadBySeller"] = firestore.Increment(1)
+    # Keep automated delivery-review state and the conversation preview in one write.
+    session_changes.update(session_updates or {})
     session_reference.set(session_changes, merge=True)
 
 
