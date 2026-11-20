@@ -397,6 +397,8 @@ function StorefrontPage({ linkType, onVerificationRequired }) {
           localStorage.setItem(sessionKey, JSON.stringify(savedSession));
         }
         cartEditedRef.current = false;
+        // A restored conversation must not inherit another conversation's paging boundary.
+        setMessageCursor(null);
         if (savedSession?.sharedConversation && savedSession.cartSummary) {
           setCart((current) => chatCartFromSummary(savedSession.cartSummary, current, catalog.products || [catalog.product]));
         }
@@ -478,7 +480,8 @@ function StorefrontPage({ linkType, onVerificationRequired }) {
     try {
       const earliestId = messages.find((m) => m.id)?.id;
       const result = await runChatRequest(session, (active) => getPublicChatMessages(active.sessionId, active.sessionToken, {
-        before: earliestId || messageCursor || undefined,
+        // Prefer the server boundary over the first timestamp-sorted message on screen.
+        before: messageCursor || earliestId || undefined,
         limit: 10,
       }));
       const olderMessages = (result.messages || []).map((message) => ({

@@ -16,6 +16,7 @@ from app.core.firebase import get_rtdb_reference
 from app.services import realtime_access_service
 from app.core.serialization import serialize_snapshot
 from app.services.customer_contact_service import customer_order_contact
+from app.services.message_service import _message_rows
 from app.services.customer_service import (
     create_customer,
     list_customers,
@@ -2728,50 +2729,11 @@ def get_public_chat_messages(database, session_id, provided_token, limit=10, bef
             "updatedAt": session_updated_iso,
         }
 
-    # First check Firebase Realtime Database for messages
-    rtdb_ref = get_rtdb_reference(f"chatMessages/{session_id}")
-    rtdb_data = None
-    if rtdb_ref is not None:
-        try:
-            rtdb_data = rtdb_ref.get()
-        except Exception as err:
-            current_app.logger.warning("Failed to fetch messages from RTDB: %s", err)
-
-    if rtdb_data and isinstance(rtdb_data, dict):
-        all_msgs = []
-        for msg_id, val in rtdb_data.items():
-            if isinstance(val, dict):
-                all_msgs.append({"id": msg_id, **val})
-        all_msgs.sort(key=lambda m: str(m.get("createdAt") or m.get("id") or ""))
-        if before:
-            idx = next((i for i, m in enumerate(all_msgs) if m.get("id") == before), None)
-            if idx is not None:
-                all_msgs = all_msgs[:idx]
-        has_more = len(all_msgs) > limit
-        rows = all_msgs[-limit:] if has_more else all_msgs
-        next_cursor = rows[0].get("id") if has_more and rows else None
-        return {
-            "messages": rows,
-            "nextCursor": next_cursor,
-            "hasMore": has_more,
-            "changed": True,
-            "updatedAt": session_updated_iso,
-        }
-
-    query = snapshot.reference.collection("messages").order_by(
-        "createdAt", direction="DESCENDING"
-    )
-    if before:
-        cursor = snapshot.reference.collection("messages").document(before).get()
-        if cursor.exists:
-            query = query.start_after(cursor)
-    rows = list(query.limit(limit + 1).stream())
-    has_more = len(rows) > limit
-    rows = rows[:limit]
-    rows.reverse()
+    # Share bounded history paging and the existing Firestore fallback with the seller inbox.
+    rows, has_more, cursor = _message_rows(snapshot.reference, limit=limit, before=before)
     return {
-        "messages": [serialize_snapshot(item) for item in rows],
-        "nextCursor": rows[0].id if has_more and rows else None,
+        "messages": rows,
+        "nextCursor": cursor,
         "hasMore": has_more,
         "changed": True,
         "updatedAt": session_updated_iso,

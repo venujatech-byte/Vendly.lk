@@ -172,6 +172,7 @@ def realtime_chat(offline_chat, monkeypatch):
     messages, activity = Mock(), Mock()
     messages.push.side_effect = lambda data: rows.update({f"message-{len(rows)}": data})
     messages.get.side_effect = lambda: rows
+    messages.order_by_key.return_value.limit_to_last.return_value.get.side_effect = lambda: rows
     offline_chat.side_effect = lambda path: {
         "chatMessages/session-1": messages, "businessChatActivity/biz": activity,
     }[path]

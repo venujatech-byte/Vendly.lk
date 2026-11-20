@@ -270,6 +270,8 @@ export default function CustomerMessages({
             },
             messages: combined,
             hasMore: current?.hasMore ?? (rtdbMessages.length >= 10),
+            // Incoming messages must not discard the server's older-page boundary.
+            nextCursor: current?.nextCursor || null,
           };
           conversationCacheRef.current.set(selectedId, updated);
           return updated;
@@ -592,7 +594,8 @@ export default function CustomerMessages({
                     try {
                       const earliestId = conversation?.messages?.[0]?.id;
                       const older = await getChatMessages(businessId, selectedId, {
-                        before: earliestId || conversation?.nextCursor,
+                        // The server cursor tracks key order even when displayed timestamps differ.
+                        before: conversation?.nextCursor || earliestId,
                         limit: 10,
                       });
                       setConversation((current) => {

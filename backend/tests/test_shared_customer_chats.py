@@ -11,6 +11,7 @@ from google.api_core.exceptions import PermissionDenied
 from app import create_app
 from app.core.errors import ApiError
 from app.services import public_chat_service as chat
+from app.services import message_service
 from firestore_memory import MemoryFirestore
 
 BUSINESS = {"id": "business-a", "shortCode": "store-a", "name": "Synthetic store"}
@@ -27,6 +28,7 @@ def store(monkeypatch):
     monkeypatch.setattr(chat, "get_public_store", Mock(return_value={"business": BUSINESS, "products": [PRODUCT]}))
     monkeypatch.setattr(chat, "get_public_product", Mock(return_value={"business": BUSINESS, "product": PRODUCT}))
     monkeypatch.setattr(chat, "get_rtdb_reference", Mock(return_value=None))
+    monkeypatch.setattr(message_service, "get_rtdb_reference", Mock(return_value=None))
     monkeypatch.setattr(chat, "translate_chat_message", lambda text, language: text)
     return store
 

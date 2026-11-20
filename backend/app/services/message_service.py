@@ -25,27 +25,37 @@ def _session_reference(database, business_id, session_id):
 def _message_rows(reference, limit=10, before=None):
     session_id = reference.id
     rtdb_ref = get_rtdb_reference(f"chatMessages/{session_id}")
-    rtdb_data = None
     if rtdb_ref is not None:
         try:
-            rtdb_data = rtdb_ref.get()
+            # Keys are the existing push-ID cursors; never issue a whole-conversation read.
+            cursor_exists = bool(before and rtdb_ref.child(before).get() is not None)
+            boundary = before if cursor_exists else None
+            found_source = cursor_exists
+            entries = []
+            while len(entries) <= limit:
+                query = rtdb_ref.order_by_key()
+                if boundary:
+                    query = query.end_at(boundary)
+                window_size = limit + (2 if boundary else 1)
+                data = query.limit_to_last(window_size).get()
+                if not isinstance(data, dict) or not data:
+                    break
+                found_source = True
+                window = [(key, value) for key, value in data.items() if key != boundary]
+                # Skip malformed legacy children in bounded windows without hiding valid older messages.
+                entries = [(key, value) for key, value in window if isinstance(value, dict)] + entries
+                if not window or len(data) < window_size:
+                    break
+                boundary = window[0][0]
+            if found_source:
+                has_more = len(entries) > limit
+                entries = entries[-limit:]
+                next_cursor = entries[0][0] if has_more else None
+                rows = [{"id": key, **value} for key, value in entries]
+                rows.sort(key=lambda item: str(item.get("createdAt") or item.get("id") or ""))
+                return rows, has_more, next_cursor
         except Exception as err:
             current_app.logger.warning("Failed to fetch messages from RTDB: %s", err)
-
-    if rtdb_data and isinstance(rtdb_data, dict):
-        all_msgs = []
-        for msg_id, val in rtdb_data.items():
-            if isinstance(val, dict):
-                all_msgs.append({"id": msg_id, **val})
-        all_msgs.sort(key=lambda m: str(m.get("createdAt") or m.get("id") or ""))
-        if before:
-            idx = next((i for i, m in enumerate(all_msgs) if m.get("id") == before), None)
-            if idx is not None:
-                all_msgs = all_msgs[:idx]
-        has_more = len(all_msgs) > limit
-        rows = all_msgs[-limit:] if has_more else all_msgs
-        next_cursor = rows[0].get("id") if has_more and rows else None
-        return rows, has_more, next_cursor
 
     query = reference.collection("messages").order_by(
         "createdAt", direction="DESCENDING"
