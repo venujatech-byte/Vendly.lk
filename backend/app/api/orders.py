@@ -4,7 +4,7 @@ from app.core.auth import require_firebase_user
 from app.core.authorization import require_business_member
 from app.core.firebase import get_firestore_client
 from app.core.requests import get_json_object
-from app.services.media_service import upload_review_data_url
+from app.services.media_service import payment_receipt_download_url, upload_review_data_url
 from app.services.order_service import (
     create_order,
     get_order,
@@ -19,6 +19,15 @@ from app.services.analytics_service import bump_analytics_version
 
 
 orders_blueprint = Blueprint("orders", __name__, url_prefix="/api/v1")
+
+
+def _receipt_cloudinary_config():
+    # Keep receipt upload and download credentials on the server.
+    return {
+        "cloud_name": current_app.config.get("CLOUDINARY_CLOUD_NAME"),
+        "api_key": current_app.config.get("CLOUDINARY_API_KEY"),
+        "api_secret": current_app.config.get("CLOUDINARY_API_SECRET"),
+    }
 
 
 @orders_blueprint.get("/businesses/<business_id>/orders")
@@ -65,24 +74,21 @@ def add_order(business_id):
     # it. The same path the Record payment popup uses, so a payment entered at
     # creation and one entered later leave identical records.
     if receipt:
-        uploaded = upload_review_data_url(
+        asset = upload_review_data_url(
             receipt,
             business_id,
             order["id"],
-            {
-                "cloud_name": current_app.config.get("CLOUDINARY_CLOUD_NAME"),
-                "api_key": current_app.config.get("CLOUDINARY_API_KEY"),
-                "api_secret": current_app.config.get("CLOUDINARY_API_SECRET"),
-            },
-            folder="payment-receipts",
+            _receipt_cloudinary_config(),
+            folder="payment-receipts", authenticated=True,
         )
         order = attach_order_payment_receipt(
             get_firestore_client(),
             business_id,
             order["id"],
             g.current_user["uid"],
-            uploaded["url"],
+            "",
             order.get("paidAmountMinor", 0),
+            receipt_asset=asset,
         )
 
     return jsonify({"order": order}), 201
@@ -96,6 +102,23 @@ def get_order_by_id(business_id, order_id):
     return jsonify({"order": order})
 
 
+@orders_blueprint.get("/businesses/<business_id>/orders/<order_id>/payment-receipts/links")
+@require_firebase_user
+@require_business_member(permission="orders:read")
+def get_payment_receipt_links(business_id, order_id):
+    # Sign only receipts attached to this order after the current membership check.
+    order = get_order(get_firestore_client(), business_id, order_id)
+    config = _receipt_cloudinary_config()
+    links = {
+        asset["id"]: payment_receipt_download_url(business_id, order_id, asset, config)
+        for receipt in order.get("paymentReceipts") or []
+        if (asset := receipt.get("privateAsset"))
+    }
+    response = jsonify({"links": links})
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
 @orders_blueprint.patch(
     "/businesses/<business_id>/orders/<order_id>/payment",
 )
@@ -106,22 +129,11 @@ def record_payment(business_id, order_id):
     payload = dict(get_json_object())
     receipt = payload.pop("receiptImage", "")
 
-    # The receipt arrives as a data URL, the same shape the chatbot uses for
-    # customer images, so it goes through the same uploader rather than a
-    # second path to the same bucket.
-    if receipt:
-        uploaded = upload_review_data_url(
-            receipt,
-            business_id,
-            order_id,
-            {
-                "cloud_name": current_app.config.get("CLOUDINARY_CLOUD_NAME"),
-                "api_key": current_app.config.get("CLOUDINARY_API_KEY"),
-                "api_secret": current_app.config.get("CLOUDINARY_API_SECRET"),
-            },
-            folder="payment-receipts",
-        )
-        payload["receiptUrl"] = uploaded["url"]
+    # Reuse image validation while requesting authenticated delivery for the receipt.
+    asset = upload_review_data_url(
+        receipt, business_id, order_id, _receipt_cloudinary_config(),
+        folder="payment-receipts", authenticated=True,
+    ) if receipt else None
 
     order = record_order_payment(
         get_firestore_client(),
@@ -129,6 +141,7 @@ def record_payment(business_id, order_id):
         order_id,
         g.current_user["uid"],
         payload,
+        receipt_asset=asset,
     )
     bump_analytics_version(get_firestore_client(), business_id)
     return jsonify({"order": order})

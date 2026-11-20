@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { printWaybill } from "../services/operationService";
+import { getPaymentReceiptLinks } from "../services/orderService";
 
 import "./OrderDetails.css";
 
@@ -30,6 +31,7 @@ function readableStatus(status) {
 }
 
 function OrderDetails({
+  businessId,
   order,
   onStatusChange,
   onGenerateWaybill,
@@ -42,10 +44,43 @@ function OrderDetails({
   const [actionError, setActionError] = useState("");
   const [isWorking, setIsWorking] = useState(false);
   const [waybillNumber, setWaybillNumber] = useState(order.waybillNumber ?? "");
+  const [receiptLinks, setReceiptLinks] = useState({});
 
   useEffect(() => {
     setWaybillNumber(order.waybillNumber ?? "");
   }, [order.id, order.waybillNumber]);
+
+  useEffect(() => {
+    // Load previews once for this expanded order and discard late results when it closes.
+    setReceiptLinks({});
+    if (!businessId || !order.paymentReceipts?.some((receipt) => receipt.privateAsset)) return;
+    const controller = new AbortController();
+    getPaymentReceiptLinks(businessId, order.id, controller.signal)
+      .then((links) => { if (!controller.signal.aborted) setReceiptLinks(links); })
+      .catch((error) => { if (!controller.signal.aborted) setActionError(error.message); });
+    return () => controller.abort();
+  }, [businessId, order.id, order.paymentReceipts]);
+
+  async function openPrivateReceipt(event, receiptId) {
+    event.preventDefault();
+    setActionError("");
+    // Open from the click, then fetch a fresh link in case the preview URL has expired.
+    const receiptWindow = window.open("about:blank", "_blank");
+    if (!receiptWindow) {
+      setActionError("Allow pop-ups to open this payment receipt.");
+      return;
+    }
+    receiptWindow.opener = null;
+    try {
+      const links = await getPaymentReceiptLinks(businessId, order.id);
+      if (!links[receiptId]) throw new Error("This payment receipt is unavailable.");
+      receiptWindow.location.replace(links[receiptId]);
+      setReceiptLinks(links);
+    } catch (error) {
+      receiptWindow.close();
+      setActionError(error.message);
+    }
+  }
   // Use real order items when available, otherwise show a safe placeholder row.
   const items = order.items ?? [
     {
@@ -311,19 +346,25 @@ function OrderDetails({
         <section className="order-details__section order-details__receipts">
           <h3>Payment receipts</h3>
           <div>
-            {order.paymentReceipts.map((receipt) => (
-              <a
-                key={receipt.url}
-                href={receipt.url}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <img src={receipt.url} alt="Payment receipt" loading="lazy" />
-                <small>
-                  LKR {((receipt.amountMinor ?? 0) / 100).toLocaleString("en-LK")}
-                </small>
-              </a>
-            ))}
+            {order.paymentReceipts.map((receipt) => {
+              // Legacy links already have a URL. Private receipts get a short-lived preview.
+              const receiptId = receipt.privateAsset?.id;
+              const url = receiptId ? receiptLinks[receiptId] : receipt.url;
+              return (
+                <a
+                  key={receiptId || receipt.url}
+                  href={url || (receiptId ? "#" : undefined)}
+                  onClick={receiptId ? (event) => openPrivateReceipt(event, receiptId) : undefined}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {url && <img src={url} alt="Payment receipt" loading="lazy" referrerPolicy="no-referrer" />}
+                  <small>
+                    LKR {((receipt.amountMinor ?? 0) / 100).toLocaleString("en-LK")}
+                  </small>
+                </a>
+              );
+            })}
           </div>
         </section>
       )}

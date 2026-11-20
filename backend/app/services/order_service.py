@@ -1793,7 +1793,7 @@ def _notify_payment_recorded(database, business_id, order_id, order, paid_minor,
         LOGGER.warning("Payment saved, but its customer chat notification could not be delivered.")
 
 
-def record_order_payment(database, business_id, order_id, uid, payload):
+def record_order_payment(database, business_id, order_id, uid, payload, *, receipt_asset=None):
     """Record money the seller has actually received against an order.
 
     The amount remains the cumulative paid total, not an additional transfer.
@@ -1861,10 +1861,10 @@ def record_order_payment(database, business_id, order_id, uid, payload):
         payment_status = "paid" if balance_minor == 0 else "partially-paid"
         receipts = list(order.get("paymentReceipts") or [])
 
-        if receipt_url:
+        if receipt_asset or receipt_url:
             receipts.append(
                 {
-                    "url": receipt_url,
+                    **({"privateAsset": receipt_asset} if receipt_asset else {"url": receipt_url}),
                     "amountMinor": paid_amount_minor,
                     "recordedBy": uid,
                     "recordedAt": datetime.now(timezone.utc),
@@ -1985,6 +1985,8 @@ def attach_order_payment_receipt(
     uid,
     receipt_url,
     paid_amount_minor,
+    *,
+    receipt_asset=None,
 ):
     """Store a receipt against an order whose payment is already recorded.
 
@@ -2008,7 +2010,7 @@ def attach_order_payment_receipt(
         receipts = list((snapshot.to_dict() or {}).get("paymentReceipts") or [])
         receipts.append(
             {
-                "url": receipt_url,
+                **({"privateAsset": receipt_asset} if receipt_asset else {"url": receipt_url}),
                 "amountMinor": paid_amount_minor,
                 "recordedBy": uid,
                 "recordedAt": datetime.now(timezone.utc),

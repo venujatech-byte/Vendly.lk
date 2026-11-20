@@ -37,7 +37,7 @@ const hook = registerHooks({
     return nextLoad(url, context);
   },
 });
-const { getOrders, createOrder, recordOrderPayment, updateOrderStatus, removeOrder, updateOrder } = await import(moduleUrl.href);
+const { getOrders, createOrder, recordOrderPayment, getPaymentReceiptLinks, updateOrderStatus, removeOrder, updateOrder } = await import(moduleUrl.href);
 const { generateOrderWaybill, reportFraudOrder, reportCourierIssue } = await import(operationUrl.href);
 hook.deregister();
 
@@ -52,6 +52,19 @@ beforeEach(() => {
   calls.length = 0;
   versionCalls.length = 0;
   respondVersion = () => ({ revision: "revision-1" });
+});
+
+test("receipt previews and opens request fresh links outside the order cache", async () => {
+  // The second request must reach the API again so it can recheck access and expiry.
+  const { signal } = new AbortController();
+  respond = (url) => {
+    assert.equal(url.pathname, "/businesses/shop-a/orders/order-a/payment-receipts/links");
+    return { links: { receipt: `https://example.test/link-${calls.length}` } };
+  };
+  assert.equal((await getPaymentReceiptLinks("shop-a", "order-a", signal)).receipt, "https://example.test/link-1");
+  assert.equal((await getPaymentReceiptLinks("shop-a", "order-a")).receipt, "https://example.test/link-2");
+  assert.equal(calls[0].options.signal, signal);
+  assert.deepEqual(versionCalls, []);
 });
 
 test("fetches all pages including empty search pages and retains every filter", async () => {

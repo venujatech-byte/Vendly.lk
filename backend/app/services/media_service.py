@@ -4,7 +4,7 @@ import binascii
 import re
 import time
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 from uuid import uuid4
 
 import httpx
@@ -32,6 +32,7 @@ CLOUDINARY_UPLOAD_URL = "https://api.cloudinary.com/v1_1/{cloud_name}/{resource_
 REVIEW_DATA_URL = re.compile(
     r"^data:(image/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=\r\n]+)$",
 )
+PAYMENT_RECEIPT_FORMATS = frozenset({"jpg", "jpeg", "png", "webp"})
 
 
 DANGEROUS_SCRIPT_SIGNATURES = (
@@ -232,6 +233,8 @@ def upload_review_data_url(
     review_id,
     cloudinary_config,
     folder="reviews",
+    *,
+    authenticated=False,
 ):
     """Upload one browser-compressed review image to Cloudinary."""
     cloud_name = cloudinary_config.get("cloud_name")
@@ -270,9 +273,13 @@ def upload_review_data_url(
             422,
         )
 
-    public_id = f"businesses/{business_id}/{folder}/{review_id}/{uuid4().hex}"
+    image_id = uuid4().hex
+    public_id = f"businesses/{business_id}/{folder}/{review_id}/{image_id}"
     timestamp = int(time.time())
     parameters = {"public_id": public_id, "timestamp": timestamp}
+    # Sign the delivery type so private receipt uploads cannot fall back to public delivery.
+    if authenticated:
+        parameters["type"] = "authenticated"
     signature = cloudinary_signature(parameters, api_secret)
     try:
         response = httpx.post(
@@ -282,8 +289,7 @@ def upload_review_data_url(
             ),
             data={
                 "api_key": api_key,
-                "public_id": public_id,
-                "timestamp": timestamp,
+                **parameters,
                 "signature": signature,
                 "file": data_url,
             },
@@ -297,12 +303,20 @@ def upload_review_data_url(
             502,
         ) from error
     if response.status_code >= 400:
-        message = response_data.get("error", {}).get("message")
+        message = response_data.get("error", {}).get("message") if not authenticated else None
         raise ApiError(
             "cloudinary_upload_failed",
-            message or "Cloudinary rejected the review image.",
+            message or ("Cloudinary rejected the payment receipt." if authenticated else "Cloudinary rejected the review image."),
             422 if response.status_code < 500 else 502,
         )
+
+    if authenticated:
+        # Keep only the receipt metadata needed to sign an authorized download later.
+        image_format = response_data.get("format")
+        if (response_data.get("type") != "authenticated" or response_data.get("public_id") != public_id
+                or not isinstance(image_format, str) or image_format not in PAYMENT_RECEIPT_FORMATS):
+            raise ApiError("cloudinary_upload_failed", "Cloudinary did not confirm private receipt storage.", 502)
+        return {"id": image_id, "format": image_format}
 
     return {
         "id": response_data.get("asset_id") or response_data.get("public_id"),
@@ -313,6 +327,31 @@ def upload_review_data_url(
         "sizeBytes": len(image_bytes),
         "provider": "cloudinary",
     }
+
+
+def payment_receipt_download_url(business_id, order_id, asset, cloudinary_config):
+    """Sign one stored authenticated receipt for five minutes."""
+    receipt_id, image_format = asset.get("id", ""), asset.get("format", "")
+    if (not isinstance(receipt_id, str) or not re.fullmatch(r"[0-9a-f]{32}", receipt_id)
+            or not isinstance(image_format, str) or image_format not in PAYMENT_RECEIPT_FORMATS):
+        raise ApiError("invalid_receipt_asset", "Receipt storage information is invalid.", 502)
+    cloud_name = cloudinary_config.get("cloud_name")
+    api_key = cloudinary_config.get("api_key")
+    api_secret = cloudinary_config.get("api_secret")
+    if not all((cloud_name, api_key, api_secret)):
+        raise ApiError("media_storage_not_configured", "Receipt storage is not configured.", 503)
+
+    # Cloudinary's authenticated download API includes the expiry in the signature.
+    now = int(time.time())
+    parameters = {
+        "public_id": f"businesses/{business_id}/payment-receipts/{order_id}/{receipt_id}",
+        "type": "authenticated",
+        "format": image_format,
+        "timestamp": now,
+        "expires_at": now + 300,
+    }
+    query = urlencode({**parameters, "api_key": api_key, "signature": cloudinary_signature(parameters, api_secret)})
+    return f"https://api.cloudinary.com/v1_1/{quote(cloud_name, safe='')}/image/download?{query}"
 
 
 def upload_product_media(

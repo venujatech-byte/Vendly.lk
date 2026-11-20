@@ -176,6 +176,12 @@ export async function recordOrderPayment(businessId, orderId, payment) {
   return mapOrderForTable(response.order);
 }
 
+// Request fresh receipt links without putting them in the order cache.
+export async function getPaymentReceiptLinks(businessId, orderId, signal) {
+  const { links } = await apiRequest(`/businesses/${businessId}/orders/${orderId}/payment-receipts/links`, { signal });
+  return links;
+}
+
 export async function updateOrderStatus(businessId, orderId, status, note = "") {
   const response = await apiRequest(
     `/businesses/${businessId}/orders/${orderId}/status`,

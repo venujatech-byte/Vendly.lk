@@ -76,6 +76,7 @@ const orderSortAccessors = {
 };
 
 function OrderTable({
+  businessId,
   orders = [],
   filterControls,
   onStatusChange,
@@ -472,6 +473,7 @@ function OrderTable({
   <tr className="orders-table__details-row">
     <td className="orders-table__details-cell" colSpan={11}>
                   <OrderDetails
+                    businessId={businessId}
                     order={order}
                     onStatusChange={onStatusChange}
                     onGenerateWaybill={onGenerateWaybill}

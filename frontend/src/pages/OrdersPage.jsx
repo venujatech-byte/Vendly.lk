@@ -602,6 +602,7 @@ function OrdersPage() {
           {/* Main expandable orders table with integrated filters and action buttons */}
           {isLoading && orders.length === 0 ? null : (
             <OrderTable
+              businessId={business?.id}
               orders={visibleOrders}
               filterControls={
                 <OrderFilters
