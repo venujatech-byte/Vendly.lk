@@ -63,6 +63,21 @@ default `memory://` storage is suitable for local development and one API
 process. Before scaling the API to multiple processes or servers, configure a
 shared rate-limit storage service through `RATE_LIMIT_STORAGE_URI`.
 
+For an API served directly by Nginx on the same machine, the optional
+`GUEST_CHAT_IP_LIMIT_ENABLED=true` adds a per-IP quota across guest chat
+sessions. Configure the API's Nginx proxy location to connect to Flask on
+loopback and overwrite the header unconditionally:
+
+```nginx
+proxy_set_header X-Vendly-Client-IP $remote_addr;
+```
+
+Before enabling the flag, verify that Nginx sees the client IP and that the
+production Flask listener is reachable only through that proxy. If a CDN or
+another proxy is added, recheck that assumption. Flask trusts this custom
+header only from a loopback peer. Without a valid header, it counts the peer
+address. With `memory://`, limits apply separately in each worker.
+
 ### Chatbot checkout contact fields
 
 The public chat endpoint collects a required primary phone and an optional `secondaryPhoneNumber` (customers may reply `skip`), followed by `address.line1`, `address.district`, `address.city`, and optional `deliveryNote`. The session draft is saved after each message and the order is created only after an explicit confirmation.

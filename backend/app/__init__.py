@@ -58,6 +58,7 @@ def create_app(test_config=None):
             settings.groq_transcription_timeout_seconds
         ),
         RATELIMIT_STORAGE_URI=settings.rate_limit_storage_uri,
+        GUEST_CHAT_IP_LIMIT_ENABLED=settings.guest_chat_ip_limit_enabled,
         RATELIMIT_HEADERS_ENABLED=True,
         RATELIMIT_ENABLED=True,
         PAYHERE_SANDBOX=settings.payhere_sandbox,

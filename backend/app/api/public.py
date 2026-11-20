@@ -5,7 +5,7 @@ from app.core.auth import optional_firebase_user, require_firebase_user
 from app.core.errors import ApiError
 from app.core.firebase import get_firestore_client
 from app.core.requests import get_json_object
-from app.core.rate_limit import limiter, public_chat_key
+from app.core.rate_limit import guest_chat_ip_key, guest_chat_ip_limit_exempt, limiter, public_chat_key
 from app.services.public_catalog_service import get_public_product, get_public_store
 from app.services.public_chat_service import (
     answer_public_message,
@@ -55,8 +55,9 @@ def start_public_chat():
 
 
 @public_blueprint.post("/chat/sessions/<session_id>/messages")
-@limiter.limit("60 per minute", key_func=public_chat_key)
 @optional_firebase_user
+@limiter.limit("60 per minute", key_func=public_chat_key)
+@limiter.limit("120 per minute", key_func=guest_chat_ip_key, exempt_when=guest_chat_ip_limit_exempt)
 def public_chat_message(session_id):
     session_token = request.headers.get("X-Chat-Session-Token", "")
     if g.current_user:
@@ -79,8 +80,9 @@ def public_chat_message(session_id):
 @public_blueprint.post("/chat/sessions/<session_id>/images")
 # Uploading costs storage and an outbound request, so it is limited far more
 # tightly than sending text.
-@limiter.limit("10 per minute", key_func=public_chat_key)
 @optional_firebase_user
+@limiter.limit("10 per minute", key_func=public_chat_key)
+@limiter.limit("20 per minute", key_func=guest_chat_ip_key, exempt_when=guest_chat_ip_limit_exempt)
 def public_chat_image(session_id):
     response = attach_public_chat_image(
         get_firestore_client(),

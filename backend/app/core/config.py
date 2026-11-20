@@ -49,6 +49,7 @@ class Settings:
     groq_transcription_url: str
     groq_transcription_timeout_seconds: float
     rate_limit_storage_uri: str
+    guest_chat_ip_limit_enabled: bool
     payhere_sandbox: bool
     payhere_merchant_id: str | None
     payhere_merchant_secret: str | None
@@ -120,6 +121,7 @@ class Settings:
                 os.getenv("RATE_LIMIT_STORAGE_URI", "memory://").strip()
                 or "memory://"
             ),
+            guest_chat_ip_limit_enabled=parse_boolean(os.getenv("GUEST_CHAT_IP_LIMIT_ENABLED")),
             payhere_sandbox=parse_boolean(
                 os.getenv("PAYHERE_SANDBOX"),
                 default=True,
