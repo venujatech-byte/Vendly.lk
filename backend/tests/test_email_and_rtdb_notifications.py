@@ -1,4 +1,5 @@
 import json
+from html import escape
 from unittest.mock import MagicMock, patch
 import pytest
 
@@ -92,6 +93,51 @@ def test_send_customer_order_status_email():
         assert call_kwargs["to_email"] == "sara@example.com"
         assert "Shipped" in call_kwargs["subject"]
         assert "Handed to prompt courier" in call_kwargs["html_content"]
+
+
+def test_notification_html_escapes_text_and_quoted_link_attributes():
+    title = "Shipping & <delivery>"
+    message = "Customer entered <b>gift</b>"
+    url = 'https://example.test/orders?name="test"&page=1'
+    # Capture the provider payload offline and check both HTML and plain text.
+    with patch("app.services.email_service.send_brevo_email", return_value=True) as send:
+        assert send_notification_email("seller@example.test", "Seller", "<alert>", title, message, url)
+    payload = send.call_args.kwargs
+    assert payload["subject"] == f"[Vendly] {title}"
+    assert payload["text_content"] == f"{title}\n\n{message}"
+    body = payload["html_content"]
+    for value in (title, message, "<alert>"):
+        assert value not in body and escape(value) in body
+    assert f'href="{escape(url)}"' in body
+
+
+@pytest.mark.parametrize("status_update", [False, True])
+def test_customer_emails_render_order_fields_as_literal_text(status_update):
+    customer = "Nimal & <company>"
+    store = "<store> & Co."
+    number = "VD-<123>"
+    address = "<address> Main Road"
+    product = "<product> & Co."
+    size = "<large>"
+    note = "Leave at <entrance>"
+    order = {
+        "orderNumber": number,
+        "customerSnapshot": {"name": customer, "email": "buyer@example.test"},
+        "deliveryAddress": {"line1": address},
+        "items": [{"name": product, "size": size, "quantity": 2}],
+    }
+    with patch("app.services.email_service.send_brevo_email", return_value=True) as send:
+        if status_update:
+            assert send_customer_order_status_email(order, {"name": store}, "shipped", note=note)
+        else:
+            assert send_order_confirmation_email(order, {"name": store})
+    payload = send.call_args.kwargs
+    assert payload["to_name"] == customer
+    assert number in payload["subject"]
+    body = payload["html_content"]
+    fields = [customer, store, number] + ([note] if status_update else [product, size, address])
+    for value in fields:
+        assert value not in body and escape(value) in body
 
 
 def test_update_order_guest_email_validation():

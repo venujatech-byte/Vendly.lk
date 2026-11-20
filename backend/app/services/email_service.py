@@ -1,4 +1,5 @@
 import logging
+from html import escape
 import httpx
 from flask import current_app
 from app.services.customer_contact_service import customer_order_contact, is_legacy_guest_order
@@ -93,8 +94,12 @@ def send_brevo_email(to_email, to_name, subject, html_content, text_content=None
 
 def _base_email_template(title, body_content, button_text=None, button_url=None):
     """Wrap content in a clean, mobile-responsive HTML email template."""
+    # The body contains template markup. Escape its dynamic values where it is built.
+    title = escape(str(title))
     action_button = ""
     if button_text and button_url:
+        button_url = escape(str(button_url), quote=True)
+        button_text = escape(str(button_text))
         action_button = f"""
         <div style="margin: 28px 0; text-align: center;">
             <a href="{button_url}" style="background-color: #168cf5; color: #ffffff; padding: 12px 26px; font-weight: bold; text-decoration: none; border-radius: 8px; display: inline-block;">
@@ -134,9 +139,9 @@ def _base_email_template(title, body_content, button_text=None, button_url=None)
 def send_notification_email(recipient_email, recipient_name, notification_type, title, message, action_url=None):
     """Send an alert email for a newly created notification (seller or staff member)."""
     body = f"""
-    <p style="font-size: 15px; color: #334155; margin-bottom: 12px;">{message}</p>
+    <p style="font-size: 15px; color: #334155; margin-bottom: 12px;">{escape(str(message))}</p>
     <div style="background-color: #f8fafc; border-left: 4px solid #168cf5; padding: 12px 16px; border-radius: 4px; margin: 16px 0;">
-        <span style="font-size: 12px; font-weight: 700; color: #168cf5; text-transform: uppercase;">{notification_type.replace('-', ' ')}</span>
+        <span style="font-size: 12px; font-weight: 700; color: #168cf5; text-transform: uppercase;">{escape(notification_type.replace('-', ' '))}</span>
     </div>
     """
     html = _base_email_template(
@@ -174,7 +179,7 @@ def send_order_confirmation_email(order, business, recipient_email=None):
         price = (item.get("lineTotalMinor") or 0) / 100
         items_html += f"""
         <tr>
-            <td style="padding: 8px 0; border-bottom: 1px solid #f1f5f9;">{name}{size} &times; {qty}</td>
+            <td style="padding: 8px 0; border-bottom: 1px solid #f1f5f9;">{escape(str(name))}{escape(size)} &times; {escape(str(qty))}</td>
             <td style="padding: 8px 0; border-bottom: 1px solid #f1f5f9; text-align: right; font-weight: 600;">LKR {price:,.2f}</td>
         </tr>
         """
@@ -186,11 +191,11 @@ def send_order_confirmation_email(order, business, recipient_email=None):
     ]))
 
     body = f"""
-    <p>Hi {customer_name},</p>
-    <p>Thank you for your order with <strong>{business.get('name', 'our store')}</strong>! We have received your order and are processing it.</p>
+    <p>Hi {escape(str(customer_name))},</p>
+    <p>Thank you for your order with <strong>{escape(str(business.get('name', 'our store')))}</strong>! We have received your order and are processing it.</p>
     
     <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 20px 0;">
-        <h3 style="margin-top: 0; margin-bottom: 12px; font-size: 15px; color: #0b3b6e;">Order #{order_number}</h3>
+        <h3 style="margin-top: 0; margin-bottom: 12px; font-size: 15px; color: #0b3b6e;">Order #{escape(str(order_number))}</h3>
         <table style="width: 100%; font-size: 14px; border-collapse: collapse;">
             {items_html}
             <tr>
@@ -202,7 +207,7 @@ def send_order_confirmation_email(order, business, recipient_email=None):
 
     <div style="font-size: 13px; color: #64748b; margin-top: 14px;">
         <strong>Delivery Address:</strong><br>
-        {addr_line or 'Address as recorded during checkout'}
+        {escape(addr_line or 'Address as recorded during checkout')}
     </div>
     """
 
@@ -241,13 +246,13 @@ def send_customer_order_status_email(order, business, new_status, note=None, rec
     friendly_status = str(new_status or "").replace("-", " ").title()
 
     body = f"""
-    <p>Hi {customer_name},</p>
-    <p>Your order <strong>#{order_number}</strong> with <strong>{business.get('name', 'our store')}</strong> has an update:</p>
+    <p>Hi {escape(str(customer_name))},</p>
+    <p>Your order <strong>#{escape(str(order_number))}</strong> with <strong>{escape(str(business.get('name', 'our store')))}</strong> has an update:</p>
     
     <div style="background-color: #eff6ff; border-left: 4px solid #168cf5; padding: 14px 18px; border-radius: 6px; margin: 18px 0;">
         <span style="font-size: 12px; font-weight: 700; color: #168cf5; text-transform: uppercase;">Current Status</span>
-        <h3 style="margin: 4px 0 0; color: #0b3b6e; font-size: 18px;">{friendly_status}</h3>
-        {f'<p style="margin: 8px 0 0; font-size: 13px; color: #475569;">Note: {note}</p>' if note else ''}
+        <h3 style="margin: 4px 0 0; color: #0b3b6e; font-size: 18px;">{escape(friendly_status)}</h3>
+        {f'<p style="margin: 8px 0 0; font-size: 13px; color: #475569;">Note: {escape(str(note))}</p>' if note else ''}
     </div>
     """
 
