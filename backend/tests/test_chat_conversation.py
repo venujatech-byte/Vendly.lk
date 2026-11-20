@@ -230,6 +230,26 @@ def test_ordering_asks_the_quantity_before_adding_anything(chat):
     assert chat.state == "browsing"
 
 
+@pytest.mark.parametrize("command, intent", [("skip", None), ("Cancel!", None), ("cancel this item", "cancel_order")])
+def test_skipping_quantity_keeps_the_rest_of_the_cart(chat, command, intent):
+    chat.session.update({
+        "cart": [{"variantId": "v-xl", "quantity": 1}],
+        "orderId": "previous-order",
+    })
+    prompt = chat.say("I want GM2 Pro Earbuds", intent="start_order", productQuery="GM2 pro")
+    assert chat.state == "awaiting-item-quantity"
+    assert "skip" in prompt["suggestions"]
+    assert chat.session["pendingVariantId"] == "v-buds"
+
+    reply = chat.say(command, intent=intent)
+
+    assert reply["state"] == "browsing"
+    assert "skipped that item" in reply["message"]
+    assert chat.cart == [{"variantId": "v-xl", "quantity": 1}]
+    assert chat.session["pendingVariantId"] == ""
+    assert chat.session["orderId"] == "previous-order"
+
+
 def test_a_stated_quantity_skips_the_question(chat):
     chat.say("mata GM2 pro dekak ona", intent="start_order",
              productQuery="GM2 pro", quantity=2, quantityMode="total")
@@ -1019,7 +1039,7 @@ def test_suggestions_follow_the_conversation(chat):
     # Being asked how many: offer the numbers, nothing else.
     reply = chat.say("mata GM2 pro ona", intent="start_order",
                      productQuery="GM2 pro", quantity=0, quantityMode="total")
-    assert reply["suggestions"] == ["qty-1", "qty-2", "qty-3"]
+    assert reply["suggestions"] == ["qty-1", "qty-2", "qty-3", "skip"]
 
     # With items in the cart, finishing becomes the useful next step.
     reply = chat.say("2", intent="set_quantity", quantity=2, quantityMode="total")

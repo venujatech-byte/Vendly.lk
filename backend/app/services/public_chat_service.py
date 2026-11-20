@@ -1096,7 +1096,7 @@ def chat_suggestions(action, state, has_items, has_order, shown_count=0):
     list of several can offer to compare them.
     """
     if state == "awaiting-item-quantity":
-        return ["qty-1", "qty-2", "qty-3"]
+        return ["qty-1", "qty-2", "qty-3", "skip"]
 
     if state == "choosing-payment":
         return ["pay-cod", "pay-bank-full", "pay-bank-half"]
@@ -3612,6 +3612,17 @@ def answer_public_message(database, session_id, provided_token, payload):
             "else?",
             "show-order-info",
             next_state="completed",
+        )
+
+    # Skip the pending selection before interpreting whole-order cancellation.
+    if current_state == "awaiting-item-quantity" and " ".join(word_characters(message).split()) in {
+        "skip", "cancel", "cancel item", "cancel this item", "අවලංගු", "අවලංගු කරන්න", "ரத்து", "ரத்து செய்",
+    }:
+        return respond(
+            "I skipped that item. Would you like to choose something else?",
+            "start-order",
+            next_state="browsing",
+            pending_variant_id=None,
         )
 
     # A customer who wants out must not be trapped by the question. Cancelling
