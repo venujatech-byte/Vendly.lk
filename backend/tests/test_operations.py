@@ -27,7 +27,7 @@ def test_order_export_creates_real_excel_workbook():
             {
                 "orderNumber": "VD-000001",
                 "customerSnapshot": {
-                    "name": "Kamal",
+                    "name": "=Receiver note",
                     "normalizedPhone": "94771234567",
                 },
                 "deliveryAddress": {"line1": "10 Main Road", "district": "Colombo"},
@@ -48,8 +48,10 @@ def test_order_export_creates_real_excel_workbook():
     assert sheet["A1"].value == "Waybill Id"
     assert sheet["B1"].value == "Order Number"
     assert sheet["B2"].value == "VD-000001"
-    assert sheet["C2"].value == "Kamal"
+    assert sheet["C2"].value == "=Receiver note"
+    assert sheet["C2"].data_type == "s"
     assert sheet["H2"].value == 2450
+    assert sheet["H2"].data_type == "n"
     assert sheet["J2"].value == 2000
 
 
@@ -59,6 +61,8 @@ def test_order_export_fills_the_courier_template_without_replacing_its_layout():
     sheet.title = "Courier Upload"
     sheet["A1"] = "Courier upload instructions"
     sheet.append(["Waybill No", "Receiver Name", "Order Number", "COD"])
+    # A formula authored in an unmapped template column should survive export.
+    sheet["F3"] = "=D3"
     sheet.append(["sample", "sample", "sample", 0])
     template_stream = BytesIO()
     template.save(template_stream)
@@ -68,7 +72,7 @@ def test_order_export_fills_the_courier_template_without_replacing_its_layout():
             {
                 "waybillNumber": "KMB-00012",
                 "orderNumber": "VD-000012",
-                "customerSnapshot": {"name": "Nimali"},
+                "customerSnapshot": {"name": "=Receiver note"},
                 "totalAmountMinor": 345000,
             },
         ],
@@ -79,9 +83,12 @@ def test_order_export_fills_the_courier_template_without_replacing_its_layout():
 
     assert exported_sheet["A1"].value == "Courier upload instructions"
     assert exported_sheet["A3"].value == "KMB-00012"
-    assert exported_sheet["B3"].value == "Nimali"
+    assert exported_sheet["B3"].value == "=Receiver note"
+    assert exported_sheet["B3"].data_type == "s"
     assert exported_sheet["C3"].value == "VD-000012"
     assert exported_sheet["D3"].value == 3450
+    assert exported_sheet["D3"].data_type == "n"
+    assert exported_sheet["F3"].data_type == "f"
 
 
 def test_order_export_can_be_limited_to_selected_order_ids(monkeypatch):

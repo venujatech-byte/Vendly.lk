@@ -3,6 +3,7 @@ import { registerHooks } from "node:module";
 import { beforeEach, test } from "node:test";
 
 import { invalidateReadCache } from "./readCache.js";
+import { escapeCsvCell } from "../utils/csv.js";
 
 // Exercise the real customer loader and cache offline; replace only authenticated HTTP requests.
 let respond;
@@ -166,7 +167,7 @@ test("unchanged search and unfiltered lists remain reusable beyond the former TT
 
 test("CSV export includes customers from every API page", async (t) => {
   respond = (url) => url.searchParams.has("after")
-    ? { customers: [{ id: "later", name: "Later customer" }], hasMore: false }
+    ? { customers: [{ id: "later", name: "=Later customer" }], hasMore: false }
     : { customers: Array.from({ length: 200 }, (_, index) => ({ id: String(index), name: `Customer ${index}` })), hasMore: true, nextCursor: "cursor-1" };
   let exported;
   t.mock.method(URL, "createObjectURL", (blob) => { exported = blob; return "blob:synthetic-export"; });
@@ -177,7 +178,15 @@ test("CSV export includes customers from every API page", async (t) => {
   downloadCustomersCsv(await getCustomers("shop-a"));
   const csv = await exported.text();
   assert.equal(csv.split("\r\n").length, 202);
-  assert.ok(csv.includes('"Later customer"'));
+  assert.ok(csv.includes(`"'=Later customer"`));
+});
+
+test("CSV quoting protects text while preserving native numbers and delimiters", () => {
+  for (const text of ["=Item", " +94 77 123 4567", "-note", "@shop", "\tField", "\rField", "\nField", "\0Field", "＝Item"]) {
+    assert.equal(escapeCsvCell(text), `"'${text}"`);
+  }
+  assert.equal(escapeCsvCell(-12.5), '"-12.5"');
+  assert.equal(escapeCsvCell('Gift, "large"'), '"Gift, ""large"""');
 });
 
 

@@ -13,6 +13,7 @@ from openpyxl.styles import Font, PatternFill
 
 from app.core.errors import ApiError
 from app.core.serialization import serialize_snapshot
+from app.core.spreadsheet import append_export_row
 from app.services.category_service import create_category
 from app.services.product_service import create_product, update_product
 
@@ -76,7 +77,7 @@ def export_ledger_workbook(entries):
     ])
     for entry in entries:
         is_credit = entry.get("direction") == "credit"
-        sheet.append([
+        append_export_row(sheet, [
             entry.get("createdAt", ""), entry.get("reference", ""),
             entry.get("label", ""), entry.get("customerName", ""),
             entry.get("description", ""), entry.get("paymentMethod", ""),
@@ -119,7 +120,7 @@ def export_inventory_workbook(database, business_id, product_ids=None):
         media = product.get("media") or []
         images = [item.get("url", "") for item in media if item.get("type", "image") == "image" and item.get("url")]
         videos = [item.get("url", "") for item in media if item.get("type") == "video" and item.get("url")]
-        products_sheet.append([
+        append_export_row(products_sheet, [
             product.get("id", ""), product.get("name", ""),
             product.get("colourName", ""), product.get("colourHex", ""),
             product.get("productType", ""), product.get("productSize", ""),
@@ -142,7 +143,7 @@ def export_inventory_workbook(database, business_id, product_ids=None):
     ])
     for product in products:
         for variant in product.get("variantSummaries") or []:
-            variants_sheet.append([
+            append_export_row(variants_sheet, [
                 product.get("id", ""), product.get("name", ""), variant.get("id", ""),
                 variant.get("size", ""), variant.get("sku", ""), variant.get("barcode", ""),
                 variant.get("stockOnHand", variant.get("stockAvailable", 0)),
@@ -156,7 +157,7 @@ def export_inventory_workbook(database, business_id, product_ids=None):
     categories_sheet = workbook.create_sheet("Categories")
     categories_sheet.append(["Category ID", "Category Name", "Description", "Status", "Sort Order"])
     for category in categories:
-        categories_sheet.append([
+        append_export_row(categories_sheet, [
             category.get("id", ""), category.get("name", ""), category.get("description", ""),
             category.get("status", "active"), category.get("sortOrder", 0),
         ])

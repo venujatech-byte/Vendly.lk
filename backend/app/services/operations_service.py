@@ -12,6 +12,7 @@ from openpyxl.styles import Font, PatternFill
 from app.core.errors import ApiError
 from app.core.firebase import get_rtdb_reference
 from app.core.serialization import serialize_snapshot
+from app.core.spreadsheet import append_export_row, write_export_cell
 from app.services.order_service import get_order, list_orders
 from app.services.courier_service import get_courier_export_template
 from app.services.email_service import send_notification_email
@@ -415,10 +416,7 @@ def build_orders_from_template(orders, template_bytes):
     for index, order in enumerate(orders):
         values = order_export_values(order)
         for field, column_number in columns.items():
-            sheet.cell(
-                row=first_data_row + index,
-                column=column_number,
-            ).value = values[field]
+            write_export_cell(sheet.cell(row=first_data_row + index, column=column_number), values[field])
 
     stream = BytesIO()
     workbook.save(stream)
@@ -466,7 +464,8 @@ def build_orders_workbook(orders, template_bytes=None):
         total_minor = order.get("totalAmountMinor", 0) or 0
         delivery_minor = order.get("deliveryFeeMinor", 0) or 0
         paid_minor = order.get("paidAmountMinor", 0) or 0
-        sheet.append(
+        append_export_row(
+            sheet,
             [
                 order.get("waybillNumber", ""),
                 order.get("orderNumber") or order.get("id", ""),

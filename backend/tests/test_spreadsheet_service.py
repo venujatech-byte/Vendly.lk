@@ -48,11 +48,12 @@ def test_inventory_export_round_trips_media_and_variant_images():
     database = FakeDatabase({
         "business-1": {
             "categories": {
-                "category-1": {"name": "Shoes", "description": "Footwear", "status": "active", "sortOrder": 1},
+                "category-1": {"name": "Shoes", "description": "=Category note", "status": "active", "sortOrder": 1},
             },
             "products": {
                 "product-1": {
                     "name": "Running Shoes",
+                    "description": "=Product note",
                     "categoryName": "Shoes",
                     "hasSizes": True,
                     "costPriceMinor": 120000,
@@ -60,7 +61,7 @@ def test_inventory_export_round_trips_media_and_variant_images():
                     "weightGrams": 450,
                     "media": [{"type": "image", "url": "https://images.example/shoe.jpg", "path": ""}],
                     "variantSummaries": [{
-                        "id": "variant-1", "size": "36", "sku": "SHOE-36", "barcode": "1234567890123",
+                        "id": "variant-1", "size": "36", "sku": "=Variant SKU", "barcode": "1234567890123",
                         "stockOnHand": 5, "stockReserved": 1, "stockAvailable": 4,
                         "costPriceMinor": 120000, "sellingPriceMinor": 189900,
                         "weightGrams": 450, "imageUrl": "https://images.example/shoe-36.jpg",
@@ -77,18 +78,26 @@ def test_inventory_export_round_trips_media_and_variant_images():
     assert parsed["products"][0]["payload"]["weightKg"] == 0.45
     assert parsed["products"][0]["payload"]["variants"][0]["imageUrl"] == "https://images.example/shoe-36.jpg"
     assert parsed["products"][0]["payload"]["variants"][0]["stock"] == 5
+    # data_only imports can only round-trip these values if they were written as text.
+    assert parsed["products"][0]["payload"]["description"] == "=Product note"
+    with_exported_values = load_workbook(exported, data_only=True)
+    assert with_exported_values["Categories"]["C2"].value == "=Category note"
+    assert with_exported_values["Variants"]["E2"].value == "=Variant SKU"
 
 
 def test_ledger_export_keeps_credit_debit_and_balance_columns():
     exported = export_ledger_workbook([{ 
         "createdAt": "2026-08-29T10:00:00+00:00", "reference": "VD-000001",
-        "label": "Online order", "customerName": "Kamal", "description": "Watch",
+        "label": "Online order", "customerName": "=Customer note", "description": "Watch",
         "paymentMethod": "cod", "paymentStatus": "unpaid", "status": "confirmed",
         "direction": "credit", "amountMinor": 250000, "balanceMinor": 250000,
     }])
     sheet = load_workbook(exported, data_only=True)["Transaction Ledger"]
 
     assert sheet["B2"].value == "VD-000001"
+    assert sheet["D2"].value == "=Customer note"
+    assert sheet["D2"].data_type == "s"
     assert sheet["I2"].value == 2500
+    assert sheet["I2"].data_type == "n"
     assert sheet["J2"].value is None
     assert sheet["K2"].value == 2500

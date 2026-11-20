@@ -1,3 +1,4 @@
+import { escapeCsvCell } from "../utils/csv.js";
 import {
   Bot,
   Check,
@@ -213,7 +214,6 @@ function isResetFilterCommand(message) {
 }
 
 function downloadShopSalesCsv(sales) {
-  const escape = (value) => `"${String(value ?? "").replaceAll('"', '""')}"`;
   const headings = ["Sale number", "Customer", "Phone", "Items", "Subtotal", "Discount", "Total", "Date"];
   const rows = sales.filter((sale) => sale.status !== "voided").map((sale) => [
     sale.saleNumber,
@@ -225,7 +225,7 @@ function downloadShopSalesCsv(sales) {
     (sale.totalAmountMinor || 0) / 100,
     String(sale.createdAt || "").slice(0, 10),
   ]);
-  const csv = [headings, ...rows].map((row) => row.map(escape).join(",")).join("\r\n");
+  const csv = [headings, ...rows].map((row) => row.map(escapeCsvCell).join(",")).join("\r\n");
   const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
   const link = document.createElement("a");
   link.href = url;

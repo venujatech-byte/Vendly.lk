@@ -1,4 +1,5 @@
 // Icons used by the order statistics and export button.
+import { escapeCsvCell } from "../utils/csv.js";
 import {
   CircleCheck,
   Clock3,
@@ -416,7 +417,6 @@ function OrdersPage() {
   function handleExportShopSales() {
     const activeSales = shopSales.filter((sale) => sale.status !== "voided");
     const columns = ["Sale number", "Customer", "Items", "Subtotal", "Discount", "Total", "Date"];
-    const escape = (value) => `"${String(value ?? "").replaceAll('"', '""')}"`;
     const rows = activeSales.map((sale) => [
       sale.saleNumber,
       sale.customerName || "Walk-in customer",
@@ -426,7 +426,7 @@ function OrdersPage() {
       sale.total,
       `${sale.date} ${sale.time}`,
     ]);
-    const csv = [columns, ...rows].map((row) => row.map(escape).join(",")).join("\r\n");
+    const csv = [columns, ...rows].map((row) => row.map(escapeCsvCell).join(",")).join("\r\n");
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
     const link = document.createElement("a");
     link.href = url;

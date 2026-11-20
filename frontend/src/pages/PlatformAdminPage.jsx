@@ -1,3 +1,4 @@
+import { escapeCsvCell } from "../utils/csv.js";
 import { Activity, Building2, Download, Gauge, MessageSquare, Package, RefreshCw, Search, ShoppingCart, UserRound, Wifi, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
@@ -95,7 +96,7 @@ function PlatformAdminPage() {
         seller.stats.orders, seller.stats.products, seller.stats.customers, seller.stats.chats ?? 0,
       ]),
     ];
-    const csv = rows.map((row) => row.map((value) => `"${String(value ?? "").replaceAll('"', '""')}"`).join(",")).join("\n");
+    const csv = rows.map((row) => row.map(escapeCsvCell).join(",")).join("\n");
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
     const link = document.createElement("a");
     link.href = url;

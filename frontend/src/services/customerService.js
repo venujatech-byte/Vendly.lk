@@ -1,3 +1,4 @@
+import { escapeCsvCell } from "../utils/csv.js";
 import { apiRequest } from "./apiClient";
 import { cachedRequest, getReadCacheSession, invalidateReadCache } from "./readCache";
 
@@ -61,7 +62,6 @@ export function downloadCustomersCsv(customers = []) {
     "Total spent",
     "Risk level",
   ];
-  const escape = (value) => `"${String(value ?? "").replaceAll('"', '""')}"`;
   const rows = customers.map((customer) => {
     const address = customer.defaultAddress || customer.address || {};
     return [
@@ -79,7 +79,7 @@ export function downloadCustomersCsv(customers = []) {
       customer.riskLevel || "low",
     ];
   });
-  const csv = [columns, ...rows].map((row) => row.map(escape).join(",")).join("\r\n");
+  const csv = [columns, ...rows].map((row) => row.map(escapeCsvCell).join(",")).join("\r\n");
   const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
   const link = document.createElement("a");
   link.href = url;
