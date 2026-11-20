@@ -1,6 +1,7 @@
 import hashlib
+import json
 
-from flask import request
+from flask import g, request
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
@@ -14,6 +15,12 @@ def public_chat_key():
         return f"chat:{digest}"
 
     return f"ip:{get_remote_address()}"
+
+
+def business_user_key():
+    """Split a seller quota by verified account and authorized business."""
+    # Encode both parts without relying on a delimiter that could occur in an ID.
+    return json.dumps([g.business_id, g.current_user["uid"]])
 
 
 limiter = Limiter(

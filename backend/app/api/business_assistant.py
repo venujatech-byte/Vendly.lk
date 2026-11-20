@@ -4,7 +4,7 @@ from app.core.auth import require_firebase_user
 from app.core.authorization import require_business_member
 from app.core.errors import ApiError
 from app.core.firebase import get_firestore_client
-from app.core.rate_limit import limiter
+from app.core.rate_limit import business_user_key, limiter
 from app.core.requests import get_json_object
 from app.services.business_assistant_service import handle_business_assistant_message
 from app.services.speech_service import transcribe_business_assistant_audio
@@ -20,9 +20,9 @@ business_assistant_blueprint = Blueprint(
 @business_assistant_blueprint.post(
     "/businesses/<business_id>/assistant/messages",
 )
-@limiter.limit("30 per minute")
 @require_firebase_user
 @require_business_member()
+@limiter.limit("30 per minute", key_func=business_user_key)
 def business_assistant_message(business_id):
     response = handle_business_assistant_message(
         get_firestore_client(),
@@ -37,9 +37,9 @@ def business_assistant_message(business_id):
 @business_assistant_blueprint.post(
     "/businesses/<business_id>/assistant/transcriptions",
 )
-@limiter.limit("12 per minute")
 @require_firebase_user
 @require_business_member()
+@limiter.limit("12 per minute", key_func=business_user_key)
 def business_assistant_transcription(business_id):
     # The authorization decorator already validates that this user belongs to
     # the business in the URL. The audio itself is not stored in Firestore.

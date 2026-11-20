@@ -7,6 +7,7 @@ from flask import Blueprint, current_app, g, jsonify, request, send_file
 from app.core.auth import require_firebase_user
 from app.core.authorization import require_business_member
 from app.core.firebase import get_firestore_client
+from app.core.rate_limit import business_user_key, limiter
 from app.core.requests import get_json_object
 from app.services.product_service import (
     adjust_variant_stock,
@@ -107,6 +108,7 @@ def add_product(business_id):
 @products_blueprint.post("/businesses/<business_id>/products/generate-description")
 @require_firebase_user
 @require_business_member("owner", "admin", "inventory_manager", permission="inventory:manage")
+@limiter.limit("12 per minute", key_func=business_user_key, override_defaults=False)
 def generate_description(business_id):
     payload = get_json_object()
     name = str(payload.get("name", "")).strip()
