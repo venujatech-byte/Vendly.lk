@@ -614,7 +614,7 @@ def requested_language(message):
     return None
 
 
-def conversation_language(message, current_language, detected_language=None):
+def conversation_language(message, current_language, detected_language=None, *, allow_ai=True):
     """Decide which language to answer one customer message in.
 
     Sinhala and Tamil script are certain, so they are matched directly and cost
@@ -651,22 +651,14 @@ def conversation_language(message, current_language, detected_language=None):
     if detected_language in {"en", "si", "ta"}:
         return detected_language
 
-    if language != "en":
+    if language != "en" or not allow_ai:
         return language
 
     return detect_chat_language(message) or language
 
 
-# Intent classification is worth an AI call only where the customer is steering
-# the conversation. In the collecting-* states the message IS the data - a name,
-# a phone number, an address - so it is read literally and never classified.
-# States where the customer is part-way through building or checking out an
-# order that has not been placed yet.
-DRAFT_IN_PROGRESS_STATES = {
-    "choosing-payment",
-    "choosing-order-merge",
-    "awaiting-variant",
-    "awaiting-item-quantity",
+# Read checkout details locally because these replies can contain personal data.
+CHECKOUT_DETAIL_STATES = {
     "collecting-name",
     "collecting-phone",
     "collecting-secondary-phone",
@@ -674,7 +666,24 @@ DRAFT_IN_PROGRESS_STATES = {
     "collecting-district",
     "collecting-nearest-city",
     "collecting-delivery-note",
+}
+
+# Draft cancellation applies only before the new order is placed.
+DRAFT_IN_PROGRESS_STATES = {
+    *CHECKOUT_DETAIL_STATES,
+    "choosing-payment",
+    "choosing-order-merge",
+    "awaiting-variant",
+    "awaiting-item-quantity",
     "awaiting-confirmation",
+}
+PRIVATE_REPLY_STATES = CHECKOUT_DETAIL_STATES | {
+    "editing-name",
+    "editing-phone",
+    "editing-address",
+    "editing-district",
+    "editing-city",
+    "verifying-order",
 }
 
 INTENT_CLASSIFIED_STATES = {
@@ -2751,14 +2760,22 @@ CONVERSATION_MEMORY_TURNS = 12
 # truncated rather than dropped: what it referred to survives, which is all the
 # next turn needs.
 CONVERSATION_MEMORY_CHARS = 400
+AI_HISTORY_VERSION = 1
 
 
 def remembered_turns(session):
     """The recent conversation, oldest first, for the model to read."""
-    return list(session.get("recentTurns") or [])[-CONVERSATION_MEMORY_TURNS:]
+    # Older workers can append checkout details without the new per-turn marker.
+    return [
+        turn for turn in (session.get("recentTurns") or [])
+        if turn.get("aiHistoryVersion") == AI_HISTORY_VERSION
+    ][-CONVERSATION_MEMORY_TURNS:]
 
 
-def save_chat_message(session_reference, role, message, metadata=None, session=None, session_updates=None):
+def save_chat_message(
+    session_reference, role, message, metadata=None, session=None, session_updates=None,
+    *, remember_for_ai=True,
+):
     session_id = getattr(session_reference, "id", None) or "session"
     now_iso = datetime.now(timezone.utc).isoformat()
     msg_data = {
@@ -2804,10 +2821,14 @@ def save_chat_message(session_reference, role, message, metadata=None, session=N
     # deduplicates, and a conversation is full of repeated turns - "skip",
     # "2", "yes" - which would silently vanish from the history.
     # Automated notices did not change AI memory before using this shared writer.
-    if session is not None and not (metadata or {}).get("automated"):
-        turns = list(session.get("recentTurns") or [])
+    if session is not None and remember_for_ai and not (metadata or {}).get("automated"):
+        turns = remembered_turns(session)
         turns.append(
-            {"role": role, "text": str(message or "")[:CONVERSATION_MEMORY_CHARS]},
+            {
+                "role": role,
+                "text": str(message or "")[:CONVERSATION_MEMORY_CHARS],
+                "aiHistoryVersion": AI_HISTORY_VERSION,
+            },
         )
         turns = turns[-CONVERSATION_MEMORY_TURNS:]
         # The in-memory session is read again later in the same request, so it
@@ -3003,12 +3024,15 @@ def answer_public_message(database, session_id, provided_token, payload):
     # Captured before this message joins the window: the model is given the
     # turns BEFORE the one it is answering, and the current message separately.
     # Including it twice makes the prompt read as though it was asked twice.
+    current_state = session.get("state", "browsing")
+    private_reply = current_state in PRIVATE_REPLY_STATES or current_state.startswith("editing-draft-")
     conversation_history = remembered_turns(session)
     save_chat_message(
         session_snapshot.reference,
         "customer",
         message,
         session=session,
+        remember_for_ai=not private_reply,
     )
 
     if session.get("aiPaused", False):
@@ -3036,13 +3060,12 @@ def answer_public_message(database, session_id, provided_token, payload):
     cart, sold_out_variant_ids, reduced_lines = reconcile_cart_stock(cart, products)
     cart_summary = summarize_chat_cart(cart, products)
     customer_draft = dict(session.get("customerDraft") or {})
-    current_state = session.get("state", "browsing")
     lowered_message = message.strip().casefold()
     # One AI call reads the whole sentence for both intent and language, so a
     # code-mixed message like "මට black bag එකක් order කරන්න ඕන" is understood
     # even though no phrase list contains that combination. The keyword ladder
     # below stays as the fallback for when the provider is unavailable.
-    ai_intent = storefront_intent(
+    ai_intent = {} if private_reply else storefront_intent(
         message,
         products,
         current_state,
@@ -3055,6 +3078,7 @@ def answer_public_message(database, session_id, provided_token, payload):
         message,
         session.get("language", "en"),
         ai_intent.get("language"),
+        allow_ai=not private_reply,
     )
 
     def intent_is(*names):
@@ -3075,6 +3099,7 @@ def answer_public_message(database, session_id, provided_token, payload):
         pending_variant_id="unchanged",
         is_translated=False,
         accumulate_seen=False,
+        private_values=None,
     ):
         state = next_state or current_state
         # Every deterministic reply is written in English in this file, so this
@@ -3085,6 +3110,12 @@ def answer_public_message(database, session_id, provided_token, payload):
             if is_translated
             else translate_chat_message(response_message, language)
         )
+        if private_values:
+            # Restore checkout details locally after translating the surrounding text.
+            markers = re.compile("|".join(re.escape(marker) for marker in private_values))
+            if any(localized_message.count(marker) != response_message.count(marker) for marker in private_values):
+                localized_message = response_message
+            localized_message = markers.sub(lambda match: private_values[match.group()], localized_message)
         suggestions_list = chat_suggestions(
             action,
             state,
@@ -3119,6 +3150,7 @@ def answer_public_message(database, session_id, provided_token, payload):
             localized_message,
             msg_metadata,
             session=session,
+            remember_for_ai=not (private_reply or private_values),
         )
         changes = {
             "updatedAt": firestore.SERVER_TIMESTAMP,
@@ -3658,7 +3690,7 @@ def answer_public_message(database, session_id, provided_token, payload):
         if quote:
             totals_text = (
                 f"Items: LKR {subtotal_minor / 100:,.2f}. Delivery to "
-                f"{quote['district']} ({quote['weightGrams'] / 1000:,.2f} kg) by "
+                f"VENDLY_PRIVATE_DISTRICT ({quote['weightGrams'] / 1000:,.2f} kg) by "
                 f"{quote['courierName']}: LKR {quote['deliveryFeeMinor'] / 100:,.2f}. "
                 f"Total: LKR "
                 f"{(subtotal_minor + quote['deliveryFeeMinor']) / 100:,.2f}. "
@@ -3669,13 +3701,21 @@ def answer_public_message(database, session_id, provided_token, payload):
                 "be confirmed by the seller. "
             )
 
+        contact = f"{customer_draft['name']}, {customer_draft['phoneNumber']}"
+        if customer_draft.get("secondaryPhoneNumber"):
+            contact += f" / {customer_draft['secondaryPhoneNumber']}"
+        private_values = {
+            "VENDLY_PRIVATE_CONTACT": contact,
+            "VENDLY_PRIVATE_ADDRESS": f"{address['line1']}, {address['city']}, {address['district']}",
+        }
+        if quote:
+            private_values["VENDLY_PRIVATE_DISTRICT"] = quote["district"]
+        if customer_draft.get("deliveryNote"):
+            private_values["VENDLY_PRIVATE_NOTE"] = customer_draft["deliveryNote"]
         response_message = (
             f"Please confirm your order: {item_text}. Customer: "
-            f"{customer_draft['name']}, {customer_draft['phoneNumber']}"
-            + (f" / {customer_draft['secondaryPhoneNumber']}" if customer_draft.get("secondaryPhoneNumber") else "")
-            + ". Delivery: "
-            f"{address['line1']}, {address['city']}, {address['district']}. "
-            + (f"Note: {customer_draft['deliveryNote']}. " if customer_draft.get("deliveryNote") else "")
+            "VENDLY_PRIVATE_CONTACT. Delivery: VENDLY_PRIVATE_ADDRESS. "
+            + ("Note: VENDLY_PRIVATE_NOTE. " if customer_draft.get("deliveryNote") else "")
             + totals_text
             + payment_summary_text(customer_draft.get("paymentChoice", "cod"))
             + "Reply 'confirm order' to submit, or 'change order' to edit the details."
@@ -3684,6 +3724,7 @@ def answer_public_message(database, session_id, provided_token, payload):
             response_message,
             "confirm-order",
             next_state="awaiting-confirmation",
+            private_values=private_values,
         )
 
 
@@ -3902,10 +3943,11 @@ def answer_public_message(database, session_id, provided_token, payload):
             return respond(str(error), "collect-name", next_state="collecting-name")
 
         return respond(
-            f"Thanks, {customer_draft['name']}. What is your Sri Lankan mobile "
+            "Thanks, VENDLY_PRIVATE_NAME. What is your Sri Lankan mobile "
             "number? Example: 077 123 4567.",
             "collect-phone",
             next_state="collecting-phone",
+            private_values={"VENDLY_PRIVATE_NAME": customer_draft["name"]},
         )
 
     if current_state == "collecting-phone":
@@ -3965,10 +4007,11 @@ def answer_public_message(database, session_id, provided_token, payload):
 
         if quoted_district:
             return respond(
-                f"Thanks. I already have {quoted_district} as your delivery "
+                "Thanks. I already have VENDLY_PRIVATE_DISTRICT as your delivery "
                 "district. What is the nearest city?",
                 "collect-nearest-city",
                 next_state="collecting-nearest-city",
+                private_values={"VENDLY_PRIVATE_DISTRICT": quoted_district},
             )
 
         return respond(

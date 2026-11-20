@@ -10,6 +10,8 @@ Only real boundaries are faked: Firestore, the AI provider, and the other
 services. The ordering under test is the production code.
 """
 
+from types import SimpleNamespace
+
 import pytest
 
 from app.services import public_chat_service
@@ -399,6 +401,60 @@ def test_a_full_order_reaches_confirmation_with_a_real_total(chat, monkeypatch):
     assert "9,000.00" in reply["message"]
     assert "450.00" in reply["message"]
     assert "9,450.00" in reply["message"]
+
+
+@pytest.mark.parametrize("translation_keeps_markers", [True, False])
+def test_checkout_details_stay_out_of_ai_requests_and_history(chat, monkeypatch, translation_keeps_markers):
+    provider_inputs = []
+    saved_messages = []
+    monkeypatch.setattr(public_chat_service, "save_chat_message", REAL_SAVE_CHAT_MESSAGE)
+    monkeypatch.setattr(public_chat_service, "get_rtdb_reference", lambda path: (
+        SimpleNamespace(push=saved_messages.append)
+        if path.startswith("chatMessages/") else None
+    ))
+    monkeypatch.setattr(public_chat_service, "storefront_intent", REAL_STOREFRONT_INTENT)
+    monkeypatch.setattr(public_chat_service, "generate_storefront_intent", lambda *args: provider_inputs.append(args))
+    monkeypatch.setattr(public_chat_service, "detect_chat_language", lambda text: provider_inputs.append(text))
+
+    def translate(text, language):
+        provider_inputs.append(text)
+        if language == "si":
+            return f"සිංහල {text}" if translation_keeps_markers else text.replace("VENDLY_PRIVATE_", "")
+        return text
+
+    monkeypatch.setattr(public_chat_service, "translate_chat_message", translate)
+    chat.session.update({
+        "state": "collecting-name",
+        "cart": [{"variantId": "v-buds", "quantity": 2}],
+        "recentTurns": [{"role": "customer", "text": "Legacy private delivery detail"}],
+    })
+
+    # The UI and seller history retain the real checkout values.
+    name = "Synthetic Checkout Customer Name"
+    details = [name, "0770000123", "0710000456", "Synthetic Apartment Number Twelve",
+               "Colombo", "Synthetic Nearest City", "Leave by the synthetic side gate"]
+    greeting = chat.say(name)
+    assert name in greeting["message"]
+    for detail in details[1:]:
+        chat.say(detail)
+    assert chat.session["language"] == "en"
+    chat.session["language"] = "si"
+    summary = chat.say("cash on delivery")
+    assert summary["state"] == "awaiting-confirmation"
+    assert summary["message"].startswith("සිංහල ") == translation_keeps_markers
+    for detail in details:
+        assert detail in summary["message"]
+        assert any(message["message"] == detail for message in saved_messages)
+    assert "VENDLY_PRIVATE_" not in summary["message"]
+
+    # A later normal provider call can still use shopping context.
+    chat.session["recentTurns"].append({"role": "customer", "text": "Unmarked mixed-version reply"})
+    chat.say("show my cart")
+    assert any(isinstance(item, tuple) for item in provider_inputs)
+    assert "cash on delivery" in str(provider_inputs)
+    for detail in [*details, "Legacy private delivery detail", "Unmarked mixed-version reply"]:
+        assert detail not in str(provider_inputs)
+        assert detail not in str(chat.session["recentTurns"])
 
 
 def test_a_name_is_never_classified_as_an_intent(chat, monkeypatch):

@@ -764,6 +764,7 @@ def translate_chat_message(text, language):
         "transliterated district name stops matching the delivery price list.\n"
         "Leave all numbers, prices, currency codes such as LKR, weights and "
         "units exactly as written.\n"
+        "Copy any token starting with VENDLY_PRIVATE_ exactly as written.\n"
         "Any word or phrase inside single quotes is a command the customer must "
         "type back to the system. Keep those in English inside their quotes, and "
         "translate only the words around them.\n"
