@@ -140,6 +140,19 @@ def test_missing_cursor_retains_latest_page_behavior(history, audience):
 
 
 @pytest.mark.parametrize("audience", ["public", "seller"])
+@pytest.mark.parametrize("cursor", ["folder/message", "message%2Fother", "message?extra", "a" * 769])
+def test_invalid_cursor_is_rejected_before_message_reads(history, audience, cursor):
+    store, transport, getter = history
+    with pytest.raises(ApiError) as failure:
+        read(history, audience, before=cursor)
+    assert failure.value.code == "invalid_chat_cursor"
+    assert failure.value.status_code == 422
+    getter.assert_not_called()
+    assert transport.requests == []
+    store.client._firestore_api.run_query.assert_not_called()
+
+
+@pytest.mark.parametrize("audience", ["public", "seller"])
 def test_new_messages_do_not_move_an_older_page_boundary(history, audience):
     _, transport, _ = history
     populate(transport, 25)

@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import re
 
 from firebase_admin import firestore
 from google.cloud.firestore_v1.base_query import FieldFilter
@@ -25,6 +26,10 @@ def _session_reference(database, business_id, session_id, *, include_hidden=Fals
 
 
 def _message_rows(reference, limit=10, before=None):
+    # The SDK accepts paths as child arguments. A cursor must identify one message.
+    if before and (re.search(r"[./\\#$\[\]%?\x00-\x1f\x7f]", before) or len(before.encode("utf-8")) > 768):
+        raise ApiError("invalid_chat_cursor", "The chat cursor is invalid. Reload the conversation.", 422)
+
     session_id = reference.id
     rtdb_ref = get_rtdb_reference(f"chatMessages/{session_id}")
     if rtdb_ref is not None:
