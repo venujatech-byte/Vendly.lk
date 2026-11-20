@@ -2,19 +2,15 @@ import { useMemo, useState } from "react";
 import {
   AlertCircle,
   Check,
-  ChevronDown,
   Copy,
   Eye,
   Globe,
   Info,
-  Package,
   Pencil,
   Plus,
   RotateCcw,
-  ShieldCheck,
   Sparkles,
   Trash2,
-  WandSparkles,
   X,
 } from "lucide-react";
 

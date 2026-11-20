@@ -2,18 +2,11 @@ import {
   AlertCircle,
   AlertTriangle,
   Check,
-  CheckSquare,
   Copy,
   Mail,
-  MoreVertical,
-  Plus,
-  Shield,
   ShieldCheck,
   Sliders,
-  Square,
   Trash2,
-  UserCheck,
-  UserMinus,
   UserPlus,
   Users,
   X,
@@ -67,7 +60,7 @@ function StaffSettings({ businessId, currentRole }) {
   const [selectedPermissions, setSelectedPermissions] = useState(
     DEFAULT_ROLE_PERMISSIONS.order_manager,
   );
-  const [showCustomPermissions, setShowCustomPermissions] = useState(true);
+  const [, setShowCustomPermissions] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [isSaving, setIsSaving] = useState(false);

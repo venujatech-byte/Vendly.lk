@@ -45,10 +45,6 @@ function PlatformAdminPage() {
     return () => { current = false; };
   }, []);
 
-  function refreshServerHealth() {
-    getPlatformServerHealth().then(setServerHealth).catch((requestError) => setServerHealth({ status: "unavailable", message: requestError.message }));
-  }
-
   async function openSeller(seller) {
     setIsLoadingSeller(true);
     try {

@@ -7,10 +7,6 @@ import useTablePagination from "../hooks/useTablePagination";
 import useTableSort from "../hooks/useTableSort";
 import "./ShopSales.css";
 
-function hasActiveWarranty(sale) {
-  return (sale.items ?? []).some((item) => item.warrantyExpiresAt && new Date(item.warrantyExpiresAt) >= new Date());
-}
-
 const shopSaleSortAccessors = {
   sale: (sale) => sale.saleNumber,
   items: (sale) => sale.itemCount ?? sale.items?.length ?? 0,

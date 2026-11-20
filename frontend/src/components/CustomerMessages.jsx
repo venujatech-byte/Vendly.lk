@@ -622,7 +622,7 @@ export default function CustomerMessages({
                           container.scrollTop = prevScrollTop + delta;
                         }
                       });
-                    } catch (e) {
+                    } catch {
                       isLoadingOlderRef.current = false;
                     }
                   }}

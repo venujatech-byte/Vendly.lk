@@ -20,8 +20,6 @@ import {
   Clock3,
   Flag,
   Funnel,
-  Mail,
-  MessageSquare,
   Pencil,
   Repeat2,
   ShieldAlert,

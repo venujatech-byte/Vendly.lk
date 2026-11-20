@@ -66,7 +66,7 @@ function OverviewPage() {
   const businessName = sellerProfile?.businessName ?? "Your Business";
   const [analytics, setAnalytics] = useState(null);
   const [analyticsError, setAnalyticsError] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [, setIsLoading] = useState(true);
 
   useEffect(() => {
     let requestIsCurrent = true;

@@ -2,11 +2,8 @@ import {
   AlertCircle,
   ArrowRight,
   CheckCircle2,
-  Lock,
   LogOut,
-  ShieldCheck,
   Store,
-  Users,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
@@ -18,7 +15,7 @@ import { getPublicInvitation } from "../services/memberService";
 import "./JoinInvitePage.css";
 
 function JoinInvitePage() {
-  const [token, setToken] = useState("");
+  const [, setToken] = useState("");
   const [invitation, setInvitation] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);

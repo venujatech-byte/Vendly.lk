@@ -15,7 +15,7 @@ import {
   UsersRound,
   WalletCards,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 import AnalyticsLedger from "../components/AnalyticsLedger";
 import CodReconciliation from "../components/CodReconciliation";
@@ -39,30 +39,6 @@ import "./AnalyticsPage.css";
 
 function percentage(value, total) {
   return total ? Math.round((value / total) * 100) : 0;
-}
-
-
-function formatWeekday(dateString) {
-  if (!dateString) return "";
-  try {
-    const iso = dateString.includes("T") ? dateString : `${dateString}T00:00:00`;
-    const date = new Date(iso);
-    return Number.isNaN(date.getTime()) ? dateString : date.toLocaleDateString("en-LK", { weekday: "short" });
-  } catch {
-    return dateString;
-  }
-}
-
-
-function formatMonth(monthString) {
-  if (!monthString) return "";
-  try {
-    const iso = monthString.length === 7 ? `${monthString}-01T00:00:00` : monthString;
-    const date = new Date(iso);
-    return Number.isNaN(date.getTime()) ? monthString : date.toLocaleDateString("en-LK", { month: "short" });
-  } catch {
-    return monthString;
-  }
 }
 
 

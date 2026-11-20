@@ -1,5 +1,4 @@
 import { useMemo, useState } from "react";
-import { formatAnalyticsMoney } from "../services/analyticsService";
 import "./AnalyticsChart.css";
 
 function formatFullDate(dateString) {

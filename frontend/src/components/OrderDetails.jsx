@@ -90,9 +90,6 @@ function OrderDetails({
       price: order.total,
     },
   ];
-  const hasActiveWarranty = items.some(
-    (item) => item.warrantyExpiresAt && new Date(item.warrantyExpiresAt) >= new Date(),
-  );
 
   async function handlePrintWaybill() {
     const printWindow = window.open("", "_blank", "width=900,height=700");

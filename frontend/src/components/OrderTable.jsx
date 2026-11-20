@@ -49,12 +49,6 @@ function readableStatus(status) {
     .join(" ");
 }
 
-function hasActiveWarranty(order) {
-  return (order.items ?? []).some(
-    (item) => item.warrantyExpiresAt && new Date(item.warrantyExpiresAt) >= new Date(),
-  );
-}
-
 // Keep payment status compact and readable inside the Total column.
 function paymentLabel(order) {
   const paid = Number(order.paidAmountMinor ?? order.paidAmount ?? 0);

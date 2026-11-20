@@ -3,8 +3,6 @@ import {
   ArrowRight,
   Bot,
   CreditCard,
-  HelpCircle,
-  PackageCheck,
   ShoppingBag,
   Sparkles,
   Truck,
@@ -26,14 +24,14 @@ function StorefrontInstructionsModal({
     if (dontShowAgain) {
       try {
         localStorage.setItem("vendly_storefront_guide_dismissed", "true");
-      } catch (e) {
+      } catch {
         // ignore
       }
     }
     // Also save in sessionStorage so it doesn't pop up again in the current session
     try {
       sessionStorage.setItem("vendly_storefront_guide_session", "true");
-    } catch (e) {
+    } catch {
       // ignore
     }
     onClose();

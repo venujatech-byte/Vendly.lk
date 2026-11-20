@@ -34,7 +34,6 @@ import {
   Store,
   Sun,
   Trash2,
-  Truck,
   UserRound,
   Volume2,
   VolumeX,
@@ -264,7 +263,6 @@ function StorefrontPage({ linkType, onVerificationRequired }) {
   const [hasMoreMessages, setHasMoreMessages] = useState(false);
   const [isLoadingOlderMessages, setIsLoadingOlderMessages] = useState(false);
   const receivedSellerMessageIds = useRef(new Set());
-  const activeChatUpdatedAtRef = useRef("");
   const messagesCacheRef = useRef(new Map());
   const [messageText, setMessageText] = useState("");
   const [isListening, setIsListening] = useState(false);
