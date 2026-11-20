@@ -575,7 +575,7 @@ def fallback_ai_text(prompt, max_tokens, history=None):
             "completions URL.",
             provider,
             model,
-            error,
+            type(error).__name__,
             exc_info=False,
         )
         return None
@@ -641,13 +641,11 @@ def request_ai_text(prompt, max_tokens=1200, task="answer", history=None):
                 return answer
 
             record_ai_failure("rate_limit", provider, model)
+            # Provider response text can echo request content or credentials.
             current_app.logger.warning(
-                "AI RATE LIMITED - provider %r throttled model %r. This reply "
-                "fell back to English; it should recover without any change. "
-                "Details: %s",
+                "AI RATE LIMITED - provider %r throttled model %r with HTTP 429.",
                 provider,
                 model,
-                error.response.text[:200],
             )
             return None
 
@@ -659,13 +657,12 @@ def request_ai_text(prompt, max_tokens=1200, task="answer", history=None):
         if 400 <= error.response.status_code < 500:
             record_ai_failure("configuration", provider, model)
             current_app.logger.error(
-                "AI DISABLED - provider %r rejected model %r with HTTP %s: %s. "
+                "AI DISABLED - provider %r rejected model %r with HTTP %s. "
                 "The chatbot is falling back to English deterministic replies "
                 "until AI_MODEL or AI_API_KEY is corrected.",
                 provider,
                 model,
                 error.response.status_code,
-                error.response.text[:200],
             )
             return None
 
@@ -678,9 +675,11 @@ def request_ai_text(prompt, max_tokens=1200, task="answer", history=None):
             return answer
 
         record_ai_failure("unavailable", provider, model)
-        current_app.logger.exception("The configured AI provider request failed.")
+        current_app.logger.error(
+            "AI provider %r model %r failed with HTTP %s.", provider, model, error.response.status_code,
+        )
         return None
-    except Exception:  # External SDKs use provider-specific exception classes.
+    except Exception as error:  # External SDKs use provider-specific exception classes.
         # A timeout or a dropped connection, which the other provider may not
         # be having. Same reasoning as a 5xx.
         answer = fallback_ai_text(prompt, max_tokens, history)
@@ -689,7 +688,10 @@ def request_ai_text(prompt, max_tokens=1200, task="answer", history=None):
             return answer
 
         record_ai_failure("unavailable", provider, settings.get("AI_MODEL"))
-        current_app.logger.exception("The configured AI provider request failed.")
+        # Exception messages and tracebacks can contain configured URLs or provider data.
+        current_app.logger.error(
+            "AI provider %r model %r request failed (%s).", provider, model, type(error).__name__,
+        )
         return None
 
     # A success means whatever was wrong is over. Leaving a stale warning up is

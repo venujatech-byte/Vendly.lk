@@ -56,6 +56,21 @@ def test_send_order_confirmation_email_requires_recipient():
     assert send_order_confirmation_email(order, business) is False
 
 
+@pytest.mark.parametrize("status,diagnostic", [(201, "HTTP 201"), (400, "HTTP 400"), (None, "RuntimeError")])
+def test_email_logs_exclude_customer_details_and_provider_messages(monkeypatch, caplog, status, diagnostic):
+    monkeypatch.setattr("app.services.email_service._get_brevo_config", lambda: (
+        True, "synthetic-key", "sender@example.test", "Vendly", "https://example.test",
+    ))
+    # Capture logs from synthetic provider outcomes without sending real mail.
+    response = MagicMock(status_code=status, text="synthetic-private-provider-detail")
+    failure = RuntimeError(response.text) if status is None else None
+    with patch("httpx.post", return_value=response, side_effect=failure), caplog.at_level("INFO"):
+        assert send_brevo_email("buyer@example.test", "Buyer", "Private order subject", "<p>Hi</p>") is (status == 201)
+    assert diagnostic in caplog.text
+    for value in ("buyer@example.test", "Private order subject", "synthetic-private-provider-detail"):
+        assert value not in caplog.text
+
+
 def test_send_order_confirmation_email_formats_items():
     order = {
         "orderNumber": "VD-1002",

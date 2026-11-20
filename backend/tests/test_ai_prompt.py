@@ -93,6 +93,8 @@ def test_a_configuration_error_is_logged_as_one_actionable_line(caplog, monkeypa
     # buried among transient stack traces.
     assert "AI DISABLED" in caplog.text
     assert "retired-model" in caplog.text
+    assert "HTTP 404" in caplog.text
+    assert "model_not_found" not in caplog.text
 
 
 def test_catalogue_context_lets_the_model_compare_real_products():
@@ -194,6 +196,22 @@ def test_a_rate_limit_is_not_reported_as_a_broken_configuration(caplog, monkeypa
     # editing a model name that was never wrong.
     assert "AI RATE LIMITED" in caplog.text
     assert "AI DISABLED" not in caplog.text
+    assert "tokens per minute" not in caplog.text
+
+
+def test_ai_transport_failure_logs_exception_type_without_details(caplog, monkeypatch):
+    from app.services import ai_service
+
+    # Provider exceptions can include URLs or private request details.
+    def fail(*args, **kwargs):
+        raise RuntimeError("synthetic-private-provider-detail")
+
+    monkeypatch.setattr(ai_service, "generate_openai_compatible_answer", fail)
+    monkeypatch.setattr(ai_service, "fallback_ai_text", lambda *args: None)
+    with provider_app().app_context():
+        assert ai_service.request_ai_text("hello") is None
+    assert "RuntimeError" in caplog.text
+    assert "synthetic-private-provider-detail" not in caplog.text
 
 
 def test_store_policies_are_the_only_source_for_policy_answers():

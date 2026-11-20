@@ -76,19 +76,15 @@ def send_brevo_email(to_email, to_name, subject, html_content, text_content=None
 
     try:
         response = httpx.post(BREVO_API_URL, json=payload, headers=headers, timeout=10.0)
+        # Keep delivery diagnostics free of recipient details and provider response bodies.
         if response.status_code in {200, 201, 202}:
-            LOGGER.info("Brevo email sent successfully to %s: %s", to_email, subject)
+            LOGGER.info("Brevo email accepted with HTTP %s", response.status_code)
             return True
 
-        LOGGER.warning(
-            "Brevo returned status %s for email to %s: %s",
-            response.status_code,
-            to_email,
-            response.text[:300],
-        )
+        LOGGER.warning("Brevo rejected an email with HTTP %s", response.status_code)
         return False
     except Exception as error:
-        LOGGER.warning("Could not send Brevo email to %s: %s", to_email, error)
+        LOGGER.warning("Could not send Brevo email (%s)", type(error).__name__)
         return False
 
 
