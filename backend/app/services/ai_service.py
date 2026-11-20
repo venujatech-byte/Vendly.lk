@@ -353,17 +353,6 @@ def generate_openai_compatible_answer(
     return data["choices"][0]["message"]["content"].strip()
 
 
-def generate_gemini_answer(prompt, settings):
-    from google import genai
-
-    client = genai.Client(api_key=settings["AI_API_KEY"])
-    interaction = client.interactions.create(
-        model=settings["AI_MODEL"],
-        input=prompt,
-    )
-    return interaction.output_text.strip()
-
-
 def generate_product_answer(
     question,
     product,
