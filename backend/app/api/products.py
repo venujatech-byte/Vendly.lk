@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from datetime import datetime, timezone
 
 from flask import Blueprint, current_app, g, jsonify, request, send_file
+from werkzeug.exceptions import RequestEntityTooLarge
 
 from app.core.auth import require_firebase_user
 from app.core.authorization import require_business_member
@@ -27,6 +28,7 @@ from app.services.spreadsheet_service import (
 
 
 products_blueprint = Blueprint("products", __name__, url_prefix="/api/v1")
+DESCRIPTION_REQUEST_LIMIT = 16 * 1024
 
 
 @products_blueprint.get("/businesses/<business_id>/inventory/version")
@@ -110,6 +112,16 @@ def add_product(business_id):
 @require_business_member("owner", "admin", "inventory_manager", permission="inventory:manage")
 @limiter.limit("12 per minute", key_func=business_user_key, override_defaults=False)
 def generate_description(business_id):
+    # Bound the AI input before JSON parsing, including streams without Content-Length.
+    limit = DESCRIPTION_REQUEST_LIMIT
+    if request.max_content_length is not None:
+        limit = min(limit, request.max_content_length)
+    if request.content_length is not None and request.content_length > limit:
+        raise RequestEntityTooLarge()
+    # Read one extra byte to detect oversized streams rather than parsing a truncated prefix.
+    request.max_content_length = limit + 1
+    if len(request.get_data()) > limit:
+        raise RequestEntityTooLarge()
     payload = get_json_object()
     name = str(payload.get("name", "")).strip()
     if not name:

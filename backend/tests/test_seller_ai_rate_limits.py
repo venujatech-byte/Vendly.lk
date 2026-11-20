@@ -6,6 +6,7 @@ from unittest.mock import Mock
 import pytest
 
 from app import create_app
+from app.api.products import DESCRIPTION_REQUEST_LIMIT
 from firestore_memory import MemoryFirestore
 
 
@@ -52,3 +53,31 @@ def test_seller_ai_quota_uses_verified_user_and_business(monkeypatch, route, pro
     assert response.call_count == quota
     assert send("seller-b").status_code == 200
     assert send("seller-a", "business-b").status_code == 200
+
+
+@pytest.mark.parametrize("streamed", [False, True])
+def test_product_description_body_limit_rejects_oversize_before_ai(monkeypatch, streamed):
+    # Use an authorized seller and a provider mock to test the real request-body handling.
+    store = MemoryFirestore()
+    store.put("businesses/business-a/members/seller-a", {"role": "owner", "status": "active"})
+    monkeypatch.setattr("app.initialize_firebase", Mock())
+    monkeypatch.setattr("app.core.auth.firebase_auth.verify_id_token", lambda *_a, **_k: {"uid": "seller-a"})
+    monkeypatch.setattr("app.core.authorization.get_firestore_client", lambda: store.client)
+    generate = Mock(return_value={"description": "Synthetic description"})
+    monkeypatch.setattr("app.api.products.generate_product_description", generate)
+    client = create_app({"TESTING": True, "RATELIMIT_STORAGE_URI": "memory://"}).test_client()
+    prefix = b'{"name":"Item"}'.ljust(DESCRIPTION_REQUEST_LIMIT)
+
+    def send(body):
+        environ = {"wsgi.input_terminated": True, "CONTENT_LENGTH": ""} if streamed else {}
+        return client.post(
+            "/api/v1/businesses/business-a/products/generate-description",
+            headers={"Authorization": "Bearer synthetic-token"},
+            content_type="application/json", data=body, environ_overrides=environ,
+        )
+
+    assert send(prefix).status_code == 200
+    oversized = send(prefix + b" ")
+    assert oversized.status_code == 413
+    assert oversized.json["error"]["code"] == "payload_too_large"
+    generate.assert_called_once_with({"name": "Item"})
