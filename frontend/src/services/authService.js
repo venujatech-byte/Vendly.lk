@@ -1,7 +1,6 @@
 /// Firebase Authentication functions.
 import {
   createUserWithEmailAndPassword,
-  deleteUser,
   EmailAuthProvider,
   getIdToken,
   linkWithCredential,
@@ -294,25 +293,23 @@ export async function deleteCurrentUserAccount(currentPassword = "") {
   // Re-authenticate first to verify identity and avoid auth/requires-recent-login
   await reauthenticateCurrentUser(currentPassword);
 
-  // Clean up backend records (user document, business memberships, seller profile)
-  try {
-    await apiRequest("/me", { method: "DELETE" });
-  } catch (backendError) {
-    console.warn("Backend account deletion warning:", backendError);
+  // Bind deletion to the reauthenticated account, even if the browser switches accounts.
+  const idToken = await getIdToken(currentUser, true);
+  if (auth.currentUser?.uid !== currentUser.uid) {
+    throw new Error("Your signed-in account changed. Please try again.");
   }
+  // The backend owns cleanup and Auth deletion; its failure must stop this flow.
+  await apiRequest("/me", {
+    method: "DELETE", headers: { Authorization: `Bearer ${idToken}` },
+    requiresAuthentication: false,
+  });
 
-  // Delete from client Firebase Auth
-  try {
-    await deleteUser(currentUser);
-  } catch (error) {
-    if (error?.code !== "auth/user-not-found") {
-      throw error;
+  // Do not sign out a different account that logged in while deletion was pending.
+  if (auth.currentUser?.uid === currentUser.uid) {
+    try {
+      await signOut(auth);
+    } catch {
+      // Backend deletion succeeded; Firebase may already have cleared this account.
     }
-  }
-
-  try {
-    await signOut(auth);
-  } catch {
-    // Ignore signout errors if already cleared
   }
 }

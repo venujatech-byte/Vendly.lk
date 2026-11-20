@@ -133,7 +133,7 @@ class MemoryFirestore:
         for write in request["writes"]:
             expected_time = write.current_document.update_time
             if expected_time:
-                path = write.update.name.split("/documents/", 1)[1]
+                path = (write.delete or write.update.name).split("/documents/", 1)[1]
                 if self.versions.get(path, 0) != int(expected_time.timestamp()):
                     raise FailedPrecondition("Document changed since authorization")
         for write in request["writes"]:
