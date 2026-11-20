@@ -2778,21 +2778,6 @@ def save_chat_message(session_reference, role, message, metadata=None, session=N
         except Exception as err:
             current_app.logger.warning("Failed to save chat message to RTDB: %s", err)
 
-    # Signal chat activity to the business in RTDB for instant seller inbox refresh
-    business_id = (session or {}).get("businessId")
-    if business_id:
-        try:
-            act_ref = get_rtdb_reference(f"businessChatActivity/{business_id}")
-            if act_ref is not None:
-                act_ref.set({
-                    "lastUpdated": now_iso,
-                    "sessionId": session_id,
-                    "lastMessage": str(message or "")[:120],
-                    "role": role,
-                })
-        except Exception:
-            pass
-
     # Fallback to Firestore subcollection only if RTDB write could not complete
     # shortcut: Outage messages stay in Firestore; add split-history recovery when approved.
     if not saved_to_rtdb:
@@ -2830,10 +2815,27 @@ def save_chat_message(session_reference, role, message, metadata=None, session=N
         session["recentTurns"] = turns
         session_changes["recentTurns"] = turns
     if role == "customer":
+        # A new customer message brings an inbox-hidden conversation back.
+        session_changes["hiddenFromSellerInbox"] = False
         session_changes["unreadBySeller"] = firestore.Increment(1)
     # Keep automated delivery-review state and the conversation preview in one write.
     session_changes.update(session_updates or {})
     session_reference.set(session_changes, merge=True)
+
+    # Signal activity after updating inbox visibility so the seller can see the reopened chat.
+    business_id = (session or {}).get("businessId")
+    if business_id:
+        try:
+            act_ref = get_rtdb_reference(f"businessChatActivity/{business_id}")
+            if act_ref is not None:
+                act_ref.set({
+                    "lastUpdated": now_iso,
+                    "sessionId": session_id,
+                    "lastMessage": str(message or "")[:120],
+                    "role": role,
+                })
+        except Exception:
+            pass
 
 
 def claim_public_chat_session(database, session_id, provided_token, customer_uid, customer_email=""):

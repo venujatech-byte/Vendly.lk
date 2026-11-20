@@ -12,14 +12,16 @@ from app.services.text import required_text
 from app.services import realtime_access_service
 
 
-def _session_reference(database, business_id, session_id):
+def _session_reference(database, business_id, session_id, *, include_hidden=False):
     reference = database.collection("publicChatSessions").document(session_id)
     snapshot = reference.get()
-    if not snapshot.exists or snapshot.to_dict().get("businessId") != business_id:
+    session = snapshot.to_dict() or {}
+    if session.get("businessId") != business_id or (session.get("hiddenFromSellerInbox") and not include_hidden):
         raise ApiError("chat_session_not_found", "Chat conversation not found.", 404)
     # Repair legacy metadata only after verifying the session's tenant.
-    realtime_access_service.sync_chat_access(snapshot)
-    return reference, snapshot.to_dict()
+    if not include_hidden:
+        realtime_access_service.sync_chat_access(snapshot)
+    return reference, session
 
 
 def _message_rows(reference, limit=10, before=None):
@@ -131,9 +133,12 @@ def list_chat_sessions(database, business_id, limit=10, before=None):
     snapshots = snapshots[:limit]
     sessions = []
     for snapshot in snapshots:
+        session = serialize_snapshot(snapshot)
+        # Keep the Firestore page cursor even when some rows are hidden from the inbox.
+        if session.get("hiddenFromSellerInbox"):
+            continue
         # Seed private read ownership before the inbox subscribes to this page of chats.
         realtime_access_service.sync_chat_access(snapshot)
-        session = serialize_snapshot(snapshot)
         last_message = {}
         if not session.get("lastMessage"):
             # Compatibility for chats created before parent summaries existed.
@@ -187,17 +192,10 @@ def get_chat_messages(database, business_id, session_id, limit=20, before=None):
 
 
 def delete_chat_session(database, business_id, session_id):
-    """Permanently delete a seller-owned chat and its message subcollection."""
-    reference, _session = _session_reference(database, business_id, session_id)
-    database.recursive_delete(reference)
-    # A versioned tombstone rejects delayed ownership grants for this deleted session.
-    realtime_access_service.sync_chat_access(reference.get())
-    rtdb_ref = get_rtdb_reference(f"chatMessages/{session_id}")
-    if rtdb_ref is not None:
-        try:
-            rtdb_ref.delete()
-        except Exception as err:
-            current_app.logger.warning("Failed to delete RTDB messages for session %s: %s", session_id, err)
+    """Hide a conversation from the seller inbox until the customer writes again."""
+    reference, _session = _session_reference(database, business_id, session_id, include_hidden=True)
+    # Keep the session and both message stores available to the storefront.
+    reference.update({"hiddenFromSellerInbox": True})
     return {"sessionId": session_id, "deleted": True}
 
 

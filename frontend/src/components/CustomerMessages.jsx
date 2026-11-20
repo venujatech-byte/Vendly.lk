@@ -420,15 +420,18 @@ export default function CustomerMessages({
   }
 
   async function handleDeleteChat() {
-    if (!selectedId || !window.confirm("Delete this conversation and all its messages permanently?")) return;
+    if (!selectedId || !window.confirm("Remove this chat from the seller inbox? The customer keeps their messages. The chat returns when they send a new message.")) return;
+    const sessionId = selectedId;
     try {
-      await deleteChatSession(businessId, selectedId);
-      const remaining = sessions.filter((session) => session.id !== selectedId);
+      await deleteChatSession(businessId, sessionId);
+      // Evict the removed chat without resetting access to older inbox pages.
+      conversationCacheRef.current.delete(sessionId);
+      const remaining = sessionsRef.current.filter((session) => session.id !== sessionId);
       setSessions(remaining);
-      setConversation(null);
-      setSelectedId(remaining[0]?.id || "");
-      setChatCursor(null);
-      setHasMoreChats(false);
+      if (selectedIdRef.current === sessionId) {
+        setConversation(null);
+        setSelectedId(remaining[0]?.id || "");
+      }
     } catch (requestError) {
       setError(requestError.message);
     }
