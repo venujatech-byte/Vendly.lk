@@ -9,6 +9,7 @@ from uuid import uuid4
 
 import httpx
 from firebase_admin import firestore
+from flask import current_app
 from werkzeug.datastructures import FileStorage
 from werkzeug.utils import secure_filename
 
@@ -32,7 +33,8 @@ CLOUDINARY_UPLOAD_URL = "https://api.cloudinary.com/v1_1/{cloud_name}/{resource_
 REVIEW_DATA_URL = re.compile(
     r"^data:(image/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=\r\n]+)$",
 )
-PAYMENT_RECEIPT_FORMATS = frozenset({"jpg", "jpeg", "png", "webp"})
+PRIVATE_IMAGE_FORMATS = frozenset({"jpg", "jpeg", "png", "webp"})
+PRIVATE_CHAT_IMAGE_FOLDER = "private-chat-images"
 
 
 DANGEROUS_SCRIPT_SIGNATURES = (
@@ -212,18 +214,23 @@ def upload_to_cloudinary(upload, business_id, product_id, cloudinary_config):
     }
 
 
-def upload_chat_data_url(data_url, business_id, session_id, cloudinary_config):
-    """Upload one customer-sent chat image, such as a bank slip.
+def _chat_cloudinary_config():
+    return {
+        "cloud_name": current_app.config.get("CLOUDINARY_CLOUD_NAME"),
+        "api_key": current_app.config.get("CLOUDINARY_API_KEY"),
+        "api_secret": current_app.config.get("CLOUDINARY_API_SECRET"),
+    }
 
-    Shares the review uploader so there is a single Cloudinary path with one
-    set of type and size limits; only the destination folder differs.
-    """
+
+def upload_chat_data_url(data_url, business_id, session_id, *, review_photo):
+    # Keep photos intended for review publication in their existing public folder.
     return upload_review_data_url(
         data_url,
         business_id,
         session_id,
-        cloudinary_config,
-        folder="chats",
+        _chat_cloudinary_config(),
+        folder="chats" if review_photo else PRIVATE_CHAT_IMAGE_FOLDER,
+        authenticated=not review_photo,
     )
 
 
@@ -277,7 +284,7 @@ def upload_review_data_url(
     public_id = f"businesses/{business_id}/{folder}/{review_id}/{image_id}"
     timestamp = int(time.time())
     parameters = {"public_id": public_id, "timestamp": timestamp}
-    # Sign the delivery type so private receipt uploads cannot fall back to public delivery.
+    # Sign the delivery type so private uploads cannot fall back to public delivery.
     if authenticated:
         parameters["type"] = "authenticated"
     signature = cloudinary_signature(parameters, api_secret)
@@ -304,18 +311,20 @@ def upload_review_data_url(
         ) from error
     if response.status_code >= 400:
         message = response_data.get("error", {}).get("message") if not authenticated else None
+        image_label = "payment receipt" if folder == "payment-receipts" else "private image"
         raise ApiError(
             "cloudinary_upload_failed",
-            message or ("Cloudinary rejected the payment receipt." if authenticated else "Cloudinary rejected the review image."),
+            message or (f"Cloudinary rejected the {image_label}." if authenticated else "Cloudinary rejected the review image."),
             422 if response.status_code < 500 else 502,
         )
 
     if authenticated:
-        # Keep only the receipt metadata needed to sign an authorized download later.
+        # Keep only the metadata needed to sign an authorized download later.
         image_format = response_data.get("format")
         if (response_data.get("type") != "authenticated" or response_data.get("public_id") != public_id
-                or not isinstance(image_format, str) or image_format not in PAYMENT_RECEIPT_FORMATS):
-            raise ApiError("cloudinary_upload_failed", "Cloudinary did not confirm private receipt storage.", 502)
+                or not isinstance(image_format, str) or image_format not in PRIVATE_IMAGE_FORMATS):
+            storage_label = "receipt" if folder == "payment-receipts" else "image"
+            raise ApiError("cloudinary_upload_failed", f"Cloudinary did not confirm private {storage_label} storage.", 502)
         return {"id": image_id, "format": image_format}
 
     return {
@@ -332,19 +341,42 @@ def upload_review_data_url(
 def payment_receipt_download_url(business_id, order_id, asset, cloudinary_config):
     """Sign one stored authenticated receipt for five minutes."""
     receipt_id, image_format = asset.get("id", ""), asset.get("format", "")
-    if (not isinstance(receipt_id, str) or not re.fullmatch(r"[0-9a-f]{32}", receipt_id)
-            or not isinstance(image_format, str) or image_format not in PAYMENT_RECEIPT_FORMATS):
+    if not _valid_private_image(receipt_id, image_format):
         raise ApiError("invalid_receipt_asset", "Receipt storage information is invalid.", 502)
+    return _private_image_download_url(
+        f"businesses/{business_id}/payment-receipts/{order_id}/{receipt_id}",
+        image_format, cloudinary_config, "Receipt storage is not configured.",
+    )
+
+
+def chat_attachment_download_url(business_id, session_id, asset_id, image_format):
+    # A verified conversation can only sign images from its own private folder.
+    if not _valid_private_image(asset_id, image_format):
+        raise ApiError("chat_attachment_not_found", "Chat attachment not found.", 404)
+    return _private_image_download_url(
+        f"businesses/{business_id}/{PRIVATE_CHAT_IMAGE_FOLDER}/{session_id}/{asset_id}",
+        image_format, _chat_cloudinary_config(), "Chat image storage is not configured.",
+    )
+
+
+def _valid_private_image(asset_id, image_format):
+    return (
+        isinstance(asset_id, str) and re.fullmatch(r"[0-9a-f]{32}", asset_id)
+        and isinstance(image_format, str) and image_format in PRIVATE_IMAGE_FORMATS
+    )
+
+
+def _private_image_download_url(public_id, image_format, cloudinary_config, unavailable_message):
     cloud_name = cloudinary_config.get("cloud_name")
     api_key = cloudinary_config.get("api_key")
     api_secret = cloudinary_config.get("api_secret")
     if not all((cloud_name, api_key, api_secret)):
-        raise ApiError("media_storage_not_configured", "Receipt storage is not configured.", 503)
+        raise ApiError("media_storage_not_configured", unavailable_message, 503)
 
     # Cloudinary's authenticated download API includes the expiry in the signature.
     now = int(time.time())
     parameters = {
-        "public_id": f"businesses/{business_id}/payment-receipts/{order_id}/{receipt_id}",
+        "public_id": public_id,
         "type": "authenticated",
         "format": image_format,
         "timestamp": now,

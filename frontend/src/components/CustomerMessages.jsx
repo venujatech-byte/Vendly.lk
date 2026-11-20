@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 
 import {
+  getChatAttachmentLink,
   getChatMessages,
   getChatSessions,
   deleteChatSession,
@@ -21,6 +22,7 @@ import {
   sendSellerMessage,
   setChatAiPaused,
 } from "../services/messageService";
+import PrivateChatAttachment from "./PrivateChatAttachment";
 import { ref, onValue, query, limitToLast } from "firebase/database";
 import { rtdb } from "../firebase/firebase";
 
@@ -652,7 +654,16 @@ export default function CustomerMessages({
                         </div>
                       )}
 
-                      {message.metadata?.imageUrl && (
+                      {message.metadata?.privateAttachment ? (
+                        <PrivateChatAttachment
+                          key={`${businessId}:${selectedId}:${message.metadata.privateAttachment.id}`}
+                          className="customer-messages__image"
+                          alt="Sent attachment"
+                          loadLink={(signal) => getChatAttachmentLink(
+                            businessId, selectedId, message.metadata.privateAttachment, signal,
+                          )}
+                        />
+                      ) : message.metadata?.imageUrl && (
                         <a
                           className="customer-messages__image"
                           href={message.metadata.imageUrl}

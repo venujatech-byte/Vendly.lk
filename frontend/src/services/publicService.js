@@ -57,6 +57,17 @@ export function getPublicChatMessages(sessionId, sessionToken, { before = "", si
   });
 }
 
+export function getPublicChatAttachmentLink(sessionId, sessionToken, { id, format }, signal) {
+  return apiRequest(
+    `/public/chat/sessions/${sessionId}/attachments/${encodeURIComponent(id)}/${encodeURIComponent(format)}`,
+    {
+      headers: { "X-Chat-Session-Token": sessionToken },
+      requiresAuthentication: "optional",
+      signal,
+    },
+  );
+}
+
 export function createPublicChatOrder(sessionId, sessionToken, orderData) {
   return apiRequest(`/public/chat/sessions/${sessionId}/orders`, {
     method: "POST",

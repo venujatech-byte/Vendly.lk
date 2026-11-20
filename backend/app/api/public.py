@@ -6,10 +6,12 @@ from app.core.errors import ApiError
 from app.core.firebase import get_firestore_client
 from app.core.requests import get_json_object
 from app.core.rate_limit import guest_chat_ip_key, guest_chat_ip_limit_exempt, limiter, public_chat_key
+from app.services.media_service import chat_attachment_download_url
 from app.services.public_catalog_service import get_public_product, get_public_store
 from app.services.public_chat_service import (
     answer_public_message,
     attach_public_chat_image,
+    authorize_public_chat_session,
     create_public_chat_order,
     create_public_chat_session,
     claim_public_chat_session,
@@ -106,6 +108,17 @@ def public_chat_messages(session_id):
         since=request.args.get("since"),
     )
     return jsonify(messages)
+
+
+@public_blueprint.get("/chat/sessions/<session_id>/attachments/<asset_id>/<image_format>")
+@limiter.limit("120 per minute", key_func=public_chat_key)
+@optional_firebase_user
+def public_chat_attachment(session_id, asset_id, image_format):
+    snapshot, session = authorize_public_chat_session(
+        get_firestore_client(), session_id, request.headers.get("X-Chat-Session-Token", ""), allow_closed=True,
+    )
+    url = chat_attachment_download_url(session["businessId"], snapshot.id, asset_id, image_format)
+    return jsonify({"url": url}), 200, {"Cache-Control": "no-store"}
 
 
 @public_blueprint.post("/chat/sessions/<session_id>/orders")

@@ -12,6 +12,13 @@ export async function getChatMessages(businessId, sessionId, { before = "", limi
   return apiRequest(`/businesses/${businessId}/chat-sessions/${sessionId}/messages?${params}`);
 }
 
+export function getChatAttachmentLink(businessId, sessionId, { id, format }, signal) {
+  return apiRequest(
+    `/businesses/${businessId}/chat-sessions/${sessionId}/attachments/${encodeURIComponent(id)}/${encodeURIComponent(format)}`,
+    { signal },
+  );
+}
+
 export function deleteChatSession(businessId, sessionId) {
   return apiRequest(`/businesses/${businessId}/chat-sessions/${sessionId}`, {
     method: "DELETE",

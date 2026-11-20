@@ -5813,27 +5813,26 @@ def attach_public_chat_image(database, session_id, provided_token, payload):
     except ValueError as error:
         raise ApiError("validation_error", str(error), 422) from error
 
+    # Only an active review draft is allowed to create a public chat image.
+    review_photo = session.get("state") == "collecting-review-photo"
     uploaded = upload_chat_data_url(
         data_url,
         session["businessId"],
         session_id,
-        {
-            "cloud_name": current_app.config.get("CLOUDINARY_CLOUD_NAME"),
-            "api_key": current_app.config.get("CLOUDINARY_API_KEY"),
-            "api_secret": current_app.config.get("CLOUDINARY_API_SECRET"),
-        },
+        review_photo=review_photo,
     )
+    attachment = {"imageUrl": uploaded["url"]} if review_photo else {"privateAttachment": uploaded}
     save_chat_message(
         session_snapshot.reference,
         "customer",
         caption or "Sent an image.",
-        {"imageUrl": uploaded["url"], "kind": "image"},
+        {**attachment, "kind": "image"},
     )
 
     # A photo sent while reviewing belongs to the review, not to the seller's
     # attention queue - nothing needs acting on, and the review is submitted
     # when the customer says they are done.
-    if session.get("state") == "collecting-review-photo":
+    if review_photo:
         review_draft = dict(session.get("reviewDraft") or {})
         review_draft["media"] = (review_draft.get("media") or [])[
             : MAX_REVIEW_PHOTOS - 1
@@ -5861,7 +5860,7 @@ def attach_public_chat_image(database, session_id, provided_token, payload):
         caption or "Customer sent an image",
     )
     return {
-        "imageUrl": uploaded["url"],
+        **attachment,
         "message": "Thank you. I have sent the image to the seller, and they "
                    "will confirm it shortly.",
     }

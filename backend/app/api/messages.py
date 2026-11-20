@@ -5,6 +5,7 @@ from app.core.authorization import require_business_member
 from app.core.firebase import get_firestore_client
 from app.core.requests import get_json_object
 from app.services.message_service import (
+    get_chat_attachment_url,
     get_chat_messages,
     delete_chat_session,
     list_chat_sessions,
@@ -44,6 +45,14 @@ def get_business_chat_messages(business_id, session_id):
         limit=min(max(request.args.get("limit", 20, type=int), 1), 50),
         before=request.args.get("before"),
     ))
+
+
+@messages_blueprint.get("/businesses/<business_id>/chat-sessions/<session_id>/attachments/<asset_id>/<image_format>")
+@require_firebase_user
+@require_business_member(permission="customers:read")
+def get_business_chat_attachment(business_id, session_id, asset_id, image_format):
+    url = get_chat_attachment_url(get_firestore_client(), business_id, session_id, asset_id, image_format)
+    return jsonify({"url": url}), 200, {"Cache-Control": "no-store"}
 
 
 @messages_blueprint.post("/businesses/<business_id>/chat-sessions/<session_id>/messages")

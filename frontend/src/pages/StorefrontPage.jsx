@@ -52,6 +52,7 @@ import {
   getPublicProductReviews,
   getPublicStore,
   getCustomerOrders,
+  getPublicChatAttachmentLink,
   getPublicChatMessages,
   resumePublicChatSession,
   sendPublicChatImage,
@@ -59,6 +60,7 @@ import {
   submitPublicReview,
 } from "../services/publicService";
 import OrderReceipt from "../components/OrderReceipt";
+import PrivateChatAttachment from "../components/PrivateChatAttachment";
 import CustomerAccountModal from "../components/CustomerAccountModal";
 import StorefrontInstructionsModal from "../components/StorefrontInstructionsModal";
 import { useAuth } from "../context/authContextValue";
@@ -69,6 +71,12 @@ import { ref as dbRef, onValue, query, limitToLast } from "firebase/database";
 import { rtdb } from "../firebase/firebase";
 
 import "./StorefrontPage.css";
+
+function sameChatImage(message, other) {
+  // Private images sync by their asset ID, even if the local caption is empty.
+  if (other.privateAttachment) return message.privateAttachment?.id === other.privateAttachment.id;
+  return Boolean(other.imageUrl && message.imageUrl === other.imageUrl);
+}
 
 // Speech recognition and synthesis need a BCP 47 tag; the chat API answers with
 // a plain language code. The chat is the source of truth, so a reply in Sinhala
@@ -490,6 +498,7 @@ function StorefrontPage({ linkType, onVerificationRequired }) {
         text: message.message,
         action: message.metadata?.action,
         imageUrl: message.metadata?.imageUrl,
+        privateAttachment: message.metadata?.privateAttachment,
       }));
       olderMessages.forEach((m) => {
         if (m.id && m.role === "seller") {
@@ -641,6 +650,7 @@ function StorefrontPage({ linkType, onVerificationRequired }) {
               text: item.message || item.text || "",
               action: meta.action || item.action,
               imageUrl: meta.imageUrl || item.imageUrl,
+              privateAttachment: meta.privateAttachment,
               suggestions: (meta.suggestions && meta.suggestions.length > 0) ? meta.suggestions : (item.suggestions || []),
               product: meta.product || item.product,
               products: (meta.products && meta.products.length > 0) ? meta.products : (item.products || []),
@@ -683,7 +693,9 @@ function StorefrontPage({ linkType, onVerificationRequired }) {
             // preserve any rich UI properties (action, suggestions, product, products, reviews, etc.) attached locally
             const enrichedRtdbMessages = rtdbMessages.map((rtdbMsg) => {
               const matchedPrev = prev.find(
-                (p) => p.id === rtdbMsg.id || (!p.id && p.role === rtdbMsg.role && p.text === rtdbMsg.text)
+                (p) => p.id === rtdbMsg.id || (!p.id && p.role === rtdbMsg.role && (
+                  rtdbMsg.privateAttachment ? sameChatImage(p, rtdbMsg) : p.text === rtdbMsg.text
+                ))
               );
               if (matchedPrev) {
                 return {
@@ -693,6 +705,7 @@ function StorefrontPage({ linkType, onVerificationRequired }) {
                   role: rtdbMsg.role || matchedPrev.role,
                   text: rtdbMsg.text || matchedPrev.text,
                   action: matchedPrev.action || rtdbMsg.action,
+                  privateAttachment: rtdbMsg.privateAttachment || matchedPrev.privateAttachment,
                   product: matchedPrev.product || rtdbMsg.product,
                   products: (matchedPrev.products && matchedPrev.products.length > 0) ? matchedPrev.products : rtdbMsg.products,
                   categories: (matchedPrev.categories && matchedPrev.categories.length > 0) ? matchedPrev.categories : rtdbMsg.categories,
@@ -713,7 +726,9 @@ function StorefrontPage({ linkType, onVerificationRequired }) {
 
             // Keep only un-synced local messages (e.g. initial greeting or pending optimistic customer msg) that have no text match in RTDB
             const unsyncedLocal = prev.filter(
-              (m) => !m.id && !enrichedRtdbMessages.some((r) => r.role === m.role && r.text === m.text)
+              (m) => !m.id && !enrichedRtdbMessages.some((r) => r.role === m.role && (
+                m.privateAttachment ? sameChatImage(r, m) : r.text === m.text
+              ))
             );
 
             const combined = [...olderLoaded, ...enrichedRtdbMessages, ...unsyncedLocal];
@@ -1001,11 +1016,13 @@ function StorefrontPage({ linkType, onVerificationRequired }) {
       ));
       setMessages((current) => {
         const list = current || [];
-        const customerImg = { role: "customer", text: "", imageUrl: response.imageUrl };
+        const customerImg = {
+          role: "customer", text: "", imageUrl: response.imageUrl, privateAttachment: response.privateAttachment,
+        };
         const assistantMsg = { role: "assistant", text: response.message };
 
         let updated = [...list];
-        if (!updated.some((m) => m.role === "customer" && m.imageUrl === response.imageUrl)) {
+        if (!updated.some((m) => m.role === "customer" && sameChatImage(m, customerImg))) {
           updated.push(customerImg);
         }
         if (!updated.some((m) => m.role === "assistant" && m.text === response.message)) {
@@ -1443,6 +1460,7 @@ function StorefrontPage({ linkType, onVerificationRequired }) {
         text: message.message,
         action: message.metadata?.action,
         imageUrl: message.metadata?.imageUrl,
+        privateAttachment: message.metadata?.privateAttachment,
       }));
 
       if (formatted.length > 0) {
@@ -1864,6 +1882,10 @@ function StorefrontPage({ linkType, onVerificationRequired }) {
             onCancelHeldVoiceCommand={cancelHeldVoiceCommand}
             onQuickMessage={requestChatMessage}
             onSendImage={sendChatImage}
+            attachmentScope={session?.sessionId ? `${session.sessionId}:${user?.uid || ""}` : ""}
+            onLoadAttachment={(asset, signal) => runChatRequest(session, (active) =>
+              getPublicChatAttachmentLink(active.sessionId, active.sessionToken, asset, signal)
+            )}
             onAddFromChat={addFromChat}
             onDecreaseItem={(variantId) => updateCartQuantity(variantId, -1)}
             onIncreaseItem={(variantId) => updateCartQuantity(variantId, 1)}
@@ -3268,6 +3290,8 @@ function ChatbotView({
   onCancelHeldVoiceCommand,
   onQuickMessage,
   onSendImage,
+  attachmentScope,
+  onLoadAttachment,
   onAddFromChat,
   onDecreaseItem,
   onIncreaseItem,
@@ -3325,7 +3349,7 @@ function ChatbotView({
           {messages.map((message, index) => (
             <div
               className={`storefront-chat-message storefront-chat-message--${message.role}`}
-              key={message.id || `${message.role}-${index}`}
+              key={message.privateAttachment?.id || message.id || `${message.role}-${index}`}
               ref={index === messages.length - 1 ? latestMessageRef : undefined}
             >
               <span className="storefront-chat-message__avatar">
@@ -3338,7 +3362,14 @@ function ChatbotView({
                 )}
               </span>
               <div className="storefront-chat-message__content">
-                {message.imageUrl && (
+                {message.privateAttachment ? attachmentScope && (
+                  <PrivateChatAttachment
+                    key={`${attachmentScope}:${message.privateAttachment.id}`}
+                    className="storefront-chat-message__image"
+                    alt={text.sentImage}
+                    loadLink={(signal) => onLoadAttachment(message.privateAttachment, signal)}
+                  />
+                ) : message.imageUrl && (
                   <a
                     className="storefront-chat-message__image"
                     href={message.imageUrl}

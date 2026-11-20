@@ -9,20 +9,27 @@ from app.core.errors import ApiError
 from app.core.firebase import get_rtdb_reference
 from app.core.serialization import serialize_snapshot
 from app.services.ai_service import translate_chat_message
+from app.services.media_service import chat_attachment_download_url
 from app.services.text import required_text
 from app.services import realtime_access_service
 
 
-def _session_reference(database, business_id, session_id, *, include_hidden=False):
+def _session_reference(database, business_id, session_id, *, include_hidden=False, sync_access=True):
     reference = database.collection("publicChatSessions").document(session_id)
     snapshot = reference.get()
     session = snapshot.to_dict() or {}
     if session.get("businessId") != business_id or (session.get("hiddenFromSellerInbox") and not include_hidden):
         raise ApiError("chat_session_not_found", "Chat conversation not found.", 404)
     # Repair legacy metadata only after verifying the session's tenant.
-    if not include_hidden:
+    if sync_access and not include_hidden:
         realtime_access_service.sync_chat_access(snapshot)
     return reference, session
+
+
+def get_chat_attachment_url(database, business_id, session_id, asset_id, image_format):
+    # Reuse inbox visibility checks without writing to RTDB for every preview.
+    reference, _ = _session_reference(database, business_id, session_id, sync_access=False)
+    return chat_attachment_download_url(business_id, reference.id, asset_id, image_format)
 
 
 def _message_rows(reference, limit=10, before=None):
