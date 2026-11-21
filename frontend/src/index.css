@@ -143,12 +143,6 @@ button {
   cursor: pointer;
 }
 
-/* Smooth visual transition when changing between light and dark themes. */
-.app__content {
-  flex: 1;
-  min-width: 0;
-}
-
 /* Enhanced Lucide icon stroke thickness for a crisp, punchy modern aesthetic */
 svg.lucide {
   stroke-width: 2.35px;
