@@ -61,6 +61,7 @@ def test_recording_the_full_amount_leaves_nothing_to_collect(monkeypatch):
     monkeypatch.setattr(
         order_service, "send_payment_recorded_chat_message", lambda *a: None,
     )
+    monkeypatch.setattr(order_service, "_publish_order_status_change", lambda *a: None)
 
     result = record_order_payment(
         database, "biz", "order-1", "seller-1",
@@ -70,6 +71,7 @@ def test_recording_the_full_amount_leaves_nothing_to_collect(monkeypatch):
     assert result["paymentStatus"] == "paid"
     assert result["balanceAmountMinor"] == 0
     assert result["paymentPending"] is False
+    assert result["fulfilmentStatus"] == "confirmed"
     assert result["paymentReceipts"][0]["url"] == "https://cdn/slip.jpg"
 
 
@@ -83,6 +85,7 @@ def test_a_part_payment_leaves_the_rest_as_cash_on_delivery(monkeypatch):
     monkeypatch.setattr(
         order_service, "send_payment_recorded_chat_message", lambda *a: None,
     )
+    monkeypatch.setattr(order_service, "_publish_order_status_change", lambda *a: None)
 
     result = record_order_payment(
         database, "biz", "order-1", "seller-1", {"paidAmountMinor": 45000},
@@ -91,6 +94,7 @@ def test_a_part_payment_leaves_the_rest_as_cash_on_delivery(monkeypatch):
     # The courier collects the difference. Half and full are the same
     # operation with different numbers.
     assert result["paymentStatus"] == "partially-paid"
+    assert result["fulfilmentStatus"] == "confirmed"
     assert result["balanceAmountMinor"] == 135000
 
 
@@ -138,13 +142,14 @@ def test_the_receipt_is_kept_for_later_viewing(monkeypatch):
 
 
 def test_an_order_awaiting_a_transfer_cannot_be_confirmed():
-    from app.services.order_service import STATUS_TRANSITIONS
+    database, store = make_database({
+        "fulfilmentStatus": "needs-confirmation", "paymentStatus": "pending-payment",
+    })
+    with pytest.raises(ApiError, match="Record the payment before confirming it") as failure:
+        order_service.update_order_status(database, "biz", "order-1", "seller-1", {"status": "confirmed"})
 
-    # The guard lives inside the status transaction, so this asserts the rule
-    # it depends on: confirmed is reachable from needs-confirmation, and the
-    # guard is what stops it while payment is pending.
-    assert "confirmed" in STATUS_TRANSITIONS["needs-confirmation"]
-    assert "cancelled" in STATUS_TRANSITIONS["needs-confirmation"]
+    assert failure.value.code == "payment_not_received"
+    assert store.commits == 0
 
 
 def test_cancelling_stays_available_while_payment_is_pending():

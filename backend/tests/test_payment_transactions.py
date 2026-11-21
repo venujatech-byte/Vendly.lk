@@ -25,6 +25,8 @@ def store(monkeypatch):
     })
     store.notify = Mock()
     monkeypatch.setattr(order_service, "send_payment_recorded_chat_message", store.notify)
+    store.publish_status = Mock()
+    monkeypatch.setattr(order_service, "_publish_order_status_change", store.publish_status)
     return store
 
 
@@ -60,6 +62,8 @@ def test_competing_payments_keep_both_receipts_and_cumulative_total(store):
     }
     assert len(events(store)) == 2
     assert store.notify.call_count == 2
+    assert result["fulfilmentStatus"] == "confirmed"
+    store.publish_status.assert_called_once()
 
 
 def test_cod_conversion_cannot_erase_a_competing_payment(store):
@@ -106,6 +110,7 @@ def test_rejected_payment_and_audit_commit_leaves_no_partial_writes(store, cod):
         change_payment(store, cod)
     assert store.documents == before
     store.notify.assert_not_called()
+    store.publish_status.assert_not_called()
 
 
 @pytest.mark.parametrize("cod", [False, True])

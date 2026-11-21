@@ -670,6 +670,7 @@ function OrdersPage() {
               paymentTarget.id,
               payment,
             );
+            setOrdersError((error) => error?.code === "payment_not_received" ? null : error);
             // Replaced in place: the row's colour and the balance the courier
             // collects both come from this order, so a stale copy would show
             // the seller a payment they have just recorded as still missing.
@@ -762,7 +763,9 @@ function OrdersPage() {
 
       {(accountError || ordersError) && (
         <p className="dashboard-notice dashboard-notice--error" role="alert">
-          Orders could not be loaded from the Vendly API.
+          {ordersError?.code === "payment_not_received"
+            ? ordersError.message
+            : "Orders could not be loaded from the Vendly API."}
         </p>
       )}
 

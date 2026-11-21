@@ -915,6 +915,23 @@ def create_order(database, business_id, uid, payload, *, customer_contact=None):
     return created_order
 
 
+def _order_status_changes(current_status, new_status, uid, note):
+    # Keep manual and payment-triggered confirmations consistent in history.
+    return {
+        "fulfilmentStatus": new_status,
+        "updatedAt": firestore.SERVER_TIMESTAMP,
+        "statusHistory": firestore.ArrayUnion([
+            {
+                "from": current_status,
+                "to": new_status,
+                "note": note,
+                "changedBy": uid,
+                "changedAt": datetime.now(timezone.utc),
+            },
+        ]),
+    }
+
+
 def update_order_status(database, business_id, order_id, uid, payload):
     try:
         new_status = required_text(payload.get("status"), "Order status", 40)
@@ -1158,21 +1175,7 @@ def update_order_status(database, business_id, order_id, uid, payload):
         if product_snapshots:
             mark_cache_changed(database, business_id, "products", current_transaction)
 
-        order_changes = {
-            "fulfilmentStatus": new_status,
-            "updatedAt": timestamp,
-            "statusHistory": firestore.ArrayUnion(
-                [
-                    {
-                        "from": current_status,
-                        "to": new_status,
-                        "note": note,
-                        "changedBy": uid,
-                        "changedAt": datetime.now(timezone.utc),
-                    },
-                ],
-            ),
-        }
+        order_changes = _order_status_changes(current_status, new_status, uid, note)
 
         if stock_action == "release":
             order_changes["stockReservationStatus"] = "released"
@@ -1283,6 +1286,18 @@ def update_order_status(database, business_id, order_id, uid, payload):
                 409,
             ) from error
         raise
+    cancellation_notification_id = (
+        status_notification_reference.id
+        if new_status == "cancelled" and str(uid).startswith("public-chat:")
+        else None
+    )
+    _publish_order_status_change(database, business_reference, order_reference, new_status, note, cancellation_notification_id)
+    return get_order(database, business_id, order_id)
+
+
+def _publish_order_status_change(database, business_reference, order_reference, new_status, note, cancellation_notification_id=None):
+    business_id = business_reference.id
+    order_id = order_reference.id
     # The order update is already committed; chat delivery is a separate
     # best-effort event so a temporary chat problem cannot roll back stock.
     try:
@@ -1311,13 +1326,13 @@ def update_order_status(database, business_id, order_id, uid, payload):
         updated_order = get_order(database, business_id, order_id)
 
         # 1. Customer cancellation notification to seller
-        if new_status == "cancelled" and str(uid).startswith("public-chat:"):
+        if cancellation_notification_id:
             dispatch_notification(
                 database,
                 business_id,
-                status_notification_reference.id,
+                cancellation_notification_id,
                 {
-                    "id": status_notification_reference.id,
+                    "id": cancellation_notification_id,
                     "type": "order-cancelled",
                     "title": f"Order {updated_order.get('orderNumber', '')} cancelled",
                     "message": (
@@ -1370,8 +1385,6 @@ def update_order_status(database, business_id, order_id, uid, payload):
             )
     except Exception as status_sync_err:
         LOGGER.warning("Could not sync order status to RTDB or email: %s", status_sync_err)
-
-    return get_order(database, business_id, order_id)
 
 
 def update_order(database, business_id, order_id, uid, payload, editable_statuses=None):
@@ -1831,11 +1844,10 @@ def record_order_payment(database, business_id, order_id, uid, payload, *, recei
 
     receipt_url = optional_text(payload.get("receiptUrl"), 2000)
     note = optional_text(payload.get("note"), 500)
-    order_reference = (
-        database.collection("businesses").document(business_id)
-        .collection("orders").document(order_id)
-    )
+    business_reference = database.collection("businesses").document(business_id)
+    order_reference = business_reference.collection("orders").document(order_id)
     event_reference = order_reference.collection("events").document()
+    confirmation_note = "Confirmed after the seller recorded the bank transfer."
 
     # Re-read payment state on conflicts and commit the amount, receipts and audit event together.
     @google_firestore.transactional
@@ -1871,25 +1883,29 @@ def record_order_payment(database, business_id, order_id, uid, payload, *, recei
                 },
             )
 
-        current_transaction.update(
-            order_reference,
-            {
-                "paidAmountMinor": paid_amount_minor,
-                "balanceAmountMinor": balance_minor,
-                "paymentStatus": payment_status,
-                # Settled either way: the rest is collected on delivery, so nothing
-                # is still waiting on a transfer.
-                "paymentPending": False,
-                "paymentReceipts": receipts,
-                "paymentVerifiedBy": uid,
-                "paymentVerifiedAt": firestore.SERVER_TIMESTAMP,
-                "updatedAt": firestore.SERVER_TIMESTAMP,
-            },
+        changes = {
+            "paidAmountMinor": paid_amount_minor,
+            "balanceAmountMinor": balance_minor,
+            "paymentStatus": payment_status,
+            # A verified partial transfer leaves the balance for collection on delivery.
+            "paymentPending": False,
+            "paymentReceipts": receipts,
+            "paymentVerifiedBy": uid,
+            "paymentVerifiedAt": firestore.SERVER_TIMESTAMP,
+            "updatedAt": firestore.SERVER_TIMESTAMP,
+        }
+        # Confirm a pending bank-transfer order in the same transaction as its payment.
+        confirmed = (
+            order.get("fulfilmentStatus") == "needs-confirmation"
+            and order.get("paymentStatus") == "pending-payment"
         )
+        if confirmed:
+            changes.update(_order_status_changes("needs-confirmation", "confirmed", uid, confirmation_note))
+        current_transaction.update(order_reference, changes)
         current_transaction.set(
             event_reference,
             {
-                "status": order.get("fulfilmentStatus", "needs-confirmation"),
+                "status": changes.get("fulfilmentStatus", order.get("fulfilmentStatus", "needs-confirmation")),
                 "message": (
                     f"Payment of {paid_amount_minor / 100:,.2f} recorded."
                     + (
@@ -1904,10 +1920,12 @@ def record_order_payment(database, business_id, order_id, uid, payload, *, recei
             },
         )
         mark_cache_changed(database, business_id, "orders", current_transaction)
-        return order, balance_minor
+        return order, balance_minor, confirmed
 
-    order, balance_minor = record_in_transaction(database.transaction())
+    order, balance_minor, confirmed = record_in_transaction(database.transaction())
     _notify_payment_recorded(database, business_id, order_id, order, paid_amount_minor, balance_minor)
+    if confirmed:
+        _publish_order_status_change(database, business_reference, order_reference, "confirmed", confirmation_note)
     return get_order(database, business_id, order_id)
 
 
