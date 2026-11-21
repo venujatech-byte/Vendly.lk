@@ -411,12 +411,6 @@ html[data-theme="dark"] .orders-table__details-cell {
     font-size: 11px;
   }
 
-  .order-details__section {
-    padding: 12px 0;
-    border-right: 0;
-    border-bottom: 1px solid var(--color-border);
-  }
-
   .order-details__section:last-child {
     border-bottom: 0;
   }
