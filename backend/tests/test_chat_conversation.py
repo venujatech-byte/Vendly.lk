@@ -1335,6 +1335,19 @@ def test_checking_the_cart_mid_checkout_does_not_restart_it(chat):
     assert "GM2" in reply["message"]
 
 
+@pytest.mark.parametrize("intent", [None, "product_question", "show_cart", "cancel_order"])
+def test_checkout_button_command_starts_contact_collection_with_a_cart(chat, intent):
+    chat.say("I want GM2 Pro Earbuds", intent="start_order", productQuery="GM2 pro", quantity=1)
+    assert chat.state == "browsing"
+    assert chat.cart == [{"variantId": "v-buds", "quantity": 1}]
+
+    reply = chat.say("that is everything", intent=intent)
+
+    assert reply["action"] == "collect-name"
+    assert reply["state"] == "collecting-name"
+    assert reply["cart"] == [{"variantId": "v-buds", "quantity": 1}]
+
+
 def open_order(status="needs-confirmation"):
     return {
         "id": "order-1",

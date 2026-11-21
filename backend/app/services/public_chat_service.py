@@ -1930,6 +1930,7 @@ def is_finished_selecting_items(message):
         "no",
         "nothanks",
         "nothingelse",
+        "thatiseverything",
         "thatsall",
         "thatwillbeall",
         "done",
@@ -3061,11 +3062,13 @@ def answer_public_message(database, session_id, provided_token, payload):
     cart_summary = summarize_chat_cart(cart, products)
     customer_draft = dict(session.get("customerDraft") or {})
     lowered_message = message.strip().casefold()
+    # An explicit checkout reply should take precedence over an AI guess.
+    checkout_reply = current_state == "browsing" and bool(cart_summary) and is_finished_selecting_items(message)
     # One AI call reads the whole sentence for both intent and language, so a
     # code-mixed message like "මට black bag එකක් order කරන්න ඕන" is understood
     # even though no phrase list contains that combination. The keyword ladder
     # below stays as the fallback for when the provider is unavailable.
-    ai_intent = {} if private_reply else storefront_intent(
+    ai_intent = {} if private_reply or checkout_reply else storefront_intent(
         message,
         products,
         current_state,
@@ -3078,7 +3081,7 @@ def answer_public_message(database, session_id, provided_token, payload):
         message,
         session.get("language", "en"),
         ai_intent.get("language"),
-        allow_ai=not private_reply,
+        allow_ai=not (private_reply or checkout_reply),
     )
 
     def intent_is(*names):
