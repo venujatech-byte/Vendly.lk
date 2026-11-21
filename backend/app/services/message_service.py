@@ -9,6 +9,7 @@ from app.core.errors import ApiError
 from app.core.firebase import get_rtdb_reference
 from app.core.serialization import serialize_snapshot
 from app.services.ai_service import translate_chat_message
+from app.services.chat_payment_service import chat_payment_report_reference
 from app.services.media_service import chat_attachment_download_url
 from app.services.text import required_text
 from app.services import realtime_access_service
@@ -30,6 +31,11 @@ def get_chat_attachment_url(database, business_id, session_id, asset_id, image_f
     # Reuse inbox visibility checks without writing to RTDB for every preview.
     reference, _ = _session_reference(database, business_id, session_id, sync_access=False)
     return chat_attachment_download_url(business_id, reference.id, asset_id, image_format)
+
+
+def get_chat_payment_report_reference(database, business_id, session_id, report_id):
+    reference, _ = _session_reference(database, business_id, session_id, sync_access=False)
+    return chat_payment_report_reference(reference, report_id)
 
 
 def _message_rows(reference, limit=10, before=None):

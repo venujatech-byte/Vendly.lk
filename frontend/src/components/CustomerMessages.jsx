@@ -22,6 +22,7 @@ import {
   sendSellerMessage,
   setChatAiPaused,
 } from "../services/messageService";
+import ChatPaymentReport from "./ChatPaymentReport";
 import PrivateChatAttachment from "./PrivateChatAttachment";
 import { ref, onValue, query, limitToLast } from "firebase/database";
 import { rtdb } from "../firebase/firebase";
@@ -93,6 +94,7 @@ export default function CustomerMessages({
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [isUpdatingAi, setIsUpdatingAi] = useState(false);
+  const [canVerifyPaymentReports, setCanVerifyPaymentReports] = useState(false);
   const [error, setError] = useState("");
 
   const messagesContainerRef = useRef(null);
@@ -112,6 +114,7 @@ export default function CustomerMessages({
       const result = await getChatSessions(businessId);
       const rows = result.sessions;
       setSessions(rows);
+      setCanVerifyPaymentReports(result.canVerifyPaymentReports === true);
       setChatCursor(result.nextCursor || null);
       setHasMoreChats(Boolean(result.hasMore));
       onSummaryChange?.({
@@ -675,6 +678,15 @@ export default function CustomerMessages({
                       )}
 
                       <p>{message.sellerMessage || message.message}</p>
+
+                      {canVerifyPaymentReports && message.metadata?.paymentReport && (
+                        <ChatPaymentReport
+                          key={`${businessId}:${selectedId}:${message.metadata.paymentReport.id}`}
+                          businessId={businessId}
+                          sessionId={selectedId}
+                          summary={message.metadata.paymentReport}
+                        />
+                      )}
 
                       {message.metadata?.translated && (
                         <small className="customer-messages__translated">

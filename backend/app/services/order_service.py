@@ -1806,11 +1806,21 @@ def _notify_payment_recorded(database, business_id, order_id, order, paid_minor,
         LOGGER.warning("Payment saved, but its customer chat notification could not be delivered.")
 
 
-def record_order_payment(database, business_id, order_id, uid, payload, *, receipt_asset=None):
+def can_report_chat_transfer(order):
+    return (
+        order.get("paymentMethod") in {"paid", "deposit"}
+        and order.get("fulfilmentStatus") in {"needs-confirmation", "confirmed", "packed", "shipped", "delivered"}
+        and order.get("paidAmountMinor", 0) < order.get("totalAmountMinor", 0)
+    )
+
+
+def record_order_payment(
+    database, business_id, order_id, uid, payload, *, receipt_asset=None, chat_report_reference=None,
+):
     """Record money the seller has actually received against an order.
 
-    The amount remains the cumulative paid total, not an additional transfer.
-    The seller enters what landed in their account and attaches the receipt.
+    The order-page amount is the cumulative total. A chat report records one
+    additional transfer and is consumed in the same transaction.
     Anything still outstanding becomes the cash-on-delivery amount, so a half
     transfer and a full transfer are the same operation with different numbers
     rather than two code paths that can disagree.
@@ -1827,7 +1837,7 @@ def record_order_payment(database, business_id, order_id, uid, payload, *, recei
         )
 
     try:
-        paid_amount_minor = int(payload.get("paidAmountMinor") or 0)
+        received_minor = int(payload.get("paidAmountMinor") or 0)
     except (TypeError, ValueError) as error:
         raise ApiError(
             "validation_error",
@@ -1835,7 +1845,7 @@ def record_order_payment(database, business_id, order_id, uid, payload, *, recei
             422,
         ) from error
 
-    if paid_amount_minor <= 0:
+    if received_minor <= 0:
         raise ApiError(
             "validation_error",
             "Enter the amount you received.",
@@ -1859,6 +1869,23 @@ def record_order_payment(database, business_id, order_id, uid, payload, *, recei
 
         order = snapshot.to_dict()
         total_minor = order.get("totalAmountMinor", 0)
+        paid_amount_minor = received_minor
+        verified_receipt = receipt_asset
+
+        if chat_report_reference is not None:
+            # Resolve one server-owned receipt once, even if two staff members act at the same time.
+            report = chat_report_reference.get(transaction=current_transaction).to_dict() or {}
+            if report.get("orderId") != order_id:
+                raise ApiError("payment_report_not_found", "Payment report not found.", 404)
+            if report.get("verifiedAmountMinor") is not None:
+                return None
+            if not can_report_chat_transfer(order):
+                raise ApiError("payment_report_closed", "This order no longer accepts a bank transfer.", 409)
+            paid_amount_minor += order.get("paidAmountMinor", 0)
+            verified_receipt = {
+                **report["receipt"],
+                "chatSessionId": chat_report_reference.parent.parent.id,
+            }
 
         # Overpayment is a data-entry slip, and silently accepting it would show a
         # negative balance to collect on the courier's sheet.
@@ -1873,11 +1900,11 @@ def record_order_payment(database, business_id, order_id, uid, payload, *, recei
         payment_status = "paid" if balance_minor == 0 else "partially-paid"
         receipts = list(order.get("paymentReceipts") or [])
 
-        if receipt_asset or receipt_url:
+        if verified_receipt or receipt_url:
             receipts.append(
                 {
-                    **({"privateAsset": receipt_asset} if receipt_asset else {"url": receipt_url}),
-                    "amountMinor": paid_amount_minor,
+                    **({"privateAsset": verified_receipt} if verified_receipt else {"url": receipt_url}),
+                    "amountMinor": received_minor,
                     "recordedBy": uid,
                     "recordedAt": datetime.now(timezone.utc),
                 },
@@ -1902,12 +1929,18 @@ def record_order_payment(database, business_id, order_id, uid, payload, *, recei
         if confirmed:
             changes.update(_order_status_changes("needs-confirmation", "confirmed", uid, confirmation_note))
         current_transaction.update(order_reference, changes)
+        if chat_report_reference is not None:
+            current_transaction.update(chat_report_reference, {
+                "verifiedAmountMinor": received_minor,
+                "verifiedBy": uid,
+                "verifiedAt": firestore.SERVER_TIMESTAMP,
+            })
         current_transaction.set(
             event_reference,
             {
                 "status": changes.get("fulfilmentStatus", order.get("fulfilmentStatus", "needs-confirmation")),
                 "message": (
-                    f"Payment of {paid_amount_minor / 100:,.2f} recorded."
+                    f"Payment of {received_minor / 100:,.2f} recorded."
                     + (
                         f" Balance {balance_minor / 100:,.2f} to collect on delivery."
                         if balance_minor
@@ -1922,10 +1955,12 @@ def record_order_payment(database, business_id, order_id, uid, payload, *, recei
         mark_cache_changed(database, business_id, "orders", current_transaction)
         return order, balance_minor, confirmed
 
-    order, balance_minor, confirmed = record_in_transaction(database.transaction())
-    _notify_payment_recorded(database, business_id, order_id, order, paid_amount_minor, balance_minor)
-    if confirmed:
-        _publish_order_status_change(database, business_reference, order_reference, "confirmed", confirmation_note)
+    recorded = record_in_transaction(database.transaction())
+    if recorded is not None:
+        order, balance_minor, confirmed = recorded
+        _notify_payment_recorded(database, business_id, order_id, order, received_minor, balance_minor)
+        if confirmed:
+            _publish_order_status_change(database, business_reference, order_reference, "confirmed", confirmation_note)
     return get_order(database, business_id, order_id)
 
 

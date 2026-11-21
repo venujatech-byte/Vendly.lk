@@ -343,6 +343,15 @@ def payment_receipt_download_url(business_id, order_id, asset, cloudinary_config
     receipt_id, image_format = asset.get("id", ""), asset.get("format", "")
     if not _valid_private_image(receipt_id, image_format):
         raise ApiError("invalid_receipt_asset", "Receipt storage information is invalid.", 502)
+    # Verified chat receipts retain the original authenticated asset.
+    session_id = asset.get("chatSessionId")
+    if session_id:
+        if not isinstance(session_id, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,128}", session_id):
+            raise ApiError("invalid_receipt_asset", "Receipt storage information is invalid.", 502)
+        return _private_image_download_url(
+            f"businesses/{business_id}/{PRIVATE_CHAT_IMAGE_FOLDER}/{session_id}/{receipt_id}",
+            image_format, cloudinary_config, "Receipt storage is not configured.",
+        )
     return _private_image_download_url(
         f"businesses/{business_id}/payment-receipts/{order_id}/{receipt_id}",
         image_format, cloudinary_config, "Receipt storage is not configured.",

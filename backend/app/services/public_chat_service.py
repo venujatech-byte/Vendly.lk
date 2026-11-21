@@ -37,6 +37,7 @@ from app.services.ai_service import (
 )
 from app.services.chat_event_service import notify_seller_attention
 from app.services.media_service import upload_chat_data_url
+from app.services.chat_payment_service import finish_chat_receipt, parse_chat_transfer_amount, stage_chat_receipt
 from app.services.courier_service import (
     district_display_name,
     district_first_kg_price,
@@ -3010,6 +3011,38 @@ def public_order_confirmation(order):
     }
 
 
+def _answer_chat_receipt_amount(database, session_reference, session, draft, message):
+    language = session.get("language", "en")
+    amount_minor = None
+    skipped = normalized_phrase(message) in {"skip", "cancelreceipt"}
+    if not skipped:
+        try:
+            amount_minor = parse_chat_transfer_amount(message)
+        except ValueError:
+            return {
+                "message": translate_chat_message(
+                    "Enter the amount you transferred in LKR, for example 2,500.00. Type 'skip' to continue without it.",
+                    language,
+                ),
+                "state": session["state"],
+                "language": language,
+            }
+
+    # The amount and receipt are private checkout data. Store them without invoking AI.
+    report = finish_chat_receipt(database, session_reference, draft, amount_minor)
+    save_chat_message(
+        session_reference, "customer", message, {"paymentReport": report} if report else None,
+        session=session, remember_for_ai=False,
+    )
+    reply = translate_chat_message(
+        "I sent your receipt and amount to the seller for verification."
+        if report else "I skipped the payment amount. You can continue chatting.",
+        language,
+    )
+    save_chat_message(session_reference, "assistant", reply)
+    return {"message": reply, "state": session["state"], "language": language}
+
+
 def answer_public_message(database, session_id, provided_token, payload):
     session_snapshot, session = authorize_public_chat_session(
         database,
@@ -3021,6 +3054,11 @@ def answer_public_message(database, session_id, provided_token, payload):
         message = required_text(payload.get("message"), "Message", 2000)
     except ValueError as error:
         raise ApiError("validation_error", str(error), 422) from error
+
+    receipt_draft = session.get("paymentReceiptDraft")
+    if (receipt_draft and session.get("state") == "completed" and receipt_draft["orderId"] == session.get("orderId")
+            and not is_cancel_order_request(message) and not is_order_enquiry(message)):
+        return _answer_chat_receipt_amount(database, session_snapshot.reference, session, receipt_draft, message)
 
     # Captured before this message joins the window: the model is given the
     # turns BEFORE the one it is answering, and the current message separately.
@@ -5872,6 +5910,9 @@ def attach_public_chat_image(database, session_id, provided_token, payload):
 
     # Only an active review draft is allowed to create a public chat image.
     review_photo = session.get("state") == "collecting-review-photo"
+    order_id = session.get("orderId") if session.get("state") == "completed" else None
+    if order_id and (session.get("paymentReceiptDraft") or {}).get("orderId") == order_id:
+        raise ApiError("receipt_amount_pending", "Enter the amount for the previous receipt or type 'skip' first.", 409)
     uploaded = upload_chat_data_url(
         data_url,
         session["businessId"],
@@ -5879,6 +5920,9 @@ def attach_public_chat_image(database, session_id, provided_token, payload):
         review_photo=review_photo,
     )
     attachment = {"imageUrl": uploaded["url"]} if review_photo else {"privateAttachment": uploaded}
+    draft = stage_chat_receipt(
+        database, session_snapshot.reference, session["businessId"], order_id, uploaded,
+    ) if order_id and not review_photo else None
     save_chat_message(
         session_snapshot.reference,
         "customer",
@@ -5916,6 +5960,14 @@ def attach_public_chat_image(database, session_id, provided_token, payload):
         session["businessId"],
         caption or "Customer sent an image",
     )
+    if draft:
+        prompt = translate_chat_message(
+            f"How much did you transfer for order {draft['orderNumber']}? Enter the amount in LKR, "
+            "for example 2,500.00, or type 'skip'.",
+            session.get("language", "en"),
+        )
+        save_chat_message(session_snapshot.reference, "assistant", prompt)
+        return {**attachment, "message": prompt}
     return {
         **attachment,
         "message": "Thank you. I have sent the image to the seller, and they "
@@ -6104,11 +6156,12 @@ def create_public_chat_order(database, session_id, provided_token, payload):
             balance_line = (
                 f" Please transfer LKR {order.get('totalAmountMinor', 0) / 100:,.2f} "
                 f"for order {order.get('orderNumber', '')}, then send me a photo "
-                "of the receipt here."
+                "of the receipt here. I will then ask for the amount you sent."
                 if order_payload.get("paymentMethod") != "deposit"
                 else f" Please transfer the part you agreed for order "
                 f"{order.get('orderNumber', '')}, then send me a photo of the "
-                "receipt here. The courier collects the balance on delivery."
+                "receipt here. I will then ask for the amount you sent. "
+                "The courier collects the balance on delivery."
             )
             save_chat_message(
                 session_snapshot.reference,

@@ -19,6 +19,17 @@ export function getChatAttachmentLink(businessId, sessionId, { id, format }, sig
   );
 }
 
+export function getChatPaymentReport(businessId, sessionId, reportId) {
+  return apiRequest(`/businesses/${businessId}/chat-sessions/${sessionId}/payment-reports/${reportId}`);
+}
+
+export function verifyChatPaymentReport(businessId, sessionId, reportId, amount) {
+  return apiRequest(`/businesses/${businessId}/chat-sessions/${sessionId}/payment-reports/${reportId}`, {
+    method: "POST",
+    body: { amount },
+  });
+}
+
 export function deleteChatSession(businessId, sessionId) {
   return apiRequest(`/businesses/${businessId}/chat-sessions/${sessionId}`, {
     method: "DELETE",

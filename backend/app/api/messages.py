@@ -1,12 +1,15 @@
 from flask import Blueprint, g, jsonify, request
 
 from app.core.auth import require_firebase_user
-from app.core.authorization import require_business_member
+from app.core.authorization import membership_has_permission, require_business_member
+from app.core.errors import ApiError
 from app.core.firebase import get_firestore_client
 from app.core.requests import get_json_object
+from app.services.chat_payment_service import get_chat_payment_report, verify_chat_payment_report
 from app.services.message_service import (
     get_chat_attachment_url,
     get_chat_messages,
+    get_chat_payment_report_reference,
     delete_chat_session,
     list_chat_sessions,
     mark_chat_read,
@@ -15,6 +18,7 @@ from app.services.message_service import (
 )
 
 messages_blueprint = Blueprint("messages", __name__, url_prefix="/api/v1")
+PAYMENT_RECORDING_ROLES = ("owner", "admin", "order_manager")
 
 
 @messages_blueprint.delete("/businesses/<business_id>/chat-sessions/<session_id>")
@@ -32,6 +36,10 @@ def get_business_chat_sessions(business_id):
         get_firestore_client(), business_id,
         limit=min(max(request.args.get("limit", 10, type=int), 1), 50),
         before=request.args.get("before"),
+    )
+    result["canVerifyPaymentReports"] = (
+        g.membership.get("role") in PAYMENT_RECORDING_ROLES
+        and membership_has_permission(g.membership, "orders:manage")
     )
     return jsonify(result)
 
@@ -53,6 +61,22 @@ def get_business_chat_messages(business_id, session_id):
 def get_business_chat_attachment(business_id, session_id, asset_id, image_format):
     url = get_chat_attachment_url(get_firestore_client(), business_id, session_id, asset_id, image_format)
     return jsonify({"url": url}), 200, {"Cache-Control": "no-store"}
+
+
+@messages_blueprint.route(
+    "/businesses/<business_id>/chat-sessions/<session_id>/payment-reports/<report_id>", methods=["GET", "POST"],
+)
+@require_firebase_user
+@require_business_member(*PAYMENT_RECORDING_ROLES, permission="orders:manage")
+def business_chat_payment_report(business_id, session_id, report_id):
+    # Require the same order permission as the Orders page and access to the inbox.
+    if not membership_has_permission(g.membership, "customers:read"):
+        raise ApiError("permission_denied", "You do not have permission to read this conversation.", 403)
+    database = get_firestore_client()
+    reference = get_chat_payment_report_reference(database, business_id, session_id, report_id)
+    if request.method == "POST":
+        verify_chat_payment_report(database, business_id, reference, g.current_user["uid"], get_json_object())
+    return jsonify({"report": get_chat_payment_report(reference)}), 200, {"Cache-Control": "no-store"}
 
 
 @messages_blueprint.post("/businesses/<business_id>/chat-sessions/<session_id>/messages")
