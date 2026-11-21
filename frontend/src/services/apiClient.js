@@ -59,14 +59,12 @@ export async function apiRequest(
   }
 
   const requestUrl = `${apiBaseUrl}/${path.replace(/^\//, "")}`;
+  // Omit the body option when there is no payload.
+  const requestOptions = { method, headers: requestHeaders, signal };
+  if (requestBody !== undefined) requestOptions.body = requestBody;
 
   async function sendRequest() {
-    const response = await fetch(requestUrl, {
-      method,
-      headers: requestHeaders,
-      body: requestBody,
-      signal,
-    });
+    const response = await fetch(requestUrl, requestOptions);
     const responseType = response.headers.get("content-type") ?? "";
     const responseData = responseType.includes("application/json")
       ? await response.json()
