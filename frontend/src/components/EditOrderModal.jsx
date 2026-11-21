@@ -27,7 +27,7 @@ function EditOrderModal({ isOpen, businessId, order, onClose, onUpdated }) {
       phoneNumber: order.phoneNumber ?? "",
       secondaryPhoneNumber: order.secondaryPhoneNumber ?? "",
       email: order.email ?? "",
-      deliveryAddress: { ...emptyAddress, ...(order.deliveryAddressObject ?? {}) },
+      deliveryAddress: { ...emptyAddress, ...order.deliveryAddressObject },
       courierId: order.courierId ?? "",
       paymentMethod: order.paymentMethod ?? "cod",
       privateNote: order.privateNote ?? "",

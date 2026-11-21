@@ -550,7 +550,7 @@ const STOREFRONT_TEXT = {
 };
 
 export function storefrontText(language) {
-  return { ...STOREFRONT_TEXT.en, ...(STOREFRONT_TEXT[language] || {}) };
+  return { ...STOREFRONT_TEXT.en, ...STOREFRONT_TEXT[language] };
 }
 
 export default STOREFRONT_TEXT;

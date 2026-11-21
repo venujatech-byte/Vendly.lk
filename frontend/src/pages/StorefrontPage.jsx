@@ -1085,7 +1085,7 @@ function StorefrontPage({ linkType, onVerificationRequired }) {
           ...response.customerDraft,
           address: {
             ...current.address,
-            ...(response.customerDraft.address || {}),
+            ...response.customerDraft.address,
           },
         }));
       }

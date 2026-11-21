@@ -284,7 +284,7 @@ function AddOrderModal({ isOpen, businessId, business, onClose, onCreated }) {
         ...order,
         customerEmail: customer.email || order.customerEmail || order.customerSnapshot?.email,
         customerSnapshot: {
-          ...(order.customerSnapshot || {}),
+          ...order.customerSnapshot,
           email: customer.email || order.customerSnapshot?.email || "",
         },
       };
